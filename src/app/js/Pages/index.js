@@ -1,0 +1,25 @@
+import { Displays } from './Displays'
+import { DisplaysEdit } from './DisplaysEdit'
+import { Evaluations } from './Evaluations'
+import { EvaluationsView } from './EvaluationsView'
+import { Home } from './Home'
+import { Judgements } from './Judgements'
+import { Projects } from './Projects'
+import { Scenarios } from './Scenarios'
+import { Strategies } from './Strategies'
+import { StrategiesEdit } from './StrategiesEdit'
+
+const Pages = ({ children }) => <>{children}</>
+
+Pages.Displays = Displays
+Pages.DisplaysEdit = DisplaysEdit
+Pages.Evaluations = Evaluations
+Pages.EvaluationsView = EvaluationsView
+Pages.Home = Home
+Pages.Judgements = Judgements
+Pages.Projects = Projects
+Pages.Scenarios = Scenarios
+Pages.Strategies = Strategies
+Pages.StrategiesEdit = StrategiesEdit
+
+export { Pages }

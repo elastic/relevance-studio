@@ -1,0 +1,1121 @@
+# Standard packages
+import datetime
+import itertools
+import json
+import os
+import re
+import time
+import uuid
+from datetime import datetime, timezone
+
+# Elastic packages
+from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import ApiError
+
+# Third-party packages
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+
+####  Configuration  ###########################################################
+
+load_dotenv()
+
+# Setup Elasticsearch client
+es = Elasticsearch(
+    hosts=[os.environ.get('ELASTICSEARCH_URL')],
+    basic_auth=(
+        os.environ.get('ELASTICSEARCH_USERNAME'),
+        os.environ.get('ELASTICSEARCH_PASSWORD')
+    ),
+    request_timeout=4000
+)
+
+# Pre-compiled regular expressions
+RE_PARAMS = re.compile(r'{{\s*([\w.]+)\s*}}')
+
+def timestamp(t=None):
+    """
+    Generate a @timestamp value.
+    """
+    t = t or time.time()
+    return datetime.fromtimestamp(t, tz=timezone.utc).isoformat().replace('+00:00', 'Z'),
+
+def extract_params(obj):
+    """
+    Extract Mustache variable params from an object serialized as json.
+    """
+    return list(set(re.findall(RE_PARAMS, json.dumps(obj))))
+
+
+####  Application  #############################################################
+
+app = Flask(__name__, static_folder=os.environ.get('STATIC_PATH'))
+CORS(app)
+
+
+####  API: Elasticsearch APIs  #################################################
+
+@app.route('/_search/<string:index_patterns>', methods=['POST'])
+def post_search(index_patterns):
+    """
+    Submit a search request.
+    """
+    try:
+        response = es.search(index=index_patterns, body=request.get_json())
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+    
+
+@app.route('/indices/<string:index_patterns>', methods=['GET'])
+def get_indices(index_patterns):
+    """
+    Given a comma-separated string of index patterns, return the matching indices
+    with their fields and types in a flattened format.
+    """
+    
+    # Get matching indices and their mappings
+    mappings = {}
+    try:
+        mappings = es.indices.get_mapping(index=index_patterns).body
+    except ApiError as e:
+        if e.meta.status == 404:
+            return {}
+        else:
+            return jsonify(e.body), e.meta.status
+    
+    # Flatten the fields in each mapping
+    def _flatten_fields(properties, parent_key=''):
+        """
+        Recursively flattens the field mapping, ignoring multi-fields which
+        aren't visible in _source and therefore not needed for configuring
+        the display of documents.
+        """
+        fields = {}
+        for key, value in properties.items():
+            full_key = f"{parent_key}.{key}" if parent_key else key
+            if 'properties' in value:
+                fields.update(_flatten_fields(value['properties'], full_key))
+            elif 'type' in value:
+                fields[full_key] = value['type']
+            # Ignore multi-fields
+            #elif 'fields' in value:
+            #    if 'type' in value:
+            #        fields[full_key] = value['type']
+            #    for subfield, subvalue in value['fields'].items():
+            #        sub_key = f"{full_key}.{subfield}"
+            #        fields[sub_key] = subvalue.get('type', 'object')
+            else:
+                fields[full_key] = 'object'
+        return fields
+    indices = {}
+    for index, mapping in mappings.items():
+        fields = mapping['mappings'].get('properties', {})
+        fields_flattened = _flatten_fields(fields)
+        indices[index] = { 'fields': fields_flattened }
+    return indices
+
+
+####  API: Evaluations  ########################################################
+
+@app.route('/projects/<string:project_id>/evaluations/<string:evaluation_id>', methods=['DELETE'])
+def delete_evaluation(project_id, evaluation_id):
+    """
+    TODO: Implement project_id filter to prevent deleting objects in other projects.
+    """
+    try:
+        response = es.delete(index='esreef-evaluations', id=evaluation_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/evaluations', methods=['POST'])
+def run_evaluation(project_id):
+    """
+    Expected structure of the request payload:
+    
+    {
+        "strategies": [
+            STRATEGY_ID,
+            ...
+        ],
+        "scenarios": [
+            SCENARIO_ID,
+            ...
+        ],
+        "metrics": [
+            METRIC_NAME,
+            ...
+        ],
+        "k": INTEGER
+    }
+    
+    Example:
+    
+    {
+        "strategies": [
+            "classical-name-match",
+            "classical-name-match-fuzzy",
+            "classical-multifield-match",
+            "classical-multifield-match-boosts",
+            "classical-multifield-match-signals-boosts",
+            "elser-name-match",
+            "elser-multifield-match",
+            "elser-multifield-match-boosts",
+            "elser-multifield-match-signals-boosts"
+        ],
+        "scenarios": [
+            "cae18e7a-a4be-495f-a13b-69fdc1463ccb"
+        ],
+        "metrics": [
+            "ndcg",
+            "precision",
+            "recall"
+        ],
+        "k": 10
+    }
+    
+    Structure of the response payload:
+    
+    {
+        "@timestamp": DATE,
+        "project_id": KEYWORD,
+        "strategy_id": [ KEYWORD, ... ],
+        "scenario_id": [ KEYWORD, ... ],
+        "config": {
+            "metrics": [ KEYWORD, ... ],
+            "k": INTEGER
+        },
+        "results": [
+            {
+                "strategy_id": KEYWORD,
+                "searches": [
+                    {
+                        "scenario_id": KEYWORD,
+                        "metrics": {
+                            "ndcg": FLOAT,
+                            "precision": FLOAT,
+                            "recall": FLOAT
+                        },
+                        "hits": [
+                            {
+                                "hit": {
+                                    "_id": KEYWORD,
+                                    "_index": KEYWORD,
+                                    "_score": FLOAT
+                                },
+                                "rating": INTEGER
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "runtime": {
+            "strategies": {
+                STRATEGY_ID: {
+                    "name": KEYWORD,
+                    "params": [ KEYWORD, ...],
+                    "tags": [ KEYWORD, ...],
+                    "template": OBJECT,
+                }
+            },
+            "scenarios": {
+                SCENARIO_ID: {
+                    "name": KEYWORD,
+                    "params": [ KEYWORD, ...],
+                    "tags": [ KEYWORD, ...],
+                }
+            }
+        },
+        "unrated_docs": [
+            {
+                "_id": KEYWORD,
+                "_index": KEYWORD
+            },
+            ...
+        ],
+        "took": INTEGER
+    }
+    """
+    
+    # Start timer
+    start_time = time.time()
+    
+    # Parse and validate request
+    task = request.get_json()
+    task['k'] = int(task.get('k')) or 10
+    task['metrics'] = task.get('metrics') or [ 'ndcg', 'precision', 'recall' ]
+    metrics_config = {
+        # TODO: Support other types of metrics (commented out below)
+        #'dcg': {
+        #    'name': 'dcg',
+        #    'config': {
+        #        'k': task['k']
+        #    }
+        #},
+        #'err': {
+        #    'name': 'expected_reciprocal_rank',
+        #    'config': {
+        #        'k': k,
+        #        'maximum_relevance': rating_scale_max
+        #    }
+        #},
+        #'mrr': {
+        #    'name': 'mean_reciprocal_rank',
+        #    'config': {
+        #        'k': task['k']
+        #    }
+        #},
+        'ndcg': {
+            'name': 'dcg',
+            'config': {
+                'k': task['k'],
+                'normalize': True
+            }
+        },
+        'precision': {
+            'name': 'precision',
+            'config': {
+                'k': task['k'],
+                'ignore_unlabeled': False
+            }
+        },
+        'recall': {
+            'name': 'recall',
+            'config': {
+                'k': task['k']
+            }
+        }
+    }
+    valid_metrics = metrics_config.keys()
+    if not set(task['metrics']).issubset(set(valid_metrics)):
+        raise Exception(f'"metrics" only supports these values: {", ".join(sorted(valid_metrics))}')
+    if not task['k'] > 0:
+        raise Exception('"k" must be greater than 0.')
+    if not task.get('strategies'):
+        raise Exception('"strategies" must have one or more strategy_id values.')
+    if not task.get('scenarios'):
+        raise Exception('"scenarios" must have one or more scenario_id values.')
+    if 'store_results' in request.args:
+        if request.args['store_results'] in ( '', None ):
+            task['store_results'] = True
+        elif str(request.args['store_results']).lower() in ( 'true', 'false' ):
+            task['store_results'] = True if request.args['store_results'].lower() == 'true' else False
+        else:
+            raise Exception('"store_results" must be true or false (or not given).')
+    else:
+        task['store_results'] = False
+    
+    # Prepare _rank_eval request
+    _rank_eval = {
+        'templates': [],
+        'requests': [],
+        'metric': {}
+    }
+    
+    # Store the contents of the assets used at runtime in this evaluation
+    runtime_strategies = {}
+    runtime_scenarios = {}
+    runtime_judgements = {}
+    
+    # Set a default size of 10,000 hits per request when retrieving
+    # strategies, scenarios, or judgements
+    size = 10000
+    
+    # Get project
+    es_response = None
+    try:
+        es_response = es.get(index='esreef-projects', id=project_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    indices = es_response.body['_source']['indices']
+    rating_scale_max = es_response.body['_source']['rating_scale']['max']
+    
+    # Get strategies and convert them to templates in _rank_eval
+    es_response = None
+    try:
+        body = {
+            'query': { 'ids': { 'values': task['strategies'] }},
+            'size': size,
+            'version': True
+        }
+        es_response = es.search(index='esreef-strategies', body=body)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    for hit in es_response.body['hits']['hits']:
+        _rank_eval['templates'].append({
+            'id': hit['_id'],
+            'template': hit['_source']['template']
+        })
+        runtime_strategies[hit['_id']] = {
+            '_version': hit['_version'],
+            'name': hit['_source']['name'],
+            'params': hit['_source']['params'],
+            'tags': hit['_source']['tags'],
+            'template': hit['_source']['template']
+        }
+    
+    # Get scenarios
+    scenarios = {}
+    es_response = None
+    try:
+        body = {
+            'query': { 'ids': { 'values': task['scenarios'] }},
+            'size': size,
+            'version': True
+        }
+        es_response = es.search(index='esreef-scenarios', body=body)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    for hit in es_response.body['hits']['hits']:
+        scenarios[hit['_id']] = hit['_source']['params']
+        runtime_scenarios[hit['_id']] = {
+            '_version': hit['_version'],
+            'name': hit['_source']['name'],
+            'params': hit['_source']['params'],
+            'tags': hit['_source']['tags']
+        }
+    
+    # Get judgements and convert them to ratings in _rank_eval
+    es_response = None
+    try:
+        body = {
+            'query': { 'terms': { 'scenario_id': task['scenarios'] }},
+            'size': size,
+            'version': True
+        }
+        es_response = es.search(index='esreef-judgements', body=body)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    ratings = {}
+    for hit in es_response.body['hits']['hits']:
+        scenario_id = hit['_source']['scenario_id']
+        if scenario_id not in ratings:
+            ratings[scenario_id] = []
+        ratings[scenario_id].append({
+            '_index': hit['_source']['index'],
+            '_id': hit['_source']['doc_id'],
+            'rating': hit['_source']['rating'],
+        })
+        runtime_judgements[hit['_id']] = {
+            '_version': hit['_version'],
+            '@timestamp': hit['_source']['@timestamp'],
+            'scenario_id': hit['_source']['scenario_id'],
+            'index': hit['_source']['index'],
+            'doc_id': hit['_source']['doc_id'],
+            'rating': hit['_source']['rating']
+        }
+    
+    # Store results by strategy and scenarios
+    _results = {}
+    for strategy_id in task['strategies']:
+        _results[strategy_id] = {}
+        for scenario_id in task['scenarios']:
+            _results[strategy_id][scenario_id] = {
+                'metrics': {},
+                'hits': []
+            }
+    
+    # Store any unrated docs found in the evaluation
+    _unrated_docs = {}
+    
+    # Create a set of requests for each evaluation metric
+    for m in task['metrics']:
+        
+        # Reset the metric and requests for this iterartion
+        _rank_eval['metric'] = {}
+        _rank_eval['requests'] = []
+        
+        # Define the metric for this iteration
+        metric_name = metrics_config[m]['name']
+        _rank_eval['metric'][metric_name] = metrics_config[m]['config']
+        
+        # Define requests for each combination of strategies and scenarios
+        grid = list(itertools.product(task['strategies'], task['scenarios']))
+        for strategy_id, scenario_id in grid:
+            _rank_eval['requests'].append({
+                'id': f'{strategy_id}:{scenario_id}',
+                'template_id': strategy_id,
+                'params': scenarios[scenario_id],
+                'ratings': ratings[scenario_id]
+            })
+            
+        # Run _rank_eval and accumulate the results
+        try:
+            es_response = es.rank_eval(
+                index=indices,
+                body={
+                    'metric': _rank_eval['metric'],
+                    'requests': _rank_eval['requests'],
+                    'templates': _rank_eval['templates']
+                }
+            )
+        except ApiError as e:
+            return jsonify(e.body), e.meta.status
+        
+        # Store results
+        for request_id, details in es_response.body['details'].items():
+            strategy_id, scenario_id = request_id.split(':', 1)
+            _results[strategy_id][scenario_id]['metrics'][m] = details['metric_score']
+            if not len(_results[strategy_id][scenario_id]['hits']):
+                _results[strategy_id][scenario_id]['hits'] = details['hits']
+                # Find unrated docs
+                for hit in details['hits']:
+                    if hit['rating'] is not None:
+                        continue
+                    _index = hit['hit']['_index']
+                    _id = hit['hit']['_id']
+                    if _index not in _unrated_docs:
+                        _unrated_docs[_index] = {}
+                    if _id not in _unrated_docs[_index]:
+                        _unrated_docs[_index][_id] = {
+                            'count': 0,
+                            'strategies': set(),
+                            'scenarios': set()
+                        }
+                    _unrated_docs[_index][_id]['count'] += 1
+                    _unrated_docs[_index][_id]['strategies'].add(strategy_id)
+                    _unrated_docs[_index][_id]['scenarios'].add(scenario_id)
+        
+    # Restructure results for response
+    results = []
+    for strategy_id, _strategy_results in _results.items():
+        strategy_results = {
+            'strategy_id': strategy_id,
+            'searches': []
+        }
+        for scenario_id, _scenario_results in _strategy_results.items():
+            scenario_results = {
+                'scenario_id': scenario_id,
+                'metrics': _scenario_results['metrics'],
+                'hits': _scenario_results['hits']
+            }
+            strategy_results['searches'].append(scenario_results)
+        results.append(strategy_results)
+    unrated_docs = []
+    for _index in sorted(_unrated_docs.keys()):
+        for _id in sorted(_unrated_docs[_index].keys()):
+            doc = _unrated_docs[_index][_id]
+            strategies = sorted(list(doc['strategies']))
+            scenarios = sorted(list(doc['scenarios']))
+            unrated_docs.append({
+                '_index': _index,
+                '_id': _id,
+                'count': doc['count'],
+                'strategies': strategies,
+                'scenarios': scenarios
+            })
+    unrated_docs = sorted(unrated_docs, key=lambda doc: doc['count'], reverse=True)
+    
+    # Create final response
+    response = {
+        '@timestamp': timestamp(start_time),
+        'project_id': project_id,
+        'strategy_id': task['strategies'],
+        'scenario_id': task['scenarios'],
+        'config': {
+            'metrics': task['metrics'],
+            'k': task['k']
+        },
+        'results': results,
+        'runtime': {
+            'strategies': runtime_strategies,
+            'scenarios': runtime_scenarios,
+            'judgements': runtime_judgements
+        },
+        'unrated_docs': unrated_docs
+    }
+    response['took'] = int((time.time() - start_time) * 1000)
+    
+    # Store results
+    if task['store_results']:
+        evaluation_id = uuid.uuid4()
+        try:
+            es_response = es.index(
+                index='esreef-evaluations',
+                id=evaluation_id,
+                document=response
+            )
+            return jsonify(es_response.body), es_response.meta.status
+        except ApiError as e:
+            return jsonify(e.body), e.meta.status
+    return jsonify(response)
+
+@app.route('/projects/<string:project_id>/evaluations/<string:evaluation_id>', methods=['GET'])
+def get_evaluation(project_id, evaluation_id):
+    """
+    TODO: Implement project_id filter
+    """
+    try:
+        response = es.get(index='esreef-evaluations', id=evaluation_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/evaluations', methods=['GET'])
+def get_evaluations(project_id):
+    try:
+        response = es.search(
+            index='esreef-evaluations',
+            body={
+                'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
+                'size': 10000
+            }
+        )
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+
+####  API: Strategies  #########################################################
+
+@app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['DELETE'])
+def delete_strategy(project_id, strategy_id):
+    """
+    TODO: Implement project_id filter to prevent deleting objects in other projects.
+    """
+    try:
+        response = es.delete(index='esreef-strategies', id=strategy_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['PUT'])
+def update_strategy(project_id, strategy_id):
+    doc = request.get_json()
+    doc['project_id'] = project_id
+    doc['params'] = extract_params(doc['template']['source'])
+    try:
+        response = es.index(index='esreef-strategies', id=strategy_id, document=doc)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/strategies', methods=['POST'])
+def create_strategy(project_id):
+    doc = request.get_json()
+    doc['project_id'] = project_id
+    strategy_id = uuid.uuid4()
+    try:
+        response = es.index(index='esreef-strategies', id=strategy_id, document=doc)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['GET'])
+def get_strategy(project_id, strategy_id):
+    """
+    TODO: Implement project_id filter
+    """
+    try:
+        response = es.get(index='esreef-strategies', id=strategy_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/strategies', methods=['GET'])
+def get_strategies(project_id):
+    try:
+        response = es.search(
+            index='esreef-strategies',
+            body={
+                'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
+                'size': 10000
+            }
+        )
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+
+####  API: Judgements  #########################################################
+
+@app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>/judgements', methods=['DELETE'])
+def unset_judgement(project_id, scenario_id):
+    data = request.get_json()
+    _id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
+    try:
+        response = es.delete(index='esreef-judgements', id=_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>/judgements', methods=['PUT'])
+def set_judgement(project_id, scenario_id):
+    data = request.get_json()
+    doc = {
+        '@timestamp': timestamp(),
+        'project_id': project_id,
+        'scenario_id': scenario_id,
+        'index': data['index'],
+        'doc_id': data['doc_id'],
+        'rating': data['rating'],
+    }
+    _id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
+    try:
+        response = es.index(index='esreef-judgements', id=_id, document=doc)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/judgements/<string:judgement_id>', methods=['GET'])
+def get_judgement(project_id, judgement_id):
+    """
+    TODO: REIMPLEMENT
+    """
+    try:
+        response = es.get(index='esreef-judgements', id=judgement_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/judgements', methods=['GET'])
+def get_judgements(project_id):
+    """
+    TODO: REIMPLEMENT
+    """
+    try:
+        response = es.search(
+            index='esreef-judgements',
+            body={
+                'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
+                'size': 10000
+            }
+        )
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>/judgements/_docs', methods=['GET','POST'])
+def get_judgements_docs(project_id, scenario_id):
+    """
+    Get documents with ratings joined to them.
+    
+    Expected structure of the request:
+    
+    {
+        "indices": STRING,              # Required
+        "query_string": STRING,         # Optional
+        "filter": {                     # Optional
+            "judgements": {
+                "rated": {
+                    "mode": STRING,     # "exclude" (default) or "include"
+                    "value": BOOLEAN
+                }
+                "ratings": {
+                    "mode": STRING,     # "exclude" (default) or "include"
+                    "value": []         # List of null or integer values in rating scale
+                }
+            }
+        },
+        "sort": [                       # Optional
+            {
+                FIELD: {                # Default: "@timestamp"
+                    "order": STRING     # Options: "desc" (default) or "desc"
+                }
+            }
+        ],
+        "_source": {}                   # Optional
+    }
+    """
+    data = request.get_json()
+    indices = data['indices']
+    query_string = data.get('query_string') or '*'
+    filter = data.get('filter', {})
+    _source = data.get('_source', True)
+    response = {}
+    try:
+        
+        # Get rated docs
+        rated_docs = {}
+        es_response = es.search(
+            index='esreef-judgements',
+            body={
+                'query': {
+                    'bool': {
+                        'filter': [
+                            { 'term': { 'project_id': project_id }},
+                            { 'term': { 'scenario_id': scenario_id }}
+                        ]
+                    }
+                },
+                'size': 10000
+            }
+        )
+        for hit in es_response.body['hits']['hits']:
+            _index = hit['_source']['index']
+            _id = hit['_source']['doc_id']
+            if _index not in rated_docs:
+                rated_docs[_index] = {}
+            rated_docs[_index][_id] = hit['_source'].get('rating')
+            
+        # Search docs
+        body = {
+            'size': 48,
+            'query': {
+                'bool': {
+                    'must': {
+                        'query_string': {
+                            'query': query_string,
+                            'default_operator': 'AND'
+                        }
+                    }
+                }
+            },
+            '_source': _source
+        }
+        
+        # Filter docs with ratings
+        if filter.get('judgements', {}).get('rated'):
+            rated_docs_clauses = []
+            for _index, doc_ids in rated_docs.items():
+                rated_docs_clauses.append({
+                    'bool': {
+                        'filter': [
+                            { 'term': { '_index': _index }},
+                            { 'ids': { 'values': list(doc_ids.keys()) }}
+                        ]
+                    }
+                })
+            if filter.get('judgements', {}).get('rated', {}).get('mode') == "exclude":
+                body['query']['bool']['must_not'] = rated_docs_clauses
+            else:
+                body['query']['bool']['should'] = rated_docs_clauses
+                body['query']['bool']['minimum_should_match'] = 1
+        es_response = es.search(index=indices, body=body)
+        
+        # Merge docs and ratings
+        response['hits'] = es_response.body['hits']
+        for i, hit in enumerate(response['hits']['hits']):
+            response['hits']['hits'][i] = {
+                'rating': rated_docs.get(hit['_index'], {}).get(hit['_id'], None),
+                'doc': hit
+            }
+            
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response)
+
+
+####  API: Scenarios  ###########################################################
+
+@app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['DELETE'])
+def delete_scenario(project_id, scenario_id):
+    """
+    TODO: Implement project_id filter to prevent deleting objects in other projects.
+    """
+    try:
+        response = es.delete(index='esreef-scenarios', id=scenario_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['PUT'])
+def update_scenario(project_id, scenario_id):
+    """
+    TODO: Implement project_id filter
+    """
+    doc = request.get_json()
+    doc['project_id'] = project_id
+    try:
+        response = es.index(index='esreef-scenarios', id=scenario_id, document=doc)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/scenarios', methods=['POST'])
+def create_scenario(project_id):
+    doc = request.get_json()
+    doc['project_id'] = project_id
+    scenario_id = uuid.uuid4()
+    try:
+        response = es.index(index='esreef-scenarios', id=scenario_id, document=doc)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['GET'])
+def get_scenario(project_id, scenario_id):
+    """
+    TODO: Implement project_id filter
+    """
+    try:
+        response = es.get(index='esreef-scenarios', id=scenario_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/scenarios', methods=['GET'])
+def get_scenarios(project_id):
+    """
+    TODO: Implement project_id filter
+    """
+    try:
+        body = {
+            'size': 10000,
+            'post_filter': {
+                'term': {
+                    '_index': 'esreef-scenarios'
+                }
+            },
+            'aggs': {
+                'scenarios': {
+                    'terms': {
+                        'field': 'scenario_id'
+                    },
+                    'aggs': {
+                        'judgements': {
+                            'filter': {
+                                'term': {
+                                    '_index': 'esreef-judgements'
+                                }
+                            }
+                        },
+                        'evaluations': {
+                            'filter': {
+                                'term': {
+                                    '_index': 'esreef-evaluations'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        index = ','.join([
+            'esreef-scenarios',
+            'esreef-judgements',
+            'esreef-evaluations',
+        ])
+        response = es.search(index=index, body=body)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+
+####  API: Displays  #####################################################
+
+@app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['DELETE'])
+def delete_display(project_id, display_id):
+    """
+    TODO: Implement project_id filter to prevent deleting objects in other projects.
+    """
+    try:
+        response = es.delete(index='esreef-displays', id=display_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['PUT'])
+def update_display(project_id, display_id):
+    doc = request.get_json()
+    doc['project_id'] = project_id
+    doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
+    try:
+        response = es.index(index='esreef-displays', id=display_id, document=doc)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/displays', methods=['POST'])
+def create_display(project_id):
+    doc = request.get_json()
+    doc['project_id'] = project_id
+    doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
+    display_id = uuid.uuid4()
+    try:
+        response = es.index(index='esreef-displays', id=display_id, document=doc)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['GET'])
+def get_display(project_id, display_id):
+    """
+    TODO: Implement project_id filter to prevent getting objects in other projects.
+    """
+    try:
+        response = es.get(index='esreef-displays', id=display_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>/displays', methods=['GET'])
+def get_displays(project_id):
+    try:
+        response = es.search(
+            index='esreef-displays',
+            body={
+                'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
+                'size': 10000
+            }
+        )
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+
+####  API: Projects  #####################################################
+
+@app.route('/projects/<string:project_id>', methods=['DELETE'])
+def delete_project(project_id):
+    """
+    TODO: Implement project_id filter to prevent deleting objects in other projects.
+    """
+    try:
+        response = es.delete(index='esreef-projects', id=project_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>', methods=['PUT'])
+def update_project(project_id):
+    doc = request.get_json()
+    return jsonify({'test':'foo'}), 500 # TODO REMOVE
+    try:
+        response = es.update(index='esreef-projects', id=project_id, doc=doc)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects', methods=['POST'])
+def create_project():
+    doc = request.get_json()
+    project_id = uuid.uuid4()
+    try:
+        response = es.index(index='esreef-projects', id=project_id, document=doc)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects/<string:project_id>', methods=['GET'])
+def get_project(project_id):
+    try:
+        response = es.get(index='esreef-projects', id=project_id)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+
+@app.route('/projects', methods=['GET'])
+def get_projects():
+    try:
+        body = {
+            'size': 10000,
+            'post_filter': {
+                'term': {
+                    '_index': 'esreef-projects'
+                }
+            },
+            'aggs': {
+                'projects': {
+                    'terms': {
+                        'field': 'project_id'
+                    },
+                    'aggs': {
+                        'scenarios': {
+                            'filter': {
+                                'term': {
+                                    '_index': 'esreef-scenarios'
+                                }
+                            }
+                        },
+                        'judgements': {
+                            'filter': {
+                                'term': {
+                                    '_index': 'esreef-judgements'
+                                }
+                            }
+                        },
+                        'strategies': {
+                            'filter': {
+                                'term': {
+                                    '_index': 'esreef-strategies'
+                                }
+                            }
+                        },
+                        'evaluations': {
+                            'filter': {
+                                'term': {
+                                    '_index': 'esreef-evaluations'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        index = ','.join([
+            'esreef-projects',
+            'esreef-scenarios',
+            'esreef-judgements',
+            'esreef-strategies',
+            'esreef-evaluations',
+        ])
+        response = es.search(index=index, body=body)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    return jsonify(response.body), response.meta.status
+    
+    
+####  API: Setup  ##############################################################
+
+@app.route('/setup', methods=['POST'])
+def setup():
+    """
+    Setup index templates.
+    """
+    path_base = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), 'elastic', 'index_templates'
+    )
+    path_index_templates = [
+        os.path.join(path_base, 'projects.json'),
+        os.path.join(path_base, 'displays.json'),
+        os.path.join(path_base, 'scenarios.json'),
+        os.path.join(path_base, 'judgements.json'),
+        os.path.join(path_base, 'strategies.json'),
+        os.path.join(path_base, 'evaluations.json')
+    ]
+    for path_index_template in path_index_templates:
+        body = None
+        with open(path_index_template) as file:
+            body = json.loads(file.read())
+        name = body['index_patterns'][0].replace('*', '')
+        response = es.indices.put_template(name=name, body=body)
+    return { 'acknowledged': True }
+
+
+####  API: Tests  ##############################################################
+
+@app.route('/healthz', methods=['GET'])
+def healthz():
+    """
+    Test if application is running.
+    """
+    return { 'acknowledged': True }
+
+
+####  Static routes  ###########################################################
+
+@app.route('/<path:filepath>.css')
+def send_css(filepath):
+    return app.send_static_file(f'{filepath}.css')
+
+@app.route('/<path:filepath>.img')
+def send_img(filepath):
+    return app.send_static_file(f'{filepath}.img')
+
+@app.route('/<path:filepath>.js')
+def send_js(filepath):
+    return app.send_static_file(f'{filepath}.js')
+
+@app.route('/')
+def home():
+    return app.send_static_file('index.html')
+
+
+####  Main  ####################################################################
+
+if __name__ == '__main__':
+    app.run(port=4096, debug=True)

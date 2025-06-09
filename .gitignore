@@ -1,0 +1,23 @@
+# Node/Yarn
+node_modules/
+.yarn/
+
+# Build output
+dist/
+build/
+
+# Environment variables
+.env
+
+# Python and conda
+__pycache__/
+*.pyc
+.env/
+env/
+conda-env/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log

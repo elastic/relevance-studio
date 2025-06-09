@@ -1,0 +1,23 @@
+{
+  "index_patterns": [
+    "esreef-displays*"
+  ],
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "project_id": {
+        "type": "keyword"
+      },
+      "index_pattern": {
+        "type": "keyword"
+      },
+      "fields": {
+        "type": "keyword"
+      },
+      "template": {
+        "type": "object",
+        "enabled": false
+      }
+    }
+  }
+}

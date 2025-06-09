@@ -1,0 +1,28 @@
+{
+  "index_patterns": [
+    "esreef-judgements*"
+  ],
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "@timestamp": {
+        "type": "date"
+      },
+      "project_id": {
+        "type": "keyword"
+      },
+      "scenario_id": {
+        "type": "keyword"
+      },
+      "index": {
+        "type": "keyword"
+      },
+      "doc_id": {
+        "type": "keyword"
+      },
+      "rating": {
+        "type": "byte"
+      }
+    }
+  }
+}

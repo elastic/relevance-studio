@@ -1,0 +1,26 @@
+{
+  "index_patterns": [
+    "esreef-strategies*"
+  ],
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "project_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "keyword"
+      },
+      "tags": {
+        "type": "keyword"
+      },
+      "params": {
+        "type": "keyword"
+      },
+      "template": {
+        "type": "object",
+        "enabled": false
+      }
+    }
+  }
+}

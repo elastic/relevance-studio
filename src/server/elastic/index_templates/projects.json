@@ -1,0 +1,29 @@
+{
+  "index_patterns": [
+    "esreef-projects*"
+  ],
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "name": {
+        "type": "keyword"
+      },
+      "rating_scale": {
+        "properties": {
+          "min": {
+            "type": "byte"
+          },
+          "max": {
+            "type": "byte"
+          }
+        }
+      },
+      "indices": {
+        "type": "keyword"
+      },
+      "tags": {
+        "type": "keyword"
+      }
+    }
+  }
+}

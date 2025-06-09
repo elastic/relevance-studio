@@ -1,0 +1,23 @@
+{
+  "index_patterns": [
+    "esreef-scenarios*"
+  ],
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "project_id": {
+        "type": "keyword"
+      },
+      "name": {
+        "type": "keyword"
+      },
+      "params": {
+        "type": "object",
+        "enabled": false
+      },
+      "tags": {
+        "type": "keyword"
+      }
+    }
+  }
+}
