@@ -1,7 +1,7 @@
 /**
  * api.js
  * 
- * Implements API requests implemented by the esreef server.
+ * Implements API requests implemented by the esrel server.
  */
 
 import { EuiText } from '@elastic/eui'

@@ -127,7 +127,7 @@ def delete_evaluation(project_id, evaluation_id):
     TODO: Implement project_id filter to prevent deleting objects in other projects.
     """
     try:
-        response = es.delete(index='esreef-evaluations', id=evaluation_id)
+        response = es.delete(index='esrel-evaluations', id=evaluation_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -329,7 +329,7 @@ def run_evaluation(project_id):
     # Get project
     es_response = None
     try:
-        es_response = es.get(index='esreef-projects', id=project_id)
+        es_response = es.get(index='esrel-projects', id=project_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     indices = es_response.body['_source']['indices']
@@ -343,7 +343,7 @@ def run_evaluation(project_id):
             'size': size,
             'version': True
         }
-        es_response = es.search(index='esreef-strategies', body=body)
+        es_response = es.search(index='esrel-strategies', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     for hit in es_response.body['hits']['hits']:
@@ -368,7 +368,7 @@ def run_evaluation(project_id):
             'size': size,
             'version': True
         }
-        es_response = es.search(index='esreef-scenarios', body=body)
+        es_response = es.search(index='esrel-scenarios', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     for hit in es_response.body['hits']['hits']:
@@ -388,7 +388,7 @@ def run_evaluation(project_id):
             'size': size,
             'version': True
         }
-        es_response = es.search(index='esreef-judgements', body=body)
+        es_response = es.search(index='esrel-judgements', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     ratings = {}
@@ -536,7 +536,7 @@ def run_evaluation(project_id):
         evaluation_id = uuid.uuid4()
         try:
             es_response = es.index(
-                index='esreef-evaluations',
+                index='esrel-evaluations',
                 id=evaluation_id,
                 document=response
             )
@@ -551,7 +551,7 @@ def get_evaluation(project_id, evaluation_id):
     TODO: Implement project_id filter
     """
     try:
-        response = es.get(index='esreef-evaluations', id=evaluation_id)
+        response = es.get(index='esrel-evaluations', id=evaluation_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -560,7 +560,7 @@ def get_evaluation(project_id, evaluation_id):
 def get_evaluations(project_id):
     try:
         response = es.search(
-            index='esreef-evaluations',
+            index='esrel-evaluations',
             body={
                 'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
                 'size': 10000
@@ -579,7 +579,7 @@ def delete_strategy(project_id, strategy_id):
     TODO: Implement project_id filter to prevent deleting objects in other projects.
     """
     try:
-        response = es.delete(index='esreef-strategies', id=strategy_id)
+        response = es.delete(index='esrel-strategies', id=strategy_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -590,7 +590,7 @@ def update_strategy(project_id, strategy_id):
     doc['project_id'] = project_id
     doc['params'] = extract_params(doc['template']['source'])
     try:
-        response = es.index(index='esreef-strategies', id=strategy_id, document=doc)
+        response = es.index(index='esrel-strategies', id=strategy_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -601,7 +601,7 @@ def create_strategy(project_id):
     doc['project_id'] = project_id
     strategy_id = uuid.uuid4()
     try:
-        response = es.index(index='esreef-strategies', id=strategy_id, document=doc)
+        response = es.index(index='esrel-strategies', id=strategy_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -612,7 +612,7 @@ def get_strategy(project_id, strategy_id):
     TODO: Implement project_id filter
     """
     try:
-        response = es.get(index='esreef-strategies', id=strategy_id)
+        response = es.get(index='esrel-strategies', id=strategy_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -621,7 +621,7 @@ def get_strategy(project_id, strategy_id):
 def get_strategies(project_id):
     try:
         response = es.search(
-            index='esreef-strategies',
+            index='esrel-strategies',
             body={
                 'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
                 'size': 10000
@@ -639,7 +639,7 @@ def unset_judgement(project_id, scenario_id):
     data = request.get_json()
     _id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
     try:
-        response = es.delete(index='esreef-judgements', id=_id)
+        response = es.delete(index='esrel-judgements', id=_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -657,7 +657,7 @@ def set_judgement(project_id, scenario_id):
     }
     _id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
     try:
-        response = es.index(index='esreef-judgements', id=_id, document=doc)
+        response = es.index(index='esrel-judgements', id=_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -668,7 +668,7 @@ def get_judgement(project_id, judgement_id):
     TODO: REIMPLEMENT
     """
     try:
-        response = es.get(index='esreef-judgements', id=judgement_id)
+        response = es.get(index='esrel-judgements', id=judgement_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -680,7 +680,7 @@ def get_judgements(project_id):
     """
     try:
         response = es.search(
-            index='esreef-judgements',
+            index='esrel-judgements',
             body={
                 'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
                 'size': 10000
@@ -733,7 +733,7 @@ def get_judgements_docs(project_id, scenario_id):
         # Get rated docs
         rated_docs = {}
         es_response = es.search(
-            index='esreef-judgements',
+            index='esrel-judgements',
             body={
                 'query': {
                     'bool': {
@@ -809,7 +809,7 @@ def delete_scenario(project_id, scenario_id):
     TODO: Implement project_id filter to prevent deleting objects in other projects.
     """
     try:
-        response = es.delete(index='esreef-scenarios', id=scenario_id)
+        response = es.delete(index='esrel-scenarios', id=scenario_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -822,7 +822,7 @@ def update_scenario(project_id, scenario_id):
     doc = request.get_json()
     doc['project_id'] = project_id
     try:
-        response = es.index(index='esreef-scenarios', id=scenario_id, document=doc)
+        response = es.index(index='esrel-scenarios', id=scenario_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -833,7 +833,7 @@ def create_scenario(project_id):
     doc['project_id'] = project_id
     scenario_id = uuid.uuid4()
     try:
-        response = es.index(index='esreef-scenarios', id=scenario_id, document=doc)
+        response = es.index(index='esrel-scenarios', id=scenario_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -844,7 +844,7 @@ def get_scenario(project_id, scenario_id):
     TODO: Implement project_id filter
     """
     try:
-        response = es.get(index='esreef-scenarios', id=scenario_id)
+        response = es.get(index='esrel-scenarios', id=scenario_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -859,7 +859,7 @@ def get_scenarios(project_id):
             'size': 10000,
             'post_filter': {
                 'term': {
-                    '_index': 'esreef-scenarios'
+                    '_index': 'esrel-scenarios'
                 }
             },
             'aggs': {
@@ -871,14 +871,14 @@ def get_scenarios(project_id):
                         'judgements': {
                             'filter': {
                                 'term': {
-                                    '_index': 'esreef-judgements'
+                                    '_index': 'esrel-judgements'
                                 }
                             }
                         },
                         'evaluations': {
                             'filter': {
                                 'term': {
-                                    '_index': 'esreef-evaluations'
+                                    '_index': 'esrel-evaluations'
                                 }
                             }
                         }
@@ -887,9 +887,9 @@ def get_scenarios(project_id):
             }
         }
         index = ','.join([
-            'esreef-scenarios',
-            'esreef-judgements',
-            'esreef-evaluations',
+            'esrel-scenarios',
+            'esrel-judgements',
+            'esrel-evaluations',
         ])
         response = es.search(index=index, body=body)
     except ApiError as e:
@@ -905,7 +905,7 @@ def delete_display(project_id, display_id):
     TODO: Implement project_id filter to prevent deleting objects in other projects.
     """
     try:
-        response = es.delete(index='esreef-displays', id=display_id)
+        response = es.delete(index='esrel-displays', id=display_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -916,7 +916,7 @@ def update_display(project_id, display_id):
     doc['project_id'] = project_id
     doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
     try:
-        response = es.index(index='esreef-displays', id=display_id, document=doc)
+        response = es.index(index='esrel-displays', id=display_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -928,7 +928,7 @@ def create_display(project_id):
     doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
     display_id = uuid.uuid4()
     try:
-        response = es.index(index='esreef-displays', id=display_id, document=doc)
+        response = es.index(index='esrel-displays', id=display_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -939,7 +939,7 @@ def get_display(project_id, display_id):
     TODO: Implement project_id filter to prevent getting objects in other projects.
     """
     try:
-        response = es.get(index='esreef-displays', id=display_id)
+        response = es.get(index='esrel-displays', id=display_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -948,7 +948,7 @@ def get_display(project_id, display_id):
 def get_displays(project_id):
     try:
         response = es.search(
-            index='esreef-displays',
+            index='esrel-displays',
             body={
                 'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
                 'size': 10000
@@ -967,7 +967,7 @@ def delete_project(project_id):
     TODO: Implement project_id filter to prevent deleting objects in other projects.
     """
     try:
-        response = es.delete(index='esreef-projects', id=project_id)
+        response = es.delete(index='esrel-projects', id=project_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -977,7 +977,7 @@ def update_project(project_id):
     doc = request.get_json()
     return jsonify({'test':'foo'}), 500 # TODO REMOVE
     try:
-        response = es.update(index='esreef-projects', id=project_id, doc=doc)
+        response = es.update(index='esrel-projects', id=project_id, doc=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -987,7 +987,7 @@ def create_project():
     doc = request.get_json()
     project_id = uuid.uuid4()
     try:
-        response = es.index(index='esreef-projects', id=project_id, document=doc)
+        response = es.index(index='esrel-projects', id=project_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -995,7 +995,7 @@ def create_project():
 @app.route('/projects/<string:project_id>', methods=['GET'])
 def get_project(project_id):
     try:
-        response = es.get(index='esreef-projects', id=project_id)
+        response = es.get(index='esrel-projects', id=project_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -1007,7 +1007,7 @@ def get_projects():
             'size': 10000,
             'post_filter': {
                 'term': {
-                    '_index': 'esreef-projects'
+                    '_index': 'esrel-projects'
                 }
             },
             'aggs': {
@@ -1019,28 +1019,28 @@ def get_projects():
                         'scenarios': {
                             'filter': {
                                 'term': {
-                                    '_index': 'esreef-scenarios'
+                                    '_index': 'esrel-scenarios'
                                 }
                             }
                         },
                         'judgements': {
                             'filter': {
                                 'term': {
-                                    '_index': 'esreef-judgements'
+                                    '_index': 'esrel-judgements'
                                 }
                             }
                         },
                         'strategies': {
                             'filter': {
                                 'term': {
-                                    '_index': 'esreef-strategies'
+                                    '_index': 'esrel-strategies'
                                 }
                             }
                         },
                         'evaluations': {
                             'filter': {
                                 'term': {
-                                    '_index': 'esreef-evaluations'
+                                    '_index': 'esrel-evaluations'
                                 }
                             }
                         }
@@ -1049,11 +1049,11 @@ def get_projects():
             }
         }
         index = ','.join([
-            'esreef-projects',
-            'esreef-scenarios',
-            'esreef-judgements',
-            'esreef-strategies',
-            'esreef-evaluations',
+            'esrel-projects',
+            'esrel-scenarios',
+            'esrel-judgements',
+            'esrel-strategies',
+            'esrel-evaluations',
         ])
         response = es.search(index=index, body=body)
     except ApiError as e:

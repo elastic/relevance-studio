@@ -1,6 +1,6 @@
 {
   "index_patterns": [
-    "esreef-evaluations*"
+    "esrel-evaluations*"
   ],
   "mappings": {
     "dynamic": "strict",

@@ -1,6 +1,6 @@
 {
   "index_patterns": [
-    "esreef-scenarios*"
+    "esrel-scenarios*"
   ],
   "mappings": {
     "dynamic": "strict",

@@ -1,8 +1,8 @@
-# ESRE Evaluation Framework
+# Elasticsearch Relevance Engineering Lab
 
-**ESRE Evaluation Framework** (`esreef`) is a framework and test harness for offline search relevance engineering.
+**Elasticsearch Relevance Engineering Lab** (`esrel`) is a framework and test harness for search relevance engineering.
 
-> ⚠️ This application is in early development. Expect things to break or change frequently until the project matures.
+> ⚠️ This application is in early development. Expect things to break or change often until it matures.
 
 ## Development
 
@@ -18,16 +18,17 @@ Install dependencies:
 
 Clone this repo:
 
-1. Run `git clone https://github.com/elastic/esreef.git`
-2. Run `cd esreef` to enter the root-level directory of this project
-3. Configure `.env` to use the endpoints and credentials of your Elastic deployment
+1. Run `git clone https://github.com/elastic/esrel.git`
+2. Run `cd esrel` to enter the root-level directory of this project
+3. Copy `.env-reference` to `.env`
+4. Configure `.env` to use the endpoints and credentials of your Elastic deployment
 
 **Step 2. Run the server in develoment mode**
 
 In a terminal, navigate to the root-level directory of this project and run:
 
-1. Run `conda create -n esreef python=3.10` to create a virtual environment
-2. Run `conda active esreef` to activate the virtual environment
+1. Run `conda create -n esrel python=3.10` to create a virtual environment
+2. Run `conda active esrel` to activate the virtual environment
 3. Run `pip install -r requirements.txt` to install the dependencies
 4. Run `python src/server/server.py` to run the server in development mode
 
@@ -43,3 +44,9 @@ In a terminal, navigate to the root-level directory of this project and run:
 4. Open [http://localhost:8080/](http://localhost:8080/) in your browser to open the app in development mode
 
 Repeat steps 1, 3, and 4 anytime you need to start the frontend in a new terminal.
+
+**Step 4. Create the index templates**
+
+With the server running from Step 3:
+
+`curl -XPOST http://localhost:4096/setup`

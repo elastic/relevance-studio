@@ -1,6 +1,6 @@
 {
   "index_patterns": [
-    "esreef-projects*"
+    "esrel-projects*"
   ],
   "mappings": {
     "dynamic": "strict",

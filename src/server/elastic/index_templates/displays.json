@@ -1,6 +1,6 @@
 {
   "index_patterns": [
-    "esreef-displays*"
+    "esrel-displays*"
   ],
   "mappings": {
     "dynamic": "strict",
