@@ -34,7 +34,16 @@ In a terminal, navigate to the root-level directory of this project and run:
 
 Repeat steps 1, 2, and 4 anytime you need to start the server in a new terminal.
 
-**Step 3. Run the frontend in development mode**
+**Step 3. Setup the index templates**
+
+With the server running from Step 2, run:
+
+`curl -XPOST http://localhost:4096/setup`
+
+It's important to setup the index templates before using the application so that
+it properly indexes the data.
+
+**Step 4. Run the frontend in development mode**
 
 In a terminal, navigate to the root-level directory of this project and run:
 
@@ -44,9 +53,3 @@ In a terminal, navigate to the root-level directory of this project and run:
 4. Open [http://localhost:8080/](http://localhost:8080/) in your browser to open the app in development mode
 
 Repeat steps 1, 3, and 4 anytime you need to start the frontend in a new terminal.
-
-**Step 4. Create the index templates**
-
-With the server running from Step 3:
-
-`curl -XPOST http://localhost:4096/setup`
