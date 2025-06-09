@@ -50,7 +50,9 @@ def extract_params(obj):
 
 ####  Application  #############################################################
 
-app = Flask(__name__, static_folder=os.environ.get('STATIC_PATH'))
+DEFAULT_STATIC_PATH = os.path.abspath(os.path.join(__file__, '..', '..', '..', 'dist'))
+
+app = Flask(__name__, static_folder=os.environ.get('STATIC_PATH') or DEFAULT_STATIC_PATH)
 CORS(app)
 
 
