@@ -28,11 +28,11 @@ Clone this repo:
 In a terminal, navigate to the root-level directory of this project and run:
 
 1. Run `conda create -n esrel python=3.10` to create a virtual environment
-2. Run `conda active esrel` to activate the virtual environment
+2. Run `conda activate esrel` to activate the virtual environment
 3. Run `pip install -r requirements.txt` to install the dependencies
 4. Run `python src/server/server.py` to run the server in development mode
 
-Repeat steps 1, 2, and 4 anytime you need to start the server in a new terminal.
+Repeat steps 2 and 4 anytime you need to start the server in a new terminal.
 
 **Step 3. Setup the index templates**
 
