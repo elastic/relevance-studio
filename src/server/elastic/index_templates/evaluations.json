@@ -1,6 +1,6 @@
 {
   "index_patterns": [
-    "esrel-evaluations*"
+    "esrs-evaluations*"
   ],
   "mappings": {
     "dynamic": "strict",

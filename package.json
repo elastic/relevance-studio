@@ -1,5 +1,5 @@
 {
-  "name": "esrel",
+  "name": "esrs",
   "version": "0.1.0",
   "source": "src/app/index.html",
   "dependencies": {

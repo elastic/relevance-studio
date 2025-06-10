@@ -1,6 +1,6 @@
 {
   "index_patterns": [
-    "esrel-strategies*"
+    "esrs-strategies*"
   ],
   "mappings": {
     "dynamic": "strict",

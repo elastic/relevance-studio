@@ -1,6 +1,6 @@
 {
   "index_patterns": [
-    "esrel-displays*"
+    "esrs-displays*"
   ],
   "mappings": {
     "dynamic": "strict",

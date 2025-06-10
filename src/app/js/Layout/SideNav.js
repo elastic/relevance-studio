@@ -76,12 +76,7 @@ const SideNav = () => {
 
   const items = [
     {
-      name: <div style={{ height: '55px' }}>
-        Elasticsearch<br/>
-        <EuiText size='xs' color='subdued'>
-          Relevance Engineering Lab
-        </EuiText>
-      </div>,
+      name: 'Relevance Studio',
       id: 'sidenav',
       href: '#/',
       isSelected: path.hash == '#/',

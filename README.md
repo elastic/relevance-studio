@@ -1,6 +1,6 @@
-# Elasticsearch Relevance Engineering Lab
+# Elasticsearch Relevance Studio
 
-**Elasticsearch Relevance Engineering Lab** (`esrel`) is a framework and test harness for search relevance engineering.
+**Elasticsearch Relevance Studio** (`esrs`) is a framework and test harness for search relevance engineering.
 
 > ⚠️ This application is in early development. Expect things to break or change often until it matures.
 
@@ -18,8 +18,8 @@ Install dependencies:
 
 Clone this repo:
 
-1. Run `git clone https://github.com/elastic/esrel.git`
-2. Run `cd esrel` to enter the root-level directory of this project
+1. Run `git clone https://github.com/elastic/esrs.git`
+2. Run `cd esrs` to enter the root-level directory of this project
 3. Copy `.env-reference` to `.env`
 4. Configure `.env` to use the endpoints and credentials of your Elastic deployment
 
@@ -27,8 +27,8 @@ Clone this repo:
 
 In a terminal, navigate to the root-level directory of this project and run:
 
-1. Run `conda create -n esrel python=3.10` to create a virtual environment
-2. Run `conda activate esrel` to activate the virtual environment
+1. Run `conda create -n esrs python=3.10` to create a virtual environment
+2. Run `conda activate esrs` to activate the virtual environment
 3. Run `pip install -r requirements.txt` to install the dependencies
 4. Run `python src/server/server.py` to run the server in development mode
 

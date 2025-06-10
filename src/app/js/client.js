@@ -82,7 +82,7 @@ const request = async (path, opts) => {
     params: opts.params,
     headers: opts.headers || {},
     data: opts.data,
-    timeout: 4000, // TODO: Make configurable
+    timeout: opts.timeout || 60000,
   })
 }
 
