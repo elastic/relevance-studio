@@ -10,7 +10,6 @@ import {
   EuiFlexItem,
   EuiForm,
   EuiFormRow,
-  EuiLink,
   EuiPanel,
   EuiSkeletonText,
   EuiSkeletonTitle,
@@ -22,9 +21,10 @@ import utils from '../../utils'
 import { Page } from '../../Layout'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
+import FlyoutHelp from './FlyoutHelp'
 
 const StrategiesEdit = () => {
-  
+
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
@@ -34,7 +34,7 @@ const StrategiesEdit = () => {
 
   const [loadingStrategy, setLoadingStrategy] = useState(true)
   const [params, setParams] = useState([])
-  const [showHelp, setShowHelp] = useState(true)
+  const [showHelp, setShowHelp] = useState(false)
   const [strategy, setStrategy] = useState({})
   const [strategyDraft, setStrategyDraft] = useState('')
   const [strategyId, setStrategyId] = useState(null)
@@ -52,7 +52,7 @@ const StrategiesEdit = () => {
     if (!project?._id || strategyId == null)
       return
     (async () => {
-    
+
       // Submit API request
       let response
       try {
@@ -102,7 +102,7 @@ const StrategiesEdit = () => {
   const onSaveStrategy = (e) => {
     e.preventDefault();
     (async () => {
-        
+
       // Submit API request
       const doc = {
         name: strategy.name,
@@ -176,28 +176,6 @@ const StrategiesEdit = () => {
     )
   }
 
-  const renderCalloutStrategy = () => {
-    return (
-      <EuiCallOut iconType='help' onDismiss={()=>setShowHelp(false)} title='How to use this editor'>
-        <EuiSpacer size='s' />
-        <EuiText size='xs'>
-          <h4>
-            What is a strategy?
-          </h4>
-          <p>
-            A strategy is a retriever or query that you want to test in your search relevance evaluations. It becomes the contents of the <EuiCode>"source"</EuiCode> field of a <EuiLink href='https://www.elastic.co/docs/solutions/search/search-templates' target='_blank'>search template</EuiLink> in the <EuiLink href='https://www.elastic.co/guide/en/elasticsearch/reference/8.18/search-rank-eval.html' target='_blank'>Ranking Evaluation API</EuiLink>.
-          </p>
-          <h4>
-            How do I pass inputs to the strategy?
-          </h4>
-          <p>
-            Use <EuiLink href='https://www.elastic.co/docs/solutions/search/search-templates#create-search-template' target='_blank'>double curly braces</EuiLink> to define params, which indicate where your strategy will accept inputs. If the input will be a string, be sure to surround the variable with double quotes. Example: <EuiCode>{'"{{ text }}"'}</EuiCode>
-          </p>
-        </EuiText>
-      </EuiCallOut>
-    )
-  }
-
   const renderCalloutParams = () => {
     const _params = []
     params.forEach((param, i) => _params.push(
@@ -215,22 +193,31 @@ const StrategiesEdit = () => {
         >
           <EuiSpacer size='s' />
           <EuiText size='xs'>
-          {!params.size &&
-            <EuiText size='xs'>
-              <p>
-                Your strategy won't use inputs until you give it variables.
-              </p>
-              <p>
-                Example: <EuiCode>{'"{{ text }}"'}</EuiCode>
-              </p>
-            </EuiText>
-          }
+            {!params.size &&
+              <EuiText size='xs'>
+                <p>
+                  Your strategy won't use inputs until you give it variables.
+                </p>
+                <p>
+                  Example: <EuiCode>{'"{{ text }}"'}</EuiCode>
+                </p>
+              </EuiText>
+            }
             {_params}
           </EuiText>
         </EuiCallOut>
       </EuiPanel>
     )
   }
+
+  const buttonHelp = (
+    <EuiButton
+      color='text'
+      iconType='help'
+      onClick={() => setShowHelp(!showHelp)}>
+      Help
+    </EuiButton>
+  )
 
   return (<>
     <Page title={
@@ -242,7 +229,7 @@ const StrategiesEdit = () => {
           <>{strategy.name}</>
         }
       </EuiSkeletonTitle>
-    }>
+    } buttons={[buttonHelp]}>
       <EuiFlexGroup style={{ height: 'calc(100vh - 135px)' }}>
         <EuiFlexItem grow={5}>
           <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
@@ -296,7 +283,7 @@ const StrategiesEdit = () => {
                 </EuiPanel>
               </EuiFormRow>
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-                { strategyDraft && renderCalloutParams() }
+                {strategyDraft && renderCalloutParams()}
               </div>
 
             </EuiForm>
@@ -308,13 +295,12 @@ const StrategiesEdit = () => {
           <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
 
             {/* Help: Strategies */}
-            { showHelp && renderCalloutStrategy() }
-            { showHelp && <EuiSpacer size='m' /> }
-            
+            {showHelp && <FlyoutHelp onClose={() => setShowHelp(false)} />}
+
           </EuiPanel>
         </EuiFlexItem>
       </EuiFlexGroup>
-    </Page>
+    </Page >
   </>)
 }
 
