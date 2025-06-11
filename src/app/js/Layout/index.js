@@ -1,2 +1,8 @@
+import ModalDelete from './ModalDelete'
 import Page from './Page'
-export { Page }
+import SideNav from './SideNav'
+export {
+  ModalDelete,
+  Page,
+  SideNav
+}

@@ -5,7 +5,7 @@ import { Pages } from './Pages'
 
 const Routes = () => {
 
-  const title = 'ESRE Evaluation Framework'
+  const title = 'Elasticsearch Relevance Studio'
 
   return (
     <Router>

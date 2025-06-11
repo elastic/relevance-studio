@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import {
   EuiButton,
   EuiFieldSearch,
+  EuiFieldText,
   EuiFlexGroup,
   EuiFlexItem,
   EuiForm,
@@ -11,8 +12,15 @@ import {
   EuiSpacer,
   EuiSkeletonText,
   EuiSkeletonTitle,
+  EuiToolTip,
 } from '@elastic/eui'
 import Editor from '@monaco-editor/react'
+import {
+  IconBoxAlignLeftFilled,
+  IconBoxAlignTopLeftFilled,
+  IconBoxAlignTopRightFilled,
+  IconBoxAlignRightFilled
+} from '@tabler/icons-react'
 import api from '../../api'
 import utils from '../../utils'
 import DocCard from '../Displays/DocCard'
@@ -29,17 +37,19 @@ const DisplaysEdit = () => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
+  const [bodyDraft, setBodyDraft] = useState('')
   const [display, setDisplay] = useState({})
   const [displayId, setDisplayId] = useState(null)
   const [doc, setDoc] = useState()
   const [indices, setIndices] = useState({})
+  const [imagePosition, setImagePosition] = useState('top-left')
+  const [imageUrl, setImageUrl] = useState('')
   const [loadingDisplay, setLoadingDisplay] = useState(true)
   const [loadingDocById, setLoadingDocById] = useState(false)
   const [loadingDocRandom, setLoadingDocRandom] = useState(false)
   const [loadingIndices, setLoadingIndices] = useState(false)
   const [mustacheVariables, setMustacheVariables] = useState(false)
   const [queryString, setQueryString] = useState('')
-  const [templateDraft, setTemplateDraft] = useState('')
   const mustacheVariablesRef = useRef(mustacheVariablesRef)
 
   /**
@@ -55,16 +65,14 @@ const DisplaysEdit = () => {
     if (!project?._id || displayId == null)
       return
     (async () => {
-    
+
       // Submit API request
       let response
       try {
         setLoadingDisplay(true)
         response = await api.get_display(project._id, displayId)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to get display'
-        }))
+      } catch (err) {
+        return addToast(api.errorToast(err, { title: 'Failed to get display' }))
       } finally {
         setLoadingDisplay(false)
       }
@@ -90,16 +98,14 @@ const DisplaysEdit = () => {
     if (!display.index_pattern)
       return
     (async () => {
-    
+
       // Submit API request
       let response
       try {
         setLoadingIndices(true)
         response = await api.get_indices(display.index_pattern)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to get indices'
-        }))
+      } catch (err) {
+        return addToast(api.errorToast(err, { title: 'Failed to get indices' }))
       } finally {
         setLoadingIndices(false)
       }
@@ -110,12 +116,17 @@ const DisplaysEdit = () => {
   }, [display])
 
   /**
-   * Get template draft from display document
+   * Update template
    */
   useEffect(() => {
     if (!display.template)
       return
-    setTemplateDraft(display.template.body)
+    if (display.template.body)
+      setBodyDraft(display.template.body)
+    if (display.template.image?.position)
+      setImageUrl(display.template.image.position)
+    if (display.template.image?.position)
+      setImageUrl(display.template.image.url)
   }, [display.template])
 
   /**
@@ -136,7 +147,7 @@ const DisplaysEdit = () => {
   }, [mustacheVariables])
 
   const handleEditorMount = (editor, monaco) => {
-    monaco.languages.registerCompletionItemProvider("markdown", {
+    monaco.languages.registerCompletionItemProvider('markdown', {
       triggerCharacters: ['{', ' '],
       provideCompletionItems: (model, position) => {
         const lineContent = model.getLineContent(position.lineNumber)
@@ -171,22 +182,26 @@ const DisplaysEdit = () => {
   const onSaveDisplay = (e) => {
     e.preventDefault();
     (async () => {
-    
+
       // Submit API request
       const doc = {
         index_pattern: display.index_pattern,
         template: {
-          body: templateDraft
+          body: bodyDraft
         }
       }
+      if (imagePosition || imageUrl)
+        doc.template.image = {}
+      if (imagePosition)
+        doc.template.image.position = imagePosition
+      if (imageUrl)
+        doc.template.image.url = imageUrl
       let response
       try {
         setLoadingDisplay(true)
         response = await api.update_display(project._id, displayId, doc)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to update display'
-        }))
+      } catch (err) {
+        return addToast(api.errorToast(err, { title: 'Failed to update display' }))
       } finally {
         setLoadingDisplay(false)
       }
@@ -206,19 +221,17 @@ const DisplaysEdit = () => {
   const onGetDocRandom = () => {
     (async () => {
       const body = {
-        query: { function_score: { random_score: {}}},
+        query: { function_score: { random_score: {} } },
         size: 1
       }
-    
+
       // Submit API request
       let response
       try {
         setLoadingDocRandom(true)
         response = await api.search(display.index_pattern, body)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to get doc'
-        }))
+      } catch (err) {
+        return addToast(api.errorToast(err, { title: 'Failed to get doc' }))
       } finally {
         setLoadingDocRandom(false)
       }
@@ -232,19 +245,17 @@ const DisplaysEdit = () => {
   const onGetDocById = () => {
     (async () => {
       const body = {
-        query: { ids: { values: [ queryString ]}},
+        query: { ids: { values: [queryString] } },
         size: 1
       }
-    
+
       // Submit API request
       let response
       try {
         setLoadingDocRandom(true)
         response = await api.search(display.index_pattern, body)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to get doc'
-        }))
+      } catch (err) {
+        return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
       } finally {
         setLoadingDocRandom(false)
       }
@@ -262,11 +273,11 @@ const DisplaysEdit = () => {
       <Editor
         defaultLanguage='markdown'
         height='100%'
-        onChange={(value, event) => setTemplateDraft(value)}
+        onChange={(value, event) => setBodyDraft(value)}
         onMount={handleEditorMount}
         options={{
           folding: false,
-          fontSize: 10,
+          fontSize: 12,
           glyphMargin: false,
           insertSpaces: true,
           lineNumbers: 'false',
@@ -283,7 +294,7 @@ const DisplaysEdit = () => {
           tabSize: 2
         }}
         theme={darkMode ? 'vs-dark' : 'light'}
-        value={templateDraft}
+        value={bodyDraft}
       />
     )
   }
@@ -292,11 +303,13 @@ const DisplaysEdit = () => {
    * Check if the draft template differs from the saved template.
    */
   const doesDraftDiffer = () => {
-    try {
-      return display.template?.body == templateDraft
-    } catch (e) {
-      return undefined
-    }
+    if (display.template?.image?.position != imagePosition)
+      return true
+    if (display.template?.image?.url != imageUrl)
+      return true
+    if (display.template?.body != bodyDraft)
+      return true
+    return false
   }
 
   return (<>
@@ -310,58 +323,129 @@ const DisplaysEdit = () => {
         }
       </EuiSkeletonTitle>
     }>
-      <EuiFlexGroup gutterSize='m' alignItems='flexStart' >
+      <EuiFlexGroup alignItems='flexStart' style={{ height: 'calc(100vh - 135px)' }}>
 
         {/* Editor */}
         <EuiFlexItem grow={5}>
 
           {/* Editor controls */}
-          <EuiFlexGroup gutterSize='s'>
-            <EuiFlexItem grow={false}>
-              <EuiButton
-                color='primary'
-                disabled={loadingDisplay || doesDraftDiffer()}
-                fill
-                onClick={onSaveDisplay}
-                type='submit'
-              >
-                Save
-              </EuiButton>
-            </EuiFlexItem>
-            <EuiFlexItem grow={false}>
-              <EuiButton
-                color='text'
-                disabled={loadingDisplay || doesDraftDiffer()}
-                onClick={() => { setTemplateDraft(display.template.body) }}
-              >
-                Reset
-              </EuiButton>
-            </EuiFlexItem>
-          </EuiFlexGroup>
-          <EuiSpacer size='l' />
+          <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
+            <EuiForm>
 
-          {/* Body */}
-          <EuiFormRow fullWidth label='Markdown editor'>
-            <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-              <EuiSkeletonText lines={21} isLoading={loadingProject || loadingIndices}>
-                <div style={{ height: '525px' }}>
-                  <EuiPanel
-                    hasBorder
-                    paddingSize='none'
-                    style={{
-                      position: 'absolute',
-                      top: '0',
-                      bottom: '14px',
-                      left: '0',
-                      right: '0'
-                    }}
+              {/* Buttons */}
+              <EuiFlexGroup gutterSize='s'>
+                <EuiFlexItem grow={false}>
+                  <EuiButton
+                    color='primary'
+                    disabled={loadingDisplay || !doesDraftDiffer()}
+                    fill
+                    onClick={onSaveDisplay}
+                    type='submit'
                   >
-                    {renderEditor()}
-                  </EuiPanel>
-                </div>
-              </EuiSkeletonText>
-            </EuiPanel>
-          </EuiFormRow>
+                    Save
+                  </EuiButton>
+                </EuiFlexItem>
+                <EuiFlexItem grow={false}>
+                  <EuiButton
+                    color='text'
+                    disabled={loadingDisplay || !doesDraftDiffer()}
+                    onClick={() => { setBodyDraft(display.template.body) }}
+                  >
+                    Reset
+                  </EuiButton>
+                </EuiFlexItem>
+              </EuiFlexGroup>
+              <EuiSpacer size='m' />
+
+              {/* Editor */}
+              <EuiFormRow fullWidth label='Markdown editor'>
+                <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
+                  <EuiSkeletonText lines={21} isLoading={loadingProject || loadingIndices}>
+                    <div style={{ height: 'calc(100vh - 300px)' }}>
+                      <EuiPanel
+                        hasBorder
+                        paddingSize='none'
+                        style={{
+                          position: 'absolute',
+                          top: '0',
+                          bottom: '0',
+                          left: '0',
+                          right: '0'
+                        }}
+                      >
+                        {renderEditor()}
+                      </EuiPanel>
+                    </div>
+                  </EuiSkeletonText>
+                </EuiPanel>
+              </EuiFormRow>
+
+              {/* Image settings */}
+              <EuiFormRow fullWidth>
+                <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
+
+                  {/* Image URL */}
+                  <EuiFieldText
+                    aria-label='Image URL'
+                    compressed
+                    fullWidth
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder='http://my-image-server/{{ image.path }}'
+                    prepend='Image URL'
+                    value={imageUrl}
+                  />
+                  <EuiSpacer size='xs' />
+
+                  {/* Image position */}
+                  {/*<EuiToolTip content='Align left'>
+                    <EuiButton
+                      color='text'
+                      fill={imagePosition == 'left' ? true : false}
+                      onClick={() => setImagePosition('left')}
+                      size='s'
+                      style={{ minWidth: '16px', padding: '8px', borderBottomRightRadius: '0', borderTopRightRadius: '0' }}
+                    >
+                      <IconBoxAlignLeftFilled stroke={1.5} size={16} />
+                    </EuiButton>
+                  </EuiToolTip>*/}
+                  <EuiToolTip content='Align top left'>
+                    <EuiButton
+                      color='text'
+                      fill={imagePosition == 'top-left' ? true : false}
+                      onClick={() => setImagePosition('top-left')}
+                      size='s'
+                      style={{ minWidth: '16px', padding: '8px', /*borderLeft: '0', borderRadius: '0'*/ borderBottomRightRadius: '0', borderTopRightRadius: '0' }}
+                    >
+                      <IconBoxAlignTopLeftFilled stroke={1.5} size={16} />
+                    </EuiButton>
+                  </EuiToolTip>
+                  <EuiToolTip content='Align top right'>
+                    <EuiButton
+                      color='text'
+                      fill={imagePosition == 'top-right' ? true : false}
+                      onClick={() => setImagePosition('top-right')}
+                      size='s'
+                      style={{ minWidth: '16px', padding: '8px', borderLeft: '0', /*borderRadius: '0'*/ borderBottomLeftRadius: '0', borderTopLeftRadius: '0' }}
+                    >
+                      <IconBoxAlignTopRightFilled stroke={1.5} size={16} />
+                    </EuiButton>
+                  </EuiToolTip>
+                  {/*<EuiToolTip content='Align right'>
+                    <EuiButton
+                      color='text'
+                      fill={imagePosition == 'right' ? true : false}
+                      onClick={() => setImagePosition('right')}
+                      size='s'
+                      style={{ minWidth: '16px', padding: '8px', borderLeft: '0', borderBottomLeftRadius: '0', borderTopLeftRadius: '0' }}
+                    >
+                      <IconBoxAlignRightFilled stroke={1.5} size={16} />
+                    </EuiButton>
+                  </EuiToolTip>*/}
+                </EuiPanel>
+              </EuiFormRow>
+
+            </EuiForm>
+          </EuiPanel>
         </EuiFlexItem>
 
         {/* Output */}
@@ -395,22 +479,23 @@ const DisplaysEdit = () => {
 
           {/* Body */}
           <EuiSkeletonText lines={10} isLoading={loadingDocById || loadingDocRandom}>
-            { doc &&
+            {doc &&
               <EuiFormRow fullWidth label='Example (large)'>
                 <EuiFlexGroup>
                   <EuiFlexItem grow={10}>
-                      <DocCard doc={doc} template={templateDraft} />
+                    <DocCard doc={doc} body={bodyDraft} imagePosition={imagePosition} imageUrl={imageUrl} />
                   </EuiFlexItem>
                 </EuiFlexGroup>
               </EuiFormRow>
             }
           </EuiSkeletonText>
+          <EuiSpacer size='m' />
           <EuiSkeletonText lines={10} isLoading={loadingDocById || loadingDocRandom}>
-            { doc &&
+            {doc &&
               <EuiFormRow fullWidth label='Example (small)'>
                 <EuiFlexGroup>
                   <EuiFlexItem grow={5}>
-                      <DocCard doc={doc} template={templateDraft} />
+                    <DocCard doc={doc} body={bodyDraft} imagePosition={imagePosition} imageUrl={imageUrl} />
                   </EuiFlexItem>
                   <EuiFlexItem grow={5}>
                   </EuiFlexItem>

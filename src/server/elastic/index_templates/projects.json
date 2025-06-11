@@ -8,6 +8,12 @@
       "name": {
         "type": "keyword"
       },
+      "index_pattern": {
+        "type": "keyword"
+      },
+      "params": {
+        "type": "keyword"
+      },
       "rating_scale": {
         "properties": {
           "min": {
@@ -17,12 +23,6 @@
             "type": "byte"
           }
         }
-      },
-      "indices": {
-        "type": "keyword"
-      },
-      "tags": {
-        "type": "keyword"
       }
     }
   }

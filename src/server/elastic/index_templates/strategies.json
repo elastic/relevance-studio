@@ -5,16 +5,19 @@
   "mappings": {
     "dynamic": "strict",
     "properties": {
+      "@timestamp": {
+        "type": "keyword"
+      },
       "project_id": {
         "type": "keyword"
       },
       "name": {
         "type": "keyword"
       },
-      "tags": {
+      "params": {
         "type": "keyword"
       },
-      "params": {
+      "tags": {
         "type": "keyword"
       },
       "template": {

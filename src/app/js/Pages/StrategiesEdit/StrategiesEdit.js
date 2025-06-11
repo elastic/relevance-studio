@@ -58,10 +58,8 @@ const StrategiesEdit = () => {
       try {
         setLoadingStrategy(true)
         response = await api.get_strategy(project._id, strategyId)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to get strategy'
-        }))
+      } catch (err) {
+        return addToast(api.errorToast(err, { title: 'Failed to get strategy' }))
       } finally {
         setLoadingStrategy(false)
       }
@@ -115,10 +113,8 @@ const StrategiesEdit = () => {
       try {
         setLoadingStrategy(true)
         response = await api.update_strategy(project._id, strategyId, doc)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to update display'
-        }))
+      } catch (err) {
+        return addToast(api.errorToast(err, { title: 'Failed to update display' }))
       } finally {
         setLoadingStrategy(false)
       }
@@ -156,7 +152,7 @@ const StrategiesEdit = () => {
         height='100%'
         onChange={(value, event) => setStrategyDraft(value)}
         options={{
-          fontSize: 10,
+          fontSize: 12,
           insertSpaces: true,
           lineNumbers: 'on',
           minimap: {
@@ -230,8 +226,12 @@ const StrategiesEdit = () => {
         }
       </EuiSkeletonTitle>
     } buttons={[buttonHelp]}>
-      <EuiFlexGroup style={{ height: 'calc(100vh - 135px)' }}>
+      <EuiFlexGroup alignItems='flexStart' style={{ height: 'calc(100vh - 135px)' }}>
+
+        {/* Editor */}
         <EuiFlexItem grow={5}>
+
+          {/* Editor controls */}
           <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
             <EuiForm>
 

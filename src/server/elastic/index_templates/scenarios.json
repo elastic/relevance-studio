@@ -5,6 +5,9 @@
   "mappings": {
     "dynamic": "strict",
     "properties": {
+      "@timestamp": {
+        "type": "keyword"
+      },
       "project_id": {
         "type": "keyword"
       },
@@ -12,11 +15,14 @@
         "type": "keyword"
       },
       "params": {
-        "type": "object",
-        "enabled": false
+        "type": "keyword"
       },
       "tags": {
         "type": "keyword"
+      },
+      "values": {
+        "type": "object",
+        "enabled": false
       }
     }
   }

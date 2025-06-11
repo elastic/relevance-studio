@@ -4,29 +4,17 @@ import {
   EuiBadge,
   EuiButton,
   EuiCallOut,
-  EuiCode,
-  EuiComboBox,
-  EuiFieldText,
-  EuiForm,
-  EuiFormRow,
   EuiInMemoryTable,
   EuiLink,
-  EuiModal,
-  EuiModalHeaderTitle,
-  EuiModalBody,
-  EuiModalFooter,
-  EuiModalHeader,
-  EuiPanel,
   EuiSkeletonText,
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
-import Editor from '@monaco-editor/react'
 import api from '../../api'
-import utils from '../../utils'
-import { Page } from '../../Layout'
+import { ModalDelete, Page } from '../../Layout'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
+import FlyoutForm from './FlyoutForm'
 
 const Scenarios = () => {
 
@@ -40,14 +28,12 @@ const Scenarios = () => {
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [aggs, setAggs] = useState({})
+  const [flyout, setFlyout] = useState(null) // null=closed, true=create, object=doc to update
   const [items, setItems] = useState([])
-  const [loadingItems, setLoadingItems] = useState(true)
-  const [loadingModal, setLoadingModal] = useState(false)
-  const [modalData, setModalData] = useState({})
-  const [modalCreateVisible, setModalCreateVisible] = useState(false)
-  const [modalUpdateVisible, setModalUpdateVisible] = useState(false)
-  const [modalDeleteVisible, setModalDeleteVisible] = useState(false)
-  const [paramsDraft, setParamsDraft] = useState('')
+  const [isLoading, setIsLoading] = useState(true) // start as loading until project is ready
+  const [modalDelete, setModalDelete] = useState(null) // null=closed, object=doc to delete
+
+  ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
    * Get scenarios on load
@@ -60,12 +46,12 @@ const Scenarios = () => {
       // Submit API request
       let response
       try {
-        setLoadingItems(true)
+        setIsLoading(true)
         response = await api.get_scenarios(project._id)
-      } catch (error) {
-        return addToast(utils.toastClientError(error))
+      } catch (err) {
+        return addToast(api.errorToast(err, { title: 'Failed to get scenarios' }))
       } finally {
-        setLoadingItems(false)
+        setIsLoading(false)
       }
 
       // Handle API response
@@ -81,403 +67,12 @@ const Scenarios = () => {
         aggs[agg.key] = {
           ...aggs[agg.key] || {},
           judgements: agg.judgements.doc_count,
-          evaluations: agg.evaluations.doc_count
+          //evaluations: agg.evaluations.doc_count
         }
       })
       setAggs(aggs)
     })()
   }, [project])
-
-  /**
-   * Get params draft from scenario in modal
-   */
-  useEffect(() => {
-    if (!modalData.params)
-      return
-    setParamsDraft(JSON.stringify(modalData.params, null, 2))
-  }, [modalData.params])
-
-  ////  Handlers: Modal submission  ////////////////////////////////////////////
-
-  const onModalCreateSubmit = (e) => {
-    e.preventDefault();
-    (async () => {
-
-      // Submit API request
-      const paramsObj = JSON.parse(paramsDraft)
-      const doc = { ...modalData, _id: undefined, params: paramsObj }
-      let response
-      try {
-        setLoadingModal(true)
-        response = await api.create_scenario(project._id, doc)
-      } catch (error) {
-        return addToast(utils.toastClientError(error))
-      } finally {
-        setLoadingModal(false)
-      }
-
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Created scenario',
-        color: 'success',
-        iconType: 'check',
-        text: (
-          <EuiText size='xs'>
-            <b>{modalData.name}</b><br />
-            <EuiText color='subdued' size='xs'>{response.data._id}</EuiText>
-          </EuiText>
-        )
-      })
-      const item = { ...modalData, _id: response.data._id, params: paramsObj }
-      setItems(prev => [...prev, item])
-      onModalCreateClose()
-    })()
-  }
-
-  const onModalUpdateSubmit = (e) => {
-    e.preventDefault();
-    (async () => {
-
-      // Submit API request
-      const doc = { ...modalData, _id: undefined, params: JSON.parse(paramsDraft) }
-      let response
-      try {
-        setLoadingModal(true)
-        response = await api.update_scenario(project._id, modalData._id, doc)
-      } catch (error) {
-        return addToast(utils.toastClientError(error))
-      } finally {
-        setLoadingModal(false)
-      }
-
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Updated scenario',
-        color: 'success',
-        iconType: 'check',
-        text: (
-          <EuiText size='xs'>
-            <b>{modalData.name}</b><br />
-            <EuiText color='subdued' size='xs'>{modalData._id}</EuiText>
-          </EuiText>
-        )
-      })
-      const updatedItem = { ...modalData, params: JSON.parse(paramsDraft) }
-      setItems(prev =>
-        prev.map(item => item._id === modalData._id ? updatedItem : item)
-      )
-      onModalUpdateClose()
-    })()
-  }
-
-  const onModalDeleteSubmit = (e) => {
-    e.preventDefault();
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setLoadingModal(true)
-        response = await api.delete_scenario(project._id, modalData._id)
-      } catch (error) {
-        return addToast(utils.toastClientError(error))
-      } finally {
-        setLoadingModal(false)
-      }
-
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Deleted scenario',
-        color: 'success',
-        iconType: 'check',
-        text: (
-          <EuiText size='xs'>
-            <b>{modalData.name}</b><br />
-            <EuiText color='subdued' size='xs'>{modalData._id}</EuiText>
-          </EuiText>
-        )
-      })
-      setItems(items.filter(item => item._id !== modalData._id))
-      onModalDeleteClose()
-    })()
-  }
-
-  ////  Handlers: Modal open and close  ////////////////////////////////////////
-
-  const onModalCreateOpen = () => {
-    setModalData({ name: '', params: { 'text': '' }, tags: [] })
-    setModalCreateVisible(true)
-  }
-
-  const onModalUpdateOpen = (item) => {
-    setModalData(item)
-    setModalUpdateVisible(true)
-  }
-
-  const onModalDeleteOpen = (item) => {
-    setModalData(item)
-    setModalDeleteVisible(true)
-  }
-
-  const onModalCreateClose = () => {
-    setModalData({})
-    setParamsDraft('')
-    setModalCreateVisible(false)
-  }
-
-  const onModalUpdateClose = () => {
-    setModalData({})
-    setParamsDraft('')
-    setModalUpdateVisible(false)
-  }
-
-  const onModalDeleteClose = () => {
-    setModalData({})
-    setModalDeleteVisible(false)
-  }
-
-  const validParams = () => {
-    try {
-      JSON.parse(paramsDraft)
-    } catch (e) {
-      console.log(e)
-      return false
-    }
-    return true
-  }
-
-  ////  Elements: Modals  //////////////////////////////////////////////////////
-
-  const renderEditor = () => {
-    return (
-      <Editor
-        defaultLanguage='json'
-        height='100px'
-        onChange={(value, event) => setParamsDraft(value)}
-        options={{
-          folding: false,
-          fontSize: 10,
-          glyphMargin: false,
-          insertSpaces: true,
-          lineDecorationsWidth: 0,
-          lineNumbers: 'false',
-          lineNumbersMinChars: 0,
-          minimap: {
-            enabled: false
-          },
-          renderLineHighlight: false,
-          renderOverviewRuler: false,
-          scrollBeyondLastLine: false,
-          stickyScroll: {
-            enabled: false,
-          },
-          tabSize: 2
-        }}
-        theme={darkMode ? 'vs-dark' : 'light'}
-        value={paramsDraft}
-      />
-    )
-  }
-
-  /**
-   * Modal to create a scenario.
-   */
-  const modalCreate = (
-    <EuiModal onClose={onModalCreateClose}>
-      <EuiModalHeader>
-        <EuiModalHeaderTitle>
-          Create a new scenario
-        </EuiModalHeaderTitle>
-      </EuiModalHeader>
-      <EuiModalBody>
-        <EuiForm component='form' id='create'>
-          <EuiFormRow label='Name' helpText='A descriptive name for this scenario.'>
-            <EuiFieldText
-              name='name'
-              onChange={(e) => {
-                setModalData(prev => ({ ...prev, name: e.target.value }))
-              }}
-              value={modalData.name}
-            />
-          </EuiFormRow>
-          <EuiFormRow
-            label='Params'
-            helpText={<>
-              <div>Values that will be passed to the params of strategies.</div>
-              <div>Example: <EuiCode transparentBackground>{'{ "text": "brown shoes" }'}</EuiCode></div>
-            </>}
-          >
-            <EuiPanel hasBorder paddingSize='s'>
-              {renderEditor()}
-            </EuiPanel>
-          </EuiFormRow>
-          <EuiFormRow label='Tags' helpText='Optional tags to keep things organized.'>
-            <EuiComboBox
-              noSuggestions
-              placeholder='Tags'
-              onChange={(options) => {
-                const tags = []
-                options.forEach((option) => tags.push(option.key))
-                setModalData(prev => ({ ...prev, ['tags']: tags }))
-              }}
-              onCreateOption={(tag) => {
-                const tags = modalData.tags?.concat(tag)
-                setModalData(prev => ({ ...prev, ['tags']: tags }))
-              }}
-              selectedOptions={modalData.tags?.map((tag) => ({ key: tag, label: tag }))}
-            />
-          </EuiFormRow>
-        </EuiForm>
-      </EuiModalBody>
-      <EuiModalFooter>
-        <EuiButton
-          disabled={loadingModal || !(modalData.name || '').length || !validParams()}
-          fill
-          form='create'
-          isLoading={loadingModal}
-          onClick={onModalCreateSubmit}
-          type='submit'
-        >
-          Create
-        </EuiButton>
-        <EuiButton
-          color='text'
-          disabled={loadingModal}
-          onClick={onModalCreateClose}
-        >
-          Cancel
-        </EuiButton>
-      </EuiModalFooter>
-    </EuiModal>
-  )
-
-  /**
-   * Modal to update a scenario.
-   */
-  const modalUpdate = (
-    <EuiModal onClose={onModalUpdateClose}>
-      <EuiModalHeader>
-        <EuiModalHeaderTitle>
-          Update <b>{modalData.name}</b>
-        </EuiModalHeaderTitle>
-      </EuiModalHeader>
-      <EuiModalBody>
-        <EuiText color='subdued' size='xs'>Scenario _id:<br /><b>{modalData._id}</b></EuiText>
-        <EuiSpacer size='m' />
-        <EuiForm component='form' id='update'>
-          <EuiFormRow label='Name' helpText='A descriptive name for this scenario.'>
-            <EuiFieldText
-              name='name'
-              onChange={(e) => {
-                setModalData(prev => ({ ...prev, name: e.target.value }))
-              }}
-              value={modalData.name}
-            />
-          </EuiFormRow>
-          <EuiFormRow
-            label='Params'
-            helpText={<>
-              <div>Values that will be passed to the params of strategies.</div>
-              <div>Example: <EuiCode transparentBackground>{'{ "text": "foobar" }'}</EuiCode></div>
-            </>}
-          >
-            <EuiPanel hasBorder paddingSize='s'>
-              {renderEditor()}
-            </EuiPanel>
-          </EuiFormRow>
-          <EuiFormRow label='Tags' helpText='Optional tags to keep things organized.'>
-            <EuiComboBox
-              noSuggestions
-              placeholder='Tags'
-              onChange={(options) => {
-                const tags = []
-                options.forEach((option) => tags.push(option.key))
-                setModalData(prev => ({ ...prev, ['tags']: tags }))
-              }}
-              onCreateOption={(tag) => {
-                const tags = modalData.tags?.concat(tag)
-                setModalData(prev => ({ ...prev, ['tags']: tags }))
-              }}
-              selectedOptions={(() => {
-                const options = []
-                modalData.tags?.forEach((tag) => options.push({
-                  key: tag,
-                  label: tag
-                }))
-                return options
-              })()}
-            />
-          </EuiFormRow>
-        </EuiForm>
-      </EuiModalBody>
-      <EuiModalFooter>
-        <EuiButton
-          color='primary'
-          disabled={loadingModal || !(modalData.name || '').length || !validParams()}
-          fill
-          form='update'
-          isLoading={loadingModal}
-          onClick={onModalUpdateSubmit}
-          type='submit'
-        >
-          Update
-        </EuiButton>
-        <EuiButton
-          color='text'
-          disabled={loadingModal}
-          onClick={onModalUpdateClose}
-        >
-          Cancel
-        </EuiButton>
-      </EuiModalFooter>
-    </EuiModal>
-  )
-
-  /**
-   * Modal to delete a scenario.
-   */
-  const modalDelete = (
-    <EuiModal onClose={onModalDeleteClose}>
-      <EuiModalHeader>
-        <EuiModalHeaderTitle>
-          Delete <b>{modalData.name}</b>?
-        </EuiModalHeaderTitle>
-      </EuiModalHeader>
-      <EuiModalBody>
-        <EuiForm component='form' id='delete'>
-          <EuiText color='subdued' size='xs'>Scenario _id:<br /><b>{modalData._id}</b></EuiText>
-          <EuiSpacer size='m' />
-          <EuiText>This action can't be undone.</EuiText>
-        </EuiForm>
-      </EuiModalBody>
-      <EuiModalFooter>
-        <EuiButton
-          color='danger'
-          disabled={loadingModal}
-          fill
-          form='modal-delete'
-          isLoading={loadingModal}
-          onClick={onModalDeleteSubmit}
-          type='submit'
-        >
-          Delete
-        </EuiButton>
-        <EuiButton
-          color='text'
-          disabled={loadingModal}
-          onClick={onModalDeleteClose}
-        >
-          Cancel
-        </EuiButton>
-      </EuiModalFooter>
-    </EuiModal>
-  )
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
@@ -499,7 +94,7 @@ const Scenarios = () => {
               pathname: `/projects/${project._id}/judgements`,
               state: {
                 query_on_load: {
-                  scenario_id: item._id,
+                  scenario: item,
                   filter: 'rated'
                 }
               }
@@ -510,7 +105,7 @@ const Scenarios = () => {
         )
       }
     },
-    {
+    /*{
       field: 'evaluations',
       name: 'Evaluations',
       render: (name, item) => {
@@ -520,21 +115,21 @@ const Scenarios = () => {
           </EuiLink>
         )
       }
-    },
+    },*/
     {
-      field: 'params',
-      name: 'Params',
+      field: 'values',
+      name: 'Values',
       render: (name, item) => {
-        const params = []
-        for (var param in item.params)
-          params.push(
+        const values = []
+        for (const param in item.values)
+          values.push(
             <EuiBadge color='hollow' key={param}>
-              {param}: {item.params[param]}
+              {param}: {item.values[param]}
             </EuiBadge>
           )
-        if (!params.length)
+        if (!values.length)
           return <EuiBadge color='warning' iconType='warningFilled' size='xs'>none</EuiBadge>
-        return params
+        return values
       },
     },
     {
@@ -558,8 +153,8 @@ const Scenarios = () => {
           color: 'text',
           description: 'Update this scenario',
           icon: 'documentEdit',
-          name: 'delete',
-          onClick: onModalUpdateOpen,
+          name: 'update',
+          onClick: (item) => setFlyout(item),
           type: 'icon',
         },
         {
@@ -567,31 +162,52 @@ const Scenarios = () => {
           description: 'Delete this scenario',
           icon: 'trash',
           name: 'delete',
-          onClick: onModalDeleteOpen,
+          onClick: (item) => setModalDelete(item),
           type: 'icon',
         }
       ],
     }
   ]
 
-  /**
-   * Button that opens the modal to create a scenarios.
-   */
   const buttonCreate = (
     <EuiButton
       fill
       iconType='plusInCircle'
-      onClick={onModalCreateOpen}>
+      onClick={() => setFlyout(true)}>
       Create a new scenario
     </EuiButton>
   )
 
   return (<>
-    {modalCreateVisible && modalCreate}
-    {modalUpdateVisible && modalUpdate}
-    {modalDeleteVisible && modalDelete}
+    {modalDelete &&
+      <ModalDelete
+        doc={modalDelete}
+        docType='scenario'
+        onClose={() => setModalDelete(null)}
+        onDeleted={() => {
+          // Remove doc from table
+          setItems(items.filter(item => item._id !== modalDelete._id))
+        }}
+      />
+    }
+    {flyout &&
+      <FlyoutForm
+        action={flyout === true ? 'create' : 'update'}
+        doc={flyout}
+        onClose={() => setFlyout(null)}
+        onCreated={(newDoc) => {
+          // Add doc to table
+          const item = { ...newDoc }
+          setItems(prev => [...prev, item])
+        }}
+        onUpdated={(newDoc) => {
+          // Update doc in table
+          setItems(prev => prev.map(item => item._id === newDoc._id ? newDoc : item))
+        }}
+      />
+    }
     <Page title='Scenarios' buttons={[buttonCreate]}>
-      <EuiSkeletonText lines={10} isLoading={loadingItems || loadingProject}>
+      <EuiSkeletonText lines={10} isLoading={isLoading || loadingProject}>
         {!items.length &&
           <EuiCallOut
             color='primary'
@@ -601,7 +217,12 @@ const Scenarios = () => {
               Create your first scenario to get started.
             </EuiText>
             <EuiSpacer size='m' />
-            {buttonCreate}
+            <EuiButton
+              fill
+              iconType='plusInCircle'
+              onClick={() => setFlyout(true)}>
+              Create a new scenario
+            </EuiButton>
           </EuiCallOut>
         }
         {!!items.length &&

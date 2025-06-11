@@ -404,6 +404,7 @@ def run_evaluation(project_id):
         runtime_judgements[hit['_id']] = {
             '_version': hit['_version'],
             '@timestamp': hit['_source']['@timestamp'],
+            '@author': hit['_source']['@author'],
             'scenario_id': hit['_source']['scenario_id'],
             'index': hit['_source']['index'],
             'doc_id': hit['_source']['doc_id'],
@@ -547,9 +548,6 @@ def run_evaluation(project_id):
 
 @app.route('/projects/<string:project_id>/evaluations/<string:evaluation_id>', methods=['GET'])
 def get_evaluation(project_id, evaluation_id):
-    """
-    TODO: Implement project_id filter
-    """
     try:
         response = es.get(index='esrs-evaluations', id=evaluation_id)
     except ApiError as e:
@@ -559,13 +557,19 @@ def get_evaluation(project_id, evaluation_id):
 @app.route('/projects/<string:project_id>/evaluations', methods=['GET'])
 def get_evaluations(project_id):
     try:
-        response = es.search(
-            index='esrs-evaluations',
-            body={
-                'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
-                'size': 10000
-            }
-        )
+        body={
+            'query': {
+                'bool': {
+                    'filter': {
+                        'term': {
+                            'project_id': project_id
+                        }
+                    }
+                }
+            },
+            'size': 10000
+        }
+        response = es.search(index='esrs-evaluations', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -575,9 +579,6 @@ def get_evaluations(project_id):
 
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['DELETE'])
 def delete_strategy(project_id, strategy_id):
-    """
-    TODO: Implement project_id filter to prevent deleting objects in other projects.
-    """
     try:
         response = es.delete(index='esrs-strategies', id=strategy_id)
     except ApiError as e:
@@ -587,6 +588,7 @@ def delete_strategy(project_id, strategy_id):
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['PUT'])
 def update_strategy(project_id, strategy_id):
     doc = request.get_json()
+    doc.pop('_id', None)
     doc['project_id'] = project_id
     doc['params'] = extract_params(doc['template']['source'])
     try:
@@ -608,9 +610,6 @@ def create_strategy(project_id):
 
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['GET'])
 def get_strategy(project_id, strategy_id):
-    """
-    TODO: Implement project_id filter
-    """
     try:
         response = es.get(index='esrs-strategies', id=strategy_id)
     except ApiError as e:
@@ -620,13 +619,19 @@ def get_strategy(project_id, strategy_id):
 @app.route('/projects/<string:project_id>/strategies', methods=['GET'])
 def get_strategies(project_id):
     try:
-        response = es.search(
-            index='esrs-strategies',
-            body={
-                'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
-                'size': 10000
-            }
-        )
+        body={
+            'query': {
+                'bool': {
+                    'filter': {
+                        'term': {
+                            'project_id': project_id
+                        }
+                    }
+                }
+            },
+            'size': 10000
+        }
+        response = es.search(index='esrs-strategies', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -649,6 +654,7 @@ def set_judgement(project_id, scenario_id):
     data = request.get_json()
     doc = {
         '@timestamp': timestamp(),
+        '@author': 'human',
         'project_id': project_id,
         'scenario_id': scenario_id,
         'index': data['index'],
@@ -675,17 +681,20 @@ def get_judgement(project_id, judgement_id):
 
 @app.route('/projects/<string:project_id>/judgements', methods=['GET'])
 def get_judgements(project_id):
-    """
-    TODO: REIMPLEMENT
-    """
     try:
-        response = es.search(
-            index='esrs-judgements',
-            body={
-                'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
-                'size': 10000
-            }
-        )
+        body={
+            'query': {
+                'bool': {
+                    'filter': {
+                        'term': {
+                            'project_id': project_id
+                        }
+                    }
+                }
+            },
+            'size': 10000
+        }
+        response = es.search(index='esrs-judgements', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -698,60 +707,62 @@ def get_judgements_docs(project_id, scenario_id):
     Expected structure of the request:
     
     {
-        "indices": STRING,              # Required
+        "index_pattern": STRING,        # Required
         "query_string": STRING,         # Optional
-        "filter": {                     # Optional
-            "judgements": {
-                "rated": {
-                    "mode": STRING,     # "exclude" (default) or "include"
-                    "value": BOOLEAN
-                }
-                "ratings": {
-                    "mode": STRING,     # "exclude" (default) or "include"
-                    "value": []         # List of null or integer values in rating scale
-                }
-            }
-        },
-        "sort": [                       # Optional
-            {
-                FIELD: {                # Default: "@timestamp"
-                    "order": STRING     # Options: "desc" (default) or "desc"
-                }
-            }
-        ],
+        "filter": STRING,               # Optional: "rated", "rated-ai", "rated-human", "unrated" (or omitted for no filter)
+        "sort": STRING,                 # Optional: "match", "rating-newest", "rating-oldest"
         "_source": {}                   # Optional
     }
     """
     data = request.get_json()
-    indices = data['indices']
+    index_pattern = data['index_pattern']
     query_string = data.get('query_string') or '*'
-    filter = data.get('filter', {})
+    filter = data.get('filter')
+    sort = data.get('sort')
     _source = data.get('_source', True)
     response = {}
     try:
         
-        # Get rated docs
-        rated_docs = {}
-        es_response = es.search(
-            index='esrs-judgements',
-            body={
-                'query': {
-                    'bool': {
-                        'filter': [
-                            { 'term': { 'project_id': project_id }},
-                            { 'term': { 'scenario_id': scenario_id }}
-                        ]
-                    }
-                },
-                'size': 10000
-            }
-        )
+        # Get judgements for scenario
+        judgements = {}
+        body = {
+            'query': {
+                'bool': {
+                    'filter': [
+                        { 'term': { 'project_id': project_id }},
+                        { 'term': { 'scenario_id': scenario_id }}
+                    ]
+                }
+            },
+            'size': 10000
+        }
+        if filter == 'rated-human':
+            body['query']['bool']['filter'].append({
+                'term': { '@author': 'human'}
+            })
+        elif filter == 'rated-ai':
+            body['query']['bool']['filter'].append({
+                'term': { '@author': 'ai'}
+            })
+        if sort == 'rating-newest':
+            body['sort'] = [{
+                '@timestamp': 'desc'
+            }]
+        elif sort == 'rating-oldest':
+            body['sort'] = [{
+                '@timestamp': 'asc'
+            }]
+        es_response = es.search(index='esrs-judgements', body=body)
         for hit in es_response.body['hits']['hits']:
             _index = hit['_source']['index']
             _id = hit['_source']['doc_id']
-            if _index not in rated_docs:
-                rated_docs[_index] = {}
-            rated_docs[_index][_id] = hit['_source'].get('rating')
+            if _index not in judgements:
+                judgements[_index] = {}
+            judgements[_index][_id] = {
+                '@timestamp': hit['_source'].get('@timestamp'),
+                '@author': hit['_source'].get('@author'),
+                'rating': hit['_source'].get('rating')
+            }
             
         # Search docs
         body = {
@@ -769,32 +780,41 @@ def get_judgements_docs(project_id, scenario_id):
             '_source': _source
         }
         
-        # Filter docs with ratings
-        if filter.get('judgements', {}).get('rated'):
-            rated_docs_clauses = []
-            for _index, doc_ids in rated_docs.items():
-                rated_docs_clauses.append({
+        # Filter docs by judgements
+        if filter and filter != 'all':
+            filter_clauses = []
+            for _index in judgements.keys():
+                filter_clauses.append({
                     'bool': {
                         'filter': [
                             { 'term': { '_index': _index }},
-                            { 'ids': { 'values': list(doc_ids.keys()) }}
+                            { 'ids': { 'values': list(judgements[_index].keys()) }}
                         ]
                     }
                 })
-            if filter.get('judgements', {}).get('rated', {}).get('mode') == "exclude":
-                body['query']['bool']['must_not'] = rated_docs_clauses
+            if filter == 'unrated':
+                body['query']['bool']['must_not'] = filter_clauses
             else:
-                body['query']['bool']['should'] = rated_docs_clauses
+                body['query']['bool']['should'] = filter_clauses
                 body['query']['bool']['minimum_should_match'] = 1
-        es_response = es.search(index=indices, body=body)
+        if sort == 'match':
+            body['sort'] = [{
+                '_score': 'desc'
+            }]
+        es_response = es.search(index=index_pattern, body=body)
         
         # Merge docs and ratings
         response['hits'] = es_response.body['hits']
         for i, hit in enumerate(response['hits']['hits']):
             response['hits']['hits'][i] = {
-                'rating': rated_docs.get(hit['_index'], {}).get(hit['_id'], None),
+                '@timestamp': judgements.get(hit['_index'], {}).get(hit['_id'], {}).get('@timestamp', None),
+                '@author': judgements.get(hit['_index'], {}).get(hit['_id'], {}).get('@author', None),
+                'rating': judgements.get(hit['_index'], {}).get(hit['_id'], {}).get('rating', None),
                 'doc': hit
             }
+        if response['hits']['hits'] and sort in ( 'rating-newest', 'rating-oldest' ):
+            reverse = True if sort == 'rating-newest' else False
+            response['hits']['hits'] = sorted(response['hits']['hits'], key=lambda hit: hit['@timestamp'], reverse=reverse)
             
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -820,6 +840,7 @@ def update_scenario(project_id, scenario_id):
     TODO: Implement project_id filter
     """
     doc = request.get_json()
+    doc.pop('_id', None)
     doc['project_id'] = project_id
     try:
         response = es.index(index='esrs-scenarios', id=scenario_id, document=doc)
@@ -851,12 +872,18 @@ def get_scenario(project_id, scenario_id):
 
 @app.route('/projects/<string:project_id>/scenarios', methods=['GET'])
 def get_scenarios(project_id):
-    """
-    TODO: Implement project_id filter
-    """
     try:
         body = {
             'size': 10000,
+            'query': {
+                'bool': {
+                    'filter': {
+                        'term': {
+                            'project_id': project_id
+                        }
+                    }
+                }
+            },
             'post_filter': {
                 'term': {
                     '_index': 'esrs-scenarios'
@@ -874,13 +901,6 @@ def get_scenarios(project_id):
                                     '_index': 'esrs-judgements'
                                 }
                             }
-                        },
-                        'evaluations': {
-                            'filter': {
-                                'term': {
-                                    '_index': 'esrs-evaluations'
-                                }
-                            }
                         }
                     }
                 }
@@ -888,8 +908,7 @@ def get_scenarios(project_id):
         }
         index = ','.join([
             'esrs-scenarios',
-            'esrs-judgements',
-            'esrs-evaluations',
+            'esrs-judgements'
         ])
         response = es.search(index=index, body=body)
     except ApiError as e:
@@ -913,6 +932,7 @@ def delete_display(project_id, display_id):
 @app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['PUT'])
 def update_display(project_id, display_id):
     doc = request.get_json()
+    doc.pop('_id', None)
     doc['project_id'] = project_id
     doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
     try:
@@ -935,9 +955,6 @@ def create_display(project_id):
 
 @app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['GET'])
 def get_display(project_id, display_id):
-    """
-    TODO: Implement project_id filter to prevent getting objects in other projects.
-    """
     try:
         response = es.get(index='esrs-displays', id=display_id)
     except ApiError as e:
@@ -947,13 +964,19 @@ def get_display(project_id, display_id):
 @app.route('/projects/<string:project_id>/displays', methods=['GET'])
 def get_displays(project_id):
     try:
-        response = es.search(
-            index='esrs-displays',
-            body={
-                'query':{'bool':{'filter':{'term':{'project_id':project_id}}}},
-                'size': 10000
-            }
-        )
+        body={
+            'query': {
+                'bool': {
+                    'filter': {
+                        'term': {
+                            'project_id': project_id
+                        }
+                    }
+                }
+            },
+            'size': 10000
+        }
+        response = es.search(index='esrs-displays', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -975,7 +998,7 @@ def delete_project(project_id):
 @app.route('/projects/<string:project_id>', methods=['PUT'])
 def update_project(project_id):
     doc = request.get_json()
-    return jsonify({'test':'foo'}), 500 # TODO REMOVE
+    doc.pop('_id', None)
     try:
         response = es.update(index='esrs-projects', id=project_id, doc=doc)
     except ApiError as e:
@@ -1016,6 +1039,13 @@ def get_projects():
                         'field': 'project_id'
                     },
                     'aggs': {
+                        'displays': {
+                            'filter': {
+                                'term': {
+                                    '_index': 'esrs-displays'
+                                }
+                            }
+                        },
                         'scenarios': {
                             'filter': {
                                 'term': {
@@ -1050,6 +1080,7 @@ def get_projects():
         }
         index = ','.join([
             'esrs-projects',
+            'esrs-displays',
             'esrs-scenarios',
             'esrs-judgements',
             'esrs-strategies',

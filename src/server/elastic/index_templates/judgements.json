@@ -8,6 +8,9 @@
       "@timestamp": {
         "type": "date"
       },
+      "@author": {
+        "type": "keyword"
+      },
       "project_id": {
         "type": "keyword"
       },

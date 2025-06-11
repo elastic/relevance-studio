@@ -28,7 +28,7 @@ import api from '../../api'
 const Judgements = () => {
 
   const location = useLocation()
-  
+
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
@@ -39,11 +39,13 @@ const Judgements = () => {
   const defaultFilterOptions = [
     { label: 'All docs', value: 'all' },
     { label: 'Rated docs', value: 'rated' },
+    { label: 'Rated by human', value: 'rated-human' },
+    { label: 'Rated by AI', value: 'rated-ai' },
     { label: 'Unrated docs', value: 'unrated' }
   ]
   const defaultSortOptions = [
     { label: 'By match', value: 'match' },
-    { label: 'By newest ratings', value: 'rating-newst' },
+    { label: 'By newest ratings', value: 'rating-newest' },
     { label: 'By oldest ratings', value: 'rating-oldest' }
   ]
 
@@ -77,7 +79,7 @@ const Judgements = () => {
     if (!project?._id)
       return
     (async () => {
-    
+
       // Submit API request
       let response
       try {
@@ -118,7 +120,7 @@ const Judgements = () => {
     if (!project?._id)
       return
     (async () => {
-    
+
       // Submit API request
       let response
       try {
@@ -212,41 +214,18 @@ const Judgements = () => {
   const onSearch = () => {
     (async () => {
 
-      let filter = null
-      switch (filterSelected.value) {
-        case 'rated':
-          filter = { judgements: { rated: { mode: 'include', value: true }}}
-          break
-        case 'unrated':
-          filter = { judgements: { rated: { mode: 'exclude', value: true }}}
-          break
-        default:
-          break
-      }
-      let sort = null
-      switch (sortSelected.value) {
-        case 'match':
-          sort = [{ _score: { order: 'desc' }}]
-          break
-        case 'rating-newest':
-          sort = [{ '@timestamp': { order: 'desc' }}]
-          break
-        case 'rating-oldest':
-          sort = [{ '@timestamp': { order: 'asc' }}]
-          break
-        default:
-          break
-      }
+      // Submit API request
       const body = {
-        indices: project.indices,
+        index_pattern: project.index_pattern,
         query_string: queryString,
       }
-      if (filter)
-        body.filter = filter
+      console.log(filterSelected)
+      if (filterSelected.value)
+        body.filter = filterSelected.value
+      if (sortSelected.value)
+        body.sort = sortSelected.value
       if (sourceFilters)
         body._source = { includes: sourceFilters }
-    
-      // Submit API request
       let response
       try {
         setLoadingResults(true)
@@ -368,7 +347,6 @@ const Judgements = () => {
     return <EuiSelectable
       options={sortOptions}
       onChange={(newOptions, event, changedOption) => {
-        console.log(changedOption)
         setSortOptions(newOptions)
         // Sorting by anything with ratings requires filtering by rated docs
         if (changedOption.value.startsWith('rating')) {
@@ -382,10 +360,10 @@ const Judgements = () => {
             }
             return newOptions
           })
-        } 
+        }
         setSortOpen(false)
       }}
-      singleSelection      
+      singleSelection
       listProps={{
         css: { '.euiSelectableList__list': { maxBlockSize: 200 } },
       }}
@@ -409,6 +387,8 @@ const Judgements = () => {
           project={project}
           scenario={scenario}
           rating={result.rating}
+          author={result['@author']}
+          timestamp={result['@timestamp']}
           template={resolveIndexToDisplay(result.doc._index)?.template}
         />
       )
@@ -442,7 +422,7 @@ const Judgements = () => {
             zIndex: 999
           }}>
             <EuiPanel
-              hasBorder={false} 
+              hasBorder={false}
               hasShadow={false}
               paddingSize='none'
               style={{ borderRadius: 0 }}
@@ -516,7 +496,7 @@ const Judgements = () => {
                             >
                               {renderSelectSort()}
                             </EuiPopover>
-                            
+
                           </EuiFilterGroup>
                         </EuiFlexItem>
                       </EuiFlexGroup>
@@ -527,37 +507,37 @@ const Judgements = () => {
               <EuiSpacer size='s' />
               <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
                 {!!results.length &&
-                <EuiFlexGroup alignItems='center' gutterSize='s'>
-                  <EuiFlexItem grow={5}>
-                    <EuiText color='subdued' size='xs'>
-                      Showing {results.length.toLocaleString()} of {numResults.toLocaleString()}{numResults >= 10000 ? '+' : ''} result{numResults != 1 ? 's' : ''}
-                    </EuiText>
-                  </EuiFlexItem>
-                  <EuiFlexItem grow={5}>
-                    <EuiText color='subdued' size='xs' style={{ textAlign: 'right' }}>
-                      <EuiIcon
-                        color='subdued'
-                        type='grid'
-                        size='xs'
-                        style={{ marginRight: '6px' }}
-                      />
-                      <EuiToolTip content='Change grid size' position='bottom'>
-                        <EuiButtonGroup
-                          buttonSize='compressed'
-                          prepend='Grid size'
-                          idSelected={resultsPerRow}
-                          onChange={(id) => setResultsPerRow(id)}
-                          options={[
-                            { id: 1, label: <EuiText size='xs'><small>1</small></EuiText> },
-                            { id: 2, label: <EuiText size='xs'><small>2</small></EuiText> },
-                            { id: 3, label: <EuiText size='xs'><small>3</small></EuiText> },
-                            { id: 4, label: <EuiText size='xs'><small>4</small></EuiText> }
-                          ]}
+                  <EuiFlexGroup alignItems='center' gutterSize='s'>
+                    <EuiFlexItem grow={5}>
+                      <EuiText color='subdued' size='xs'>
+                        Showing {results.length.toLocaleString()} of {numResults.toLocaleString()}{numResults >= 10000 ? '+' : ''} result{numResults != 1 ? 's' : ''}
+                      </EuiText>
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={5}>
+                      <EuiText color='subdued' size='xs' style={{ textAlign: 'right' }}>
+                        <EuiIcon
+                          color='subdued'
+                          type='grid'
+                          size='xs'
+                          style={{ marginRight: '6px' }}
                         />
-                      </EuiToolTip>
-                    </EuiText>
-                  </EuiFlexItem>
-                </EuiFlexGroup>
+                        <EuiToolTip content='Change grid size' position='bottom'>
+                          <EuiButtonGroup
+                            buttonSize='compressed'
+                            prepend='Grid size'
+                            idSelected={resultsPerRow}
+                            onChange={(id) => setResultsPerRow(id)}
+                            options={[
+                              { id: 1, label: <EuiText size='xs'><small>1</small></EuiText> },
+                              { id: 2, label: <EuiText size='xs'><small>2</small></EuiText> },
+                              { id: 3, label: <EuiText size='xs'><small>3</small></EuiText> },
+                              { id: 4, label: <EuiText size='xs'><small>4</small></EuiText> }
+                            ]}
+                          />
+                        </EuiToolTip>
+                      </EuiText>
+                    </EuiFlexItem>
+                  </EuiFlexGroup>
                 }
               </EuiPanel>
               <EuiSpacer size='s' />
