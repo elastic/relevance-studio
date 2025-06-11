@@ -2,10 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import {
-  EuiBadge,
   EuiButton,
-  EuiCallOut,
-  EuiCode,
   EuiFlexGroup,
   EuiFlexItem,
   EuiForm,
@@ -14,7 +11,6 @@ import {
   EuiSkeletonText,
   EuiSkeletonTitle,
   EuiSpacer,
-  EuiText
 } from '@elastic/eui'
 import api from '../../api'
 import utils from '../../utils'
@@ -172,40 +168,6 @@ const StrategiesEdit = () => {
     )
   }
 
-  const renderCalloutParams = () => {
-    const _params = []
-    params.forEach((param, i) => _params.push(
-      <EuiBadge color='hollow' key={i}>
-        <EuiCode transparentBackground>{param}</EuiCode>
-      </EuiBadge>
-    ))
-
-    return (
-      <EuiPanel paddingSize='none' hasBorder={!!params.size} hasShadow={false}>
-        <EuiCallOut
-          color={!params.size ? 'warning' : 'text'}
-          iconType={!params.size ? 'warning' : null}
-          title={!params.size ? 'Your strategy has no params' : 'Your strategy has these params:'}
-        >
-          <EuiSpacer size='s' />
-          <EuiText size='xs'>
-            {!params.size &&
-              <EuiText size='xs'>
-                <p>
-                  Your strategy won't use inputs until you give it variables.
-                </p>
-                <p>
-                  Example: <EuiCode>{'"{{ text }}"'}</EuiCode>
-                </p>
-              </EuiText>
-            }
-            {_params}
-          </EuiText>
-        </EuiCallOut>
-      </EuiPanel>
-    )
-  }
-
   const buttonHelp = (
     <EuiButton
       color='text'
@@ -226,6 +188,7 @@ const StrategiesEdit = () => {
         }
       </EuiSkeletonTitle>
     } buttons={[buttonHelp]}>
+      {showHelp && <FlyoutHelp onClose={() => setShowHelp(false)} />}
       <EuiFlexGroup alignItems='flexStart' style={{ height: 'calc(100vh - 135px)' }}>
 
         {/* Editor */}
@@ -264,7 +227,7 @@ const StrategiesEdit = () => {
               <EuiFormRow fullWidth label='Query DSL editor'>
                 <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
                   <EuiSkeletonText lines={21} isLoading={loadingStrategy}>
-                    <div style={{ height: 'calc(100vh - 300px)' }}>
+                    <div style={{ height: 'calc(100vh - 200px)' }}>
                       <EuiPanel
                         hasBorder
                         paddingSize='none'
@@ -282,23 +245,11 @@ const StrategiesEdit = () => {
                   </EuiSkeletonText>
                 </EuiPanel>
               </EuiFormRow>
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-                {strategyDraft && renderCalloutParams()}
-              </div>
 
             </EuiForm>
           </EuiPanel>
         </EuiFlexItem>
 
-        {/* Details */}
-        <EuiFlexItem grow={5}>
-          <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-
-            {/* Help: Strategies */}
-            {showHelp && <FlyoutHelp onClose={() => setShowHelp(false)} />}
-
-          </EuiPanel>
-        </EuiFlexItem>
       </EuiFlexGroup>
     </Page >
   </>)
