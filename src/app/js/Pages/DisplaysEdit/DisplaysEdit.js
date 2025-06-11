@@ -124,8 +124,8 @@ const DisplaysEdit = () => {
     if (display.template.body)
       setBodyDraft(display.template.body)
     if (display.template.image?.position)
-      setImageUrl(display.template.image.position)
-    if (display.template.image?.position)
+      setImagePosition(display.template.image.position)
+    if (display.template.image?.url)
       setImageUrl(display.template.image.url)
   }, [display.template])
 

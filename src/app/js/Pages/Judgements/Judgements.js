@@ -219,7 +219,6 @@ const Judgements = () => {
         index_pattern: project.index_pattern,
         query_string: queryString,
       }
-      console.log(filterSelected)
       if (filterSelected.value)
         body.filter = filterSelected.value
       if (sortSelected.value)
@@ -394,7 +393,7 @@ const Judgements = () => {
       )
     })
     const grid = <>
-      <EuiFlexGrid columns={resultsPerRow} direction='row'>
+      <EuiFlexGrid columns={parseInt(resultsPerRow)} direction='row'>
         {cards.map((card, i) => {
           return (
             <EuiFlexItem key={i}>
@@ -525,13 +524,14 @@ const Judgements = () => {
                           <EuiButtonGroup
                             buttonSize='compressed'
                             prepend='Grid size'
-                            idSelected={resultsPerRow}
-                            onChange={(id) => setResultsPerRow(id)}
+                            idSelected={`grid-size-${resultsPerRow}`}
+                            legend='Grid size'
+                            onChange={(id) => setResultsPerRow(id.slice(-1))}
                             options={[
-                              { id: 1, label: <EuiText size='xs'><small>1</small></EuiText> },
-                              { id: 2, label: <EuiText size='xs'><small>2</small></EuiText> },
-                              { id: 3, label: <EuiText size='xs'><small>3</small></EuiText> },
-                              { id: 4, label: <EuiText size='xs'><small>4</small></EuiText> }
+                              { id: 'grid-size-1', label: <EuiText size='xs'><small>1</small></EuiText> },
+                              { id: 'grid-size-2', label: <EuiText size='xs'><small>2</small></EuiText> },
+                              { id: 'grid-size-3', label: <EuiText size='xs'><small>3</small></EuiText> },
+                              { id: 'grid-size-4', label: <EuiText size='xs'><small>4</small></EuiText> }
                             ]}
                           />
                         </EuiToolTip>

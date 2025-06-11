@@ -145,7 +145,6 @@ const EvaluationsScatterplot = (props) => {
         snap={false}
         type={TooltipType.Follow}
         customTooltip={(d) => {
-          console.warn(d)
           const items = []
           const header = [ 'Strategy', 'Precision', 'Recall', 'NDCG' ]
           header.forEach((value, i) => {

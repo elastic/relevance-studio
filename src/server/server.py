@@ -812,6 +812,7 @@ def get_judgements_docs(project_id, scenario_id):
                 'rating': judgements.get(hit['_index'], {}).get(hit['_id'], {}).get('rating', None),
                 'doc': hit
             }
+        print(json.dumps(response['hits']['hits'], indent=2))
         if response['hits']['hits'] and sort in ( 'rating-newest', 'rating-oldest' ):
             reverse = True if sort == 'rating-newest' else False
             response['hits']['hits'] = sorted(response['hits']['hits'], key=lambda hit: hit['@timestamp'], reverse=reverse)
