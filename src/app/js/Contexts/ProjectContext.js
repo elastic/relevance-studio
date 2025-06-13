@@ -221,7 +221,6 @@ export const ProjectProvider = ({ children }) => {
    */
   const handleDoc = async (action, docType, doc) => {
     console.debug(`Creating ${docType} for project: ${projectId}`)
-    console.warn(doc)
     let response
     try {
       fnSetIsProcessing[docType](true)

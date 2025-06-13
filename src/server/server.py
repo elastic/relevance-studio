@@ -19,17 +19,64 @@ from flask_cors import CORS
 
 ####  Configuration  ###########################################################
 
+# Parse environment variables
 load_dotenv()
 
-# Setup Elasticsearch client
-es = Elasticsearch(
-    hosts=[os.environ.get('ELASTICSEARCH_URL')],
-    basic_auth=(
-        os.environ.get('ELASTICSEARCH_USERNAME'),
-        os.environ.get('ELASTICSEARCH_PASSWORD')
-    ),
-    request_timeout=4000
-)
+ELASTIC_CLOUD_ID = os.getenv('ELASTIC_CLOUD_ID', '').strip()
+ELASTICSEARCH_URL = os.getenv('ELASTICSEARCH_URL', '').strip()
+ELASTICSEARCH_API_KEY = os.getenv('ELASTICSEARCH_API_KEY', '').strip()
+ELASTICSEARCH_USERNAME = os.getenv('ELASTICSEARCH_USERNAME', '').strip()
+ELASTICSEARCH_PASSWORD = os.getenv('ELASTICSEARCH_PASSWORD', '').strip()
+CONTENT_ELASTIC_CLOUD_ID = os.getenv('CONTENT_ELASTIC_CLOUD_ID', '').strip()
+CONTENT_ELASTICSEARCH_URL = os.getenv('CONTENT_ELASTICSEARCH_URL', '').strip()
+CONTENT_ELASTICSEARCH_API_KEY = os.getenv('CONTENT_ELASTICSEARCH_API_KEY', '').strip()
+CONTENT_ELASTICSEARCH_USERNAME = os.getenv('CONTENT_ELASTICSEARCH_USERNAME', '').strip()
+CONTENT_ELASTICSEARCH_PASSWORD = os.getenv('CONTENT_ELASTICSEARCH_PASSWORD', '').strip()
+ELASTICSEARCH_TIMEOUT = int(os.getenv('ELASTICSEARCH_TIMEOUT', '60000').strip())
+
+# Validate configuration
+if not ELASTIC_CLOUD_ID and not ELASTICSEARCH_URL:
+    raise ValueError('You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL in .env')
+if not ELASTICSEARCH_API_KEY and not (ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD):
+    raise ValueError('You must configure either ELASTICSEARCH_API_KEY or both of ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD in .env')
+if CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL:
+    if not CONTENT_ELASTICSEARCH_API_KEY and not (CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD):
+        raise ValueError(f'When using {CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL}, you must configure either CONTENT_ELASTICSEARCH_API_KEY or both of CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD in .env')
+
+# Setup Elasticsearch clients
+es = {
+    'studio': None, # for the deployment with the esrs-* indices
+    'content': None # for the deployment with the source content to be judged and evaluated
+}
+
+# Setup client for deployment with Elasticsearch Relevance Studio
+es_studio_kwargs = {
+    'request_timeout': ELASTICSEARCH_TIMEOUT
+}
+if ELASTIC_CLOUD_ID:
+    es_studio_kwargs['cloud_id'] = ELASTIC_CLOUD_ID
+else:
+    es_studio_kwargs['hosts'] = [ELASTICSEARCH_URL]
+if ELASTICSEARCH_API_KEY:
+    es_studio_kwargs['api_key'] = ELASTICSEARCH_API_KEY
+else:
+    es_studio_kwargs['basic_auth'] = (ELASTICSEARCH_USERNAME, ELASTICSEARCH_PASSWORD)
+es['studio'] = Elasticsearch(**es_studio_kwargs)
+
+# Setup client for delployment with source content
+if not CONTENT_ELASTIC_CLOUD_ID and not CONTENT_ELASTICSEARCH_URL:
+    es['content'] = es['studio']
+else:
+    es_content_kwargs = {}
+    if CONTENT_ELASTIC_CLOUD_ID:
+        es_content_kwargs['cloud_id'] = CONTENT_ELASTIC_CLOUD_ID
+    else:
+        es_content_kwargs['hosts'] = [CONTENT_ELASTICSEARCH_URL]
+    if CONTENT_ELASTICSEARCH_API_KEY:
+        es_content_kwargs['api_key'] = CONTENT_ELASTICSEARCH_API_KEY
+    else:
+        es_content_kwargs['basic_auth'] = (CONTENT_ELASTICSEARCH_USERNAME, CONTENT_ELASTICSEARCH_PASSWORD)
+    es['content'] = Elasticsearch(**es_content_kwargs)
 
 # Pre-compiled regular expressions
 RE_PARAMS = re.compile(r'{{\s*([\w.]+)\s*}}')
@@ -64,7 +111,7 @@ def post_search(index_patterns):
     Submit a search request.
     """
     try:
-        response = es.search(index=index_patterns, body=request.get_json())
+        response = es['content'].search(index=index_patterns, body=request.get_json())
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -80,7 +127,7 @@ def get_indices(index_patterns):
     # Get matching indices and their mappings
     mappings = {}
     try:
-        mappings = es.indices.get_mapping(index=index_patterns).body
+        mappings = es['content'].indices.get_mapping(index=index_patterns).body
     except ApiError as e:
         if e.meta.status == 404:
             return {}
@@ -127,7 +174,7 @@ def delete_evaluation(project_id, evaluation_id):
     TODO: Implement project_id filter to prevent deleting objects in other projects.
     """
     try:
-        response = es.delete(index='esrs-evaluations', id=evaluation_id)
+        response = es['studio'].delete(index='esrs-evaluations', id=evaluation_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -329,7 +376,7 @@ def run_evaluation(project_id):
     # Get project
     es_response = None
     try:
-        es_response = es.get(index='esrs-projects', id=project_id)
+        es_response = es['studio'].get(index='esrs-projects', id=project_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     index_pattern = es_response.body['_source']['index_pattern']
@@ -343,7 +390,7 @@ def run_evaluation(project_id):
             'size': size,
             'version': True
         }
-        es_response = es.search(index='esrs-strategies', body=body)
+        es_response = es['studio'].search(index='esrs-strategies', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     for hit in es_response.body['hits']['hits']:
@@ -368,7 +415,7 @@ def run_evaluation(project_id):
             'size': size,
             'version': True
         }
-        es_response = es.search(index='esrs-scenarios', body=body)
+        es_response = es['studio'].search(index='esrs-scenarios', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     for hit in es_response.body['hits']['hits']:
@@ -389,7 +436,7 @@ def run_evaluation(project_id):
             'size': size,
             'version': True
         }
-        es_response = es.search(index='esrs-judgements', body=body)
+        es_response = es['studio'].search(index='esrs-judgements', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     ratings = {}
@@ -453,7 +500,7 @@ def run_evaluation(project_id):
                 'requests': _rank_eval['requests'],
                 'templates': _rank_eval['templates']
             }
-            es_response = es.rank_eval(
+            es_response = es['content'].rank_eval(
                 index=index_pattern,
                 body=body
             )
@@ -538,7 +585,7 @@ def run_evaluation(project_id):
     if task['store_results']:
         evaluation_id = uuid.uuid4()
         try:
-            es_response = es.index(
+            es_response = es['studio'].index(
                 index='esrs-evaluations',
                 id=evaluation_id,
                 document=response
@@ -551,7 +598,7 @@ def run_evaluation(project_id):
 @app.route('/projects/<string:project_id>/evaluations/<string:evaluation_id>', methods=['GET'])
 def get_evaluation(project_id, evaluation_id):
     try:
-        response = es.get(index='esrs-evaluations', id=evaluation_id)
+        response = es['studio'].get(index='esrs-evaluations', id=evaluation_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -571,7 +618,7 @@ def get_evaluations(project_id):
             },
             'size': 10000
         }
-        response = es.search(index='esrs-evaluations', body=body)
+        response = es['studio'].search(index='esrs-evaluations', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -582,7 +629,7 @@ def get_evaluations(project_id):
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['DELETE'])
 def delete_strategy(project_id, strategy_id):
     try:
-        response = es.delete(index='esrs-strategies', id=strategy_id)
+        response = es['studio'].delete(index='esrs-strategies', id=strategy_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -594,7 +641,7 @@ def update_strategy(project_id, strategy_id):
     doc['project_id'] = project_id
     doc['params'] = extract_params(doc['template']['source'])
     try:
-        response = es.index(index='esrs-strategies', id=strategy_id, document=doc)
+        response = es['studio'].index(index='esrs-strategies', id=strategy_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -605,7 +652,7 @@ def create_strategy(project_id):
     doc['project_id'] = project_id
     strategy_id = uuid.uuid4()
     try:
-        response = es.index(index='esrs-strategies', id=strategy_id, document=doc)
+        response = e['studio'].index(index='esrs-strategies', id=strategy_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -613,7 +660,7 @@ def create_strategy(project_id):
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['GET'])
 def get_strategy(project_id, strategy_id):
     try:
-        response = es.get(index='esrs-strategies', id=strategy_id)
+        response = es['studio'].get(index='esrs-strategies', id=strategy_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -633,7 +680,7 @@ def get_strategies(project_id):
             },
             'size': 10000
         }
-        response = es.search(index='esrs-strategies', body=body)
+        response = es['studio'].search(index='esrs-strategies', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -646,7 +693,7 @@ def unset_judgement(project_id, scenario_id):
     data = request.get_json()
     _id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
     try:
-        response = es.delete(index='esrs-judgements', id=_id)
+        response = es['studio'].delete(index='esrs-judgements', id=_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -665,7 +712,7 @@ def set_judgement(project_id, scenario_id):
     }
     _id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
     try:
-        response = es.index(index='esrs-judgements', id=_id, document=doc)
+        response = es['studio'].index(index='esrs-judgements', id=_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -676,7 +723,7 @@ def get_judgement(project_id, judgement_id):
     TODO: REIMPLEMENT
     """
     try:
-        response = es.get(index='esrs-judgements', id=judgement_id)
+        response = es['studio'].get(index='esrs-judgements', id=judgement_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -696,7 +743,7 @@ def get_judgements(project_id):
             },
             'size': 10000
         }
-        response = es.search(index='esrs-judgements', body=body)
+        response = es['studio'].search(index='esrs-judgements', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -754,7 +801,7 @@ def get_judgements_docs(project_id, scenario_id):
             body['sort'] = [{
                 '@timestamp': 'asc'
             }]
-        es_response = es.search(index='esrs-judgements', body=body)
+        es_response = es['studio'].search(index='esrs-judgements', body=body)
         for hit in es_response.body['hits']['hits']:
             _index = hit['_source']['index']
             _id = hit['_source']['doc_id']
@@ -803,7 +850,7 @@ def get_judgements_docs(project_id, scenario_id):
             body['sort'] = [{
                 '_score': 'desc'
             }]
-        es_response = es.search(index=index_pattern, body=body)
+        es_response = es['content'].search(index=index_pattern, body=body)
         
         # Merge docs and ratings
         response['hits'] = es_response.body['hits']
@@ -832,7 +879,7 @@ def delete_scenario(project_id, scenario_id):
     TODO: Implement project_id filter to prevent deleting objects in other projects.
     """
     try:
-        response = es.delete(index='esrs-scenarios', id=scenario_id)
+        response = es['studio'].delete(index='esrs-scenarios', id=scenario_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -846,7 +893,7 @@ def update_scenario(project_id, scenario_id):
     doc.pop('_id', None)
     doc['project_id'] = project_id
     try:
-        response = es.index(index='esrs-scenarios', id=scenario_id, document=doc)
+        response = es['studio'].index(index='esrs-scenarios', id=scenario_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -857,7 +904,7 @@ def create_scenario(project_id):
     doc['project_id'] = project_id
     scenario_id = uuid.uuid4()
     try:
-        response = es.index(index='esrs-scenarios', id=scenario_id, document=doc)
+        response = es['studio'].index(index='esrs-scenarios', id=scenario_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -868,7 +915,7 @@ def get_scenario(project_id, scenario_id):
     TODO: Implement project_id filter
     """
     try:
-        response = es.get(index='esrs-scenarios', id=scenario_id)
+        response = es['studio'].get(index='esrs-scenarios', id=scenario_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -913,7 +960,7 @@ def get_scenarios(project_id):
             'esrs-scenarios',
             'esrs-judgements'
         ])
-        response = es.search(index=index, body=body)
+        response = es['studio'].search(index=index, body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -927,7 +974,7 @@ def delete_display(project_id, display_id):
     TODO: Implement project_id filter to prevent deleting objects in other projects.
     """
     try:
-        response = es.delete(index='esrs-displays', id=display_id)
+        response = es['studio'].delete(index='esrs-displays', id=display_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -939,7 +986,7 @@ def update_display(project_id, display_id):
     doc['project_id'] = project_id
     doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
     try:
-        response = es.index(index='esrs-displays', id=display_id, document=doc)
+        response = es['studio'].index(index='esrs-displays', id=display_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -951,7 +998,7 @@ def create_display(project_id):
     doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
     display_id = uuid.uuid4()
     try:
-        response = es.index(index='esrs-displays', id=display_id, document=doc)
+        response = es['studio'].index(index='esrs-displays', id=display_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -959,7 +1006,7 @@ def create_display(project_id):
 @app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['GET'])
 def get_display(project_id, display_id):
     try:
-        response = es.get(index='esrs-displays', id=display_id)
+        response = es['studio'].get(index='esrs-displays', id=display_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -979,7 +1026,7 @@ def get_displays(project_id):
             },
             'size': 10000
         }
-        response = es.search(index='esrs-displays', body=body)
+        response = es['studio'].search(index='esrs-displays', body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -993,7 +1040,7 @@ def delete_project(project_id):
     TODO: Implement project_id filter to prevent deleting objects in other projects.
     """
     try:
-        response = es.delete(index='esrs-projects', id=project_id)
+        response = es['studio'].delete(index='esrs-projects', id=project_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -1003,7 +1050,7 @@ def update_project(project_id):
     doc = request.get_json()
     doc.pop('_id', None)
     try:
-        response = es.update(index='esrs-projects', id=project_id, doc=doc)
+        response = es['studio'].update(index='esrs-projects', id=project_id, doc=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -1013,7 +1060,7 @@ def create_project():
     doc = request.get_json()
     project_id = uuid.uuid4()
     try:
-        response = es.index(index='esrs-projects', id=project_id, document=doc)
+        response = es['studio'].index(index='esrs-projects', id=project_id, document=doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -1021,7 +1068,7 @@ def create_project():
 @app.route('/projects/<string:project_id>', methods=['GET'])
 def get_project(project_id):
     try:
-        response = es.get(index='esrs-projects', id=project_id)
+        response = es['studio'].get(index='esrs-projects', id=project_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -1089,7 +1136,7 @@ def get_projects():
             'esrs-strategies',
             'esrs-evaluations',
         ])
-        response = es.search(index=index, body=body)
+        response = es['studio'].search(index=index, body=body)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -1118,7 +1165,7 @@ def setup():
         with open(path_index_template) as file:
             body = json.loads(file.read())
         name = body['index_patterns'][0].replace('*', '')
-        response = es.indices.put_template(name=name, body=body)
+        response = es['studio'].indices.put_template(name=name, body=body)
     return { 'acknowledged': True }
 
 
