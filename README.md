@@ -58,7 +58,7 @@ it properly indexes the data.
 In a terminal, navigate to the root-level directory of this project and run:
 
 1. Run `nvm install && nvm use` to use the node version specified in .nvmrc
-2. Run `yarn install` in the root project directory (`eui-quickstart`) to install dependencies listed in `package.json`
+2. Run `yarn install` in the root project directory to install dependencies listed in `package.json`
 3. Run `yarn run dev` to start the app using the script defined in `package.json`
 4. Open [http://localhost:8080/](http://localhost:8080/) in your browser to open the app in development mode
 
