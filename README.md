@@ -10,7 +10,7 @@
 2. Enter the repo: `cd relevance-studio`
 3. Copy `.env-reference` to `.env`
 4. Configure `.env` to use the endpoints and credentials of your Elastic deployment
-5. Start the app: `docker compose up`
+5. Start the app: `docker compose up --build`
 6. Setup the index templates: `curl -XPOST http://localhost:4096/setup`
 7. Open the app: [http://localhost:4096/](http://localhost:4096/)
 
