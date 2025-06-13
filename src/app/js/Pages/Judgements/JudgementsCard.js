@@ -266,9 +266,9 @@ const JudgementsCard = ({ doc, scenario, template, ...props }) => {
           borderTopRightRadius: 0
         }
       }}
-      body={template.body}
-      imagePosition={template.image?.position}
-      imageUrl={template.image?.url}
+      body={template?.body}
+      imagePosition={template?.image?.position}
+      imageUrl={template?.image?.url}
     />
   </EuiForm>
 
