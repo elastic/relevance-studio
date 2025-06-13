@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   EuiBadge,
   EuiButton,
@@ -15,25 +15,24 @@ import {
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
-import api from '../../api'
-import utils from '../../utils'
-import { Page } from '../../Layout'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
+import { Page } from '../../Layout'
+import api from '../../api'
+import utils from '../../utils'
 
 const Evaluations = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const { project, loadingProject } = useProjectContext()
+  const { project, isProjectReady } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [items, setItems] = useState([])
-  const [loadingItems, setLoadingItems] = useState(true)
-  const [loadingModal, setLoadingModal] = useState(false)
-  const [runningEvaluation, setRunningEvaluation] = useState(false)
+  const [evaluations, setEvaluations] = useState([])
+  const [isLoadingEvaluations, setIsLoadingEvaluations] = useState(true)
+  const [isProcessingEvaluation, setIsProcessingEvaluation] = useState(false)
   const [modalData, setModalData] = useState({})
   const [modalDeleteVisible, setModalDeleteVisible] = useState(false)
 
@@ -44,36 +43,36 @@ const Evaluations = () => {
     if (!project?._id)
       return
     (async () => {
-    
+
       // Submit API request
       let response
       try {
-        setLoadingItems(true)
+        setIsLoadingEvaluations(true)
         response = await api.get_evaluations(project._id)
       } catch (error) {
         return addToast(api.errorToast(error, {
           title: 'Failed to get evaluations'
         }))
       } finally {
-        setLoadingItems(false)
+        setIsLoadingEvaluations(false)
       }
 
       // Handle API response
-      const items = []
-      response.data.hits.hits.forEach(doc => {
-        const item = doc._source
-        item._id = doc._id
-        items.push(item)
+      const docs = []
+      response.data.hits.hits.forEach(hit => {
+        const doc = hit._source
+        doc._id = hit._id
+        docs.push(doc)
       })
-      setItems(items)
+      setEvaluations(docs)
     })()
   }, [project])
-  
+
   const onRunEvaluationSubmit = (e) => {
     e.preventDefault();
     (async () => {
       try {
-        setRunningEvaluation(true)
+        setIsProcessingEvaluation(true)
 
         // Get strategies
         let strategies = []
@@ -100,7 +99,7 @@ const Evaluations = () => {
             title: 'Failed to get scenarios for evaluation'
           }))
         }
-      
+
         // Submit API request
         const params = {
           store_results: 'true'
@@ -108,19 +107,19 @@ const Evaluations = () => {
         const body = {
           strategies: strategies,
           scenarios: scenarios,
-          metrics: [ 'ndcg', 'precision', 'recall' ],
+          metrics: ['ndcg', 'precision', 'recall'],
           k: 10,
         }
         let response
         try {
-          setRunningEvaluation(true)
+          setIsProcessingEvaluation(true)
           response = await api.run_evaluation(project._id, body, params)
         } catch (error) {
           return addToast(api.errorToast(error, {
             title: 'Failed to run evaluation'
           }))
         } finally {
-          setRunningEvaluation(false)
+          setIsProcessingEvaluation(false)
         }
 
         // Handle API response
@@ -136,7 +135,7 @@ const Evaluations = () => {
         })
 
       } finally {
-        setRunningEvaluation(false)
+        setIsProcessingEvaluation(false)
       }
     })()
   }
@@ -144,19 +143,19 @@ const Evaluations = () => {
   const onModalDeleteSubmit = (e) => {
     e.preventDefault();
     (async () => {
-    
+
       // Submit API request
       const doc = { ...modalData }
       let response
       try {
-        setLoadingModal(true)
+        setIsProcessingEvaluation(true)
         response = await api.delete_evaluation(project._id, modalData._id)
       } catch (error) {
         return addToast(api.errorToast(error, {
           title: 'Failed to delete display'
         }))
       } finally {
-        setLoadingModal(false)
+        setIsProcessingEvaluation(false)
       }
 
       // Handle API response
@@ -173,15 +172,15 @@ const Evaluations = () => {
           </EuiText>
         )
       })
-      setItems(items.filter(item => item._id !== modalData._id))
+      setEvaluations(evaluations.filter(doc => doc._id !== modalData._id))
       onModalDeleteClose()
     })()
   }
 
   ////  Handlers: Modal open and close  ////////////////////////////////////////
 
-  const onModalDeleteOpen = (item) => {
-    setModalData(item)
+  const onModalDeleteOpen = (doc) => {
+    setModalData(doc)
     setModalDeleteVisible(true)
   }
 
@@ -212,10 +211,10 @@ const Evaluations = () => {
       <EuiModalFooter>
         <EuiButton
           color='danger'
-          disabled={loadingModal}
+          disabled={isProcessingEvaluation}
           fill
           form='modal-delete'
-          isLoading={loadingModal}
+          isLoading={isProcessingEvaluation}
           onClick={onModalDeleteSubmit}
           type='submit'
         >
@@ -223,7 +222,7 @@ const Evaluations = () => {
         </EuiButton>
         <EuiButton
           color='text'
-          disabled={loadingModal}
+          disabled={isProcessingEvaluation}
           onClick={onModalDeleteClose}
         >
           Cancel
@@ -234,15 +233,16 @@ const Evaluations = () => {
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  const tableColumns = [
+  const columns = useMemo(() => {
+      return [
     {
       field: '_id',
       name: 'Evaluation',
       sortable: true,
       truncateText: true,
-      render: (name, item) => (
-        <EuiLink href={`#/projects/${project._id}/evaluations/${item._id}`}>
-          {item._id}
+      render: (name, doc) => (
+        <EuiLink href={`#/projects/${project._id}/evaluations/${doc._id}`}>
+          {doc._id}
         </EuiLink>
       )
     },
@@ -250,9 +250,9 @@ const Evaluations = () => {
       field: 'metrics',
       name: 'Metrics',
       truncateText: true,
-      render: (name, item) => {
+      render: (name, doc) => {
         const metrics = []
-        item.config.metrics.forEach((metric) => {
+        doc.config.metrics.forEach((metric) => {
           metrics.push(<EuiBadge color='hollow' key={metric}>{metric}</EuiBadge>)
         })
         return metrics
@@ -262,19 +262,19 @@ const Evaluations = () => {
       field: 'num_strategies',
       name: 'Strategies',
       sortable: true,
-      render: (name, item) => item.strategy_id.length
+      render: (name, doc) => doc.strategy_id.length
     },
     {
       field: 'num_scenarios',
       name: 'Scenarios',
       sortable: true,
-      render: (name, item) => item.scenario_id.length
+      render: (name, doc) => doc.scenario_id.length
     },
     {
       field: '@timestamp',
       name: 'Time run',
       sortable: true,
-      render: (name, item) => new Date(item['@timestamp']).toLocaleString()
+      render: (name, doc) => new Date(doc['@timestamp']).toLocaleString()
     },
     {
       name: 'Actions',
@@ -290,6 +290,7 @@ const Evaluations = () => {
       ],
     }
   ]
+}, [evaluations])
 
   /**
    * Button that navigates to the page to create an evaluation.
@@ -298,7 +299,7 @@ const Evaluations = () => {
     <EuiButton
       fill
       iconType='plusInCircle'
-      isLoading={runningEvaluation}
+      isLoading={isProcessingEvaluation}
       onClick={onRunEvaluationSubmit}>
       Run evaluation
     </EuiButton>
@@ -307,8 +308,8 @@ const Evaluations = () => {
   return (<>
     {modalDeleteVisible && modalDelete}
     <Page title='Evaluations' buttons={[buttonCreate]}>
-      <EuiSkeletonText lines={10} isLoading={loadingItems || loadingProject}>
-        {!items.length &&
+      <EuiSkeletonText isLoading={!isProjectReady || isLoadingEvaluations} lines={10}>
+        {!evaluations &&
           <EuiCallOut
             color='primary'
             title='Welcome!'
@@ -320,10 +321,10 @@ const Evaluations = () => {
             {buttonCreate}
           </EuiCallOut>
         }
-        {!!items.length &&
+        {!!evaluations &&
           <EuiInMemoryTable
-            columns={tableColumns}
-            items={items}
+            columns={columns}
+            items={evaluations}
             pagination={true}
             responsiveBreakpoint={false}
             sorting={{

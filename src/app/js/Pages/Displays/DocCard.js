@@ -1,5 +1,6 @@
 import React from 'react'
 import {
+  EuiCodeBlock,
   EuiFlexGroup,
   EuiFlexItem,
   EuiHorizontalRule,
@@ -81,7 +82,7 @@ const DocCard = ({ body, doc, imagePosition, imageUrl, ...props }) => {
     )
   }
 
-  const renderContent = () => {
+  const renderContentRich = () => {
     if (!imageUrl || !imagePosition)
       return renderBody()
     if (imagePosition == 'top-left') {
@@ -115,19 +116,61 @@ const DocCard = ({ body, doc, imagePosition, imageUrl, ...props }) => {
     }
   }
 
+  /**
+   * Indent JSON, but don't indent arrays that contain non-object values.
+   * This will prevent dense vectors from dominating the display.
+   */
+  const customStringify = (obj, indent = 2, level = 0) => {
+    const spacing = ' '.repeat(indent * level);
+    if (Array.isArray(obj)) {
+      const isAllPrimitives = obj.every(
+        item => item === null || ['string', 'number', 'boolean'].includes(typeof item)
+      );
+      if (isAllPrimitives) {
+        return `[ ${obj.map(item => JSON.stringify(item)).join(', ')} ]`;
+      } else {
+        return '[ \n' + obj.map(item =>
+          spacing + ' '.repeat(indent) + customStringify(item, indent, level + 1)
+        ).join(',\n') + '\n' + spacing + ' ]';
+      }
+    }
+    if (obj && typeof obj === 'object') {
+      const entries = Object.entries(obj).map(([key, value]) => {
+        const keyStr = JSON.stringify(key);
+        const valStr = customStringify(value, indent, level + 1);
+        return spacing + ' '.repeat(indent) + `${keyStr}: ${valStr}`;
+      });
+      return `{\n${entries.join(',\n')}\n${spacing}}`;
+    }
+    return JSON.stringify(obj);
+  }
+
+
+  const renderContentJson = () => (
+    <EuiCodeBlock
+      isCopyable
+      isVirtualized
+      language='json'
+      overflowHeight={'100%'}
+      paddingSize='s'
+    >
+      {customStringify(doc?._source, 2)}
+    </EuiCodeBlock>
+  )
+
   return (
     <EuiPanel className='doc-card' {...panelProps}>
       <EuiPanel
         hasBorder={false}
         hasShadow={false}
-        paddingSize='m'
+        paddingSize={!body ? 'xs' : 'm'}
         style={{
           height: '200px',
           overflow: 'scroll',
           maskImage: 'linear-gradient(to bottom, black calc(100% - 40px), transparent 100%)'
         }}
       >
-        {renderContent()}
+        {!body ? renderContentJson() : renderContentRich()}
       </EuiPanel>
       <EuiSpacer size='xs' />
       <EuiHorizontalRule margin='none' />

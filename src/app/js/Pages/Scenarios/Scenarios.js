@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useHistory } from 'react-router-dom'
 import {
   EuiBadge,
@@ -10,11 +10,11 @@ import {
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
-import api from '../../api'
-import { ModalDelete, Page } from '../../Layout'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
+import { ModalDelete, Page } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
+import api from '../../api'
 
 const Scenarios = () => {
 
@@ -22,152 +22,147 @@ const Scenarios = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { addToast, darkMode } = useAppContext()
-  const { project, loadingProject } = useProjectContext()
+  const { addToast } = useAppContext()
+  const {
+    project,
+    isProjectReady,
+    isLoadingScenario,
+    loadAssets,
+    scenarios,
+    scenariosAggs,
+    deleteScenario
+  } = useProjectContext()
+
+  /**
+   * Load (or reload) any needed assets when project is ready.
+   */
+  useEffect(() => {
+    if (isProjectReady)
+      loadAssets({ scenarios: true })
+  }, [project?._id])
+
+  /**
+   * Scenarios as an array for the table component
+   */
+  const scenariosList = Object.values(scenarios) || []
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [aggs, setAggs] = useState({})
-  const [flyout, setFlyout] = useState(null) // null=closed, true=create, object=doc to update
-  const [items, setItems] = useState([])
-  const [isLoading, setIsLoading] = useState(true) // start as loading until project is ready
-  const [modalDelete, setModalDelete] = useState(null) // null=closed, object=doc to delete
-
-  ////  Effects  ///////////////////////////////////////////////////////////////
+  /**
+   * null:   close flyout
+   * true:   open flyout to create a new doc
+   * object: open flyout to update a given doc (object)
+   */
+  const [flyout, setFlyout] = useState(null)
 
   /**
-   * Get scenarios on load
+   * null:   close modal
+   * object: open modal to delete a given doc (object)
    */
-  useEffect(() => {
-    if (!project?._id)
-      return
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setIsLoading(true)
-        response = await api.get_scenarios(project._id)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to get scenarios' }))
-      } finally {
-        setIsLoading(false)
-      }
-
-      // Handle API response
-      const items = []
-      response.data.hits.hits.forEach(doc => {
-        const item = doc._source
-        item._id = doc._id
-        items.push(item)
-      })
-      setItems(items)
-      const aggs = {}
-      response.data.aggregations.scenarios?.buckets.forEach(agg => {
-        aggs[agg.key] = {
-          ...aggs[agg.key] || {},
-          judgements: agg.judgements.doc_count,
-          //evaluations: agg.evaluations.doc_count
-        }
-      })
-      setAggs(aggs)
-    })()
-  }, [project])
+  const [modalDelete, setModalDelete] = useState(null)
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  const tableColumns = [
-    {
-      field: 'name',
-      name: 'Scenario',
-      sortable: true,
-      truncateText: true,
-      render: (name, item) => <>{item.name}</>
-    },
-    {
-      field: 'judgements',
-      name: 'Judgements',
-      render: (name, item) => {
-        return (
-          <EuiLink onClick={(e) => {
-            history.push({
-              pathname: `/projects/${project._id}/judgements`,
-              state: {
-                query_on_load: {
-                  scenario: item,
-                  filter: 'rated'
-                }
-              }
-            })
-          }}>
-            {aggs[item._id]?.judgements.toLocaleString() || 0}
-          </EuiLink>
-        )
-      }
-    },
-    /*{
-      field: 'evaluations',
-      name: 'Evaluations',
-      render: (name, item) => {
-        return (
-          <EuiLink href={`#/projects/${project._id}/evaluations`}>
-            {aggs[item._id]?.evaluations.toLocaleString() || 0}
-          </EuiLink>
-        )
-      }
-    },*/
-    {
-      field: 'values',
-      name: 'Values',
-      render: (name, item) => {
-        const values = []
-        for (const param in item.values)
-          values.push(
-            <EuiBadge color='hollow' key={param}>
-              {param}: {item.values[param]}
-            </EuiBadge>
-          )
-        if (!values.length)
-          return <EuiBadge color='warning' iconType='warningFilled' size='xs'>none</EuiBadge>
-        return values
+  const columns = useMemo(() => {
+    return [
+      {
+        field: 'name',
+        name: 'Scenario',
+        sortable: true,
+        truncateText: true,
+        render: (name, doc) => <>{doc.name}</>
       },
-    },
-    {
-      field: 'tags',
-      name: 'Tags',
-      render: (name, item) => {
-        const tags = []
-        for (var i in item.tags)
-          tags.push(
-            <EuiBadge color='hollow' key={item.tags[i]}>
-              {item.tags[i]}
-            </EuiBadge>
-          )
-        return tags
-      },
-    },
-    {
-      name: 'Actions',
-      actions: [
-        {
-          color: 'text',
-          description: 'Update this scenario',
-          icon: 'documentEdit',
-          name: 'update',
-          onClick: (item) => setFlyout(item),
-          type: 'icon',
+      {
+        field: 'judgements',
+        name: 'Judgements',
+        sortable: (doc) => {
+          const count = scenariosAggs?.[doc._id]?.judgements ?? 0
+          return count
         },
-        {
-          color: 'danger',
-          description: 'Delete this scenario',
-          icon: 'trash',
-          name: 'delete',
-          onClick: (item) => setModalDelete(item),
-          type: 'icon',
+        render: (name, doc) => {
+          const count = scenariosAggs?.[doc._id]?.judgements ?? 0
+          return (
+            <EuiLink onClick={(e) => {
+              history.push({
+                pathname: `/projects/${project._id}/judgements`,
+                state: {
+                  query_on_load: {
+                    scenario: doc,
+                    filter: 'rated'
+                  }
+                }
+              })
+            }}>
+              {count.toLocaleString()}
+            </EuiLink>
+          )
         }
-      ],
-    }
-  ]
+      },
+      /*{
+        field: 'evaluations',
+        name: 'Evaluations',
+        render: (name, doc) => {
+          const count = scenariosAggs?.[doc._id]?.evaluations ?? 0
+          return (
+            <EuiLink href={`#/projects/${project._id}/evaluations`}>
+              {count.toLocaleString()}
+            </EuiLink>
+          )
+        }
+      },*/
+      {
+        field: 'values',
+        name: 'Values',
+        render: (name, doc) => {
+          const values = []
+          for (const param in doc.values)
+            values.push(
+              <EuiBadge color='hollow' key={param}>
+                {param}: {doc.values[param]}
+              </EuiBadge>
+            )
+          if (!values.length)
+            return <EuiBadge color='warning' iconType='warningFilled' size='xs'>none</EuiBadge>
+          return values
+        },
+      },
+      {
+        field: 'tags',
+        name: 'Tags',
+        render: (name, doc) => {
+          const tags = []
+          for (var i in doc.tags)
+            tags.push(
+              <EuiBadge color='hollow' key={doc.tags[i]}>
+                {doc.tags[i]}
+              </EuiBadge>
+            )
+          return tags
+        },
+      },
+      {
+        name: 'Actions',
+        actions: [
+          {
+            color: 'text',
+            description: 'Update this scenario',
+            icon: 'documentEdit',
+            name: 'update',
+            onClick: (doc) => setFlyout(doc),
+            type: 'icon',
+          },
+          {
+            color: 'danger',
+            description: 'Delete this scenario',
+            icon: 'trash',
+            name: 'delete',
+            onClick: (doc) => setModalDelete(doc),
+            type: 'icon',
+          }
+        ],
+      }
+    ]
+  }, [scenarios])
 
   const buttonCreate = (
     <EuiButton
@@ -183,11 +178,10 @@ const Scenarios = () => {
       <ModalDelete
         doc={modalDelete}
         docType='scenario'
+        isLoading={isLoadingScenario}
         onClose={() => setModalDelete(null)}
-        onDeleted={() => {
-          // Remove doc from table
-          setItems(items.filter(item => item._id !== modalDelete._id))
-        }}
+        onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete scenario` }))}
+        onDelete={async () => await deleteScenario(modalDelete)}
       />
     }
     {flyout &&
@@ -195,20 +189,11 @@ const Scenarios = () => {
         action={flyout === true ? 'create' : 'update'}
         doc={flyout}
         onClose={() => setFlyout(null)}
-        onCreated={(newDoc) => {
-          // Add doc to table
-          const item = { ...newDoc }
-          setItems(prev => [...prev, item])
-        }}
-        onUpdated={(newDoc) => {
-          // Update doc in table
-          setItems(prev => prev.map(item => item._id === newDoc._id ? newDoc : item))
-        }}
       />
     }
     <Page title='Scenarios' buttons={[buttonCreate]}>
-      <EuiSkeletonText lines={10} isLoading={isLoading || loadingProject}>
-        {!items.length &&
+      <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
+        {!scenarios &&
           <EuiCallOut
             color='primary'
             title='Welcome!'
@@ -225,10 +210,10 @@ const Scenarios = () => {
             </EuiButton>
           </EuiCallOut>
         }
-        {!!items.length &&
+        {!!scenarios &&
           <EuiInMemoryTable
-            columns={tableColumns}
-            items={items}
+            columns={columns}
+            items={scenariosList}
             pagination={true}
             responsiveBreakpoint={false}
             sorting={{

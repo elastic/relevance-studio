@@ -39,7 +39,7 @@ def timestamp(t=None):
     Generate a @timestamp value.
     """
     t = t or time.time()
-    return datetime.fromtimestamp(t, tz=timezone.utc).isoformat().replace('+00:00', 'Z'),
+    return datetime.fromtimestamp(t, tz=timezone.utc).isoformat().replace('+00:00', 'Z')
 
 def extract_params(obj):
     """
@@ -332,7 +332,7 @@ def run_evaluation(project_id):
         es_response = es.get(index='esrs-projects', id=project_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    indices = es_response.body['_source']['indices']
+    index_pattern = es_response.body['_source']['index_pattern']
     rating_scale_max = es_response.body['_source']['rating_scale']['max']
     
     # Get strategies and convert them to templates in _rank_eval
@@ -372,11 +372,12 @@ def run_evaluation(project_id):
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     for hit in es_response.body['hits']['hits']:
-        scenarios[hit['_id']] = hit['_source']['params']
+        scenarios[hit['_id']] = hit['_source']['values']
         runtime_scenarios[hit['_id']] = {
             '_version': hit['_version'],
             'name': hit['_source']['name'],
-            'params': hit['_source']['params'],
+            'values': hit['_source']['params'],
+            'values': hit['_source']['values'],
             'tags': hit['_source']['tags']
         }
     
@@ -447,13 +448,14 @@ def run_evaluation(project_id):
             
         # Run _rank_eval and accumulate the results
         try:
+            body = {
+                'metric': _rank_eval['metric'],
+                'requests': _rank_eval['requests'],
+                'templates': _rank_eval['templates']
+            }
             es_response = es.rank_eval(
-                index=indices,
-                body={
-                    'metric': _rank_eval['metric'],
-                    'requests': _rank_eval['requests'],
-                    'templates': _rank_eval['templates']
-                }
+                index=index_pattern,
+                body=body
             )
         except ApiError as e:
             return jsonify(e.body), e.meta.status
@@ -814,7 +816,8 @@ def get_judgements_docs(project_id, scenario_id):
             }
         if response['hits']['hits'] and sort in ( 'rating-newest', 'rating-oldest' ):
             reverse = True if sort == 'rating-newest' else False
-            response['hits']['hits'] = sorted(response['hits']['hits'], key=lambda hit: hit['@timestamp'], reverse=reverse)
+            fallback = '0000-01-01T00:00:00Z' if not reverse else '9999-12-31T23:59:59Z'
+            response['hits']['hits'] = sorted(response['hits']['hits'], key=lambda hit: hit.get('@timestamp') or fallback, reverse=reverse)
             
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -890,7 +893,7 @@ def get_scenarios(project_id):
                 }
             },
             'aggs': {
-                'scenarios': {
+                'counts': {
                     'terms': {
                         'field': 'scenario_id'
                     },
@@ -1034,7 +1037,7 @@ def get_projects():
                 }
             },
             'aggs': {
-                'projects': {
+                'counts': {
                     'terms': {
                         'field': 'project_id'
                     },

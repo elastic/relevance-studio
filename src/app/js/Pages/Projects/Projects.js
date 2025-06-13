@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   EuiBadge,
   EuiButton,
@@ -9,10 +9,11 @@ import {
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
-import api from '../../api'
 import { useAppContext } from '../../Contexts/AppContext'
 import { ModalDelete, Page } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
+import api from '../../api'
+import utils from '../../utils'
 
 const Projects = () => {
 
@@ -22,11 +23,28 @@ const Projects = () => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [aggs, setAggs] = useState({})
-  const [flyout, setFlyout] = useState(null) // null=closed, true=create, object=doc to update
-  const [isLoading, setIsLoading] = useState(true) // start as loading until project is ready
-  const [items, setItems] = useState([])
-  const [modalDelete, setModalDelete] = useState(null) // null=closed, object=doc to delete
+  const [projects, setProjects] = useState({})
+  const [projectsAggs, setProjectsAggs] = useState({})
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true)
+  const [isLoadingProject, setIsLoadingProject] = useState(false)
+
+  /**
+   * Scenarios as an array for the table component
+   */
+  const projectsList = Object.values(projects) || []
+
+  /**
+   * null:   close flyout
+   * true:   open flyout to create a new doc
+   * object: open flyout to update a given doc (object)
+   */
+  const [flyout, setFlyout] = useState(null)
+
+  /**
+   * null:   close modal
+   * object: open modal to delete a given doc (object)
+   */
+  const [modalDelete, setModalDelete] = useState(null)
 
   ////  Effects  ///////////////////////////////////////////////////////////////
 
@@ -35,29 +53,23 @@ const Projects = () => {
    */
   useEffect(() => {
     (async () => {
-      
+
       // Submit API request
       let response
       try {
-        setIsLoading(true)
+        setIsLoadingProjects(true)
         response = await api.get_projects()
       } catch (err) {
         return addToast(api.errorToast(err, { title: 'Failed to get projects' }))
       } finally {
-        setIsLoading(false)
+        setIsLoadingProjects(false)
       }
 
       // Handle API response
-      const items = []
-      response.data.hits.hits.forEach(doc => {
-        const item = doc._source
-        item._id = doc._id
-        items.push(item)
-      })
-      setItems(items)
+      setProjects(utils.toMap(utils.hitsToDocs(response)))
       const aggs = {}
-      if (response.data.aggregations.projects) {
-        response.data.aggregations.projects.buckets.forEach(agg => {
+      if (response.data.aggregations.counts) {
+        response.data.aggregations.counts.buckets.forEach(agg => {
           aggs[agg.key] = {
             displays: agg.displays.doc_count,
             scenarios: agg.scenarios.doc_count,
@@ -67,109 +79,123 @@ const Projects = () => {
           }
         })
       }
-      setAggs(aggs)
+      setProjectsAggs(aggs)
     })()
   }, [])
 
+  /**
+   * Log projects state
+   */
+  useEffect(() => {
+    if (!projects)
+      return
+    console.debug('[Projects state updated]', {
+      projects: projects,
+      projectsAggs: projectsAggs
+    })
+  }, [projects])
+
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  const tableColumns = [
-    {
-      field: 'name',
-      name: 'Name',
-      sortable: true,
-      truncateText: true,
-      render: (name, item) => (<>{item.name}</>),
-    },
-    {
-      field: 'displays',
-      name: 'Displays',
-      render: (name, item) => (
-        <EuiLink href={`#/projects/${item._id}/displays`}>
-          {aggs[item._id]?.displays.toLocaleString() || 0}
-        </EuiLink>
-      ),
-    },
-    {
-      field: 'scenarios',
-      name: 'Scenarios',
-      render: (name, item) => (
-        <EuiLink href={`#/projects/${item._id}/scenarios`}>
-          {aggs[item._id]?.scenarios.toLocaleString() || 0}
-        </EuiLink>
-      ),
-    },
-    {
-      field: 'judgements',
-      name: 'Judgements',
-      render: (name, item) => (
-        <EuiLink href={`#/projects/${item._id}/judgements`}>
-          {aggs[item._id]?.judgements.toLocaleString() || 0}
-        </EuiLink>
-      ),
-    },
-    {
-      field: 'strategies',
-      name: 'Strategies',
-      render: (name, item) => (
-        <EuiLink href={`#/projects/${item._id}/strategies`}>
-          {aggs[item._id]?.strategies.toLocaleString() || 0}
-        </EuiLink>
-      ),
-    },
-    {
-      field: 'evaluations',
-      name: 'Evaluations',
-      render: (name, item) => (
-        <EuiLink href={`#/projects/${item._id}/evaluations`}>
-          {aggs[item._id]?.evaluations.toLocaleString() || 0}
-        </EuiLink>
-      ),
-    },
-    {
-      field: 'indices',
-      name: 'Indices',
-      render: (name, item) => {
-        const patterns = [];
-        (item.index_pattern || '').split(',').forEach((pattern, i) => {
-          patterns.push(
-            <EuiBadge color='hollow' key={i}>
-              {pattern}
-            </EuiBadge>
-          )
-        })
-        return patterns
+  const columns = useMemo(() => {
+    return [
+      {
+        field: 'name',
+        name: 'Name',
+        sortable: true,
+        truncateText: true,
+        render: (name, doc) => (<>{doc.name}</>),
       },
-    },
-    {
-      field: 'rating_scale',
-      name: 'Rating scale',
-      render: (name, item) => (<>
-        {item.rating_scale.max == 1 ? 'binary' : 'graded'}
-      </>),
-    },
-    {
-      name: 'Actions',
-      actions: [
-        {
-          color: 'text',
-          description: 'Update this project',
-          icon: 'documentEdit',
-          name: 'update',
-          onClick: (item) => setFlyout(item),
-          type: 'icon',
+      {
+        field: 'displays',
+        name: 'Displays',
+        render: (name, doc) => (
+          <EuiLink href={`#/projects/${doc._id}/displays`}>
+            {projectsAggs[doc._id]?.displays.toLocaleString() || 0}
+          </EuiLink>
+        ),
+      },
+      {
+        field: 'scenarios',
+        name: 'Scenarios',
+        render: (name, doc) => (
+          <EuiLink href={`#/projects/${doc._id}/scenarios`}>
+            {projectsAggs[doc._id]?.scenarios.toLocaleString() || 0}
+          </EuiLink>
+        ),
+      },
+      {
+        field: 'judgements',
+        name: 'Judgements',
+        render: (name, doc) => (
+          <EuiLink href={`#/projects/${doc._id}/judgements`}>
+            {projectsAggs[doc._id]?.judgements.toLocaleString() || 0}
+          </EuiLink>
+        ),
+      },
+      {
+        field: 'strategies',
+        name: 'Strategies',
+        render: (name, doc) => (
+          <EuiLink href={`#/projects/${doc._id}/strategies`}>
+            {projectsAggs[doc._id]?.strategies.toLocaleString() || 0}
+          </EuiLink>
+        ),
+      },
+      {
+        field: 'evaluations',
+        name: 'Evaluations',
+        render: (name, doc) => (
+          <EuiLink href={`#/projects/${doc._id}/evaluations`}>
+            {projectsAggs[doc._id]?.evaluations.toLocaleString() || 0}
+          </EuiLink>
+        ),
+      },
+      {
+        field: 'indices',
+        name: 'Indices',
+        render: (name, doc) => {
+          const patterns = [];
+          (doc.index_pattern || '').split(',').forEach((pattern, i) => {
+            patterns.push(
+              <EuiBadge color='hollow' key={i}>
+                {pattern}
+              </EuiBadge>
+            )
+          })
+          return patterns
         },
-        {
-          color: 'danger',
-          description: 'Delete this project',
-          icon: 'trash',
-          name: 'delete',
-          onClick: (item) => setModalDelete(item),
-          type: 'icon',
-        }
-      ],
-    }
-  ]
+      },
+      {
+        field: 'rating_scale',
+        name: 'Rating scale',
+        render: (name, doc) => (<>
+          {doc.rating_scale.max == 1 ? 'binary' : 'graded'}
+        </>),
+      },
+      {
+        name: 'Actions',
+        actions: [
+          {
+            color: 'text',
+            description: 'Update this project',
+            icon: 'documentEdit',
+            name: 'update',
+            onClick: (doc) => setFlyout(doc),
+            type: 'icon',
+          },
+          {
+            color: 'danger',
+            description: 'Delete this project',
+            icon: 'trash',
+            name: 'delete',
+            onClick: (doc) => setModalDelete(doc),
+            type: 'icon',
+          }
+        ],
+      }
+    ]
+  }, [projects])
 
 
   ////  Render  ////////////////////////////////////////////////////////////////
@@ -188,10 +214,27 @@ const Projects = () => {
       <ModalDelete
         doc={modalDelete}
         docType='project'
+        isLoading={isLoadingProject}
         onClose={() => setModalDelete(null)}
-        onDeleted={() => {
-          // Remove doc from table
-          setItems(items.filter(item => item._id !== modalDelete._id))
+        onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete project` }))}
+        onDelete={async () => {
+          setIsLoadingProject(true)
+          try {
+            await api.delete_project(modalDelete._id)
+          } finally {
+            setIsLoadingProject(false)
+          }
+        }}
+        onDeleted={(doc) => {
+          setProjects(prev => {
+            const { [doc._id]: _, ...rest } = prev
+            return rest
+          })
+          setProjectsAggs(prev => {
+            const { [doc._id]: _, ...rest } = prev
+            return rest
+          })
+          setModalDelete(null)
         }}
       />
     }
@@ -206,13 +249,13 @@ const Projects = () => {
         }}
         onUpdated={(newDoc) => {
           // Update doc in table
-          setItems(prev => prev.map(item => item._id === newDoc._id ? newDoc : item))
+          setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
         }}
       />
     }
     <Page title='Projects' buttons={[buttonCreate]}>
-      <EuiSkeletonText lines={10} isLoading={isLoading}>
-        {!items.length &&
+      <EuiSkeletonText lines={10} isLoading={isLoadingProjects}>
+        {!projectsList.length &&
           <EuiCallOut
             color='primary'
             title='Welcome!'
@@ -229,10 +272,10 @@ const Projects = () => {
             </EuiButton>
           </EuiCallOut>
         }
-        {!!items.length &&
+        {!!projectsList.length &&
           <EuiInMemoryTable
-            columns={tableColumns}
-            items={items}
+            columns={columns}
+            items={projectsList}
             pagination={true}
             responsiveBreakpoint={false}
             sorting={{

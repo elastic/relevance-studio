@@ -21,113 +21,72 @@ import {
   IconBoxAlignTopRightFilled,
   IconBoxAlignRightFilled
 } from '@tabler/icons-react'
-import api from '../../api'
-import utils from '../../utils'
-import DocCard from '../Displays/DocCard'
-import { Page } from '../../Layout'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
+import { Page } from '../../Layout'
+import DocCard from '../Displays/DocCard'
+import api from '../../api'
 
 const DisplaysEdit = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
-  const { project, loadingProject } = useProjectContext()
+  const {
+    project,
+    isProjectReady,
+    isLoadingDisplay,
+    isProcessingDisplay,
+    loadAssets,
+    displays,
+    indices,
+    updateDisplay
+  } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [bodyDraft, setBodyDraft] = useState('')
-  const [display, setDisplay] = useState({})
-  const [displayId, setDisplayId] = useState(null)
-  const [doc, setDoc] = useState()
-  const [indices, setIndices] = useState({})
-  const [imagePosition, setImagePosition] = useState('top-left')
-  const [imageUrl, setImageUrl] = useState('')
-  const [loadingDisplay, setLoadingDisplay] = useState(true)
-  const [loadingDocById, setLoadingDocById] = useState(false)
-  const [loadingDocRandom, setLoadingDocRandom] = useState(false)
-  const [loadingIndices, setLoadingIndices] = useState(false)
+  const [isLoadingDocById, setIsLoadingDocById] = useState(false)
+  const [isLoadingDocRandom, setIsLoadingDocRandom] = useState(false)
   const [mustacheVariables, setMustacheVariables] = useState(false)
   const [queryString, setQueryString] = useState('')
+  const [sampleDoc, setSampleDoc] = useState()
+  const [templateBodyDraft, setTemplateBodyDraft] = useState('')
+  const [templateImagePosition, setTemplateImagePosition] = useState('top-left')
+  const [templateImageUrl, setTemplateImageUrl] = useState('')
   const mustacheVariablesRef = useRef(mustacheVariablesRef)
 
   /**
    * Parse displayId from URL path
    */
-  const { display_id } = useParams()
-  useEffect(() => setDisplayId(display_id), [display_id])
+  const { display_id: displayId } = useParams()
 
   /**
-   * Get display on load
+   * Load (or reload) any needed assets when project is ready.
    */
   useEffect(() => {
-    if (!project?._id || displayId == null)
-      return
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setLoadingDisplay(true)
-        response = await api.get_display(project._id, displayId)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to get display' }))
-      } finally {
-        setLoadingDisplay(false)
-      }
-
-      // Handle API response
-      setDisplay(response.data._source)
-    })()
-  }, [project, displayId])
+    if (isProjectReady)
+      loadAssets({ indices: true, displays: true })
+  }, [project?._id])
 
   /**
-   * Get displays on load
+   * Reference the display in the project state when editing
+   */
+  const display = displays?.[displayId]
+
+  /**
+   * Initialize display once loaded
    */
   useEffect(() => {
-    if (!display.index_pattern)
+    if (!display)
       return
+    if (display.template?.body)
+      setTemplateBodyDraft(display.template.body)
+    if (display.template?.image?.position)
+      setTemplateImagePosition(display.template.image.position)
+    if (display.template?.image?.url)
+      setTemplateImageUrl(display.template.image.url)
     onGetDocRandom()
-  }, [display.index_pattern])
-
-  /**
-   * Get indices for display
-   */
-  useEffect(() => {
-    if (!display.index_pattern)
-      return
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setLoadingIndices(true)
-        response = await api.get_indices(display.index_pattern)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to get indices' }))
-      } finally {
-        setLoadingIndices(false)
-      }
-
-      // Handle API response
-      setIndices(response.data)
-    })()
   }, [display])
-
-  /**
-   * Update template
-   */
-  useEffect(() => {
-    if (!display.template)
-      return
-    if (display.template.body)
-      setBodyDraft(display.template.body)
-    if (display.template.image?.position)
-      setImagePosition(display.template.image.position)
-    if (display.template.image?.url)
-      setImageUrl(display.template.image.url)
-  }, [display.template])
 
   /**
    * Create mustache variables from index fields
@@ -179,43 +138,22 @@ const DisplaysEdit = () => {
     })
   }
 
-  const onSaveDisplay = (e) => {
+  const onSaveDisplay = async (e) => {
     e.preventDefault();
-    (async () => {
-
-      // Submit API request
-      const doc = {
-        index_pattern: display.index_pattern,
-        template: {
-          body: bodyDraft
-        }
+    const newDoc = {
+      _id: display._id,
+      index_pattern: display.index_pattern,
+      template: {
+        body: templateBodyDraft
       }
-      if (imagePosition || imageUrl)
-        doc.template.image = {}
-      if (imagePosition)
-        doc.template.image.position = imagePosition
-      if (imageUrl)
-        doc.template.image.url = imageUrl
-      let response
-      try {
-        setLoadingDisplay(true)
-        response = await api.update_display(project._id, displayId, doc)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to update display' }))
-      } finally {
-        setLoadingDisplay(false)
-      }
-
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Saved display',
-        color: 'success',
-        iconType: 'check'
-      })
-      setDisplay(doc)
-    })()
+    }
+    if (templateImagePosition || templateImageUrl)
+      newDoc.template.image = {}
+    if (templateImagePosition)
+      newDoc.template.image.position = templateImagePosition
+    if (templateImageUrl)
+      newDoc.template.image.url = templateImageUrl
+    await updateDisplay(newDoc)
   }
 
   const onGetDocRandom = () => {
@@ -228,16 +166,16 @@ const DisplaysEdit = () => {
       // Submit API request
       let response
       try {
-        setLoadingDocRandom(true)
+        setIsLoadingDocRandom(true)
         response = await api.search(display.index_pattern, body)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to get doc' }))
+      } catch (error) {
+        return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
       } finally {
-        setLoadingDocRandom(false)
+        setIsLoadingDocRandom(false)
       }
 
       // Handle API response
-      setDoc(response.data.hits.hits[0])
+      setSampleDoc(response.data.hits.hits[0])
       setQueryString('')
     })()
   }
@@ -252,16 +190,16 @@ const DisplaysEdit = () => {
       // Submit API request
       let response
       try {
-        setLoadingDocRandom(true)
+        setIsLoadingDocById(true)
         response = await api.search(display.index_pattern, body)
-      } catch (err) {
+      } catch (error) {
         return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
       } finally {
-        setLoadingDocRandom(false)
+        setIsLoadingDocById(false)
       }
 
       // Handle API response
-      setDoc(response.data.hits.hits[0])
+      setSampleDoc(response.data.hits.hits[0])
     })()
   }
 
@@ -273,7 +211,7 @@ const DisplaysEdit = () => {
       <Editor
         defaultLanguage='markdown'
         height='100%'
-        onChange={(value, event) => setBodyDraft(value)}
+        onChange={(value, event) => setTemplateBodyDraft(value)}
         onMount={handleEditorMount}
         options={{
           folding: false,
@@ -294,7 +232,7 @@ const DisplaysEdit = () => {
           tabSize: 2
         }}
         theme={darkMode ? 'vs-dark' : 'light'}
-        value={bodyDraft}
+        value={templateBodyDraft}
       />
     )
   }
@@ -303,22 +241,22 @@ const DisplaysEdit = () => {
    * Check if the draft template differs from the saved template.
    */
   const doesDraftDiffer = () => {
-    if (display.template?.image?.position != imagePosition)
+    if (display?.template?.image?.position != templateImagePosition)
       return true
-    if (display.template?.image?.url != imageUrl)
+    if (display?.template?.image?.url != templateImageUrl)
       return true
-    if (display.template?.body != bodyDraft)
+    if (display?.template?.body != templateBodyDraft)
       return true
     return false
   }
 
   return (<>
     <Page title={
-      <EuiSkeletonTitle isLoading={loadingDisplay} size='l'>
-        {!display.index_pattern &&
+      <EuiSkeletonTitle isLoading={!isProjectReady || isLoadingDisplay} size='l'>
+        {!display &&
           <>Not found</>
         }
-        {!!display.index_pattern &&
+        {!!display &&
           <>Edit display</>
         }
       </EuiSkeletonTitle>
@@ -337,7 +275,7 @@ const DisplaysEdit = () => {
                 <EuiFlexItem grow={false}>
                   <EuiButton
                     color='primary'
-                    disabled={loadingDisplay || !doesDraftDiffer()}
+                    disabled={isProcessingDisplay || !doesDraftDiffer()}
                     fill
                     onClick={onSaveDisplay}
                     type='submit'
@@ -348,8 +286,8 @@ const DisplaysEdit = () => {
                 <EuiFlexItem grow={false}>
                   <EuiButton
                     color='text'
-                    disabled={loadingDisplay || !doesDraftDiffer()}
-                    onClick={() => { setBodyDraft(display.template.body) }}
+                    disabled={isProcessingDisplay || !doesDraftDiffer()}
+                    onClick={() => { setTemplateBodyDraft(display.template.body) }}
                   >
                     Reset
                   </EuiButton>
@@ -360,7 +298,7 @@ const DisplaysEdit = () => {
               {/* Editor */}
               <EuiFormRow fullWidth label='Markdown editor'>
                 <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-                  <EuiSkeletonText lines={21} isLoading={loadingProject || loadingIndices}>
+                  <EuiSkeletonText lines={21} isLoading={!isProjectReady}>
                     <div style={{ height: 'calc(100vh - 300px)' }}>
                       <EuiPanel
                         hasBorder
@@ -389,10 +327,10 @@ const DisplaysEdit = () => {
                     aria-label='Image URL'
                     compressed
                     fullWidth
-                    onChange={(e) => setImageUrl(e.target.value)}
+                    onChange={(e) => setTemplateImageUrl(e.target.value)}
                     placeholder='http://my-image-server/{{ image.path }}'
                     prepend='Image URL'
-                    value={imageUrl}
+                    value={templateImageUrl}
                   />
                   <EuiSpacer size='xs' />
 
@@ -411,8 +349,8 @@ const DisplaysEdit = () => {
                   <EuiToolTip content='Align top left'>
                     <EuiButton
                       color='text'
-                      fill={imagePosition == 'top-left' ? true : false}
-                      onClick={() => setImagePosition('top-left')}
+                      fill={templateImagePosition == 'top-left' ? true : false}
+                      onClick={() => setTemplateImagePosition('top-left')}
                       size='s'
                       style={{ minWidth: '16px', padding: '8px', /*borderLeft: '0', borderRadius: '0'*/ borderBottomRightRadius: '0', borderTopRightRadius: '0' }}
                     >
@@ -422,8 +360,8 @@ const DisplaysEdit = () => {
                   <EuiToolTip content='Align top right'>
                     <EuiButton
                       color='text'
-                      fill={imagePosition == 'top-right' ? true : false}
-                      onClick={() => setImagePosition('top-right')}
+                      fill={templateImagePosition == 'top-right' ? true : false}
+                      onClick={() => setTemplateImagePosition('top-right')}
                       size='s'
                       style={{ minWidth: '16px', padding: '8px', borderLeft: '0', /*borderRadius: '0'*/ borderBottomLeftRadius: '0', borderTopLeftRadius: '0' }}
                     >
@@ -455,9 +393,9 @@ const DisplaysEdit = () => {
           <EuiFlexGroup gutterSize='s'>
             <EuiFlexItem grow={false}>
               <EuiButton
-                disabled={!indices || loadingDocRandom}
+                disabled={!indices || isLoadingDocById || isLoadingDocRandom}
                 iconType='refresh'
-                isLoading={loadingDocRandom}
+                isLoading={isLoadingDocRandom}
                 onClick={onGetDocRandom}
               >
                 Random doc
@@ -465,9 +403,9 @@ const DisplaysEdit = () => {
             </EuiFlexItem>
             <EuiFlexItem grow={false}>
               <EuiFieldSearch
-                disabled={!indices || loadingDocById}
+                disabled={!indices || isLoadingDocById || isLoadingDocRandom}
                 fullWidth
-                isLoading={loadingDocById}
+                isLoading={isLoadingDocById}
                 placeholder='...or doc _id'
                 value={queryString}
                 onChange={(e) => setQueryString(e.target.value)}
@@ -478,24 +416,24 @@ const DisplaysEdit = () => {
           <EuiSpacer size='l' />
 
           {/* Body */}
-          <EuiSkeletonText lines={10} isLoading={loadingDocById || loadingDocRandom}>
-            {doc &&
+          <EuiSkeletonText lines={10} isLoading={isLoadingDocById || isLoadingDocRandom}>
+            {sampleDoc &&
               <EuiFormRow fullWidth label='Example (large)'>
                 <EuiFlexGroup>
                   <EuiFlexItem grow={10}>
-                    <DocCard doc={doc} body={bodyDraft} imagePosition={imagePosition} imageUrl={imageUrl} />
+                    <DocCard doc={sampleDoc} body={templateBodyDraft} imagePosition={templateImagePosition} imageUrl={templateImageUrl} />
                   </EuiFlexItem>
                 </EuiFlexGroup>
               </EuiFormRow>
             }
           </EuiSkeletonText>
           <EuiSpacer size='m' />
-          <EuiSkeletonText lines={10} isLoading={loadingDocById || loadingDocRandom}>
-            {doc &&
+          <EuiSkeletonText lines={10} isLoading={isLoadingDocById || isLoadingDocRandom}>
+            {sampleDoc &&
               <EuiFormRow fullWidth label='Example (small)'>
                 <EuiFlexGroup>
                   <EuiFlexItem grow={5}>
-                    <DocCard doc={doc} body={bodyDraft} imagePosition={imagePosition} imageUrl={imageUrl} />
+                    <DocCard doc={sampleDoc} body={templateBodyDraft} imagePosition={templateImagePosition} imageUrl={templateImageUrl} />
                   </EuiFlexItem>
                   <EuiFlexItem grow={5}>
                   </EuiFlexItem>

@@ -21,7 +21,13 @@ const SideNav = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { darkMode, setDarkMode } = useAppContext()
-  const { project } = useProjectContext()
+
+  let project
+  try {
+    project = useProjectContext().project
+  } catch {
+    project = null
+  }
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
@@ -32,7 +38,7 @@ const SideNav = () => {
       {
         name: (<>{project.name}</>),
         id: 'project',
-        href: `#/projects/${project._id}`,
+        /*href: `#/projects/${project._id}`,*/
         forceOpen: true,
         items: [
           {
@@ -75,7 +81,7 @@ const SideNav = () => {
     ]
   }
 
-  const items = [
+  const items = () => [
     {
       name: 'Relevance Studio',
       id: 'sidenav',
@@ -96,7 +102,7 @@ const SideNav = () => {
   return (<>
     <EuiSideNav
       style={{ width: '100%' }}
-      items={items}
+      items={items()}
     />
     <div style={{ position: 'fixed', bottom: '10px', left: '10px', right: '10px' }}>
       <EuiToolTip content={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>

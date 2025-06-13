@@ -185,6 +185,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
       <EuiButtonGroup
         color='primary'
         idSelected={form.rating_scale}
+        isDisabled={action == 'update'}
         legend='Rating scale'
         onBlur={() => setFormBlurs(prev => ({ ...prev, rating_scale: true }))}
         onChange={(id) => setForm(prev => ({ ...prev, rating_scale: id }))}
@@ -284,7 +285,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
         </EuiFlyoutHeader>
         <EuiFlyoutBody>
           <EuiFormRow
-            helpText={`You can't change this later. We recommend "graded" for its flexibility.`}
+            helpText={action == 'create' ? `You can't change this later. We recommend "graded" for its flexibility.` : ''}
             label='Rating scale for judgements'
           >
             {renderFormRatingScale()}

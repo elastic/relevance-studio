@@ -35,6 +35,51 @@ utils.toastClientError = (error) => {
 }
 
 /**
+ * Creates a generic toast for successfully creating, updating, or deleting a doc.
+ */
+utils.toastDocCreateUpdateDelete = (action, docType, doc) => {
+  let title
+  if (action == 'create')
+    title = `Created ${docType}`
+  else if (action == 'update')
+    title = `Updated ${docType}`
+  else if (action == 'delete')
+    title = `Deleted ${docType}`
+  return {
+    title: title,
+    color: 'success',
+    iconType: 'check',
+    text: (
+      <EuiText size='xs'>
+        <EuiText color='subdued' size='xs'>
+          <small>{doc._id}</small>
+        </EuiText>
+      </EuiText>
+    )
+  }
+}
+
+/**
+ * After getting a list of hits (e.g. displays, scenarios, strategies),
+ * convert them into an array of docs containing their _source and _id.
+ */
+utils.hitsToDocs = (response) => {
+  return response.data.hits.hits.map(doc => ({
+    ...doc._source, _id: doc._id
+  }))
+}
+
+/**
+ * Store an array of docs by their doc _id.
+ * Typically used after utils.hitsToDocs.
+ */
+utils.toMap = (items) =>
+  items.reduce((acc, item) => {
+    acc[item._id] = item
+    return acc
+  }, {})
+
+/**
  * Find the value of a nested field in an object using a path with dot noation.
  */
 utils.getNestedValue = (obj, path) => {

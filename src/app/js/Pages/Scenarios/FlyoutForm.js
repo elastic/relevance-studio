@@ -14,19 +14,19 @@ import {
   EuiFlyoutFooter,
   EuiInlineEditTitle,
   EuiSpacer,
-  EuiText,
 } from '@elastic/eui'
-import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import api from '../../api'
-import utils from '../../utils'
 
-const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
+const FlyoutForm = ({ action, doc, onClose }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { addToast, darkMode } = useAppContext()
-  const { project } = useProjectContext()
+  const {
+    project,
+    isLoadingScenario,
+    createScenario,
+    updateScenario
+  } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -39,7 +39,6 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
     name: false,
     values: false
   })
-  const [isLoading, setIsLoading] = useState(false)
 
   ////  Effects  ///////////////////////////////////////////////////////////////
 
@@ -72,8 +71,8 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
     e.preventDefault();
     const newDoc = doc ? { ...doc } : {}
     newDoc.name = form.name.trim()
-    newDoc.params = Object.keys(form.values || {}).sort()
-    newDoc.values = Object.fromEntries(form.values.map(({ name, value }) => [name, value]))
+    newDoc.params = form.values.map(value => value.name)
+    newDoc.values = Object.fromEntries(form.values.map(({ name, value }) => [name, value.trim()]))
     newDoc.tags = (form.tags || []).sort()
     if (action == 'create')
       return onSubmitCreate(newDoc)
@@ -81,75 +80,14 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
       return onSubmitUpdate(newDoc)
   }
 
-  const onSubmitCreate = (newDoc) => {
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setIsLoading(true)
-        response = await api.create_scenario(project._id, newDoc)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to create scenario' }))
-      } finally {
-        setIsLoading(false)
-      }
-
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Created scenario',
-        color: 'success',
-        iconType: 'check',
-        text: (
-          <EuiText size='xs'>
-            <b>{newDoc.name}</b><br />
-            <EuiText color='subdued' size='xs'>
-              <small>{response.data._id}</small>
-            </EuiText>
-          </EuiText>
-        )
-      })
-      newDoc._id = response.data._id
-      onCreated(newDoc)
-      onClose()
-    })()
+  const onSubmitCreate = async (newDoc) => {
+    await createScenario(newDoc)
+    onClose()
   }
 
-  const onSubmitUpdate = (newDoc) => {
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setIsLoading(true)
-        response = await api.update_scenario(project._id, doc._id, newDoc)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to create scenario' }))
-      } finally {
-        setIsLoading(false)
-      }
-
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Updated scenario',
-        color: 'success',
-        iconType: 'check',
-        text: (
-          <EuiText size='xs'>
-            <b>{newDoc.name}</b><br />
-            <EuiText color='subdued' size='xs'>
-              <small>{response.data._id}</small>
-            </EuiText>
-          </EuiText>
-        )
-      })
-      onUpdated(newDoc)
-      onClose()
-    })()
+  const onSubmitUpdate = async (newDoc) => {
+    await updateScenario({ ...doc, ...newDoc })
+    onClose()
   }
 
   ////  Form validation  ///////////////////////////////////////////////////////
@@ -254,7 +192,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
           <EuiFlexGroup justifyContent='spaceBetween'>
             <EuiFlexItem grow={false}>
               <EuiButtonEmpty
-                disabled={isLoading}
+                disabled={isLoadingScenario}
                 flush='left'
                 iconType='cross'
                 onClick={onClose}
@@ -265,7 +203,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
             <EuiFlexItem grow={false}>
               <EuiButton
                 color='primary'
-                disabled={isLoading || isInvalidForm()}
+                disabled={isLoadingScenario || isInvalidForm()}
                 fill
                 onClick={onSubmit}
                 type='submit'

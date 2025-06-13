@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import {
   EuiButton,
   EuiForm,
@@ -10,65 +10,28 @@ import {
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
-import { useAppContext } from '../Contexts/AppContext'
-import { useProjectContext } from '../Contexts/ProjectContext'
-import api from '../api'
-import utils from '../utils'
 
-const ModalDelete = ({ doc, docType, onClose, onDeleted }) => {
-
-  ////  Context  ///////////////////////////////////////////////////////////////
-
-  const { addToast } = useAppContext()
-  const { project } = useProjectContext()
-
-  ////  State  /////////////////////////////////////////////////////////////////
-
-  const [isLoading, setIsLoading] = useState(false)
+const ModalDelete = ({ doc, docType, isLoading, onClose, onDelete, onDeleted, onError }) => {
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    
-    // Submit API request
-    let response
     try {
-      setIsLoading(true)
-      if (docType == 'project')
-        response = await api.delete_project(doc._id)
-      else if (docType == 'display')
-        response = await api.delete_display(project._id, doc._id)
-      else if (docType == 'scenario')
-        response = await api.delete_scenario(project._id, doc._id)
-      else if (docType == 'strategy')
-        response = await api.delete_strategy(project._id, doc._id)
-      else if (docType == 'evaluation')
-        response = await api.delete_evaluation(project._id, doc._id)
-    } catch (err) {
-      return addToast(api.errorToast(err, { title: `Failed to delete ${docType}` }))
-    } finally {
-      setIsLoading(false)
+      try {
+        await onDelete()
+      } catch (e) {
+        if (onError)
+          return onError(e)
+        throw (e)
+      }
+      if (onDeleted)
+        onDeleted(doc)
+      if (onClose)
+        onClose()
+    } catch (e) {
+      throw (e)
     }
-
-    // Handle API response
-    if (response.status < 200 && response.status > 299)
-      return addToast(utils.toastClientResponse(response))
-    addToast({
-      title: `Deleted ${docType}`,
-      color: 'success',
-      iconType: 'check',
-      text: (
-        <EuiText size='xs'>
-          <b>{doc.name}</b><br />
-          <EuiText color='subdued' size='xs'>
-            <small>{doc._id}</small>
-          </EuiText>
-        </EuiText>
-      )
-    })
-    onDeleted()
-    onClose()
   }
 
   ////  Render  ////////////////////////////////////////////////////////////////

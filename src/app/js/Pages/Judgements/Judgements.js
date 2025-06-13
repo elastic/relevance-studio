@@ -31,7 +31,7 @@ const Judgements = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { addToast } = useAppContext()
+  const { addToast, darkMode } = useAppContext()
   const { project } = useProjectContext()
 
   ////  Defaults  //////////////////////////////////////////////////////////////
@@ -348,7 +348,7 @@ const Judgements = () => {
       onChange={(newOptions, event, changedOption) => {
         setSortOptions(newOptions)
         // Sorting by anything with ratings requires filtering by rated docs
-        if (changedOption.value.startsWith('rating')) {
+        if (changedOption.value.startsWith('rating') && !filterSelected.value.startsWith('rated')) {
           setFiltersOptions(prev => {
             const newOptions = defaultFilterOptions.map(obj => ({ ...obj }))
             for (const obj of newOptions) {
@@ -413,7 +413,7 @@ const Judgements = () => {
 
           {/* Top bar */}
           <EuiFlexItem style={{
-            boxShadow: '0 10px 10px -10px rgba(0, 0, 0, 0.25)',
+            boxShadow: darkMode ? '0 10px 10px -10px rgba(0, 0, 0, 1)' : '0 10px 10px -10px rgba(0, 0, 0, 0.25)',
             margin: '0 -20px 10px -20px',
             padding: '0 20px',
             position: 'sticky',
