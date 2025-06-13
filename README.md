@@ -4,6 +4,16 @@
 
 > ⚠️ This application is in early development. Expect things to break or change often until it matures.
 
+## Quickstart
+
+1. Clone this repo: `git clone https://github.com/elastic/relevance-studio.git`
+2. Enter the repo: `cd relevance-studio`
+3. Copy `.env-reference` to `.env`
+4. Configure `.env` to use the endpoints and credentials of your Elastic deployment
+5. Start the app: `docker compose up`
+6. Setup the index templates: `curl -XPOST http://localhost:4096/setup`
+7. Open the app: [http://localhost:4096/](http://localhost:4096/)
+
 ## Development
 
 These instructions were tested on MacOS.
@@ -18,8 +28,8 @@ Install dependencies:
 
 Clone this repo:
 
-1. Run `git clone https://github.com/elastic/esrs.git`
-2. Run `cd esrs` to enter the root-level directory of this project
+1. Run `git clone https://github.com/elastic/relevance-studio.git`
+2. Run `cd relevance-studio` to enter the root-level directory of this project
 3. Copy `.env-reference` to `.env`
 4. Configure `.env` to use the endpoints and credentials of your Elastic deployment
 
