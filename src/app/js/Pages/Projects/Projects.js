@@ -212,6 +212,18 @@ const Projects = () => {
   return (<>
     {modalDelete &&
       <ModalDelete
+         description={
+          <EuiText>
+            <p>This will delete all assets related to this project:</p>
+            <ul>
+              <li>{projectsAggs[modalDelete._id].displays} display{projectsAggs[modalDelete._id].displays == 1 ? '' : 's'}</li>
+              <li>{projectsAggs[modalDelete._id].scenarios} scenario{projectsAggs[modalDelete._id].scenarios == 1 ? '' : 's'}</li>
+              <li>{projectsAggs[modalDelete._id].judgements} judgement{projectsAggs[modalDelete._id].judgements == 1 ? '' : 's'}</li>
+              <li>{projectsAggs[modalDelete._id].strategies} {projectsAggs[modalDelete._id].strategies == 1 ? 'strategy' : 'strategies'}</li>
+              <li>{projectsAggs[modalDelete._id].evaluations} evaluation{projectsAggs[modalDelete._id].evaluations == 1 ? '' : 's'}</li>
+            </ul>
+          </EuiText>
+        }
         doc={modalDelete}
         docType='project'
         isLoading={isLoadingProject}

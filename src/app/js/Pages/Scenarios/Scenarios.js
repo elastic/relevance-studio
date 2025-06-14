@@ -176,6 +176,11 @@ const Scenarios = () => {
   return (<>
     {modalDelete &&
       <ModalDelete
+        description={
+          <EuiText>
+            This will delete all {scenariosAggs[modalDelete._id].judgements} judgement{scenariosAggs[modalDelete._id].judgements == 1 ? '' : 's'} related to this scenario.
+          </EuiText>
+        }
         doc={modalDelete}
         docType='scenario'
         isLoading={isLoadingScenario}

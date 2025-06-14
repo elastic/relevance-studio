@@ -11,7 +11,9 @@ import {
   EuiText,
 } from '@elastic/eui'
 
-const ModalDelete = ({ doc, docType, isLoading, onClose, onDelete, onDeleted, onError }) => {
+const ModalDelete = ({
+    description, doc, docType, isLoading, onClose, onDelete, onDeleted, onError
+  }) => {
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
@@ -49,7 +51,8 @@ const ModalDelete = ({ doc, docType, isLoading, onClose, onDelete, onDeleted, on
             _id:<br /><b>{doc._id}</b>
           </EuiText>
           <EuiSpacer size='m' />
-          <EuiText>This action can't be undone.</EuiText>
+          { !description && <EuiText>This action can't be undone.</EuiText> }
+          { !!description && description }
         </EuiForm>
       </EuiModalBody>
       <EuiModalFooter>

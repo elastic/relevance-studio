@@ -876,10 +876,40 @@ def get_judgements_docs(project_id, scenario_id):
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['DELETE'])
 def delete_scenario(project_id, scenario_id):
     """
-    TODO: Implement project_id filter to prevent deleting objects in other projects.
+    Delete a scenario and all judgements for it.
     """
     try:
-        response = es['studio'].delete(index='esrs-scenarios', id=scenario_id)
+        body = {
+            'query': {
+                'bool': {
+                    'should': [
+                        {
+                            'bool': {
+                                'filter': [
+                                    { 'term': { '_index': 'esrs-scenarios' }},
+                                    { 'term': { '_id': scenario_id }},
+                                    { 'term': { 'project_id': project_id }}
+                                ]
+                            }
+                        },
+                        {
+                            'bool': {
+                                'filter': [
+                                    { 'term': { '_index': 'esrs-judgements' }},
+                                    { 'term': { 'scenario_id': scenario_id }},
+                                    { 'term': { 'project_id': project_id }}
+                                ]
+                            }
+                        }
+                    ],
+                    'minimum_should_match': 1
+                }
+            }
+        }
+        response = es['studio'].delete_by_query(
+            index='esrs-scenarios,esrs-judgements',
+            body=body
+        )
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -1037,10 +1067,77 @@ def get_displays(project_id):
 @app.route('/projects/<string:project_id>', methods=['DELETE'])
 def delete_project(project_id):
     """
-    TODO: Implement project_id filter to prevent deleting objects in other projects.
+    Delete a project and all assets for it.
     """
     try:
-        response = es['studio'].delete(index='esrs-projects', id=project_id)
+        body = {
+            'query': {
+                'bool': {
+                    'should': [
+                        {
+                            'bool': {
+                                'filter': [
+                                    { 'term': { '_index': 'esrs-projects' }},
+                                    { 'term': { '_id': project_id }}
+                                ]
+                            }
+                        },
+                        {
+                            'bool': {
+                                'filter': [
+                                    { 'term': { '_index': 'esrs-displays' }},
+                                    { 'term': { 'project_id': project_id }}
+                                ]
+                            }
+                        },
+                        {
+                            'bool': {
+                                'filter': [
+                                    { 'term': { '_index': 'esrs-scenarios' }},
+                                    { 'term': { 'project_id': project_id }}
+                                ]
+                            }
+                        },
+                        {
+                            'bool': {
+                                'filter': [
+                                    { 'term': { '_index': 'esrs-judgements' }},
+                                    { 'term': { 'project_id': project_id }}
+                                ]
+                            }
+                        },
+                        {
+                            'bool': {
+                                'filter': [
+                                    { 'term': { '_index': 'esrs-strategies' }},
+                                    { 'term': { 'project_id': project_id }}
+                                ]
+                            }
+                        },
+                        {
+                            'bool': {
+                                'filter': [
+                                    { 'term': { '_index': 'esrs-evaluations' }},
+                                    { 'term': { 'project_id': project_id }}
+                                ]
+                            }
+                        }
+                    ],
+                    'minimum_should_match': 1
+                }
+            }
+        }
+        response = es['studio'].delete_by_query(
+            index=','.join([
+                'esrs-projects',
+                'esrs-displays',
+                'esrs-scenarios',
+                'esrs-judgements',
+                'esrs-strategies',
+                'esrs-evaluations',
+            ]),
+            body=body
+        )
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
