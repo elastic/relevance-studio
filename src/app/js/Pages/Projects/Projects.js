@@ -212,15 +212,26 @@ const Projects = () => {
   return (<>
     {modalDelete &&
       <ModalDelete
-         description={
+        description={
+          !!Object.keys((projectsAggs[modalDelete._id]) || {}).length &&
           <EuiText>
             <p>This will delete all assets related to this project:</p>
             <ul>
-              <li>{projectsAggs[modalDelete._id].displays} display{projectsAggs[modalDelete._id].displays == 1 ? '' : 's'}</li>
-              <li>{projectsAggs[modalDelete._id].scenarios} scenario{projectsAggs[modalDelete._id].scenarios == 1 ? '' : 's'}</li>
-              <li>{projectsAggs[modalDelete._id].judgements} judgement{projectsAggs[modalDelete._id].judgements == 1 ? '' : 's'}</li>
-              <li>{projectsAggs[modalDelete._id].strategies} {projectsAggs[modalDelete._id].strategies == 1 ? 'strategy' : 'strategies'}</li>
-              <li>{projectsAggs[modalDelete._id].evaluations} evaluation{projectsAggs[modalDelete._id].evaluations == 1 ? '' : 's'}</li>
+              {!!projectsAggs[modalDelete._id]?.displays &&
+                <li>{projectsAggs[modalDelete._id]?.displays || 0} display{projectsAggs[modalDelete._id]?.displays == 1 ? '' : 's'}</li>
+              }
+              {!!projectsAggs[modalDelete._id]?.scenarios &&
+                <li>{projectsAggs[modalDelete._id]?.scenarios || 0} scenario{projectsAggs[modalDelete._id]?.scenarios == 1 ? '' : 's'}</li>
+              }
+              {!!projectsAggs[modalDelete._id]?.judgements &&
+                <li>{projectsAggs[modalDelete._id]?.judgements || 0} judgement{projectsAggs[modalDelete._id]?.judgements == 1 ? '' : 's'}</li>
+              }
+              {!!projectsAggs[modalDelete._id]?.strategies &&
+                <li>{projectsAggs[modalDelete._id]?.strategies || 0} {projectsAggs[modalDelete._id]?.strategies == 1 ? 'strategy' : 'strategies'}</li>
+              }
+              {!!projectsAggs[modalDelete._id]?.evaluations &&
+                <li>{projectsAggs[modalDelete._id]?.evaluations || 0} evaluation{projectsAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'}</li>
+              }
             </ul>
           </EuiText>
         }

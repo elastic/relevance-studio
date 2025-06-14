@@ -177,8 +177,9 @@ const Scenarios = () => {
     {modalDelete &&
       <ModalDelete
         description={
+          !!scenariosAggs[modalDelete._id]?.judgements &&
           <EuiText>
-            This will delete all {scenariosAggs[modalDelete._id].judgements} judgement{scenariosAggs[modalDelete._id].judgements == 1 ? '' : 's'} related to this scenario.
+            This will delete {scenariosAggs[modalDelete._id]?.judgements == 1 ? ' ' : 'all '}{scenariosAggs[modalDelete._id]?.judgements} judgement{scenariosAggs[modalDelete._id]?.judgements == 1 ? '' : 's'} related to this scenario.
           </EuiText>
         }
         doc={modalDelete}
