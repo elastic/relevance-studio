@@ -94,6 +94,24 @@ def extract_params(obj):
     """
     return list(set(re.findall(RE_PARAMS, json.dumps(obj))))
 
+def doc_from_search_as_get(response, index_searched, id_searched):
+    """
+    When fetching a single doc with POST _search instead of GET _doc,
+    return the response in the format used by GET _doc.
+    """
+    if not response.body['hits']['hits']:
+        return {
+            '_index': index_searched,
+            '_id': id_searched,
+            'found': False
+        }
+    return {
+        '_index': response.body['hits']['hits'][0]['_index'],
+        '_id': response.body['hits']['hits'][0]['_id'],
+        '_source': response.body['hits']['hits'][0]['_source'],
+        'found': True,
+    }
+
 
 ####  Application  #############################################################
 
@@ -603,10 +621,25 @@ def run_evaluation(project_id):
 @app.route('/projects/<string:project_id>/evaluations/<string:evaluation_id>', methods=['GET'])
 def get_evaluation(project_id, evaluation_id):
     try:
-        response = es['studio'].get(index='esrs-evaluations', id=evaluation_id)
+        body = {
+            'query': {
+                'bool': {
+                    'filter': [
+                        { 'term': { '_id': evaluation_id }},
+                        { 'term': { 'project_id': project_id }}
+                    ]
+                }
+            },
+            'size': 1
+        }
+        index = 'esrs-evaluations'
+        response = es['studio'].search(index=index, body=body)
+        doc = doc_from_search_as_get(response, index, evaluation_id)
+        if not doc['found']:
+            return jsonify(doc), 404
+        return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/evaluations', methods=['GET'])
 def get_evaluations(project_id):
@@ -679,10 +712,25 @@ def create_strategy(project_id):
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['GET'])
 def get_strategy(project_id, strategy_id):
     try:
-        response = es['studio'].get(index='esrs-strategies', id=strategy_id)
+        body = {
+            'query': {
+                'bool': {
+                    'filter': [
+                        { 'term': { '_id': strategy_id }},
+                        { 'term': { 'project_id': project_id }}
+                    ]
+                }
+            },
+            'size': 1
+        }
+        index = 'esrs-strategies'
+        response = es['studio'].search(index=index, body=body)
+        doc = doc_from_search_as_get(response, index, strategy_id)
+        if not doc['found']:
+            return jsonify(doc), 404
+        return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/strategies', methods=['GET'])
 def get_strategies(project_id):
@@ -747,14 +795,26 @@ def set_judgement(project_id, scenario_id):
 
 @app.route('/projects/<string:project_id>/judgements/<string:judgement_id>', methods=['GET'])
 def get_judgement(project_id, judgement_id):
-    """
-    TODO: REIMPLEMENT
-    """
     try:
-        response = es['studio'].get(index='esrs-judgements', id=judgement_id)
+        body = {
+            'query': {
+                'bool': {
+                    'filter': [
+                        { 'term': { '_id': judgement_id }},
+                        { 'term': { 'project_id': project_id }}
+                    ]
+                }
+            },
+            'size': 1
+        }
+        index = 'esrs-judgements'
+        response = es['studio'].search(index=index, body=body)
+        doc = doc_from_search_as_get(response, index, judgement_id)
+        if not doc['found']:
+            return jsonify(doc), 404
+        return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/judgements', methods=['GET'])
 def get_judgements(project_id):
@@ -980,14 +1040,26 @@ def create_scenario(project_id):
 
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['GET'])
 def get_scenario(project_id, scenario_id):
-    """
-    TODO: Implement project_id filter
-    """
     try:
-        response = es['studio'].get(index='esrs-scenarios', id=scenario_id)
+        body = {
+            'query': {
+                'bool': {
+                    'filter': [
+                        { 'term': { '_id': scenario_id }},
+                        { 'term': { 'project_id': project_id }}
+                    ]
+                }
+            },
+            'size': 1
+        }
+        index = 'esrs-scenarios'
+        response = es['studio'].search(index=index, body=body)
+        doc = doc_from_search_as_get(response, index, scenario_id)
+        if not doc['found']:
+            return jsonify(doc), 404
+        return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/scenarios', methods=['GET'])
 def get_scenarios(project_id):
@@ -1089,10 +1161,25 @@ def create_display(project_id):
 @app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['GET'])
 def get_display(project_id, display_id):
     try:
-        response = es['studio'].get(index='esrs-displays', id=display_id)
+        body = {
+            'query': {
+                'bool': {
+                    'filter': [
+                        { 'term': { '_id': display_id }},
+                        { 'term': { 'project_id': project_id }}
+                    ]
+                }
+            },
+            'size': 1
+        }
+        index = 'esrs-displays'
+        response = es['studio'].search(index=index, body=body)
+        doc = doc_from_search_as_get(response, index, display_id)
+        if not doc['found']:
+            return jsonify(doc), 404
+        return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/displays', methods=['GET'])
 def get_displays(project_id):
