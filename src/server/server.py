@@ -56,11 +56,14 @@ es_studio_kwargs = {
 if ELASTIC_CLOUD_ID:
     es_studio_kwargs['cloud_id'] = ELASTIC_CLOUD_ID
 else:
-    es_studio_kwargs['hosts'] = [ELASTICSEARCH_URL]
+    es_studio_kwargs['hosts'] = [ ELASTICSEARCH_URL ]
 if ELASTICSEARCH_API_KEY:
     es_studio_kwargs['api_key'] = ELASTICSEARCH_API_KEY
 else:
-    es_studio_kwargs['basic_auth'] = (ELASTICSEARCH_USERNAME, ELASTICSEARCH_PASSWORD)
+    es_studio_kwargs['basic_auth'] = (
+        ELASTICSEARCH_USERNAME,
+        ELASTICSEARCH_PASSWORD
+    )
 es['studio'] = Elasticsearch(**es_studio_kwargs)
 
 # Setup client for delployment with source content
@@ -71,11 +74,14 @@ else:
     if CONTENT_ELASTIC_CLOUD_ID:
         es_content_kwargs['cloud_id'] = CONTENT_ELASTIC_CLOUD_ID
     else:
-        es_content_kwargs['hosts'] = [CONTENT_ELASTICSEARCH_URL]
+        es_content_kwargs['hosts'] = [ CONTENT_ELASTICSEARCH_URL ]
     if CONTENT_ELASTICSEARCH_API_KEY:
         es_content_kwargs['api_key'] = CONTENT_ELASTICSEARCH_API_KEY
     else:
-        es_content_kwargs['basic_auth'] = (CONTENT_ELASTICSEARCH_USERNAME, CONTENT_ELASTICSEARCH_PASSWORD)
+        es_content_kwargs['basic_auth'] = (
+            CONTENT_ELASTICSEARCH_USERNAME,
+            CONTENT_ELASTICSEARCH_PASSWORD
+        )
     es['content'] = Elasticsearch(**es_content_kwargs)
 
 # Pre-compiled regular expressions
@@ -121,12 +127,60 @@ app = Flask(__name__, static_folder=os.environ.get('STATIC_PATH') or DEFAULT_STA
 CORS(app)
 
 
+####  API Helpers  #############################################################
+
+def update_project_asset(index, project_id, _id, doc):
+    body = {
+        'query': {
+            'bool': {
+                'filter': [
+                    { 'term': { '_id': _id} },
+                    { 'term': { 'project_id': project_id }}
+                ]
+            }
+        },
+        'script': {
+            'source': 'ctx._source = params.doc',
+            'lang': 'painless',
+            'params': {
+                'doc': doc
+            }
+        }
+    }
+    response = es['studio'].update_by_query(
+        index=index,
+        body=body,
+        refresh=True,
+        conflicts='proceed'
+    )
+    return response
+
+def delete_project_asset(index, project_id, _id):
+    body = {
+        'query': {
+            'bool': {
+                'filter': [
+                    { 'term': { '_id': _id }},
+                    { 'term': { 'project_id': project_id }}
+                ]
+            }
+        }
+    }
+    response = es['studio'].delete_by_query(
+        index=index,
+        body=body,
+        refresh=True,
+        conflicts='proceed'
+    )
+    return response
+
+
 ####  API: Elasticsearch APIs  #################################################
 
 @app.route('/_search/<string:index_patterns>', methods=['POST'])
 def post_search(index_patterns):
     """
-    Submit a search request.
+    Submit a search request to the content deployment.
     """
     try:
         response = es['content'].search(index=index_patterns, body=request.get_json())
@@ -138,8 +192,8 @@ def post_search(index_patterns):
 @app.route('/indices/<string:index_patterns>', methods=['GET'])
 def get_indices(index_patterns):
     """
-    Given a comma-separated string of index patterns, return the matching indices
-    with their fields and types in a flattened format.
+    Given a comma-separated string of index patterns for the content deployment,
+    return the matching indices with their fields and types in a flattened format.
     """
     
     # Get matching indices and their mappings
@@ -189,14 +243,10 @@ def get_indices(index_patterns):
 @app.route('/projects/<string:project_id>/evaluations/<string:evaluation_id>', methods=['DELETE'])
 def delete_evaluation(project_id, evaluation_id):
     """
-    TODO: Implement project_id filter to prevent deleting objects in other projects.
+    Delete an evaluation for a given project.
     """
     try:
-        response = es['studio'].delete(
-            index='esrs-evaluations',
-            id=evaluation_id,
-            refresh=True
-        )
+        response = delete_project_asset('esrs-evaluations', project_id, evaluation_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
@@ -515,7 +565,7 @@ def run_evaluation(project_id):
                 'ratings': ratings[scenario_id]
             })
             
-        # Run _rank_eval and accumulate the results
+        # Run _rank_eval on the content deployment and accumulate the results
         try:
             body = {
                 'metric': _rank_eval['metric'],
@@ -620,6 +670,9 @@ def run_evaluation(project_id):
 
 @app.route('/projects/<string:project_id>/evaluations/<string:evaluation_id>', methods=['GET'])
 def get_evaluation(project_id, evaluation_id):
+    """
+    Get an evaluation for a given project.
+    """
     try:
         body = {
             'query': {
@@ -643,6 +696,9 @@ def get_evaluation(project_id, evaluation_id):
 
 @app.route('/projects/<string:project_id>/evaluations', methods=['GET'])
 def get_evaluations(project_id):
+    """
+    Get all evaluations for a given project.
+    """
     try:
         body={
             'query': {
@@ -666,35 +722,35 @@ def get_evaluations(project_id):
 
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['DELETE'])
 def delete_strategy(project_id, strategy_id):
+    """
+    Delete a strategy for a given project.
+    """
     try:
-        response = es['studio'].delete(
-            index='esrs-strategies',
-            id=strategy_id,
-            refresh=True
-        )
+        response = delete_project_asset('esrs-strategies', project_id, strategy_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['PUT'])
 def update_strategy(project_id, strategy_id):
+    """
+    Update a strategy for a given project.
+    """
     doc = request.get_json()
     doc.pop('_id', None)
     doc['project_id'] = project_id
     doc['params'] = extract_params(doc['template']['source'])
     try:
-        response = es['studio'].index(
-            index='esrs-strategies',
-            id=strategy_id,
-            document=doc,
-            refresh=True
-        )
+        response = update_project_asset('esrs-strategies', project_id, strategy_id, doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/strategies', methods=['POST'])
 def create_strategy(project_id):
+    """
+    Create a strategy for a given project.
+    """
     doc = request.get_json()
     doc['project_id'] = project_id
     strategy_id = uuid.uuid4()
@@ -711,6 +767,9 @@ def create_strategy(project_id):
 
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['GET'])
 def get_strategy(project_id, strategy_id):
+    """
+    Get a strategy for a given project.
+    """
     try:
         body = {
             'query': {
@@ -734,6 +793,9 @@ def get_strategy(project_id, strategy_id):
 
 @app.route('/projects/<string:project_id>/strategies', methods=['GET'])
 def get_strategies(project_id):
+    """
+    Get all strategies for a given project.
+    """
     try:
         body={
             'query': {
@@ -757,20 +819,22 @@ def get_strategies(project_id):
 
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>/judgements', methods=['DELETE'])
 def unset_judgement(project_id, scenario_id):
+    """
+    Delete a judgement for a given project.
+    """
     data = request.get_json()
-    _id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
+    judgement_id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
     try:
-        response = es['studio'].delete(
-            index='esrs-judgements',
-            id=_id,
-            refresh=True
-        )
+        response = delete_project_asset('esrs-judgements', project_id, judgement_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>/judgements', methods=['PUT'])
 def set_judgement(project_id, scenario_id):
+    """
+    Create or update a judgement for a given project.
+    """
     data = request.get_json()
     doc = {
         '@timestamp': timestamp(),
@@ -781,11 +845,11 @@ def set_judgement(project_id, scenario_id):
         'doc_id': data['doc_id'],
         'rating': data['rating'],
     }
-    _id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
+    judgement_id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
     try:
         response = es['studio'].index(
             index='esrs-judgements',
-            id=_id,
+            id=judgement_id,
             document=doc,
             refresh=True
         )
@@ -795,6 +859,9 @@ def set_judgement(project_id, scenario_id):
 
 @app.route('/projects/<string:project_id>/judgements/<string:judgement_id>', methods=['GET'])
 def get_judgement(project_id, judgement_id):
+    """
+    Get a judgement for a given project.
+    """
     try:
         body = {
             'query': {
@@ -818,6 +885,9 @@ def get_judgement(project_id, judgement_id):
 
 @app.route('/projects/<string:project_id>/judgements', methods=['GET'])
 def get_judgements(project_id):
+    """
+    Get all judgements for a given project.
+    """
     try:
         body={
             'query': {
@@ -839,7 +909,7 @@ def get_judgements(project_id):
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>/judgements/_docs', methods=['GET','POST'])
 def get_judgements_docs(project_id, scenario_id):
     """
-    Get documents with ratings joined to them.
+    Get documents from the content deployment with ratings joined to them.
     
     Expected structure of the request:
     
@@ -901,7 +971,7 @@ def get_judgements_docs(project_id, scenario_id):
                 'rating': hit['_source'].get('rating')
             }
             
-        # Search docs
+        # Search docs on the content deployment
         body = {
             'size': 48,
             'query': {
@@ -964,7 +1034,8 @@ def get_judgements_docs(project_id, scenario_id):
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['DELETE'])
 def delete_scenario(project_id, scenario_id):
     """
-    Delete a scenario and all judgements for it.
+    Delete a scenario for a given project, and delete all judgements related to
+    the scenario.
     """
     try:
         body = {
@@ -997,7 +1068,8 @@ def delete_scenario(project_id, scenario_id):
         response = es['studio'].delete_by_query(
             index='esrs-scenarios,esrs-judgements',
             body=body,
-            refresh=True
+            refresh=True,
+            conflicts='proceed'
         )
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -1006,24 +1078,22 @@ def delete_scenario(project_id, scenario_id):
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['PUT'])
 def update_scenario(project_id, scenario_id):
     """
-    TODO: Implement project_id filter
+    Update a scenario for a given project.
     """
     doc = request.get_json()
     doc.pop('_id', None)
     doc['project_id'] = project_id
     try:
-        response = es['studio'].index(
-            index='esrs-scenarios',
-            id=scenario_id,
-            document=doc,
-            refresh=True
-        )
+        response = update_project_asset('esrs-scenarios', project_id, scenario_id, doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/scenarios', methods=['POST'])
 def create_scenario(project_id):
+    """
+    Create a scenario for a given project.
+    """
     doc = request.get_json()
     doc['project_id'] = project_id
     scenario_id = uuid.uuid4()
@@ -1040,6 +1110,9 @@ def create_scenario(project_id):
 
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['GET'])
 def get_scenario(project_id, scenario_id):
+    """
+    Get a scenario for a given project.
+    """
     try:
         body = {
             'query': {
@@ -1063,6 +1136,9 @@ def get_scenario(project_id, scenario_id):
 
 @app.route('/projects/<string:project_id>/scenarios', methods=['GET'])
 def get_scenarios(project_id):
+    """
+    Get all scenarios for a given project.
+    """
     try:
         body = {
             'size': 10000,
@@ -1112,37 +1188,34 @@ def get_scenarios(project_id):
 @app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['DELETE'])
 def delete_display(project_id, display_id):
     """
-    TODO: Implement project_id filter to prevent deleting objects in other projects.
+    Delete a display for a given project.
     """
     try:
-        response = es['studio'].delete(
-            index='esrs-displays',
-            id=display_id,
-            refresh=True
-        )
+        response = delete_project_asset('esrs-displays', project_id, display_id)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['PUT'])
 def update_display(project_id, display_id):
+    """
+    Update a display for a given project.
+    """
     doc = request.get_json()
     doc.pop('_id', None)
     doc['project_id'] = project_id
     doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
     try:
-        response = es['studio'].index(
-            index='esrs-displays',
-            id=display_id,
-            document=doc,
-            refresh=True
-        )
+        response = update_project_asset('esrs-displays', project_id, display_id, doc)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
     return jsonify(response.body), response.meta.status
 
 @app.route('/projects/<string:project_id>/displays', methods=['POST'])
 def create_display(project_id):
+    """
+    Create a display for a given project.
+    """
     doc = request.get_json()
     doc['project_id'] = project_id
     doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
@@ -1160,6 +1233,9 @@ def create_display(project_id):
 
 @app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['GET'])
 def get_display(project_id, display_id):
+    """
+    Get a display for a given project.
+    """
     try:
         body = {
             'query': {
@@ -1183,6 +1259,9 @@ def get_display(project_id, display_id):
 
 @app.route('/projects/<string:project_id>/displays', methods=['GET'])
 def get_displays(project_id):
+    """
+    Get all displays for a given project.
+    """
     try:
         body={
             'query': {
@@ -1207,7 +1286,7 @@ def get_displays(project_id):
 @app.route('/projects/<string:project_id>', methods=['DELETE'])
 def delete_project(project_id):
     """
-    Delete a project and all assets for it.
+    Delete a project and all assets related to it.
     """
     try:
         body = {
@@ -1277,7 +1356,8 @@ def delete_project(project_id):
                 'esrs-evaluations',
             ]),
             body=body,
-            refresh=True
+            refresh=True,
+            conflicts='proceed'
         )
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -1285,6 +1365,9 @@ def delete_project(project_id):
 
 @app.route('/projects/<string:project_id>', methods=['PUT'])
 def update_project(project_id):
+    """
+    Update a project.
+    """
     doc = request.get_json()
     doc.pop('_id', None)
     try:
@@ -1300,6 +1383,9 @@ def update_project(project_id):
 
 @app.route('/projects', methods=['POST'])
 def create_project():
+    """
+    Create a project.
+    """
     doc = request.get_json()
     project_id = uuid.uuid4()
     try:
@@ -1315,6 +1401,9 @@ def create_project():
 
 @app.route('/projects/<string:project_id>', methods=['GET'])
 def get_project(project_id):
+    """
+    Get a project.
+    """
     try:
         response = es['studio'].get(index='esrs-projects', id=project_id)
     except ApiError as e:
@@ -1323,6 +1412,9 @@ def get_project(project_id):
 
 @app.route('/projects', methods=['GET'])
 def get_projects():
+    """
+    Get all projects.
+    """
     try:
         body = {
             'size': 10000,
@@ -1401,20 +1493,41 @@ def setup():
         os.path.dirname(os.path.abspath(__file__)), 'elastic', 'index_templates'
     )
     path_index_templates = [
-        os.path.join(path_base, 'projects.json'),
-        os.path.join(path_base, 'displays.json'),
-        os.path.join(path_base, 'scenarios.json'),
-        os.path.join(path_base, 'judgements.json'),
-        os.path.join(path_base, 'strategies.json'),
-        os.path.join(path_base, 'evaluations.json')
+        ( 'esrs-projects', os.path.join(path_base, 'projects.json') ),
+        ( 'esrs-displays', os.path.join(path_base, 'displays.json') ),
+        ( 'esrs-scenarios', os.path.join(path_base, 'scenarios.json') ),
+        ( 'esrs-judgements', os.path.join(path_base, 'judgements.json') ),
+        ( 'esrs-strategies', os.path.join(path_base, 'strategies.json') ),
+        ( 'esrs-evaluations', os.path.join(path_base, 'evaluations.json') )
     ]
-    for path_index_template in path_index_templates:
+    result = {
+        'failures': 0,
+        'requests': []
+    }
+    for index_template_name, path_index_template in path_index_templates:
         body = None
         with open(path_index_template) as file:
             body = json.loads(file.read())
         name = body['index_patterns'][0].replace('*', '')
-        response = es['studio'].indices.put_template(name=name, body=body)
-    return { 'acknowledged': True }
+        try:
+            response = es['studio'].indices.put_template(name=name, body=body)
+            result['requests'].append({
+                'index_template': index_template_name,
+                'response': {
+                    'body': response.body,
+                    'status': response.meta.status
+                }
+            })
+        except ApiError as e:
+            result['failures'] += 1
+            result['requests'].append({
+                'index_template': index_template_name,
+                'response': {
+                    'body': e.body,
+                    'status': e.meta.status
+                }
+            })
+    return jsonify(result)
 
 
 ####  API: Tests  ##############################################################
