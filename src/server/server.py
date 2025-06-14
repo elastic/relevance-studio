@@ -184,9 +184,12 @@ def post_search(index_patterns):
     """
     try:
         response = es['content'].search(index=index_patterns, body=request.get_json())
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
     
 
 @app.route('/indices/<string:index_patterns>', methods=['GET'])
@@ -205,6 +208,9 @@ def get_indices(index_patterns):
             return {}
         else:
             return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
     
     # Flatten the fields in each mapping
     def _flatten_fields(properties, parent_key=''):
@@ -247,9 +253,12 @@ def delete_evaluation(project_id, evaluation_id):
     """
     try:
         response = delete_project_asset('esrs-evaluations', project_id, evaluation_id)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/evaluations', methods=['POST'])
 def run_evaluation(project_id):
@@ -666,6 +675,9 @@ def run_evaluation(project_id):
             return jsonify(es_response.body), es_response.meta.status
         except ApiError as e:
             return jsonify(e.body), e.meta.status
+        except Exception as e:
+            app.logger.exception(f'Unexpected error: {e}')
+            return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
     return jsonify(response)
 
 @app.route('/projects/<string:project_id>/evaluations/<string:evaluation_id>', methods=['GET'])
@@ -693,6 +705,9 @@ def get_evaluation(project_id, evaluation_id):
         return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/evaluations', methods=['GET'])
 def get_evaluations(project_id):
@@ -713,9 +728,12 @@ def get_evaluations(project_id):
             'size': 10000
         }
         response = es['studio'].search(index='esrs-evaluations', body=body)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 
 ####  API: Strategies  #########################################################
@@ -742,9 +760,12 @@ def update_strategy(project_id, strategy_id):
     doc['params'] = extract_params(doc['template']['source'])
     try:
         response = update_project_asset('esrs-strategies', project_id, strategy_id, doc)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/strategies', methods=['POST'])
 def create_strategy(project_id):
@@ -761,9 +782,12 @@ def create_strategy(project_id):
             document=doc,
             refresh=True
         )
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/strategies/<string:strategy_id>', methods=['GET'])
 def get_strategy(project_id, strategy_id):
@@ -790,6 +814,9 @@ def get_strategy(project_id, strategy_id):
         return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/strategies', methods=['GET'])
 def get_strategies(project_id):
@@ -810,9 +837,12 @@ def get_strategies(project_id):
             'size': 10000
         }
         response = es['studio'].search(index='esrs-strategies', body=body)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 
 ####  API: Judgements  #########################################################
@@ -826,9 +856,12 @@ def unset_judgement(project_id, scenario_id):
     judgement_id = ':'.join([ project_id, scenario_id, data['index'], data['doc_id'] ])
     try:
         response = delete_project_asset('esrs-judgements', project_id, judgement_id)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>/judgements', methods=['PUT'])
 def set_judgement(project_id, scenario_id):
@@ -853,9 +886,12 @@ def set_judgement(project_id, scenario_id):
             document=doc,
             refresh=True
         )
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/judgements/<string:judgement_id>', methods=['GET'])
 def get_judgement(project_id, judgement_id):
@@ -882,6 +918,9 @@ def get_judgement(project_id, judgement_id):
         return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/judgements', methods=['GET'])
 def get_judgements(project_id):
@@ -902,9 +941,12 @@ def get_judgements(project_id):
             'size': 10000
         }
         response = es['studio'].search(index='esrs-judgements', body=body)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>/judgements/_docs', methods=['GET','POST'])
 def get_judgements_docs(project_id, scenario_id):
@@ -1023,10 +1065,12 @@ def get_judgements_docs(project_id, scenario_id):
             reverse = True if sort == 'rating-newest' else False
             fallback = '0000-01-01T00:00:00Z' if not reverse else '9999-12-31T23:59:59Z'
             response['hits']['hits'] = sorted(response['hits']['hits'], key=lambda hit: hit.get('@timestamp') or fallback, reverse=reverse)
-            
+        return jsonify(response)
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response)
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 
 ####  API: Scenarios  ###########################################################
@@ -1071,9 +1115,12 @@ def delete_scenario(project_id, scenario_id):
             refresh=True,
             conflicts='proceed'
         )
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['PUT'])
 def update_scenario(project_id, scenario_id):
@@ -1085,9 +1132,12 @@ def update_scenario(project_id, scenario_id):
     doc['project_id'] = project_id
     try:
         response = update_project_asset('esrs-scenarios', project_id, scenario_id, doc)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/scenarios', methods=['POST'])
 def create_scenario(project_id):
@@ -1104,9 +1154,12 @@ def create_scenario(project_id):
             document=doc,
             refresh=True
         )
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/scenarios/<string:scenario_id>', methods=['GET'])
 def get_scenario(project_id, scenario_id):
@@ -1133,6 +1186,9 @@ def get_scenario(project_id, scenario_id):
         return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/scenarios', methods=['GET'])
 def get_scenarios(project_id):
@@ -1178,9 +1234,12 @@ def get_scenarios(project_id):
             'esrs-judgements'
         ])
         response = es['studio'].search(index=index, body=body)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 
 ####  API: Displays  #####################################################
@@ -1192,9 +1251,12 @@ def delete_display(project_id, display_id):
     """
     try:
         response = delete_project_asset('esrs-displays', project_id, display_id)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['PUT'])
 def update_display(project_id, display_id):
@@ -1207,9 +1269,12 @@ def update_display(project_id, display_id):
     doc['fields'] = [ x for x in extract_params(doc['template']['body']) if not x.startswith('_') ]
     try:
         response = update_project_asset('esrs-displays', project_id, display_id, doc)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/displays', methods=['POST'])
 def create_display(project_id):
@@ -1227,9 +1292,12 @@ def create_display(project_id):
             document=doc,
             refresh=True
         )
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/displays/<string:display_id>', methods=['GET'])
 def get_display(project_id, display_id):
@@ -1256,6 +1324,9 @@ def get_display(project_id, display_id):
         return jsonify(doc), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>/displays', methods=['GET'])
 def get_displays(project_id):
@@ -1276,9 +1347,12 @@ def get_displays(project_id):
             'size': 10000
         }
         response = es['studio'].search(index='esrs-displays', body=body)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 
 ####  API: Projects  #####################################################
@@ -1359,9 +1433,12 @@ def delete_project(project_id):
             refresh=True,
             conflicts='proceed'
         )
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>', methods=['PUT'])
 def update_project(project_id):
@@ -1377,9 +1454,12 @@ def update_project(project_id):
             doc=doc,
             refresh=True
         )
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects', methods=['POST'])
 def create_project():
@@ -1395,9 +1475,12 @@ def create_project():
             document=doc,
             refresh=True
         )
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects/<string:project_id>', methods=['GET'])
 def get_project(project_id):
@@ -1406,9 +1489,12 @@ def get_project(project_id):
     """
     try:
         response = es['studio'].get(index='esrs-projects', id=project_id)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
 
 @app.route('/projects', methods=['GET'])
 def get_projects():
@@ -1477,9 +1563,12 @@ def get_projects():
             'esrs-evaluations',
         ])
         response = es['studio'].search(index=index, body=body)
+        return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
-    return jsonify(response.body), response.meta.status
+    except Exception as e:
+        app.logger.exception(f'Unexpected error: {e}')
+        return jsonify({ 'error': 'Unexpected error', 'message': str(e) }), 500
     
     
 ####  API: Setup  ##############################################################

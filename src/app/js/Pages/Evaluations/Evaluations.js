@@ -152,7 +152,7 @@ const Evaluations = () => {
         response = await api.delete_evaluation(project._id, modalData._id)
       } catch (error) {
         return addToast(api.errorToast(error, {
-          title: 'Failed to delete display'
+          title: 'Failed to delete evaluation'
         }))
       } finally {
         setIsProcessingEvaluation(false)
@@ -198,7 +198,7 @@ const Evaluations = () => {
     <EuiModal onClose={onModalDeleteClose}>
       <EuiModalHeader>
         <EuiModalHeaderTitle>
-          Delete <b>{modalData._id}</b>?
+          Delete evaluation?
         </EuiModalHeaderTitle>
       </EuiModalHeader>
       <EuiModalBody>
