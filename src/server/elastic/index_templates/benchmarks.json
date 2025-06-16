@@ -1,0 +1,29 @@
+{
+  "index_patterns": [
+    "esrs-benchmarks*"
+  ],
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "project_id": {
+        "type": "keyword"
+      },
+      "scenario_id": {
+        "type": "keyword"
+      },
+      "strategy_id": {
+        "type": "keyword"
+      },
+      "config": {
+        "properties": {
+          "metrics": {
+            "type": "keyword"
+          },
+          "k": {
+            "type": "short"
+          }
+        }
+      }
+    }
+  }
+}

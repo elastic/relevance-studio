@@ -11,6 +11,9 @@
       "project_id": {
         "type": "keyword"
       },
+      "benchmark_id": {
+        "type": "keyword"
+      },
       "scenario_id": {
         "type": "keyword"
       },

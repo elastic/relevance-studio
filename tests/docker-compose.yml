@@ -1,0 +1,46 @@
+services:
+  
+  esrs-test-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    depends_on:
+      esrs-test-es:
+        condition: service_healthy
+    ports:
+      - "4096:4096"
+    environment:
+      - ELASTICSEARCH_URL=http://esrs-test-es:9200
+    networks:
+      - esrs-test
+  
+  esrs-test-es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.18.2
+    user: elasticsearch
+    environment:
+      - action.destructive_requires_name=false
+      - bootstrap.memory_lock=true
+      - cluster.name=esrs-test-cluster
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - discovery.type=single-node
+      - xpack.monitoring.collection.enabled=false
+      - xpack.security.enabled=false
+      - xpack.watcher.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m -ea"
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: curl -f -u elastic:esrstests http://esrs-test-es:9200 || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - esrs-test
+
+networks:
+  esrs-test:
+    driver: bridge

@@ -37,7 +37,7 @@ ELASTICSEARCH_TIMEOUT = int(os.getenv("ELASTICSEARCH_TIMEOUT", "60000").strip())
 # Validate configuration
 if not ELASTIC_CLOUD_ID and not ELASTICSEARCH_URL:
     raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL in .env")
-if not ELASTICSEARCH_API_KEY and not (ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD):
+if (ELASTICSEARCH_USERNAME and not ELASTICSEARCH_PASSWORD) or (not ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD):
     raise ValueError("You must configure either ELASTICSEARCH_API_KEY or both of ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD in .env")
 if CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL:
     if not CONTENT_ELASTICSEARCH_API_KEY and not (CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD):
@@ -736,6 +736,180 @@ def get_evaluations(project_id):
         return jsonify({ "error": "Unexpected error", "message": str(e) }), 500
 
 
+####  API: Benchmarks  #########################################################
+
+@app.route("/projects/<string:project_id>/benchmarks/<string:benchmark_id>", methods=["DELETE"])
+def delete_benchmark(project_id, benchmark_id):
+    """
+    Delete a benchmark for a given project, and delete all evaluations related
+    to the benchmark.
+    """
+    try:
+        body = {
+            "query": {
+                "bool": {
+                    "should": [
+                        {
+                            "bool": {
+                                "filter": [
+                                    { "term": { "_index": "esrs-benchmarks" }},
+                                    { "term": { "_id": benchmark_id }},
+                                    { "term": { "project_id": project_id }}
+                                ]
+                            }
+                        },
+                        {
+                            "bool": {
+                                "filter": [
+                                    { "term": { "_index": "esrs-evaluations" }},
+                                    { "term": { "benchmark_id": benchmark_id }},
+                                    { "term": { "project_id": project_id }}
+                                ]
+                            }
+                        }
+                    ],
+                    "minimum_should_match": 1
+                }
+            }
+        }
+        response = es["studio"].delete_by_query(
+            index="esrs-benchmarks,esrs-evaluations",
+            body=body,
+            refresh=True,
+            conflicts="proceed",
+            ignore_unavailable=True
+        )
+        return jsonify(response.body), response.meta.status
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f"Unexpected error: {e}")
+        return jsonify({ "error": "Unexpected error", "message": str(e) }), 500
+
+@app.route("/projects/<string:project_id>/benchmarks/<string:benchmark_id>", methods=["PUT"])
+def update_benchmark(project_id, benchmark_id):
+    """
+    Update a benchmark for a given project.
+    """
+    doc = request.get_json()
+    doc.pop("_id", None)
+    doc["project_id"] = project_id
+    try:
+        response = update_project_asset("esrs-benchmarks", project_id, benchmark_id, doc)
+        return jsonify(response.body), response.meta.status
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f"Unexpected error: {e}")
+        return jsonify({ "error": "Unexpected error", "message": str(e) }), 500
+
+@app.route("/projects/<string:project_id>/benchmarks", methods=["POST"])
+def create_benchmark(project_id):
+    """
+    Create a benchmark for a given project.
+    """
+    doc = request.get_json()
+    doc["project_id"] = project_id
+    benchmark_id = uuid.uuid4()
+    try:
+        response = es["studio"].index(
+            index="esrs-benchmarks",
+            id=benchmark_id,
+            document=doc,
+            refresh=True
+        )
+        return jsonify(response.body), response.meta.status
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f"Unexpected error: {e}")
+        return jsonify({ "error": "Unexpected error", "message": str(e) }), 500
+
+@app.route("/projects/<string:project_id>/benchmarks/<string:benchmark_id>", methods=["GET"])
+def get_benchmark(project_id, benchmark_id):
+    """
+    Get a benchmark for a given project.
+    """
+    try:
+        body = {
+            "query": {
+                "bool": {
+                    "filter": [
+                        { "term": { "_id": benchmark_id }},
+                        { "term": { "project_id": project_id }}
+                    ]
+                }
+            },
+            "size": 1
+        }
+        index = "esrs-benchmarks"
+        response = es["studio"].search(index=index, body=body)
+        doc = doc_from_search_as_get(response, index, benchmark_id)
+        if not doc["found"]:
+            return jsonify(doc), 404
+        return jsonify(doc), response.meta.status
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f"Unexpected error: {e}")
+        return jsonify({ "error": "Unexpected error", "message": str(e) }), 500
+
+@app.route("/projects/<string:project_id>/benchmarks", methods=["GET"])
+def get_benchmarks(project_id):
+    """
+    Get all benchmarks for a given project.
+    """
+    try:
+        body = {
+            "size": 10000,
+            "query": {
+                "bool": {
+                    "filter": {
+                        "term": {
+                            "project_id": project_id
+                        }
+                    }
+                }
+            },
+            "post_filter": {
+                "term": {
+                    "_index": "esrs-benchmarks"
+                }
+            },
+            "aggs": {
+                "counts": {
+                    "terms": {
+                        "field": "scenario_id"
+                    },
+                    "aggs": {
+                        "judgements": {
+                            "filter": {
+                                "term": {
+                                    "_index": "esrs-evaluations"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        index = ",".join([
+            "esrs-benchmarks",
+            "esrs-evaluations"
+        ])
+        response = es["studio"].search(
+            index=index,
+            body=body,
+            ignore_unavailable=True
+        )
+        return jsonify(response.body), response.meta.status
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    except Exception as e:
+        app.logger.exception(f"Unexpected error: {e}")
+        return jsonify({ "error": "Unexpected error", "message": str(e) }), 500
+
+
 ####  API: Strategies  #########################################################
 
 @app.route("/projects/<string:project_id>/strategies/<string:strategy_id>", methods=["DELETE"])
@@ -1113,7 +1287,8 @@ def delete_scenario(project_id, scenario_id):
             index="esrs-scenarios,esrs-judgements",
             body=body,
             refresh=True,
-            conflicts="proceed"
+            conflicts="proceed",
+            ignore_unavailable=True
         )
         return jsonify(response.body), response.meta.status
     except ApiError as e:
@@ -1233,7 +1408,11 @@ def get_scenarios(project_id):
             "esrs-scenarios",
             "esrs-judgements"
         ])
-        response = es["studio"].search(index=index, body=body)
+        response = es["studio"].search(
+            index=index,
+            body=body,
+            ignore_unavailable=True
+        )
         return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -1410,6 +1589,14 @@ def delete_project(project_id):
                         {
                             "bool": {
                                 "filter": [
+                                    { "term": { "_index": "esrs-benchmarks" }},
+                                    { "term": { "project_id": project_id }}
+                                ]
+                            }
+                        },
+                        {
+                            "bool": {
+                                "filter": [
                                     { "term": { "_index": "esrs-evaluations" }},
                                     { "term": { "project_id": project_id }}
                                 ]
@@ -1427,11 +1614,13 @@ def delete_project(project_id):
                 "esrs-scenarios",
                 "esrs-judgements",
                 "esrs-strategies",
+                "esrs-benchmarks",
                 "esrs-evaluations",
             ]),
             body=body,
             refresh=True,
-            conflicts="proceed"
+            conflicts="proceed",
+            ignore_unavailable=True
         )
         return jsonify(response.body), response.meta.status
     except ApiError as e:
@@ -1543,6 +1732,13 @@ def get_projects():
                                 }
                             }
                         },
+                        "benchmarks": {
+                            "filter": {
+                                "term": {
+                                    "_index": "esrs-benchmarks"
+                                }
+                            }
+                        },
                         "evaluations": {
                             "filter": {
                                 "term": {
@@ -1560,9 +1756,14 @@ def get_projects():
             "esrs-scenarios",
             "esrs-judgements",
             "esrs-strategies",
+            "esrs-benchmarks",
             "esrs-evaluations",
         ])
-        response = es["studio"].search(index=index, body=body)
+        response = es["studio"].search(
+            index=index,
+            body=body,
+            ignore_unavailable=True
+        )
         return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -1587,6 +1788,7 @@ def setup():
         ( "esrs-scenarios", os.path.join(path_base, "scenarios.json") ),
         ( "esrs-judgements", os.path.join(path_base, "judgements.json") ),
         ( "esrs-strategies", os.path.join(path_base, "strategies.json") ),
+        ( "esrs-benchmarks", os.path.join(path_base, "benchmarks.json") ),
         ( "esrs-evaluations", os.path.join(path_base, "evaluations.json") )
     ]
     result = {

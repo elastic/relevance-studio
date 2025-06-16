@@ -13,8 +13,10 @@ build/
 __pycache__/
 *.pyc
 .env/
+.pytest_cache/
 env/
 conda-env/
+venv/
 
 # macOS
 .DS_Store
