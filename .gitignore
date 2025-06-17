@@ -18,6 +18,9 @@ env/
 conda-env/
 venv/
 
+# Sample data
+/sample-data
+
 # macOS
 .DS_Store
 

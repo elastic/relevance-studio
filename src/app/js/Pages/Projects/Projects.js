@@ -68,14 +68,14 @@ const Projects = () => {
       // Handle API response
       setProjects(utils.toMap(utils.hitsToDocs(response)))
       const aggs = {}
-      if (response.data.aggregations.counts) {
+      if (response.data.aggregations?.counts?.buckets) {
         response.data.aggregations.counts.buckets.forEach(agg => {
           aggs[agg.key] = {
-            displays: agg.displays.doc_count,
-            scenarios: agg.scenarios.doc_count,
-            judgements: agg.judgements.doc_count,
-            strategies: agg.strategies.doc_count,
-            evaluations: agg.evaluations.doc_count,
+            displays: agg.displays?.doc_count || 0,
+            scenarios: agg.scenarios?.doc_count || 0,
+            judgements: agg.judgements?.doc_count || 0,
+            strategies: agg.strategies?.doc_count || 0,
+            evaluations: agg.evaluations?.doc_count || 0,
           }
         })
       }
@@ -107,17 +107,9 @@ const Projects = () => {
         render: (name, doc) => (<>{doc.name}</>),
       },
       {
-        field: 'displays',
-        name: 'Displays',
-        render: (name, doc) => (
-          <EuiLink href={`#/projects/${doc._id}/displays`}>
-            {projectsAggs[doc._id]?.displays.toLocaleString() || 0}
-          </EuiLink>
-        ),
-      },
-      {
         field: 'scenarios',
         name: 'Scenarios',
+        sortable: true,
         render: (name, doc) => (
           <EuiLink href={`#/projects/${doc._id}/scenarios`}>
             {projectsAggs[doc._id]?.scenarios.toLocaleString() || 0}
@@ -127,6 +119,7 @@ const Projects = () => {
       {
         field: 'judgements',
         name: 'Judgements',
+        sortable: true,
         render: (name, doc) => (
           <EuiLink href={`#/projects/${doc._id}/judgements`}>
             {projectsAggs[doc._id]?.judgements.toLocaleString() || 0}
@@ -136,6 +129,7 @@ const Projects = () => {
       {
         field: 'strategies',
         name: 'Strategies',
+        sortable: true,
         render: (name, doc) => (
           <EuiLink href={`#/projects/${doc._id}/strategies`}>
             {projectsAggs[doc._id]?.strategies.toLocaleString() || 0}
@@ -145,6 +139,7 @@ const Projects = () => {
       {
         field: 'evaluations',
         name: 'Evaluations',
+        sortable: true,
         render: (name, doc) => (
           <EuiLink href={`#/projects/${doc._id}/evaluations`}>
             {projectsAggs[doc._id]?.evaluations.toLocaleString() || 0}
@@ -178,9 +173,21 @@ const Projects = () => {
         actions: [
           {
             color: 'text',
+            description: 'Manage displays',
+            icon: 'palette',
+            isPrimary: true,
+            name: 'Displays',
+            onClick: (doc) => {
+              window.location.href = `/#/projects/${doc._id}/displays`
+            },
+            type: 'icon'
+          },
+          {
+            color: 'text',
             description: 'Update this project',
             icon: 'documentEdit',
-            name: 'update',
+            isPrimary: true,
+            name: 'Update',
             onClick: (doc) => setFlyout(doc),
             type: 'icon',
           },
@@ -188,7 +195,7 @@ const Projects = () => {
             color: 'danger',
             description: 'Delete this project',
             icon: 'trash',
-            name: 'delete',
+            name: 'Delete',
             onClick: (doc) => setModalDelete(doc),
             type: 'icon',
           }

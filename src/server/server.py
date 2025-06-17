@@ -22,67 +22,83 @@ from flask_cors import CORS
 # Parse environment variables
 load_dotenv()
 
-ELASTIC_CLOUD_ID = os.getenv("ELASTIC_CLOUD_ID", "").strip()
-ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "").strip()
-ELASTICSEARCH_API_KEY = os.getenv("ELASTICSEARCH_API_KEY", "").strip()
-ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "").strip()
-ELASTICSEARCH_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD", "").strip()
-CONTENT_ELASTIC_CLOUD_ID = os.getenv("CONTENT_ELASTIC_CLOUD_ID", "").strip()
-CONTENT_ELASTICSEARCH_URL = os.getenv("CONTENT_ELASTICSEARCH_URL", "").strip()
-CONTENT_ELASTICSEARCH_API_KEY = os.getenv("CONTENT_ELASTICSEARCH_API_KEY", "").strip()
-CONTENT_ELASTICSEARCH_USERNAME = os.getenv("CONTENT_ELASTICSEARCH_USERNAME", "").strip()
-CONTENT_ELASTICSEARCH_PASSWORD = os.getenv("CONTENT_ELASTICSEARCH_PASSWORD", "").strip()
-ELASTICSEARCH_TIMEOUT = int(os.getenv("ELASTICSEARCH_TIMEOUT", "60000").strip())
+def es_client():
+    """
+    Create two Elasticsearch clients:
+    - "studio" connects to the deployment with esrs-* indices
+    - "content" connects to the deployment with source indices
+    """
 
-# Validate configuration
-if not ELASTIC_CLOUD_ID and not ELASTICSEARCH_URL:
-    raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL in .env")
-if (ELASTICSEARCH_USERNAME and not ELASTICSEARCH_PASSWORD) or (not ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD):
-    raise ValueError("You must configure either ELASTICSEARCH_API_KEY or both of ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD in .env")
-if CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL:
-    if not CONTENT_ELASTICSEARCH_API_KEY and not (CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD):
-        raise ValueError(f"When using {CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL}, you must configure either CONTENT_ELASTICSEARCH_API_KEY or both of CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD in .env")
+    ELASTIC_CLOUD_ID = os.getenv("ELASTIC_CLOUD_ID", "").strip()
+    ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "").strip()
+    ELASTICSEARCH_API_KEY = os.getenv("ELASTICSEARCH_API_KEY", "").strip()
+    ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "").strip()
+    ELASTICSEARCH_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD", "").strip()
+    CONTENT_ELASTIC_CLOUD_ID = os.getenv("CONTENT_ELASTIC_CLOUD_ID", "").strip()
+    CONTENT_ELASTICSEARCH_URL = os.getenv("CONTENT_ELASTICSEARCH_URL", "").strip()
+    CONTENT_ELASTICSEARCH_API_KEY = os.getenv("CONTENT_ELASTICSEARCH_API_KEY", "").strip()
+    CONTENT_ELASTICSEARCH_USERNAME = os.getenv("CONTENT_ELASTICSEARCH_USERNAME", "").strip()
+    CONTENT_ELASTICSEARCH_PASSWORD = os.getenv("CONTENT_ELASTICSEARCH_PASSWORD", "").strip()
+    ELASTICSEARCH_TIMEOUT = int(os.getenv("ELASTICSEARCH_TIMEOUT", "60000").strip())
 
-# Setup Elasticsearch clients
-es = {
-    "studio": None, # for the deployment with the esrs-* indices
-    "content": None # for the deployment with the source content to be judged and evaluated
-}
+    # Validate configuration
+    if not ELASTIC_CLOUD_ID and not ELASTICSEARCH_URL:
+        raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL in .env")
+    if (ELASTICSEARCH_USERNAME and not ELASTICSEARCH_PASSWORD) or (not ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD):
+        raise ValueError("You must configure either ELASTICSEARCH_API_KEY or both of ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD in .env")
+    if CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL:
+        if not CONTENT_ELASTICSEARCH_API_KEY and not (CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD):
+            raise ValueError(f"When using {CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL}, you must configure either CONTENT_ELASTICSEARCH_API_KEY or both of CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD in .env")
 
-# Setup client for deployment with Elasticsearch Relevance Studio
-es_studio_kwargs = {
-    "request_timeout": ELASTICSEARCH_TIMEOUT
-}
-if ELASTIC_CLOUD_ID:
-    es_studio_kwargs["cloud_id"] = ELASTIC_CLOUD_ID
-else:
-    es_studio_kwargs["hosts"] = [ ELASTICSEARCH_URL ]
-if ELASTICSEARCH_API_KEY:
-    es_studio_kwargs["api_key"] = ELASTICSEARCH_API_KEY
-else:
-    es_studio_kwargs["basic_auth"] = (
-        ELASTICSEARCH_USERNAME,
-        ELASTICSEARCH_PASSWORD
-    )
-es["studio"] = Elasticsearch(**es_studio_kwargs)
+    # Setup Elasticsearch clients
+    es = {
+        "studio": None, # for the deployment with the esrs-* indices
+        "content": None # for the deployment with the source content to be judged and evaluated
+    }
 
-# Setup client for delployment with source content
-if not CONTENT_ELASTIC_CLOUD_ID and not CONTENT_ELASTICSEARCH_URL:
-    es["content"] = es["studio"]
-else:
-    es_content_kwargs = {}
-    if CONTENT_ELASTIC_CLOUD_ID:
-        es_content_kwargs["cloud_id"] = CONTENT_ELASTIC_CLOUD_ID
+    # Setup client for deployment with Elasticsearch Relevance Studio
+    es_studio_kwargs = {
+        "request_timeout": ELASTICSEARCH_TIMEOUT,
+        "max_retries": 4,
+        "retry_on_timeout": True
+    }
+    if ELASTIC_CLOUD_ID:
+        es_studio_kwargs["cloud_id"] = ELASTIC_CLOUD_ID
     else:
-        es_content_kwargs["hosts"] = [ CONTENT_ELASTICSEARCH_URL ]
-    if CONTENT_ELASTICSEARCH_API_KEY:
-        es_content_kwargs["api_key"] = CONTENT_ELASTICSEARCH_API_KEY
+        es_studio_kwargs["hosts"] = [ ELASTICSEARCH_URL ]
+    if ELASTICSEARCH_API_KEY:
+        es_studio_kwargs["api_key"] = ELASTICSEARCH_API_KEY
     else:
-        es_content_kwargs["basic_auth"] = (
-            CONTENT_ELASTICSEARCH_USERNAME,
-            CONTENT_ELASTICSEARCH_PASSWORD
+        es_studio_kwargs["basic_auth"] = (
+            ELASTICSEARCH_USERNAME,
+            ELASTICSEARCH_PASSWORD
         )
-    es["content"] = Elasticsearch(**es_content_kwargs)
+    es["studio"] = Elasticsearch(**es_studio_kwargs)
+
+    # Setup client for deployment with source content
+    if not CONTENT_ELASTIC_CLOUD_ID and not CONTENT_ELASTICSEARCH_URL:
+        es["content"] = es["studio"]
+    else:
+        es_content_kwargs = {
+            "request_timeout": ELASTICSEARCH_TIMEOUT,
+            "max_retries": 4,
+            "retry_on_timeout": True
+        }
+        if CONTENT_ELASTIC_CLOUD_ID:
+            es_content_kwargs["cloud_id"] = CONTENT_ELASTIC_CLOUD_ID
+        else:
+            es_content_kwargs["hosts"] = [ CONTENT_ELASTICSEARCH_URL ]
+        if CONTENT_ELASTICSEARCH_API_KEY:
+            es_content_kwargs["api_key"] = CONTENT_ELASTICSEARCH_API_KEY
+        else:
+            es_content_kwargs["basic_auth"] = (
+                CONTENT_ELASTICSEARCH_USERNAME,
+                CONTENT_ELASTICSEARCH_PASSWORD
+            )
+        es["content"] = Elasticsearch(**es_content_kwargs)
+    return es
+
+es = es_client()
 
 # Pre-compiled regular expressions
 RE_PARAMS = re.compile(r"{{\s*([\w.]+)\s*}}")
@@ -487,30 +503,11 @@ def run_evaluation(project_id):
             "template": hit["_source"]["template"]
         }
     
-    # Get scenarios
-    scenarios = {}
+    # Get judgements and convert them to ratings in _rank_eval.
+    # Keep track of which scenarios had judgements, in case the request
+    # includes scenarios that have no judgements.
     es_response = None
-    try:
-        body = {
-            "query": { "ids": { "values": task["scenarios"] }},
-            "size": size,
-            "version": True
-        }
-        es_response = es["studio"].search(index="esrs-scenarios", body=body)
-    except ApiError as e:
-        return jsonify(e.body), e.meta.status
-    for hit in es_response.body["hits"]["hits"]:
-        scenarios[hit["_id"]] = hit["_source"]["values"]
-        runtime_scenarios[hit["_id"]] = {
-            "_version": hit["_version"],
-            "name": hit["_source"]["name"],
-            "values": hit["_source"]["params"],
-            "values": hit["_source"]["values"],
-            "tags": hit["_source"]["tags"]
-        }
-    
-    # Get judgements and convert them to ratings in _rank_eval
-    es_response = None
+    scenarios_with_judgements = set()
     try:
         body = {
             "query": { "terms": { "scenario_id": task["scenarios"] }},
@@ -523,6 +520,7 @@ def run_evaluation(project_id):
     ratings = {}
     for hit in es_response.body["hits"]["hits"]:
         scenario_id = hit["_source"]["scenario_id"]
+        scenarios_with_judgements.add(scenario_id)
         if scenario_id not in ratings:
             ratings[scenario_id] = []
         ratings[scenario_id].append({
@@ -539,16 +537,39 @@ def run_evaluation(project_id):
             "doc_id": hit["_source"]["doc_id"],
             "rating": hit["_source"]["rating"]
         }
+    scenarios_with_judgements = list(scenarios_with_judgements)
     
     # Store results by strategy and scenarios
     _results = {}
     for strategy_id in task["strategies"]:
         _results[strategy_id] = {}
-        for scenario_id in task["scenarios"]:
+        for scenario_id in scenarios_with_judgements:
             _results[strategy_id][scenario_id] = {
                 "metrics": {},
                 "hits": []
             }
+    
+    # Get scenarios
+    scenarios = {}
+    es_response = None
+    try:
+        body = {
+            "query": { "ids": { "values": scenarios_with_judgements }},
+            "size": size,
+            "version": True
+        }
+        es_response = es["studio"].search(index="esrs-scenarios", body=body)
+    except ApiError as e:
+        return jsonify(e.body), e.meta.status
+    for hit in es_response.body["hits"]["hits"]:
+        scenarios[hit["_id"]] = hit["_source"]["values"]
+        runtime_scenarios[hit["_id"]] = {
+            "_version": hit["_version"],
+            "name": hit["_source"]["name"],
+            "values": hit["_source"]["params"],
+            "values": hit["_source"]["values"],
+            "tags": hit["_source"]["tags"]
+        }
     
     # Store any unrated docs found in the evaluation
     _unrated_docs = {}
@@ -565,10 +586,10 @@ def run_evaluation(project_id):
         _rank_eval["metric"][metric_name] = metrics_config[m]["config"]
         
         # Define requests for each combination of strategies and scenarios
-        grid = list(itertools.product(task["strategies"], task["scenarios"]))
+        grid = list(itertools.product(task["strategies"], scenarios_with_judgements))
         for strategy_id, scenario_id in grid:
             _rank_eval["requests"].append({
-                "id": f"{strategy_id}:{scenario_id}",
+                "id": f"{strategy_id}~{scenario_id}",
                 "template_id": strategy_id,
                 "params": scenarios[scenario_id],
                 "ratings": ratings[scenario_id]
@@ -590,7 +611,7 @@ def run_evaluation(project_id):
         
         # Store results
         for request_id, details in es_response.body["details"].items():
-            strategy_id, scenario_id = request_id.split(":", 1)
+            strategy_id, scenario_id = request_id.split("~", 1)
             _results[strategy_id][scenario_id]["metrics"][m] = details["metric_score"]
             if not len(_results[strategy_id][scenario_id]["hits"]):
                 _results[strategy_id][scenario_id]["hits"] = details["hits"]
@@ -647,7 +668,7 @@ def run_evaluation(project_id):
         "@timestamp": timestamp(start_time),
         "project_id": project_id,
         "strategy_id": task["strategies"],
-        "scenario_id": task["scenarios"],
+        "scenario_id": scenarios_with_judgements,
         "config": {
             "metrics": task["metrics"],
             "k": task["k"]
@@ -727,7 +748,11 @@ def get_evaluations(project_id):
             },
             "size": 10000
         }
-        response = es["studio"].search(index="esrs-evaluations", body=body)
+        response = es["studio"].search(
+            index="esrs-evaluations",
+            body=body,
+            ignore_unavailable=True
+        )
         return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -879,7 +904,8 @@ def get_benchmarks(project_id):
             "aggs": {
                 "counts": {
                     "terms": {
-                        "field": "scenario_id"
+                        "field": "scenario_id",
+                        "size": 10000
                     },
                     "aggs": {
                         "judgements": {
@@ -950,7 +976,7 @@ def create_strategy(project_id):
     doc["project_id"] = project_id
     strategy_id = uuid.uuid4()
     try:
-        response = e["studio"].index(
+        response = es["studio"].index(
             index="esrs-strategies",
             id=strategy_id,
             document=doc,
@@ -1010,7 +1036,11 @@ def get_strategies(project_id):
             },
             "size": 10000
         }
-        response = es["studio"].search(index="esrs-strategies", body=body)
+        response = es["studio"].search(
+            index="esrs-strategies",
+            body=body,
+            ignore_unavailable=True
+        )
         return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -1114,7 +1144,11 @@ def get_judgements(project_id):
             },
             "size": 10000
         }
-        response = es["studio"].search(index="esrs-judgements", body=body)
+        response = es["studio"].search(
+            index="esrs-judgements",
+            body=body,
+            ignore_unavailable=True
+        )
         return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -1390,7 +1424,8 @@ def get_scenarios(project_id):
             "aggs": {
                 "counts": {
                     "terms": {
-                        "field": "scenario_id"
+                        "field": "scenario_id",
+                        "size": 10000
                     },
                     "aggs": {
                         "judgements": {
@@ -1525,7 +1560,11 @@ def get_displays(project_id):
             },
             "size": 10000
         }
-        response = es["studio"].search(index="esrs-displays", body=body)
+        response = es["studio"].search(
+            index="esrs-displays",
+            body=body,
+            ignore_unavailable=True
+        )
         return jsonify(response.body), response.meta.status
     except ApiError as e:
         return jsonify(e.body), e.meta.status
@@ -1701,7 +1740,8 @@ def get_projects():
             "aggs": {
                 "counts": {
                     "terms": {
-                        "field": "project_id"
+                        "field": "project_id",
+                        "size": 10000
                     },
                     "aggs": {
                         "displays": {
@@ -1836,10 +1876,6 @@ def healthz():
 @app.route("/<path:filepath>.css")
 def send_css(filepath):
     return app.send_static_file(f"{filepath}.css")
-
-@app.route("/<path:filepath>.img")
-def send_img(filepath):
-    return app.send_static_file(f"{filepath}.img")
 
 @app.route("/<path:filepath>.js")
 def send_js(filepath):

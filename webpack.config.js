@@ -59,7 +59,7 @@ module.exports = {
     },
     proxy: [
       {
-        context: ['**', '!**.css', '!**.img', '!**.js'],
+        context: ['**', '!**.js'],
         target: 'http://localhost:4096',
       },
     ],

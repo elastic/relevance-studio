@@ -74,6 +74,9 @@
                       },
                       "_score": {
                         "type": "float"
+                      },
+                      "_ignored": {
+                        "type": "keyword"
                       }
                     }
                   },

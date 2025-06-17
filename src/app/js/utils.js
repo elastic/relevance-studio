@@ -98,7 +98,10 @@ utils.getNestedValue = (obj, path) => {
 /**
  * Calculate the average of an array of numbers
  */
-utils.average = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length
+utils.average = (arr) => {
+  const avg = arr.reduce((a, b) => a + b, 0) / arr.length
+  return isNaN(avg) ? 0 : avg
+}
 
 /**
  * Given an Elasticsearch field type, return its corresponding EuiIcon type and color.

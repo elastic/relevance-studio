@@ -195,7 +195,7 @@ const JudgementsCard = ({ doc, scenario, template, ...props }) => {
                   fullWidth
                   min={project.rating_scale.min}
                   max={project.rating_scale.max}
-                  levels={rating ? [
+                  levels={rating >= 0 ? [
                     {
                       color: colorBands[rating],
                       min: project.rating_scale.min,

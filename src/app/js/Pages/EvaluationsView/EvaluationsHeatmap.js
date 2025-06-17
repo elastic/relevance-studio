@@ -185,6 +185,7 @@ const EvaluationsHeatmap = (props) => {
         return prev
       return orderedData
     })
+    console.debug('[EvaluationsHeatmap state updated]', { data })
   }, [evaluation, xGroupBy, xSortBy, yGroupBy, ySortBy])
 
   ////  Render  ////////////////////////////////////////////////////////////////
@@ -199,7 +200,7 @@ const EvaluationsHeatmap = (props) => {
       cell: {
         maxWidth: 'fill',
         label: {
-          minFontSize: 8,
+          minFontSize: 0,
           maxFontSize: 12,
           visible: true,
           useGlobalMinFontSize: true,

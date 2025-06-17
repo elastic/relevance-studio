@@ -160,13 +160,15 @@ export const ProjectProvider = ({ children }) => {
 
           // Set scenario aggs
           const aggs = {}
-          response.data.aggregations.counts?.buckets.forEach(agg => {
-            aggs[agg.key] = {
-              ...aggs[agg.key] || {},
-              judgements: agg.judgements.doc_count,
-              //evaluations: agg.evaluations.doc_count
-            }
-          })
+          if (response.data.aggregations?.counts?.buckets) {
+            response.data.aggregations.counts.buckets.forEach(agg => {
+              aggs[agg.key] = {
+                ...aggs[agg.key] || {},
+                judgements: agg.judgements?.doc_count || 0,
+                //evaluations: agg.evaluations?.doc_count || 0
+              }
+            })
+          }
           setScenariosAggs(aggs)
         })
         .finally(() => setIsLoadingScenarios(false)))

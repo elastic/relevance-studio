@@ -110,6 +110,7 @@ const EvaluationsScatterplot = (props) => {
         return prev
       return _data
     })
+    console.debug('[EvaluationsScatterplot state updated]', { _data })
   }, [evaluation, groupBy])
 
   const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]
