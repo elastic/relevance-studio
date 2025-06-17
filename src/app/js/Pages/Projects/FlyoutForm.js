@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react'
 import {
   EuiButton,
   EuiButtonEmpty,
-  EuiButtonGroup,
   EuiButtonIcon,
   EuiForm,
+  EuiFormControlLayoutDelimited,
   EuiFormRow,
+  EuiFieldNumber,
   EuiFieldText,
   EuiLink,
   EuiFlexGroup,
@@ -17,7 +18,7 @@ import {
   EuiInlineEditTitle,
   EuiSpacer,
   EuiText,
-  EuiToolTip
+  EuiToolTip,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import api from '../../api'
@@ -35,12 +36,16 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
     name: '',
     index_pattern: '',
     params: [{ name: 'text' }],
-    rating_scale: 'graded'
+    rating_scale: {
+      min: 0,
+      max: 4
+    }
   })
   const [formBlurs, setFormBlurs] = useState({
     name: false,
     index_pattern: false,
-    rating_scale: false
+    rating_scale_min: false,
+    rating_scale_max: false
   })
   const [isLoading, setIsLoading] = useState(false)
 
@@ -53,8 +58,11 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
     setForm({
       name: doc.name,
       index_pattern: doc.index_pattern,
-      params: (doc.params || []).map(p => { return { name: p }}),
-      rating_scale: doc.rating_scale?.max == 1 ? 'binary' : 'graded'
+      params: (doc.params || []).map(p => { return { name: p } }),
+      rating_scale: {
+        min: doc.rating_scale?.min || 0,
+        max: doc.rating_scale?.max || 4
+      }
     })
   }, [doc])
 
@@ -67,8 +75,8 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
     newDoc.index_pattern = form.index_pattern.trim()
     newDoc.params = form.params.map(p => p.name.trim()).filter(p => p != '').sort()
     newDoc.rating_scale = {
-      min: 0,
-      max: form.rating_scale == 'graded' ? 4 : 1
+      min: form.rating_scale.min,
+      max: form.rating_scale.max
     }
     if (action == 'create')
       return onSubmitCreate(newDoc)
@@ -151,7 +159,8 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
 
   const isInvalidName = () => !form.name?.trim()
   const isInvalidIndexPattern = () => !form.index_pattern?.trim()
-  const isInvalidRatingScale = () => form.rating_scale != 'graded' && form.rating_scale != 'binary'
+  const isInvalidRatingScaleMin = () => form.rating_scale.min >= form.rating_scale.max
+  const isInvalidRatingScaleMax = () => form.rating_scale.max <= form.rating_scale.min
   const isInvalidParams = () => {
     if (!form.params.length)
       return true
@@ -161,7 +170,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
     return true
   }
   const isInvalidForm = () => {
-    return isInvalidName() || isInvalidIndexPattern() || isInvalidRatingScale() || isInvalidParams()
+    return isInvalidName() || isInvalidIndexPattern() || isInvalidRatingScaleMin() || isInvalidRatingScaleMax() || isInvalidParams()
   }
 
   ////  Render  ////////////////////////////////////////////////////////////////
@@ -181,20 +190,53 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
   }
 
   const renderFormRatingScale = () => {
-    return (
-      <EuiButtonGroup
-        color='primary'
-        idSelected={form.rating_scale}
+    return (<>
+      <EuiFormControlLayoutDelimited
+        prepend='Min'
+        append='Max'
         isDisabled={action == 'update'}
-        legend='Rating scale'
-        onBlur={() => setFormBlurs(prev => ({ ...prev, rating_scale: true }))}
-        onChange={(id) => setForm(prev => ({ ...prev, rating_scale: id }))}
-        options={[
-          { id: 'graded', label: 'Graded' },
-          { id: 'binary', label: 'Binary' }
-        ]}
+        startControl={
+          <EuiFieldNumber
+            controlOnly
+            disabled={action == 'update'}
+            isInvalid={formBlurs.rating_scale_min && isInvalidRatingScaleMin()}
+            min={0}
+            onBlur={() => {
+              setFormBlurs(prev => ({ ...prev, rating_scale_max: true }))
+            }}
+            onChange={(e) => {
+              setForm(prev => ({
+                ...prev, rating_scale: {
+                  ...prev.rating_scale, min: e.target.value
+                }
+              }))
+            }}
+            step={1}
+            value={form.rating_scale.min}
+          />
+        }
+        endControl={
+          <EuiFieldNumber
+            controlOnly
+            disabled={action == 'update'}
+            isInvalid={formBlurs.rating_scale_max && isInvalidRatingScaleMax()}
+            min={1}
+            onBlur={() => {
+              setFormBlurs(prev => ({ ...prev, rating_scale_min: true }))
+            }}
+            onChange={(e) => {
+              setForm(prev => ({
+                ...prev, rating_scale: {
+                  ...prev.rating_scale, max: e.target.value
+                }
+              }))
+            }}
+            step={1}
+            value={form.rating_scale.max}
+          />
+        }
       />
-    )
+    </>)
   }
 
   const renderFormIndexPattern = () => {
@@ -285,7 +327,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
         </EuiFlyoutHeader>
         <EuiFlyoutBody>
           <EuiFormRow
-            helpText={action == 'create' ? `You can't change this later. We recommend "graded" for its flexibility.` : ''}
+            helpText={action == 'create' ? `You can't change this later.` : `This can't be changed.`}
             label='Rating scale for judgements'
           >
             {renderFormRatingScale()}

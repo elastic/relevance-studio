@@ -165,7 +165,7 @@ const Projects = () => {
         field: 'rating_scale',
         name: 'Rating scale',
         render: (name, doc) => (<>
-          {doc.rating_scale.max == 1 ? 'binary' : 'graded'}
+          {doc.rating_scale.min} <span style={{ fontSize: '10px', padding: '0 4px' }}>{'-->'}</span> {doc.rating_scale.max}
         </>),
       },
       {
