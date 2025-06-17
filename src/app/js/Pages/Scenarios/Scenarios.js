@@ -4,6 +4,7 @@ import {
   EuiBadge,
   EuiButton,
   EuiCallOut,
+  EuiCodeBlock,
   EuiInMemoryTable,
   EuiLink,
   EuiSkeletonText,
@@ -70,11 +71,47 @@ const Scenarios = () => {
         name: 'Scenario',
         sortable: true,
         truncateText: true,
+        width: '100px',
         render: (name, doc) => <>{doc.name}</>
+      },
+      {
+        field: 'values',
+        name: 'Values',
+        render: (name, doc) => {
+          return (
+            <div style={{ width: '100%' }}>
+              <EuiCodeBlock
+                isCopyable
+                language='json'
+                overflowHeight={140}
+                paddingSize='s'
+                style={{ fontSize: '11px' }}
+              >
+                {JSON.stringify(doc.values, null, 2)}
+              </EuiCodeBlock>
+            </div>
+          )
+        },
+      },
+      {
+        field: 'tags',
+        name: 'Tags',
+        width: '100px',
+        render: (name, doc) => {
+          const tags = []
+          for (var i in doc.tags)
+            tags.push(
+              <EuiBadge color='hollow' key={doc.tags[i]}>
+                {doc.tags[i]}
+              </EuiBadge>
+            )
+          return tags
+        },
       },
       {
         field: 'judgements',
         name: 'Judgements',
+        width: '100px',
         sortable: (doc) => {
           const count = scenariosAggs?.[doc._id]?.judgements ?? 0
           return count
@@ -101,6 +138,7 @@ const Scenarios = () => {
       /*{
         field: 'evaluations',
         name: 'Evaluations',
+        width: '100px',
         render: (name, doc) => {
           const count = scenariosAggs?.[doc._id]?.evaluations ?? 0
           return (
@@ -110,36 +148,6 @@ const Scenarios = () => {
           )
         }
       },*/
-      {
-        field: 'values',
-        name: 'Values',
-        render: (name, doc) => {
-          const values = []
-          for (const param in doc.values)
-            values.push(
-              <EuiBadge color='hollow' key={param}>
-                {param}: {doc.values[param]}
-              </EuiBadge>
-            )
-          if (!values.length)
-            return <EuiBadge color='warning' iconType='warningFilled' size='xs'>none</EuiBadge>
-          return values
-        },
-      },
-      {
-        field: 'tags',
-        name: 'Tags',
-        render: (name, doc) => {
-          const tags = []
-          for (var i in doc.tags)
-            tags.push(
-              <EuiBadge color='hollow' key={doc.tags[i]}>
-                {doc.tags[i]}
-              </EuiBadge>
-            )
-          return tags
-        },
-      },
       {
         name: 'Actions',
         actions: [
@@ -228,7 +236,7 @@ const Scenarios = () => {
                 direction: 'asc',
               }
             }}
-            tableLayout='auto'
+            tableLayout='custom'
           />
         }
       </EuiSkeletonText>
