@@ -8,6 +8,15 @@
       "project_id": {
         "type": "keyword"
       },
+      "name": {
+        "type": "keyword"
+      },
+      "description": {
+        "type": "text"
+      },
+      "tags": {
+        "type": "keyword"
+      },
       "scenario_id": {
         "type": "keyword"
       },

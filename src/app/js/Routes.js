@@ -51,6 +51,10 @@ const Routes = () => {
                 document.title = `Strategies - ${r.match.params.strategy_id} - ${title}`
                 return <Pages.StrategiesEdit />
               }} />
+              <Route path='/projects/:project_id/benchmarks' exact render={() => {
+                document.title = `Benchmarks - ${title}`
+                return <Pages.Benchmarks />
+              }} />
               <Route path='/projects/:project_id/evaluations' exact render={() => {
                 document.title = `Evaluations - ${title}`
                 return <Pages.Evaluations />

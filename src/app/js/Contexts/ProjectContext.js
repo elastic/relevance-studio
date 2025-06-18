@@ -33,6 +33,8 @@ export const ProjectProvider = ({ children }) => {
   const [scenarios, setScenarios] = useState({})
   const [scenariosAggs, setScenariosAggs] = useState({})
   const [strategies, setStrategies] = useState({})
+  const [benchmarks, setBenchmarks] = useState({})
+  const [benchmarksAggs, setBenchmarksAggs] = useState({})
 
   // Loading indicators when getting lists of assets
   const [isLoadingProject, setIsLoadingProject] = useState(false)
@@ -40,19 +42,22 @@ export const ProjectProvider = ({ children }) => {
   const [isLoadingDisplays, setIsLoadingDisplays] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
   const [isLoadingStrategies, setIsLoadingStrategies] = useState(false)
+  const [isLoadingBenchmarks, setIsLoadingBenchmarks] = useState(false)
 
   // Loading indicators when getting a single asset
   const [isLoadingDisplay, setIsLoadingDisplay] = useState(false)
   const [isLoadingScenario, setIsLoadingScenario] = useState(false)
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(false)
+  const [isLoadingBenchmark, setIsLoadingBenchmark] = useState(false)
 
   // Loading indicators when creating, updating, or deleting a single asset
   const [isProcessingDisplay, setIsProcessingDisplay] = useState(false)
   const [isProcessingScenario, setIsProcessingScenario] = useState(false)
   const [isProcessingStrategy, setIsProcessingStrategy] = useState(false)
+  const [isProcessingBenchmark, setIsProcessingBenchmark] = useState(false)
 
   // High-level loading indicators
-  const isLoading = isLoadingProject || isLoadingIndices || isLoadingDisplays || isLoadingScenarios || isLoadingStrategies
+  const isLoading = isLoadingProject || isLoadingIndices || isLoadingDisplays || isLoadingScenarios || isLoadingStrategies || isLoadingBenchmarks
   const isProjectReady = project && !isLoading
 
   ////  Loaders  ///////////////////////////////////////////////////////////////
@@ -103,9 +108,11 @@ export const ProjectProvider = ({ children }) => {
       displays,
       scenarios,
       scenariosAggs,
-      strategies
+      strategies,
+      benchmarks,
+      benchmarksAggs,
     })
-  }, [project, indices, displays, scenarios, strategies])
+  }, [project, indices, displays, scenarios, strategies, benchmarks])
 
   /**
    * Load project assets when project._id is available, which mean we've
@@ -116,7 +123,8 @@ export const ProjectProvider = ({ children }) => {
     indices: shouldLoadIndices,
     displays: shouldLoadDisplays,
     scenarios: shouldLoadScenarios,
-    strategies: shouldLoadStrategies
+    strategies: shouldLoadStrategies,
+    benchmarks: shouldLoadBenchmarks,
   }) => {
     if (!project?._id)
       return
@@ -185,6 +193,31 @@ export const ProjectProvider = ({ children }) => {
           setStrategies(utils.toMap(utils.hitsToDocs(response)))
         })
         .finally(() => setIsLoadingStrategies(false)))
+    }
+
+    // Load benchmarks
+    if (shouldLoadBenchmarks) {
+      console.debug(`Loading benchmarks for project: ${projectId}`)
+      setIsLoadingBenchmarks(true)
+      tasks.push(api.get_benchmarks(projectId)
+        .then(response => {
+
+          // Set benchmark docs
+          setBenchmarks(utils.toMap(utils.hitsToDocs(response)))
+
+          // Set benchmark aggs
+          const aggs = {}
+          if (response.data.aggregations?.counts?.buckets) {
+            response.data.aggregations.counts.buckets.forEach(agg => {
+              aggs[agg.key] = {
+                ...aggs[agg.key] || {},
+                evaluations: agg.evaluations?.doc_count || 0
+              }
+            })
+          }
+          setScenariosAggs(aggs)
+        })
+        .finally(() => setIsLoadingBenchmarks(false)))
     }
 
     await Promise.all(tasks)
@@ -278,11 +311,20 @@ export const ProjectProvider = ({ children }) => {
   const updateStrategy = async (doc) => handleDoc('update', 'strategy', doc)
   const deleteStrategy = async (doc) => handleDoc('delete', 'strategy', doc)
 
+  const createBenchmark = async (doc) => handleDoc('create', 'benchmark', doc)
+  const updateBenchmark = async (doc) => handleDoc('update', 'benchmark', doc)
+  const deleteBenchmark = async (doc) => handleDoc('delete', 'benchmark', doc)
+
   return (
     <ProjectContext.Provider value={{
 
       // Project and assets
-      project, indices, displays, scenarios, scenariosAggs, strategies,
+      project,
+      indices,
+      displays,
+      scenarios, scenariosAggs,
+      strategies,
+      benchmarks, benchmarksAggs,
 
       // Loaders
       loadProject, loadAssets,
@@ -294,12 +336,14 @@ export const ProjectProvider = ({ children }) => {
       isLoadingDisplays, isLoadingDisplay, isProcessingDisplay,
       isLoadingScenarios, isLoadingScenario, isProcessingScenario,
       isLoadingStrategies, isLoadingStrategy, isProcessingStrategy,
+      isLoadingBenchmarks, isLoadingBenchmark, isProcessingBenchmark,
       isProjectReady,
 
       // Mutators
       createDisplay, updateDisplay, deleteDisplay,
       createScenario, updateScenario, deleteScenario,
-      createStrategy, updateStrategy, deleteStrategy
+      createStrategy, updateStrategy, deleteStrategy,
+      createBenchmark, updateBenchmark, deleteBenchmark
     }}>
       {children}
     </ProjectContext.Provider>

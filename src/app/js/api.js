@@ -170,6 +170,34 @@ api.delete_strategy = async (project_id, strategy_id) => {
 }
 
 
+////  Benchmarks  /////////////////////////////////////////////////////////////
+
+api.get_benchmarks = async (project_id) => {
+  validateArgs('api.get_benchmarks', { project_id, })
+  return await client.get(`/projects/${project_id}/benchmarks`)
+}
+
+api.get_benchmark = async (project_id, benchmark_id) => {
+  validateArgs('api.getsbenchmark', { project_id, benchmark_id, })
+  return await client.get(`/projects/${project_id}/benchmarks/${benchmark_id}`)
+}
+
+api.create_benchmark = async (project_id, doc) => {
+  validateArgs('api.create_benchmark', { project_id, doc, })
+  return await client.post(`/projects/${project_id}/benchmarks`, { data: doc })
+}
+
+api.update_benchmark = async (project_id, benchmark_id, doc) => {
+  validateArgs('api.update_benchmark', { project_id, benchmark_id, doc, })
+  return await client.put(`/projects/${project_id}/benchmarks/${benchmark_id}`, { data: doc })
+}
+
+api.delete_benchmark = async (project_id, benchmark_id) => {
+  validateArgs('api.delete_benchmark', { project_id, benchmark_id, })
+  return await client.del(`/projects/${project_id}/benchmarks/${benchmark_id}`)
+}
+
+
 ////  Evaluations  /////////////////////////////////////////////////////////////
 
 api.get_evaluations = async (project_id) => {

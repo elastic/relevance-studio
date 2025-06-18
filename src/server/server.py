@@ -104,6 +104,19 @@ es = es_client()
 # Pre-compiled regular expressions
 RE_PARAMS = re.compile(r"{{\s*([\w.]+)\s*}}")
 
+
+####  Utility functions  #######################################################
+
+def fingerprint(obj):
+    """
+    Return a determinsitic hash digest fingerprint of an object.
+    """
+    # Serialize the object as JSON without whitespace and with sorted keys.
+    serialized = json.dumps(obj, separators=(',', ':'), sort_keys=True)
+    # Calculate a 128-bit hash BLAKE2b hash of the serialized value.
+    digest = hashlib.blake2b(serialized.encode(), digest_size=16).hexdigest()
+    return digest
+
 def timestamp(t=None):
     """
     Generate a @timestamp value.
@@ -220,14 +233,10 @@ def make_index_relevance_fingerprints(es, index_pattern):
             "shards": shard_list
         }
 
-        # Deterministrically serialize the object and hash it
-        fingerprint_json = json.dumps(fingerprint_obj, sort_keys=True)
-        fingerprint_digest = hashlib.blake2s(fingerprint_json.encode(), digest_size=16).hexdigest()
-
         # Include the digest in the result
         fingerprints[index_name] = {
             **fingerprint_obj,
-            "fingerprint": fingerprint_digest
+            "fingerprint": fingerprint(fingerprint_obj)
         }
     return fingerprints
 

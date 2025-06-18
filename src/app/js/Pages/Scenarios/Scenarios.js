@@ -27,7 +27,7 @@ const Scenarios = () => {
   const {
     project,
     isProjectReady,
-    isLoadingScenario,
+    isProcessingScenario,
     loadAssets,
     scenarios,
     scenariosAggs,
@@ -192,7 +192,7 @@ const Scenarios = () => {
         }
         doc={modalDelete}
         docType='scenario'
-        isLoading={isLoadingScenario}
+        isLoading={isProcessingScenario}
         onClose={() => setModalDelete(null)}
         onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete scenario` }))}
         onDelete={async () => await deleteScenario(modalDelete)}

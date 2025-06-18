@@ -1,3 +1,4 @@
+import { Benchmarks } from './Benchmarks'
 import { Displays } from './Displays'
 import { DisplaysEdit } from './DisplaysEdit'
 import { Evaluations } from './Evaluations'
@@ -11,6 +12,7 @@ import { StrategiesEdit } from './StrategiesEdit'
 
 const Pages = ({ children }) => <>{children}</>
 
+Pages.Benchmarks = Benchmarks
 Pages.Displays = Displays
 Pages.DisplaysEdit = DisplaysEdit
 Pages.Evaluations = Evaluations
