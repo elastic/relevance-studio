@@ -1,5 +1,6 @@
 # Standard packages
 import datetime
+import hashlib
 import itertools
 import json
 import os
@@ -144,6 +145,91 @@ CORS(app)
 
 
 ####  API Helpers  #############################################################
+
+def make_index_relevance_fingerprints(es, index_pattern):
+    """
+    Generate a relevance fingerprint for all indices in a given index pattern.
+    
+    Structure of the output object:
+    
+    {
+        INDEX_NAME: {
+            "fingerprint": STRING,
+            "shards": [
+                {
+                    "id": SHARD_ID,
+                    "max_seq_no": MAX_SEQ_NO
+                },
+                ...
+            ],
+            "uuid": INDEX_UUID
+        },
+        ...
+    }
+    
+    Example output for an index pattern "products-*":
+     
+    {
+        "products-2025": {
+            "fingerprint": "c1d9b14ae26538325d2bb56471497844",
+            "shards": [
+                { "id": 0, "max_seq_no": 111 },
+                { "id": 1, "max_seq_no": 112 }
+            ],
+            "uuid": "abc123..."
+        },
+        "products-2024": {
+            "fingerprint": "03f758f51a1bae0ce87125ea295785a4",
+            "shards": [
+                { "id": 0, "max_seq_no": 301 }
+            ],
+            "uuid": "def456..."
+        }
+    }
+    """
+    
+    # Create a fingerprint for each index in the given index pattern
+    settings = es["content"].indices.get_settings(index=index_pattern)
+    stats = es["content"].indices.stats(index=index_pattern, level="shards")
+    fingerprints = {}
+    for index_name in settings.keys():
+        if index_name not in stats["indices"]:
+            continue
+        index_uuid = settings[index_name]["settings"]["index"]["uuid"]
+
+        # Collect and deduplicate max_seq_no by shard
+        shard_seq_nos = []
+        shards = stats["indices"][index_name]["shards"]
+        for shard_id, shard_copies in shards.items():
+            for copy in shard_copies:
+                max_seq_no = copy.get("seq_no", {}).get("max_seq_no")
+                shard_seq_nos.append((int(shard_id), max_seq_no))
+
+        shard_maxes = {}
+        for shard_id, seq_no in shard_seq_nos:
+            shard_maxes[shard_id] = max(seq_no, shard_maxes.get(shard_id, -1))
+
+        # Prepare the data for hashing
+        shard_list = [
+            {"id": shard_id, "max_seq_no": seq_no}
+            for shard_id, seq_no in sorted(shard_maxes.items())
+        ]
+        fingerprint_obj = {
+            "index": index_name,
+            "uuid": index_uuid,
+            "shards": shard_list
+        }
+
+        # Deterministrically serialize the object and hash it
+        fingerprint_json = json.dumps(fingerprint_obj, sort_keys=True)
+        fingerprint_digest = hashlib.blake2s(fingerprint_json.encode(), digest_size=16).hexdigest()
+
+        # Include the digest in the result
+        fingerprints[index_name] = {
+            **fingerprint_obj,
+            "fingerprint": fingerprint_digest
+        }
+    return fingerprints
 
 def update_project_asset(index, project_id, _id, doc):
     body = {
@@ -359,20 +445,36 @@ def run_evaluation(project_id):
             }
         ],
         "runtime": {
+            "indices": {
+                INDEX_NAME: {
+                    "fingerprint": KEYWORD,
+                    "shards": [
+                        {
+                            "id": KEYWORD,
+                            "max_seq_no": KEYWORD
+                        },
+                        ...
+                    ],
+                    "uuid": KEYWORD
+                },
+                ...
+            },
             "strategies": {
                 STRATEGY_ID: {
                     "name": KEYWORD,
                     "params": [ KEYWORD, ...],
                     "tags": [ KEYWORD, ...],
                     "template": OBJECT,
-                }
+                },
+                ...
             },
             "scenarios": {
                 SCENARIO_ID: {
                     "name": KEYWORD,
                     "params": [ KEYWORD, ...],
                     "tags": [ KEYWORD, ...],
-                }
+                },
+                ...
             }
         },
         "unrated_docs": [
@@ -462,6 +564,7 @@ def run_evaluation(project_id):
     }
     
     # Store the contents of the assets used at runtime in this evaluation
+    runtime_indices = {}
     runtime_strategies = {}
     runtime_scenarios = {}
     runtime_judgements = {}
@@ -570,6 +673,9 @@ def run_evaluation(project_id):
             "values": hit["_source"]["values"],
             "tags": hit["_source"]["tags"]
         }
+        
+    # Store index relevance fingerprints
+    runtime_indices = make_index_relevance_fingerprints(es, index_pattern)
     
     # Store any unrated docs found in the evaluation
     _unrated_docs = {}
@@ -675,6 +781,7 @@ def run_evaluation(project_id):
         },
         "results": results,
         "runtime": {
+            "indices": runtime_indices,
             "strategies": runtime_strategies,
             "scenarios": runtime_scenarios,
             "judgements": runtime_judgements

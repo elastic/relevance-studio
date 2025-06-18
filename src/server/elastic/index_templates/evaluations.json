@@ -91,6 +91,10 @@
       },
       "runtime": {
         "properties": {
+          "indices": {
+            "type": "object",
+            "enabled": false
+          },
           "scenarios": {
             "type": "object",
             "enabled": false
