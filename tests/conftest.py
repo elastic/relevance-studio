@@ -58,14 +58,14 @@ def services() -> Generator[Dict[str, Union[Elasticsearch, str]], None, None]:
     Setup and teardown the Elasticsearch Relevance Studio test server and the
     Elasticsearch test cluster with docker compose.
     """
-    subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "up", "--build", "-d"], check=True)
+    subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "relevance-studio-tests", "up", "--build", "-d"], check=True)
     try:
         yield {
             "es": wait_for_es(ES_URL),
             "esrs": wait_for_esrs(ESRS_URL),
         }
     finally:
-        subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "down", "-v"], check=True)
+        subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE,  "-p", "relevance-studio-tests", "down", "-v"], check=True)
         
 @pytest.fixture(scope="session")
 def constants() -> Dict[str, Any]:
@@ -107,5 +107,5 @@ def clean_data(services, constants, request):
         yield
         return
     delete_index_templates(services["es"], constants["index_templates"])
-    requests.post(f"{services['esrs']}/setup")
+    requests.post(f"{services['esrs']}/api/setup")
     yield
