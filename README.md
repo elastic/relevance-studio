@@ -25,6 +25,7 @@ Install dependencies:
 1. Install [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating)
 2. Install [yarn](https://classic.yarnpkg.com/en/docs/install) (tested on version 1.22.22)
 3. Install [miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install) (tested on version 25.3.1)
+4. Install [docker](https://docs.docker.com/engine/install/) (tested on version 27.3.1)
 
 Clone this repo:
 
@@ -63,3 +64,7 @@ In a terminal, navigate to the root-level directory of this project and run:
 4. Open [http://localhost:8080/](http://localhost:8080/) in your browser to open the app in development mode
 
 Repeat steps 1, 3, and 4 anytime you need to start the UI in a new terminal.
+
+### Testing
+
+1. Run `pytest -x` to run tests for the server. The test script will run the server and a single-node Elasticsearch cluster in docker compose.

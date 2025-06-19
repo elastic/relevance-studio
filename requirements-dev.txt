@@ -2,7 +2,6 @@
 
 # for tests
 pytest==8.4.0
-pytest-dependency==0.6.0
 requests==2.32.3
 
 # for sample data loader
