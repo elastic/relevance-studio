@@ -1,14 +1,4 @@
-# Main
 elasticsearch==8.18.1
 Flask==3.1.0
 Flask-Cors==5.0.0
 python-dotenv==1.0.1
-
-# Tests
-pytest==8.4.0
-requests==2.32.3
-
-# Sample data
-beir==2.2.0
-click==8.2.1
-termcolor==3.1.0

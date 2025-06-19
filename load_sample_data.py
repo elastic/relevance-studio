@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # Local packages
 sys.path.insert(0, os.path.abspath("src"))
-from server.server import es_client
+from server.client import es
 
 ####  Configuration  ###########################################################
 
@@ -225,13 +225,13 @@ def format_for_bulk(docs, index):
             del doc["_id"]
         yield action
         
-def bulk_index_worker(es, docs, index):
+def bulk_index_worker(docs, index):
     """
     Perform bulk indexing for a batch of documents.
     """
     actions = format_for_bulk(docs, index)
     try:
-        success, errors = helpers.bulk(es, actions, raise_on_error=False)
+        success, errors = helpers.bulk(es("studio"), actions, raise_on_error=False)
         sys.stdout.write("e" if errors else ".")
         sys.stdout.flush()
         return success, errors
@@ -258,7 +258,6 @@ def parallel_bulk_import(filepath, index, transformer=None, chunk_size=500):
     """
     Load and index documents from file in parallel using threads.
     """
-    es = es_client()["studio"]
     num_lines = count_lines(filepath)
     logger.debug(f"Loading {num_lines:,} docs (in batches of {chunk_size:,}) into index: {index}")
     with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
@@ -268,7 +267,7 @@ def parallel_bulk_import(filepath, index, transformer=None, chunk_size=500):
         num_errors = 0
         for chunk in chunked_iterable(read_jsonl_lines(filepath, transformer), size=chunk_size):
             num_docs += len(chunk)
-            futures.append(executor.submit(bulk_index_worker, es, chunk, index))
+            futures.append(executor.submit(bulk_index_worker, chunk, index))
         for future in futures:
             successes, errors = future.result()
             num_successes += successes
@@ -643,7 +642,7 @@ def load_dataset(dataset):
     """
     logger.info(f"Loading \"{dataset['id']}\" dataset into index: {make_index_name(dataset)}")
     logger.debug(f"Wiping old index if it exists: {make_index_name(dataset)}")
-    es_client()["content"].options(ignore_status=404).indices.delete(index=make_index_name(dataset))
+    es("content").options(ignore_status=404).indices.delete(index=make_index_name(dataset))
     filepath = os.path.join(dataset_directory(dataset), "corpus.jsonl")
     def transformer(doc):
         doc.pop("metadata")

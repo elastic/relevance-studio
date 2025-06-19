@@ -1,7 +1,7 @@
 {
   "name": "esrs",
   "version": "0.1.0",
-  "source": "src/app/index.html",
+  "source": "src/ui/index.html",
   "dependencies": {
     "@babel/polyfill": "^7.12.1",
     "@elastic/charts": "^69.2.2",

@@ -1,4 +1,5 @@
-# Standarc packages
+# Standard packages
+from typing import Dict
 import os
 
 # Third-party packages
@@ -25,7 +26,7 @@ ELASTICSEARCH_TIMEOUT = int(os.getenv("ELASTICSEARCH_TIMEOUT", "60000").strip())
 _es_clients = None
 _valid_es_clients = set([ "studio", "content", ])
 
-def es(client_name):
+def es(client_name: str) -> Elasticsearch:
     """
     Return one of the singleton clients.
     """
@@ -33,15 +34,18 @@ def es(client_name):
         raise Exception(f"'{client_name}' is not a valid Elasticsearch client.")
     global _es_clients
     if _es_clients is None:
-        _es_clients = setup_clients()
+        _es_clients = _setup_clients()
     return _es_clients[client_name]
 
-def setup_clients():
+def _setup_clients() -> Dict[str, Elasticsearch]:
     """
     Create two Elasticsearch clients:
     
         1. "studio" connects to the deployment with esrs-* indices
         2. "content" connects to the deployment with source indices
+        
+    This function is called automatically by es(). es() is intended to be the
+    only way to access the clients, including for their initial setup.
     """
 
     # Validate configuration

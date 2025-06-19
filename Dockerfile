@@ -1,11 +1,11 @@
-####  Build the frontend  ######################################################
+####  Build the UI  ############################################################
 
-FROM node:20.15.1-slim AS frontend
+FROM node:20.15.1-slim AS ui
 WORKDIR /app
 
 # Copy project files
 COPY package.json yarn.lock .babelrc webpack.config.js ./ 
-COPY src/app ./src/app
+COPY src/ui ./src/ui
 
 # Install dependencies and build
 RUN yarn install
@@ -19,7 +19,7 @@ WORKDIR /app
 # Copy project files
 COPY requirements.txt ./
 COPY src/server ./server
-COPY --from=frontend /app/dist ./server/static
+COPY --from=ui /app/dist ./server/static
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -27,7 +27,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 ####  Run the server  ##########################################################
 
 # Set environment variables
-ENV FLASK_APP=server/server.py
+ENV FLASK_APP=server/flask.py
 ENV FLASK_RUN_PORT=4096
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1

@@ -39,8 +39,8 @@ In a terminal, navigate to the root-level directory of this project and run:
 
 1. Run `conda create -n esrs python=3.10` to create a virtual environment
 2. Run `conda activate esrs` to activate the virtual environment
-3. Run `pip install -r requirements.txt` to install the dependencies
-4. Run `python src/server/server.py` to run the server in development mode
+3. Run `pip install -r requirements-dev.txt` to install the dependencies
+4. Run `python -m src.server.flask` to run the server in development mode
 
 Repeat steps 2 and 4 anytime you need to start the server in a new terminal.
 
@@ -53,7 +53,7 @@ With the server running from Step 2, run:
 It's important to setup the index templates before using the application so that
 it properly indexes the data.
 
-**Step 4. Run the frontend in development mode**
+**Step 4. Run the UI in development mode**
 
 In a terminal, navigate to the root-level directory of this project and run:
 
@@ -62,4 +62,4 @@ In a terminal, navigate to the root-level directory of this project and run:
 3. Run `yarn run dev` to start the app using the script defined in `package.json`
 4. Open [http://localhost:8080/](http://localhost:8080/) in your browser to open the app in development mode
 
-Repeat steps 1, 3, and 4 anytime you need to start the frontend in a new terminal.
+Repeat steps 1, 3, and 4 anytime you need to start the UI in a new terminal.

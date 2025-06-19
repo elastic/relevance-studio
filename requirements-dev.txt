@@ -1,0 +1,10 @@
+-r requirements.txt
+
+# for tests
+pytest==8.4.0
+requests==2.32.3
+
+# for sample data loader
+beir==2.2.0
+click==8.2.1
+termcolor==3.1.0
