@@ -83,7 +83,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
       let response
       try {
         setIsLoading(true)
-        response = await api.create_project(newDoc)
+        response = await api.projects_create(newDoc)
       } catch (err) {
         return addToast(api.errorToast(err, { title: 'Failed to create project' }))
       } finally {
@@ -119,7 +119,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
       let response
       try {
         setIsLoading(true)
-        response = await api.update_project(doc._id, newDoc)
+        response = await api.projects_update(doc._id, newDoc)
       } catch (err) {
         return addToast(api.errorToast(err, { title: 'Failed to create project' }))
       } finally {

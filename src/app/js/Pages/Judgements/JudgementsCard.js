@@ -54,7 +54,7 @@ const JudgementsCard = ({ doc, scenario, template, ...props }) => {
       let response
       try {
         setLoadingRating(true)
-        response = await api.set_judgement(project._id, scenario._id, newDoc)
+        response = await api.judgements_set(project._id, scenario._id, newDoc)
       } catch (err) {
         setRating(lastCommittedRating.current)
         return addToast(api.errorToast(err, { title: 'Failed to get scenarios' }))
@@ -85,7 +85,7 @@ const JudgementsCard = ({ doc, scenario, template, ...props }) => {
       let response
       try {
         setLoadingRating(true)
-        response = await api.unset_judgement(project._id, scenario._id, _doc)
+        response = await api.judgements_unset(project._id, scenario._id, _doc)
       } catch (err) {
         setRating(lastCommittedRating.current)
         return addToast(api.errorToast(err, { title: 'Failed to get scenarios' }))

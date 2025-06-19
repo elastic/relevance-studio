@@ -70,7 +70,7 @@ export const ProjectProvider = ({ children }) => {
     console.debug(`Loading project: ${projectId}`)
     setIsLoadingProject(true)
     try {
-      const response = await api.get_project(projectId)
+      const response = await api.projects_get(projectId)
 
       // Set project doc
       const _project = response.data._source
@@ -134,7 +134,7 @@ export const ProjectProvider = ({ children }) => {
     if (shouldLoadIndices) {
       console.debug(`Loading indices for project: ${projectId}`)
       setIsLoadingIndices(true)
-      tasks.push(api.get_indices(project.index_pattern)
+      tasks.push(api.content_mappings_browse(project.index_pattern)
         .then(response => {
 
           // Set indices
@@ -147,7 +147,7 @@ export const ProjectProvider = ({ children }) => {
     if (shouldLoadDisplays) {
       console.debug(`Loading displays for project: ${projectId}`)
       setIsLoadingDisplays(true)
-      tasks.push(api.get_displays(projectId)
+      tasks.push(api.displays_browse(projectId)
         .then(response => {
 
           // Set display docs
@@ -160,7 +160,7 @@ export const ProjectProvider = ({ children }) => {
     if (shouldLoadScenarios) {
       console.debug(`Loading scenarios for project: ${projectId}`)
       setIsLoadingScenarios(true)
-      tasks.push(api.get_scenarios(projectId)
+      tasks.push(api.scenarios_browse(projectId)
         .then(response => {
 
           // Set scenario docs
@@ -186,7 +186,7 @@ export const ProjectProvider = ({ children }) => {
     if (shouldLoadStrategies) {
       console.debug(`Loading strategies for project: ${projectId}`)
       setIsLoadingStrategies(true)
-      tasks.push(api.get_strategies(projectId)
+      tasks.push(api.strategies_browse(projectId)
         .then(response => {
 
           // Set strategy docs
@@ -199,7 +199,7 @@ export const ProjectProvider = ({ children }) => {
     if (shouldLoadBenchmarks) {
       console.debug(`Loading benchmarks for project: ${projectId}`)
       setIsLoadingBenchmarks(true)
-      tasks.push(api.get_benchmarks(projectId)
+      tasks.push(api.benchmarks_browse(projectId)
         .then(response => {
 
           // Set benchmark docs
@@ -226,19 +226,19 @@ export const ProjectProvider = ({ children }) => {
   ////  Mutators  //////////////////////////////////////////////////////////////
 
   const fnCreate = {
-    display: api.create_display,
-    scenario: api.create_scenario,
-    strategy: api.create_strategy,
+    display: api.displays_create,
+    scenario: api.scenarios_create,
+    strategy: api.strategies_create,
   }
   const fnUpdate = {
-    display: api.update_display,
-    scenario: api.update_scenario,
-    strategy: api.update_strategy,
+    display: api.displays_update,
+    scenario: api.scenarios_update,
+    strategy: api.strategies_update,
   }
   const fnDelete = {
-    display: api.delete_display,
-    scenario: api.delete_scenario,
-    strategy: api.delete_strategy,
+    display: api.displays_delete,
+    scenario: api.scenarios_delete,
+    strategy: api.strategies_delete,
   }
   const fnSetIsProcessing = {
     display: setIsProcessingDisplay,

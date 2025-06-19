@@ -167,7 +167,7 @@ const DisplaysEdit = () => {
       let response
       try {
         setIsLoadingDocRandom(true)
-        response = await api.search(display.index_pattern, body)
+        response = await api.content_search(display.index_pattern, body)
       } catch (error) {
         return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
       } finally {
@@ -191,7 +191,7 @@ const DisplaysEdit = () => {
       let response
       try {
         setIsLoadingDocById(true)
-        response = await api.search(display.index_pattern, body)
+        response = await api.content_search(display.index_pattern, body)
       } catch (error) {
         return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
       } finally {

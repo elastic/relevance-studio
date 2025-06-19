@@ -53,7 +53,7 @@ const StrategiesEdit = () => {
       let response
       try {
         setLoadingStrategy(true)
-        response = await api.get_strategy(project._id, strategyId)
+        response = await api.strategies_get(project._id, strategyId)
       } catch (err) {
         return addToast(api.errorToast(err, { title: 'Failed to get strategy' }))
       } finally {
@@ -108,7 +108,7 @@ const StrategiesEdit = () => {
       let response
       try {
         setLoadingStrategy(true)
-        response = await api.update_strategy(project._id, strategyId, doc)
+        response = await api.strategies_update(project._id, strategyId, doc)
       } catch (err) {
         return addToast(api.errorToast(err, { title: 'Failed to update display' }))
       } finally {

@@ -84,7 +84,7 @@ const Judgements = () => {
       let response
       try {
         setLoadingDisplays(true)
-        response = await api.get_displays(project._id)
+        response = await api.displays_browse(project._id)
       } catch (error) {
         return addToast(api.errorToast(error, {
           title: 'Failed to get displays'
@@ -125,7 +125,7 @@ const Judgements = () => {
       let response
       try {
         setLoadingScenarios(true)
-        response = await api.get_scenarios(project._id)
+        response = await api.scenarios_browse(project._id)
       } catch (error) {
         return addToast(api.errorToast(error, {
           title: 'Failed to get scenarios'
@@ -228,7 +228,7 @@ const Judgements = () => {
       let response
       try {
         setLoadingResults(true)
-        response = await api.get_judgements_docs(project._id, scenario._id, body)
+        response = await api.judgements_search(project._id, scenario._id, body)
       } catch (error) {
         return addToast(api.errorToast(error, {
           title: 'Failed to search docs'

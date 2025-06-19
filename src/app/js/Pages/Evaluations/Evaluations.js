@@ -48,7 +48,7 @@ const Evaluations = () => {
       let response
       try {
         setIsLoadingEvaluations(true)
-        response = await api.get_evaluations(project._id)
+        response = await api.evaluations_browse(project._id)
       } catch (error) {
         return addToast(api.errorToast(error, {
           title: 'Failed to get evaluations'
@@ -77,7 +77,7 @@ const Evaluations = () => {
         // Get strategies
         let strategies = []
         try {
-          const res1 = await api.get_strategies(project._id)
+          const res1 = await api.strategies_browse(project._id)
           res1.data.hits.hits.forEach(doc => {
             strategies.push(doc._id)
           })
@@ -90,7 +90,7 @@ const Evaluations = () => {
         // Get scenarios
         let scenarios = []
         try {
-          const res2 = await api.get_scenarios(project._id)
+          const res2 = await api.scenarios_browse(project._id)
           res2.data.hits.hits.forEach(doc => {
             scenarios.push(doc._id)
           })
@@ -113,7 +113,7 @@ const Evaluations = () => {
         let response
         try {
           setIsProcessingEvaluation(true)
-          response = await api.run_evaluation(project._id, body, params)
+          response = await api.evaluations_run(project._id, body, params)
         } catch (error) {
           return addToast(api.errorToast(error, {
             title: 'Failed to run evaluation'
@@ -149,7 +149,7 @@ const Evaluations = () => {
       let response
       try {
         setIsProcessingEvaluation(true)
-        response = await api.delete_evaluation(project._id, modalData._id)
+        response = await api.evaluations_delete(project._id, modalData._id)
       } catch (error) {
         return addToast(api.errorToast(error, {
           title: 'Failed to delete evaluation'

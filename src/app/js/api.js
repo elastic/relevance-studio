@@ -31,210 +31,209 @@ const validateArgs = (fnName, requiredArgs) => {
   }
 }
 
-////  Projects  ////////////////////////////////////////////////////////////////
+////  API: Projects  ///////////////////////////////////////////////////////////
 
-api.get_projects = async () => {
-  return await client.get(`/projects`)
+api.projects_browse = async () => {
+  return await client.get(`/api/projects`)
 }
 
-api.get_project = async (project_id) => {
-  validateArgs('api.get_project', { project_id, })
-  return await client.get(`/projects/${project_id}`)
+api.projects_get = async (project_id) => {
+  validateArgs('api.projects_get', { project_id, })
+  return await client.get(`/api/projects/${project_id}`)
 }
 
-api.create_project = async (doc) => {
-  validateArgs('api.create_project', { doc, })
-  return await client.post(`/projects`, { data: doc })
+api.projects_create = async (doc) => {
+  validateArgs('api.projects_create', { doc, })
+  return await client.post(`/api/projects`, { data: doc })
 }
 
-api.update_project = async (project_id, doc) => {
-  validateArgs('api.update_project', { project_id, doc, })
-  return await client.put(`/projects/${project_id}`, { data: doc })
+api.projects_update = async (project_id, doc) => {
+  validateArgs('api.projects_update', { project_id, doc, })
+  return await client.put(`/api/projects/${project_id}`, { data: doc })
 }
 
-api.delete_project = async (project_id) => {
-  validateArgs('api.delete_project', { project_id, })
-  return await client.del(`/projects/${project_id}`)
-}
-
-
-////  Displays  ////////////////////////////////////////////////////////////////
-
-api.get_displays = async (project_id) => {
-  validateArgs('api.get_displays', { project_id, })
-  return await client.get(`/projects/${project_id}/displays`)
-}
-
-api.get_display = async (project_id, display_id) => {
-  validateArgs('api.get_display', { project_id, display_id, })
-  return await client.get(`/projects/${project_id}/displays/${display_id}`)
-}
-
-api.create_display = async (project_id, doc) => {
-  validateArgs('api.create_display', { project_id, doc, })
-  return await client.post(`/projects/${project_id}/displays`, { data: doc })
-}
-
-api.update_display = async (project_id, display_id, doc) => {
-  validateArgs('api.update_display', { project_id, display_id, doc, })
-  return await client.put(`/projects/${project_id}/displays/${display_id}`, { data: doc })
-}
-
-api.delete_display = async (project_id, display_id) => {
-  validateArgs('api.delete_display', { project_id, display_id, })
-  return await client.del(`/projects/${project_id}/displays/${display_id}`)
+api.projects_delete = async (project_id) => {
+  validateArgs('api.projects_delete', { project_id, })
+  return await client.del(`/api/projects/${project_id}`)
 }
 
 
-////  Scenarios  ///////////////////////////////////////////////////////////////
+////  API: Displays  ///////////////////////////////////////////////////////////
 
-api.get_scenarios = async (project_id) => {
-  validateArgs('api.get_scenarios', { project_id, })
-  return await client.get(`/projects/${project_id}/scenarios`)
+api.displays_browse = async (project_id) => {
+  validateArgs('api.displays_browse', { project_id, })
+  return await client.get(`/api/projects/${project_id}/displays`)
 }
 
-api.get_scenario = async (project_id, scenario_id) => {
-  validateArgs('api.get_scenario', { project_id, scenario_id, })
-  return await client.get(`/projects/${project_id}/scenarios/${scenario_id}`)
+api.displays_get = async (project_id, display_id) => {
+  validateArgs('api.displays_get', { project_id, display_id, })
+  return await client.get(`/api/projects/${project_id}/displays/${display_id}`)
 }
 
-api.create_scenario = async (project_id, doc) => {
-  validateArgs('api.create_scenario', { project_id, doc, })
-  return await client.post(`/projects/${project_id}/scenarios`, { data: doc })
+api.displays_create = async (project_id, doc) => {
+  validateArgs('api.displays_create', { project_id, doc, })
+  return await client.post(`/api/projects/${project_id}/displays`, { data: doc })
 }
 
-api.update_scenario = async (project_id, scenario_id, doc) => {
-  validateArgs('api.update_scenario', { project_id, scenario_id, doc, })
-  return await client.put(`/projects/${project_id}/scenarios/${scenario_id}`, { data: doc })
+api.displays_update = async (project_id, display_id, doc) => {
+  validateArgs('api.displays_update', { project_id, display_id, doc, })
+  return await client.put(`/api/projects/${project_id}/displays/${display_id}`, { data: doc })
 }
 
-api.delete_scenario = async (project_id, scenario_id) => {
-  validateArgs('api.delete_scenario', { project_id, scenario_id, })
-  return await client.del(`/projects/${project_id}/scenarios/${scenario_id}`)
-}
-
-
-////  Judgements  //////////////////////////////////////////////////////////////
-
-api.get_judgements_docs = async (project_id, scenario_id, body, params) => {
-  validateArgs('api.get_judgements_docs', { project_id, scenario_id, body, })
-  return await client.post(`/projects/${project_id}/scenarios/${scenario_id}/judgements/_docs`, { data: body, params: params })
-}
-
-api.get_judgements = async (project_id) => {
-  validateArgs('api.get_judgements', { project_id, })
-  return await client.get(`/projects/${project_id}/judgements`)
-}
-
-api.get_judgement = async (project_id, judgement_id) => {
-  validateArgs('api.get_judgement', { project_id, judgement_id, })
-  return await client.get(`/projects/${project_id}/judgements/${judgement_id}`)
-}
-
-api.set_judgement = async (project_id, scenario_id, doc) => {
-  validateArgs('api.set_judgement', { project_id, scenario_id, doc, })
-  return await client.put(`/projects/${project_id}/scenarios/${scenario_id}/judgements`, { data: doc })
-}
-
-api.unset_judgement = async (project_id, scenario_id, doc) => {
-  validateArgs('api.unset_judgement', { project_id, scenario_id, doc, })
-  return await client.del(`/projects/${project_id}/scenarios/${scenario_id}/judgements`, { data: doc })
+api.displays_delete = async (project_id, display_id) => {
+  validateArgs('api.displays_delete', { project_id, display_id, })
+  return await client.del(`/api/projects/${project_id}/displays/${display_id}`)
 }
 
 
-////  Strategies  //////////////////////////////////////////////////////////////
+////  API: Scenarios  //////////////////////////////////////////////////////////
 
-api.get_strategies = async (project_id) => {
-  validateArgs('api.get_strategies', { project_id, })
-  return await client.get(`/projects/${project_id}/strategies`)
+api.scenarios_browse = async (project_id) => {
+  validateArgs('api.scenarios_browse', { project_id, })
+  return await client.get(`/api/projects/${project_id}/scenarios`)
 }
 
-api.get_strategy = async (project_id, strategy_id) => {
-  validateArgs('api.get_strategy', { project_id, strategy_id, })
-  return await client.get(`/projects/${project_id}/strategies/${strategy_id}`)
+api.scenarios_get = async (project_id, scenario_id) => {
+  validateArgs('api.scenarios_get', { project_id, scenario_id, })
+  return await client.get(`/api/projects/${project_id}/scenarios/${scenario_id}`)
 }
 
-api.create_strategy = async (project_id, doc) => {
-  validateArgs('api.create_strategy', { project_id, doc, })
-  return await client.post(`/projects/${project_id}/strategies`, { data: doc })
+api.scenarios_create = async (project_id, doc) => {
+  validateArgs('api.scenarios_create', { project_id, doc, })
+  return await client.post(`/api/projects/${project_id}/scenarios`, { data: doc })
 }
 
-api.update_strategy = async (project_id, strategy_id, doc) => {
-  validateArgs('api.update_strategy', { project_id, strategy_id, doc, })
-  return await client.put(`/projects/${project_id}/strategies/${strategy_id}`, { data: doc })
+api.scenarios_update = async (project_id, scenario_id, doc) => {
+  validateArgs('api.scenarios_update', { project_id, scenario_id, doc, })
+  return await client.put(`/api/projects/${project_id}/scenarios/${scenario_id}`, { data: doc })
 }
 
-api.delete_strategy = async (project_id, strategy_id) => {
-  validateArgs('api.delete_strategy', { project_id, strategy_id, })
-  return await client.del(`/projects/${project_id}/strategies/${strategy_id}`)
-}
-
-
-////  Benchmarks  /////////////////////////////////////////////////////////////
-
-api.get_benchmarks = async (project_id) => {
-  validateArgs('api.get_benchmarks', { project_id, })
-  return await client.get(`/projects/${project_id}/benchmarks`)
-}
-
-api.get_benchmark = async (project_id, benchmark_id) => {
-  validateArgs('api.getsbenchmark', { project_id, benchmark_id, })
-  return await client.get(`/projects/${project_id}/benchmarks/${benchmark_id}`)
-}
-
-api.create_benchmark = async (project_id, doc) => {
-  validateArgs('api.create_benchmark', { project_id, doc, })
-  return await client.post(`/projects/${project_id}/benchmarks`, { data: doc })
-}
-
-api.update_benchmark = async (project_id, benchmark_id, doc) => {
-  validateArgs('api.update_benchmark', { project_id, benchmark_id, doc, })
-  return await client.put(`/projects/${project_id}/benchmarks/${benchmark_id}`, { data: doc })
-}
-
-api.delete_benchmark = async (project_id, benchmark_id) => {
-  validateArgs('api.delete_benchmark', { project_id, benchmark_id, })
-  return await client.del(`/projects/${project_id}/benchmarks/${benchmark_id}`)
+api.scenarios_delete = async (project_id, scenario_id) => {
+  validateArgs('api.scenarios_delete', { project_id, scenario_id, })
+  return await client.del(`/api/projects/${project_id}/scenarios/${scenario_id}`)
 }
 
 
-////  Evaluations  /////////////////////////////////////////////////////////////
+////  API: Judgements  /////////////////////////////////////////////////////////
 
-api.get_evaluations = async (project_id) => {
-  validateArgs('api.get_evaluations', { project_id, })
-  return await client.get(`/projects/${project_id}/evaluations`)
+api.judgements_search = async (project_id, scenario_id, body, params) => {
+  validateArgs('api.judgements_search', { project_id, scenario_id, body, })
+  body.project_id = project_id
+  body.scenario_id = scenario_id
+  return await client.post(`/api/projects/${project_id}/judgements/_search`, { data: body, params: params })
 }
 
-api.get_evaluation = async (project_id, evaluation_id) => {
-  validateArgs('api.get_evaluation', { project_id, evaluation_id, })
-  return await client.get(`/projects/${project_id}/evaluations/${evaluation_id}`)
+api.judgements_set = async (project_id, scenario_id, doc) => {
+  validateArgs('api.judgements_set', { project_id, scenario_id, doc, })
+  doc.project_id = project_id
+  doc.scenario_id = scenario_id
+  return await client.put(`/api/projects/${project_id}/judgements`, { data: doc })
 }
 
-api.run_evaluation = async (project_id, body, params) => {
-  validateArgs('api.run_evaluation', { project_id, body, })
-  return await client.post(`/projects/${project_id}/evaluations`, { data: body, params: params })
-}
-
-api.delete_evaluation = async (project_id, evaluation_id) => {
-  validateArgs('api.delete_evaluation', { project_id, evaluation_id, })
-  return await client.del(`/projects/${project_id}/evaluations/${evaluation_id}`)
+api.judgements_unset = async (project_id, scenario_id, doc) => {
+  doc.project_id = project_id
+  doc.scenario_id = scenario_id
+  validateArgs('api.judgements_unset', { project_id, scenario_id, doc, })
+  return await client.del(`/api/projects/${project_id}/judgements`, { data: doc })
 }
 
 
-////  Other  ///////////////////////////////////////////////////////////////////
+////  API: Strategies  /////////////////////////////////////////////////////////
 
-api.get_indices = async (index_pattern) => {
-  validateArgs('api.get_indices', { index_pattern, })
-  return await client.get(`/indices/${index_pattern}`)
+api.strategies_browse = async (project_id) => {
+  validateArgs('api.strategies_browse', { project_id, })
+  return await client.get(`/api/projects/${project_id}/strategies`)
 }
 
-api.search = async (index_pattern, body, params) => {
-  validateArgs('api.search', { index_pattern, body, })
-  return await client.post(`/_search/${index_pattern}`, { data: body, param: params })
+api.strategies_get = async (project_id, strategy_id) => {
+  validateArgs('api.strategies_get', { project_id, strategy_id, })
+  return await client.get(`/api/projects/${project_id}/strategies/${strategy_id}`)
 }
+
+api.strategies_create = async (project_id, doc) => {
+  validateArgs('api.strategies_create', { project_id, doc, })
+  return await client.post(`/api/projects/${project_id}/strategies`, { data: doc })
+}
+
+api.strategies_update = async (project_id, strategy_id, doc) => {
+  validateArgs('api.strategies_update', { project_id, strategy_id, doc, })
+  return await client.put(`/api/projects/${project_id}/strategies/${strategy_id}`, { data: doc })
+}
+
+api.strategies_delete = async (project_id, strategy_id) => {
+  validateArgs('api.strategyies_delete', { project_id, strategy_id, })
+  return await client.del(`/api/projects/${project_id}/strategies/${strategy_id}`)
+}
+
+
+////  API: Benchmarks  /////////////////////////////////////////////////////////
+
+api.benchmarks_browse = async (project_id) => {
+  validateArgs('api.benchmarks_browse', { project_id, })
+  return await client.get(`/api/projects/${project_id}/benchmarks`)
+}
+
+api.benchmarks_get = async (project_id, benchmark_id) => {
+  validateArgs('api.benchmarks_get', { project_id, benchmark_id, })
+  return await client.get(`/api/projects/${project_id}/benchmarks/${benchmark_id}`)
+}
+
+api.benchmarks_create = async (project_id, doc) => {
+  validateArgs('api.benchmarks_create', { project_id, doc, })
+  return await client.post(`/api/projects/${project_id}/benchmarks`, { data: doc })
+}
+
+api.benchmarks_update = async (project_id, benchmark_id, doc) => {
+  validateArgs('api.benchmarks_update', { project_id, benchmark_id, doc, })
+  return await client.put(`/api/projects/${project_id}/benchmarks/${benchmark_id}`, { data: doc })
+}
+
+api.benchmarks_delete = async (project_id, benchmark_id) => {
+  validateArgs('api.benchmarks_delete', { project_id, benchmark_id, })
+  return await client.del(`/api/projects/${project_id}/benchmarks/${benchmark_id}`)
+}
+
+
+////  API: Evaluations  ////////////////////////////////////////////////////////
+
+api.evaluations_browse = async (project_id) => {
+  validateArgs('api.evaluations_browse', { project_id, })
+  return await client.get(`/api/projects/${project_id}/evaluations`)
+}
+
+api.evaluations_get = async (project_id, evaluation_id) => {
+  validateArgs('api.evaluations_get', { project_id, evaluation_id, })
+  return await client.get(`/api/projects/${project_id}/evaluations/${evaluation_id}`)
+}
+
+api.evaluations_run = async (project_id, body, params) => {
+  validateArgs('api.evaluations_run', { project_id, body, })
+  return await client.post(`/api/projects/${project_id}/evaluations`, { data: body, params: params })
+}
+
+api.evaluations_delete = async (project_id, evaluation_id) => {
+  validateArgs('api.evaluations_delete', { project_id, evaluation_id, })
+  return await client.del(`/api/projects/${project_id}/evaluations/${evaluation_id}`)
+}
+
+
+////  API: Indices  ////////////////////////////////////////////////////////////
+
+api.content_search = async (index_pattern, body, params) => {
+  validateArgs('api.content_search', { index_pattern, body, })
+  return await client.post(`/api/content/_search/${index_pattern}`, { data: body, param: params })
+}
+
+api.content_mappings_browse = async (index_pattern) => {
+  validateArgs('api.content_mappings_browse', { index_pattern, })
+  return await client.get(`/api/content/mappings/${index_pattern}`)
+}
+
+
+////  API: Setup  //////////////////////////////////////////////////////////////
 
 api.setup = async () => {
-  return await client.post(`/setup`)
+  return await client.post(`/api/setup`)
 }
 
 export default api

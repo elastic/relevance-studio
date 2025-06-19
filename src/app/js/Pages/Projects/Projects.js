@@ -58,7 +58,7 @@ const Projects = () => {
       let response
       try {
         setIsLoadingProjects(true)
-        response = await api.get_projects()
+        response = await api.projects_browse()
       } catch (err) {
         return addToast(api.errorToast(err, { title: 'Failed to get projects' }))
       } finally {
@@ -250,7 +250,7 @@ const Projects = () => {
         onDelete={async () => {
           setIsLoadingProject(true)
           try {
-            await api.delete_project(modalDelete._id)
+            await api.projects_delete(modalDelete._id)
           } finally {
             setIsLoadingProject(false)
           }

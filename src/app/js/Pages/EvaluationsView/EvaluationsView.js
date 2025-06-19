@@ -87,7 +87,7 @@ const EvaluationsView = () => {
       let response
       try {
         setLoadingEvaluation(true)
-        response = await api.get_evaluation(project._id, evaluationId)
+        response = await api.evaluations_get(project._id, evaluationId)
       } catch (error) {
         return addToast(api.errorToast(error, {
           title: 'Failed to get evaluation'
