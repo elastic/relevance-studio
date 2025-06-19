@@ -1,28 +1,33 @@
 {
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Strategies"
+  },
   "index_patterns": [
     "esrs-strategies*"
   ],
-  "mappings": {
-    "dynamic": "strict",
-    "properties": {
-      "@timestamp": {
-        "type": "keyword"
-      },
-      "project_id": {
-        "type": "keyword"
-      },
-      "name": {
-        "type": "keyword"
-      },
-      "params": {
-        "type": "keyword"
-      },
-      "tags": {
-        "type": "keyword"
-      },
-      "template": {
-        "type": "object",
-        "enabled": false
+  "template": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "@timestamp": {
+          "type": "keyword"
+        },
+        "project_id": {
+          "type": "keyword"
+        },
+        "name": {
+          "type": "keyword"
+        },
+        "params": {
+          "type": "keyword"
+        },
+        "tags": {
+          "type": "keyword"
+        },
+        "template": {
+          "type": "object",
+          "enabled": false
+        }
       }
     }
   }

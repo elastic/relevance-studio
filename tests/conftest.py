@@ -2,6 +2,7 @@
 import os
 import subprocess
 import time
+from typing import Any, Dict, Generator, Union
 
 # Third-party packages
 import pytest
@@ -52,7 +53,7 @@ def wait_for_esrs(url, attempts=30):
     raise RuntimeError("Server did not start in time")
 
 @pytest.fixture(scope="session")
-def services():
+def services() -> Generator[Dict[str, Union[Elasticsearch, str]], None, None]:
     """
     Setup and teardown the Elasticsearch Relevance Studio test server and the
     Elasticsearch test cluster with docker compose.
@@ -67,7 +68,7 @@ def services():
         subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "down", "-v"], check=True)
         
 @pytest.fixture(scope="session")
-def constants():
+def constants() -> Dict[str, Any]:
     """
     Constant values available to each test. 
     """

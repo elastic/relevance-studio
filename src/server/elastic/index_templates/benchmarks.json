@@ -1,35 +1,40 @@
 {
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Benchmarks"
+  },
   "index_patterns": [
     "esrs-benchmarks*"
   ],
-  "mappings": {
-    "dynamic": "strict",
-    "properties": {
-      "project_id": {
-        "type": "keyword"
-      },
-      "name": {
-        "type": "keyword"
-      },
-      "description": {
-        "type": "text"
-      },
-      "tags": {
-        "type": "keyword"
-      },
-      "scenario_id": {
-        "type": "keyword"
-      },
-      "strategy_id": {
-        "type": "keyword"
-      },
-      "config": {
-        "properties": {
-          "metrics": {
-            "type": "keyword"
-          },
-          "k": {
-            "type": "short"
+  "template": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "project_id": {
+          "type": "keyword"
+        },
+        "name": {
+          "type": "keyword"
+        },
+        "description": {
+          "type": "text"
+        },
+        "tags": {
+          "type": "keyword"
+        },
+        "scenario_id": {
+          "type": "keyword"
+        },
+        "strategy_id": {
+          "type": "keyword"
+        },
+        "config": {
+          "properties": {
+            "metrics": {
+              "type": "keyword"
+            },
+            "k": {
+              "type": "short"
+            }
           }
         }
       }

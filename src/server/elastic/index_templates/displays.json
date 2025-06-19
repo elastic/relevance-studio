@@ -1,22 +1,27 @@
 {
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Displays"
+  },
   "index_patterns": [
     "esrs-displays*"
   ],
-  "mappings": {
-    "dynamic": "strict",
-    "properties": {
-      "project_id": {
-        "type": "keyword"
-      },
-      "index_pattern": {
-        "type": "keyword"
-      },
-      "fields": {
-        "type": "keyword"
-      },
-      "template": {
-        "type": "object",
-        "enabled": false
+  "template": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "project_id": {
+          "type": "keyword"
+        },
+        "index_pattern": {
+          "type": "keyword"
+        },
+        "fields": {
+          "type": "keyword"
+        },
+        "template": {
+          "type": "object",
+          "enabled": false
+        }
       }
     }
   }

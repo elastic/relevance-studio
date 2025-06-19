@@ -6,7 +6,7 @@ def esrs_response(services, wipe_data):
     """
     Setup esrs-* index templates.
     """
-    response = requests.post(f"{services['esrs']}/setup")
+    response = requests.post(f"{services['esrs']}/api/setup")
     assert response.status_code == 200  # fail early if broken
     return response.json()
     
@@ -22,4 +22,4 @@ def test_has_correct_contents(esrs_response, constants):
 
 def test_created_index_templates(services, constants):
     for name in constants["index_templates"]:
-        assert services["es"].indices.exists_template(name=name)
+        assert services["es"].indices.exists_index_template(name=name)

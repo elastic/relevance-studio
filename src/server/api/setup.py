@@ -50,7 +50,7 @@ def run():
             body = json.loads(file.read())
         name = body["index_patterns"][0].replace("*", "")
         try:
-            response = es("studio").indices.put_template(name=name, body=body)
+            response = es("studio").indices.put_index_template(name=name, body=body)
             result["requests"].append({
                 "index_template": index_template_name,
                 "response": {

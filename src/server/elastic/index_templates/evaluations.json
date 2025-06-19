@@ -1,135 +1,140 @@
 {
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Evaluations"
+  },
   "index_patterns": [
     "esrs-evaluations*"
   ],
-  "mappings": {
-    "dynamic": "strict",
-    "properties": {
-      "@timestamp": {
-        "type": "date"
-      },
-      "project_id": {
-        "type": "keyword"
-      },
-      "benchmark_id": {
-        "type": "keyword"
-      },
-      "scenario_id": {
-        "type": "keyword"
-      },
-      "strategy_id": {
-        "type": "keyword"
-      },
-      "config": {
-        "properties": {
-          "metrics": {
-            "type": "keyword"
-          },
-          "k": {
-            "type": "short"
+  "template": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "project_id": {
+          "type": "keyword"
+        },
+        "benchmark_id": {
+          "type": "keyword"
+        },
+        "scenario_id": {
+          "type": "keyword"
+        },
+        "strategy_id": {
+          "type": "keyword"
+        },
+        "config": {
+          "properties": {
+            "metrics": {
+              "type": "keyword"
+            },
+            "k": {
+              "type": "short"
+            }
           }
-        }
-      },
-      "results": {
-        "properties": {
-          "strategy_id": {
-            "type": "keyword"
-          },
-          "searches": {
-            "properties": {
-              "scenario_id": {
-                "type": "keyword"
-              },
-              "metrics": {
-                "properties": {
-                  "dcg": {
-                    "type": "float"
-                  },
-                  "err": {
-                    "type": "float"
-                  },
-                  "mrr": {
-                    "type": "float"
-                  },
-                  "ndcg": {
-                    "type": "float"
-                  },
-                  "precision": {
-                    "type": "float"
-                  },
-                  "recall": {
-                    "type": "float"
-                  }
-                }
-              },
-              "hits": {
-                "properties": {
-                  "hit": {
-                    "properties": {
-                      "_id": {
-                        "type": "keyword"
-                      },
-                      "_index": {
-                        "type": "keyword"
-                      },
-                      "_score": {
-                        "type": "float"
-                      },
-                      "_ignored": {
-                        "type": "keyword"
-                      }
+        },
+        "results": {
+          "properties": {
+            "strategy_id": {
+              "type": "keyword"
+            },
+            "searches": {
+              "properties": {
+                "scenario_id": {
+                  "type": "keyword"
+                },
+                "metrics": {
+                  "properties": {
+                    "dcg": {
+                      "type": "float"
+                    },
+                    "err": {
+                      "type": "float"
+                    },
+                    "mrr": {
+                      "type": "float"
+                    },
+                    "ndcg": {
+                      "type": "float"
+                    },
+                    "precision": {
+                      "type": "float"
+                    },
+                    "recall": {
+                      "type": "float"
                     }
-                  },
-                  "rating": {
-                    "type": "byte"
+                  }
+                },
+                "hits": {
+                  "properties": {
+                    "hit": {
+                      "properties": {
+                        "_id": {
+                          "type": "keyword"
+                        },
+                        "_index": {
+                          "type": "keyword"
+                        },
+                        "_score": {
+                          "type": "float"
+                        },
+                        "_ignored": {
+                          "type": "keyword"
+                        }
+                      }
+                    },
+                    "rating": {
+                      "type": "byte"
+                    }
                   }
                 }
               }
             }
           }
-        }
-      },
-      "runtime": {
-        "properties": {
-          "indices": {
-            "type": "object",
-            "enabled": false
-          },
-          "scenarios": {
-            "type": "object",
-            "enabled": false
-          },
-          "strategies": {
-            "type": "object",
-            "enabled": false
-          },
-          "judgements": {
-            "type": "object",
-            "enabled": false
+        },
+        "runtime": {
+          "properties": {
+            "indices": {
+              "type": "object",
+              "enabled": false
+            },
+            "scenarios": {
+              "type": "object",
+              "enabled": false
+            },
+            "strategies": {
+              "type": "object",
+              "enabled": false
+            },
+            "judgements": {
+              "type": "object",
+              "enabled": false
+            }
           }
-        }
-      },
-      "unrated_docs": {
-        "properties": {
-          "_id": {
-            "type": "keyword"
-          },
-          "_index": {
-            "type": "keyword"
-          },
-          "count": {
-            "type": "integer"
-          },
-          "strategies": {
-            "type": "keyword"
-          },
-          "scenarios": {
-            "type": "keyword"
+        },
+        "unrated_docs": {
+          "properties": {
+            "_id": {
+              "type": "keyword"
+            },
+            "_index": {
+              "type": "keyword"
+            },
+            "count": {
+              "type": "integer"
+            },
+            "strategies": {
+              "type": "keyword"
+            },
+            "scenarios": {
+              "type": "keyword"
+            }
           }
+        },
+        "took": {
+          "type": "short"
         }
-      },
-      "took": {
-        "type": "short"
       }
     }
   }

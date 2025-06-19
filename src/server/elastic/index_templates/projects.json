@@ -1,26 +1,31 @@
 {
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Projects"
+  },
   "index_patterns": [
     "esrs-projects*"
   ],
-  "mappings": {
-    "dynamic": "strict",
-    "properties": {
-      "name": {
-        "type": "keyword"
-      },
-      "index_pattern": {
-        "type": "keyword"
-      },
-      "params": {
-        "type": "keyword"
-      },
-      "rating_scale": {
-        "properties": {
-          "min": {
-            "type": "byte"
-          },
-          "max": {
-            "type": "byte"
+  "template": {
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "name": {
+          "type": "keyword"
+        },
+        "index_pattern": {
+          "type": "keyword"
+        },
+        "params": {
+          "type": "keyword"
+        },
+        "rating_scale": {
+          "properties": {
+            "min": {
+              "type": "byte"
+            },
+            "max": {
+              "type": "byte"
+            }
           }
         }
       }
