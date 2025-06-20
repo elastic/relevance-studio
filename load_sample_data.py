@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 # Local packages
 sys.path.insert(0, os.path.abspath("src"))
 from server.client import es
+from server import utils
 
 ####  Configuration  ###########################################################
 
@@ -289,9 +290,6 @@ def make_timestamp():
     now = datetime.now(timezone.utc)
     return now.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
-def make_id(s):
-    return str(uuid.uuid5(uuid.NAMESPACE_DNS, s))
-
 def make_index_name(dataset):
     """
     Generate an index name for a given sample dataset.
@@ -302,19 +300,19 @@ def make_scenario_id(dataset, _id):
     """
     Generate a scenario_id for a given sample dataset and _id.
     """
-    return make_id(f"{make_project_id(dataset)}:{_id}")
+    return utils.unique_id(f"{make_project_id(dataset)}:{_id}")
 
 def make_display_id(dataset):
     """
     Generate a display_id for a given sample dataset.
     """
-    return make_id(f"{make_project_id(dataset)}:{make_index_name(dataset)}")
+    return utils.unique_id(f"{make_project_id(dataset)}:{make_index_name(dataset)}")
 
 def make_project_id(dataset):
     """
     Generate a project_id for a given sample dataset.
     """
-    return make_id(f"esrs-sample-data-{dataset['id']}")
+    return utils.unique_id(f"esrs-sample-data-{dataset['id']}")
 
 def make_strategy_docs(dataset):
     """
@@ -322,7 +320,7 @@ def make_strategy_docs(dataset):
     """
     return [
         {
-            "_id": make_id(f"{make_project_id(dataset)}:query-string-and"),
+            "_id": utils.unique_id(f"{make_project_id(dataset)}:query-string-and"),
             "project_id": make_project_id(dataset),
             "name": "Query String (AND)",
             "tags": [ "bm25" ],
@@ -343,7 +341,7 @@ def make_strategy_docs(dataset):
             }
         },
         {
-            "_id": make_id(f"{make_project_id(dataset)}:query-string-or"),
+            "_id": utils.unique_id(f"{make_project_id(dataset)}:query-string-or"),
             "project_id": make_project_id(dataset),
             "name": "Query String (OR)",
             "tags": [ "bm25" ],
@@ -370,7 +368,12 @@ def make_judgement_doc(dataset, doc_id, scenario_id, rating):
     Create a document that will be indexed in esrs-judgements.
     """
     return {
-        "_id": f"{make_project_id(dataset)}:{scenario_id}:{make_index_name(dataset)}:{doc_id}",
+        "_id": utils.unique_id([
+            make_project_id(dataset),
+            scenario_id,
+            make_index_name(dataset),
+            doc_id
+        ]),
         "@timestamp": make_timestamp(),
         "@author": "human",
         "project_id": make_project_id(dataset),
@@ -385,7 +388,10 @@ def make_scenario_doc(dataset, _id, name, text, tags=[]):
     Create a document that will be indexed in esrs-scenarios.
     """
     return {
-        "_id": make_scenario_id(dataset, _id),
+        "_id": utils.unique_id([
+            make_project_id(dataset),
+            { "text": text } 
+        ]),
         "project_id": make_project_id(dataset),
         "name": name,
         "params": [ "text" ],

@@ -27,8 +27,8 @@ def unique_id(input=None):
     deterministically when input is not None.
     """
     if input is None:
-        return uuid.uuid4()
-    return uuid.uuid5(uuid.NAMESPACE_DNS, fingerprint(input))
+        return str(uuid.uuid4())
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, fingerprint(input)))
 
 def timestamp(t=None):
     """
