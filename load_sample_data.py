@@ -21,7 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 # Local packages
 sys.path.insert(0, os.path.abspath("src"))
 from server.client import es
-from server import utils
+from server import api, utils
 
 ####  Configuration  ###########################################################
 
@@ -296,18 +296,6 @@ def make_index_name(dataset):
     """
     return f"{SAMPLE_DATA_INDEX_PREFIX}{dataset['id']}"
 
-def make_scenario_id(dataset, _id):
-    """
-    Generate a scenario_id for a given sample dataset and _id.
-    """
-    return utils.unique_id(f"{make_project_id(dataset)}:{_id}")
-
-def make_display_id(dataset):
-    """
-    Generate a display_id for a given sample dataset.
-    """
-    return utils.unique_id(f"{make_project_id(dataset)}:{make_index_name(dataset)}")
-
 def make_project_id(dataset):
     """
     Generate a project_id for a given sample dataset.
@@ -320,7 +308,9 @@ def make_strategy_docs(dataset):
     """
     return [
         {
-            "_id": utils.unique_id(f"{make_project_id(dataset)}:query-string-and"),
+            "_id": utils.unique_id([
+                make_project_id(dataset), "query-string-and"
+            ]),
             "project_id": make_project_id(dataset),
             "name": "Query String (AND)",
             "tags": [ "bm25" ],
@@ -341,7 +331,9 @@ def make_strategy_docs(dataset):
             }
         },
         {
-            "_id": utils.unique_id(f"{make_project_id(dataset)}:query-string-or"),
+            "_id": utils.unique_id([
+                make_project_id(dataset), "query-string-or"
+            ]),
             "project_id": make_project_id(dataset),
             "name": "Query String (OR)",
             "tags": [ "bm25" ],
@@ -389,8 +381,7 @@ def make_scenario_doc(dataset, _id, name, text, tags=[]):
     """
     return {
         "_id": utils.unique_id([
-            make_project_id(dataset),
-            { "text": text } 
+            make_project_id(dataset), { "text": text } 
         ]),
         "project_id": make_project_id(dataset),
         "name": name,
@@ -404,7 +395,9 @@ def make_display_doc(dataset):
     Create a document that will be indexed in esrs-displays.
     """
     return {
-        "_id": make_display_id(dataset),
+        "_id": utils.unique_id([
+            make_project_id(dataset), make_index_name(dataset)
+        ]),
         "project_id": make_project_id(dataset),
         "index_pattern": make_index_name(dataset),
         "template": dataset.get("display", {}).get("template") or {},
@@ -478,6 +471,8 @@ def load_project(dataset):
     Load project into Elasticsearch for a given dataset.
     """
     logger.debug(f"Loading project for: {dataset['id']}")
+    logger.debug(f"Deleting old project if it exist for: {make_index_name(dataset)}")
+    api.projects.delete(make_project_id(dataset))
     filepath = os.path.join(staging_directory(dataset), "projects.jsonl")
     parallel_bulk_import(filepath, "esrs-projects")
 
@@ -542,6 +537,19 @@ def stage_judgements(dataset):
     Create "judgements" assets for a given dataset.
     Save them to the staging directory.
     """
+    logger.debug(f"Loading scenario _ids into memory for: {dataset['id']}")
+    scenario_ids = {}
+    filepath_input = os.path.join(dataset_directory(dataset), "queries.jsonl")
+    with open(filepath_input) as input:
+        for line in input:
+            line = line.strip()
+            if not line:
+                continue
+            data = json.loads(line)
+            scenario_ids[data["_id"]] = utils.unique_id([
+                make_project_id(dataset), { "text": data["text"] } 
+            ])
+            
     logger.debug(f"Staging judgements for: {dataset['id']}")
     filepath_output = os.path.join(staging_directory(dataset), "judgements.jsonl")
     for type in ( "dev", "test", "train" ):
@@ -559,7 +567,7 @@ def stage_judgements(dataset):
                 asset = make_judgement_doc(
                     dataset,
                     doc_id=corpus_id,
-                    scenario_id=make_scenario_id(dataset, query_id),
+                    scenario_id=scenario_ids[query_id],
                     rating=score
                 )
                 print(json.dumps(asset), file=output)

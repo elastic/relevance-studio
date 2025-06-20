@@ -56,11 +56,12 @@ def handle_response(func):
         
         # Handle Elasticsearch ApiError
         except ApiError as e:
+            current_app.logger.exception(e)
             return jsonify(e.body), e.meta.status
         
         # Handle everything else
         except Exception as e: # TODO: Move this somewhere else
-            current_app.logger.exception(f"Unexpected error: {e}")
+            current_app.logger.exception(e)
             return jsonify({"error": "Unexpected error", "message": str(e)}), 500
     return wrapper
 
