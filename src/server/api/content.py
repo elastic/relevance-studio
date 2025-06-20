@@ -5,6 +5,30 @@ from typing import Any, Dict
 from .. import utils
 from ..client import es
 
+def _flatten_fields(properties, parent_key=""):
+    """
+    Recursively flattens the field mapping, ignoring multi-fields which
+    aren"t visible in _source and therefore not needed for configuring
+    the display of documents.
+    """
+    fields = {}
+    for key, value in properties.items():
+        full_key = f"{parent_key}.{key}" if parent_key else key
+        if "properties" in value:
+            fields.update(_flatten_fields(value["properties"], full_key))
+        elif "type" in value:
+            fields[full_key] = value["type"]
+        # Commented out because we want to ignore multi-fields in the UX
+        #elif "fields" in value:
+        #    if "type" in value:
+        #        fields[full_key] = value["type"]
+        #    for subfield, subvalue in value["fields"].items():
+        #        sub_key = f"{full_key}.{subfield}"
+        #        fields[sub_key] = subvalue.get("type", "object")
+        else:
+            fields[full_key] = "object"
+    return fields
+
 def search(index_patterns: str, body: Dict[str, Any]) -> Dict[str, Any]:
     """
     Submit a search request to the content deployment.
@@ -22,32 +46,10 @@ def mappings_browse(index_patterns: str) -> Dict[str, Any]:
     """
     
     # Get matching indices and their mappings
-    mappings = es("content").options(ignore_status=404).indices.get_mapping(index=index_patterns).body
-    
-    # Flatten the fields in each mapping
-    def _flatten_fields(properties, parent_key=""):
-        """
-        Recursively flattens the field mapping, ignoring multi-fields which
-        aren"t visible in _source and therefore not needed for configuring
-        the display of documents.
-        """
-        fields = {}
-        for key, value in properties.items():
-            full_key = f"{parent_key}.{key}" if parent_key else key
-            if "properties" in value:
-                fields.update(_flatten_fields(value["properties"], full_key))
-            elif "type" in value:
-                fields[full_key] = value["type"]
-            # Commented out because we want to ignore multi-fields in the UX
-            #elif "fields" in value:
-            #    if "type" in value:
-            #        fields[full_key] = value["type"]
-            #    for subfield, subvalue in value["fields"].items():
-            #        sub_key = f"{full_key}.{subfield}"
-            #        fields[sub_key] = subvalue.get("type", "object")
-            else:
-                fields[full_key] = "object"
-        return fields
+    response = es("content").options(ignore_status=404).indices.get_mapping(index=index_patterns)
+    if response.get("status") == 404:
+        return {}
+    mappings = response.body
     indices = {}
     for index, mapping in mappings.items():
         fields = mapping["mappings"].get("properties", {})

@@ -7,7 +7,6 @@ import {
   EuiForm,
   EuiFormRow,
   EuiFieldNumber,
-  EuiHorizontalRule,
   EuiIcon,
   EuiFlexGroup,
   EuiFlexItem,
@@ -16,7 +15,9 @@ import {
   EuiFlyoutHeader,
   EuiFlyoutFooter,
   EuiInlineEditTitle,
+  EuiPanel,
   EuiSpacer,
+  EuiSuperSelect,
   EuiSwitch,
   EuiText,
   EuiTextArea,
@@ -39,6 +40,8 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
     tags: [],
     metrics: ['ndcg', 'precision', 'recall'],
     k: 10,
+    strategies: 'all',
+    scenarios: 'all'
   })
   const [formBlurs, setFormBlurs] = useState({
     name: false,
@@ -175,6 +178,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
   const renderFormDescription = () => {
     return (
       <EuiTextArea
+        aria-label='Description (optional)'
         compressed
         onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
         placeholder='What are goals of this benchmark?'
@@ -186,7 +190,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
   const renderFormTags = () => {
     return (
       <EuiComboBox
-        compressed
+        aria-label='Tags'
         noSuggestions
         onChange={(options) => {
           const tags = []
@@ -206,9 +210,8 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
   const renderFormMetrics = () => {
     return (
       <EuiFlexGroup gutterSize='s' responsive={false}>
-        <EuiFlexItem grow={7}>
+        <EuiFlexItem grow={6}>
           <EuiButtonGroup
-            buttonSize='compressed'
             color={formBlurs.metrics && isInvalidMetrics() ? 'text' : 'primary'}
             disabled={action == 'update'}
             isFullWidth
@@ -249,7 +252,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
             type='multi'
           />
         </EuiFlexItem>
-        <EuiFlexItem grow={3}>
+        <EuiFlexItem grow={4}>
           <EuiFieldNumber
             prepend='@'
             append='k'
@@ -273,73 +276,149 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
 
   const renderFormStrategies = () => {
     return (<>
-      <EuiSwitch
-        compressed
-        label='Use all strategies with any compatible scenarios'
+      <EuiSuperSelect
+        fullWidth
+        onChange={(value) => setForm(prev => ({ ...prev, strategies: value }))}
+        options={[
+          {
+            value: 'all',
+            inputDisplay: (
+              <EuiText size='s'>
+                <EuiIcon
+                  color='primary'
+                  type='sparkles'
+                  style={{ marginRight: '10px' }}
+                />
+                Use all compatible strategies
+              </EuiText>
+            ),
+          },
+          {
+            value: 'specific',
+            inputDisplay: (
+              <EuiText size='s'>
+                <EuiIcon
+                  color='primary'
+                  type='editorChecklist'
+                  style={{ marginRight: '10px' }}
+                />
+                Use specific strategies
+              </EuiText>
+            ),
+          },
+        ]}
+        valueOfSelected={form.strategies}
       />
+      {/*<EuiSwitch
+        compressed
+        label='Limit by tags'
+      />*/}
     </>)
   }
 
   const renderFormScenarios = () => {
     return (<>
-      <EuiSwitch
-        compressed
-        label='Use all compatible scenarios'
+      <EuiSuperSelect
+        fullWidth
+        onChange={(value) => setForm(prev => ({ ...prev, scenarios: value }))}
+        options={[
+          {
+            value: 'all',
+            inputDisplay: (
+              <EuiText size='s'>
+                <EuiIcon
+                  color='primary'
+                  type='sparkles'
+                  style={{ marginRight: '10px' }}
+                />
+                Use all compatible scenarios
+              </EuiText>
+            ),
+          },
+          {
+            value: 'specific',
+            inputDisplay: (
+              <EuiText size='s'>
+                <EuiIcon
+                  color='primary'
+                  type='editorChecklist'
+                  style={{ marginRight: '10px' }}
+                />
+                Use specific scenarios
+              </EuiText>
+            ),
+          },
+        ]}
+        valueOfSelected={form.scenarios}
       />
     </>)
   }
 
   return (
     <EuiForm>
-      <EuiFlyout hideCloseButton onClose={onClose} ownFocus>
+      <EuiFlyout hideCloseButton onClose={onClose} ownFocus size='l'>
         <EuiFlyoutHeader hasBorder>
           {renderFormName()}
         </EuiFlyoutHeader>
         <EuiFlyoutBody>
-          <EuiFormRow label='Description'>
-            {renderFormDescription()}
-          </EuiFormRow>
-          <EuiSpacer size='s' />
-          <EuiFormRow label='Tags'>
-            {renderFormTags()}
-          </EuiFormRow>
-          <EuiHorizontalRule margin='m' />
-          <EuiFormRow
-            label={(() => {
-              if (formBlurs.metrics && isInvalidMetrics())
-                return (<>
-                  Metrics
-                  <EuiIcon
-                    color='danger'
-                    size='s'
-                    style={{
-                      marginBottom: '2px',
-                      marginLeft: '10px',
-                      marginRight: '8px'
-                    }}
-                    type='warning'
-                  />
-                  <EuiText 
-                    color='subdued'
-                    size='xs'
-                    style={{ display: 'inline', fontWeight: 'normal' }}
-                  >
-                    Choose at least one metric
-                  </EuiText>
-                </>)
-              return 'Metrics'
-            })()}
-          >
-            {renderFormMetrics()}
-          </EuiFormRow>
-          <EuiHorizontalRule margin='m' />
-          <EuiFormRow label='Strategies'>
-            {renderFormStrategies()}
-          </EuiFormRow>
-          <EuiSpacer size='s' />
-          <EuiFormRow label='Scenarios'>
-            {renderFormScenarios()}
-          </EuiFormRow>
+
+          {/* Description and tags */}
+          <EuiPanel color='subdued' paddingSize='m'>
+            <EuiFormRow label='Description'>
+              {renderFormDescription()}
+            </EuiFormRow>
+            <EuiSpacer size='xs' />
+            <EuiFormRow>
+              {renderFormTags()}
+            </EuiFormRow>
+          </EuiPanel>
+
+          <EuiSpacer size='m' />
+
+          {/* Metrics, strategies, and scenarios */}
+          <EuiPanel paddingSize='m'>
+            <EuiFormRow
+              label={(() => {
+                if (formBlurs.metrics && isInvalidMetrics())
+                  return (<>
+                    Metrics
+                    <EuiIcon
+                      color='danger'
+                      size='s'
+                      style={{
+                        marginBottom: '2px',
+                        marginLeft: '10px',
+                        marginRight: '8px'
+                      }}
+                      type='warning'
+                    />
+                    <EuiText
+                      color='subdued'
+                      size='xs'
+                      style={{ display: 'inline', fontWeight: 'normal' }}
+                    >
+                      Choose at least one metric
+                    </EuiText>
+                  </>)
+                return 'Metrics'
+              })()}
+            >
+              {renderFormMetrics()}
+            </EuiFormRow>
+            <EuiSpacer margin='s' />
+            <EuiFlexGroup gutterSize='m'>
+              <EuiFlexItem grow={5}>
+                <EuiFormRow fullWidth label='Strategies'>
+                  {renderFormStrategies()}
+                </EuiFormRow>
+              </EuiFlexItem>
+              <EuiFlexItem grow={5}>
+                <EuiFormRow fullWidth label='Scenarios'>
+                  {renderFormScenarios()}
+                </EuiFormRow>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+          </EuiPanel>
         </EuiFlyoutBody>
         <EuiFlyoutFooter>
           <EuiFlexGroup justifyContent='spaceBetween'>
