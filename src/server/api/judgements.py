@@ -126,7 +126,9 @@ def set(
     ) -> Dict[str, Any]:
     """
     Create or update a judgement in Elasticsearch.
-    Use a deterministic _id for UX efficiency.
+    
+    Use a deterministic _id for UX efficiency, and to prevent the creation of
+    duplicate judgements for the same scenario, index, and doc.
     """
     doc = {
         "@timestamp": utils.timestamp(),

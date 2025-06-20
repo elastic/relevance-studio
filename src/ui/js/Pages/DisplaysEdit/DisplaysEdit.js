@@ -153,7 +153,7 @@ const DisplaysEdit = () => {
       newDoc.template.image.position = templateImagePosition
     if (templateImageUrl)
       newDoc.template.image.url = templateImageUrl
-    await updateDisplay(newDoc)
+    await updateDisplay(display._id, newDoc)
   }
 
   const onGetDocRandom = () => {

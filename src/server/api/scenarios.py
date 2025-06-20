@@ -1,5 +1,5 @@
 # Standard packages
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 # App packages
 from .. import utils
@@ -66,28 +66,53 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any]) -> Dict[str, Any]:
+def create(
+        project_id: str,
+        name: str,
+        values: Dict[str, Any],
+        tags: List[str] = [],
+    ) -> Dict[str, Any]:
     """
     Create a scenario in Elasticsearch.
+    
+    Use a deterministic _id for UX efficiency, and to prevent the creation of
+    duplicate scenarios for the same values.
     """
-    doc.pop("_id", None) # es doesn't want _id in doc
+    doc = {
+        "@timestamp": utils.timestamp(),
+        "project_id": project_id,
+        "name": name,
+        "tags": tags or [],
+        "params": list(values.keys()),
+        "values": values,
+    }
     es_response = es("studio").index(
         index=INDEX_NAME,
-        id=utils.unique_id(),
+        id=utils.unique_id([ project_id, values ]),
         document=doc,
         refresh=True
     )
     return es_response
 
-def update(_id: str, doc: Dict[str, Any]) -> Dict[str, Any]:
+def update(
+        _id: str,
+        name: str = None,
+        tags: List[str] = [],
+    ) -> Dict[str, Any]:
     """
     Update a scenario in Elasticsearch.
     """
-    doc.pop("_id", None) # es doesn't want _id in doc
+    doc_updates = {
+        "@timestamp": utils.timestamp()
+    }
+    if name:
+        doc_updates["name"] = name
+    if tags:
+        doc_updates["tags"] = tags
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
-        doc=doc,
+        doc=doc_updates,
         refresh=True
     )
     return es_response

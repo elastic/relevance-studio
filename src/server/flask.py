@@ -143,13 +143,12 @@ def scenarios_get(project_id, _id):
 def scenarios_create(project_id):
     doc = request.get_json()
     doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.scenarios.create(doc)
+    return api.scenarios.create(**doc)
 
 @api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["PUT"])
 def scenarios_update(project_id, _id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.scenarios.update(_id, doc)
+    doc_updates = request.get_json()
+    return api.scenarios.update(_id, **doc_updates)
 
 @api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["DELETE"])
 def scenarios_delete(project_id, _id):
@@ -191,13 +190,12 @@ def strategies_get(project_id, _id):
 def strategies_create(project_id):
     doc = request.get_json()
     doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.strategies.create(doc)
+    return api.strategies.create(**doc)
 
 @api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["PUT"])
 def strategies_update(project_id, _id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.strategies.update(_id, doc)
+    doc_updates = request.get_json()
+    return api.strategies.update(_id, **doc_updates)
 
 @api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["DELETE"])
 def strategies_delete(project_id, _id):

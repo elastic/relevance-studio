@@ -13,6 +13,7 @@ const api = {}
  * Template for toasts for error messages.
  */
 api.errorToast = (err, props) => {
+  console.error(err)
   return {
     title: props?.title || err.response?.statusText || err.statusText,
     color: props?.color || 'danger',

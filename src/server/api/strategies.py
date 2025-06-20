@@ -1,5 +1,5 @@
 # Standard packages
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 # App packages
 from .. import utils
@@ -40,11 +40,25 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any]) -> Dict[str, Any]:
+def create(
+        project_id: str,
+        name: str,
+        tags: List[str] = [],
+        template: Dict[str, Any] = {},
+    ) -> Dict[str, Any]:
     """
     Create a strategy in Elasticsearch.
     """
-    doc.pop("_id", None) # es doesn't want _id in doc
+    doc = {
+        "@timestamp": utils.timestamp(),
+        "project_id": project_id,
+        "name": name,
+        "tags": tags or [],
+        "params": [],
+        "template": template,
+    }
+    if template and "source" in template:
+        doc["params"] = utils.extract_params(template["source"])
     es_response = es("studio").index(
         index=INDEX_NAME,
         id=utils.unique_id(),
@@ -53,16 +67,32 @@ def create(doc: Dict[str, Any]) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc: Dict[str, Any]) -> Dict[str, Any]:
+def update(
+        _id: str,
+        name: str = None,
+        tags: List[str] = [],
+        template: Dict[str, Any] = {},
+    ) -> Dict[str, Any]:
     """
     Update a strategy in Elasticsearch.
-    """
-    doc.pop("_id", None) # es doesn't want _id in doc
-    doc["params"] = utils.extract_params(doc["template"]["source"])
+    """ 
+    doc_updates = {
+        "@timestamp": utils.timestamp()
+    }
+    if name:
+        doc_updates["name"] = name
+    if tags:
+        doc_updates["tags"] = tags
+    if template:
+        doc_updates["template"] = template
+        if "source" in template:
+            doc_updates["params"] = utils.extract_params(template["source"])
+        else:
+            doc_updates["params"] = []
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
-        doc=doc,
+        doc=doc_updates,
         refresh=True
     )
     return es_response

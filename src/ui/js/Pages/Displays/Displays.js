@@ -86,9 +86,11 @@ const Displays = () => {
     } else {
 
       // Update display and close modal
-      const doc = { ...modalUpdate }
-      doc.index_pattern = doc.index_pattern.trim()
-      await updateDisplay(doc)
+      const docUpdates = {
+        index_pattern: modalUpdate.index_pattern.trim(),
+        template: modalUpdate.template
+      }
+      await updateDisplay(modalUpdate._id, docUpdates)
       return setModalUpdate(null)
     }
   }
@@ -266,7 +268,7 @@ const Displays = () => {
         isLoading={isProcessingDisplay}
         onClose={() => setModalDelete(null)}
         onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete display` }))}
-        onDelete={async () => await deleteDisplay(modalDelete)}
+        onDelete={async () => await deleteDisplay(modalDelete._id)}
       />
     }
     <Page title='Displays' buttons={[buttonCreate]}>

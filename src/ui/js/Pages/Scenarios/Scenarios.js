@@ -195,7 +195,7 @@ const Scenarios = () => {
         isLoading={isProcessingScenario}
         onClose={() => setModalDelete(null)}
         onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete scenario` }))}
-        onDelete={async () => await deleteScenario(modalDelete)}
+        onDelete={async () => await deleteScenario(modalDelete._id)}
       />
     }
     {flyout &&

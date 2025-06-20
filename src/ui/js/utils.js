@@ -37,7 +37,7 @@ utils.toastClientError = (error) => {
 /**
  * Creates a generic toast for successfully creating, updating, or deleting a doc.
  */
-utils.toastDocCreateUpdateDelete = (action, docType, doc) => {
+utils.toastDocCreateUpdateDelete = (action, docType, _id, doc) => {
   let title
   if (action == 'create')
     title = `Created ${docType}`
@@ -52,7 +52,7 @@ utils.toastDocCreateUpdateDelete = (action, docType, doc) => {
     text: (
       <EuiText size='xs'>
         <EuiText color='subdued' size='xs'>
-          <small>{doc._id}</small>
+          <small>{_id}</small>
         </EuiText>
       </EuiText>
     )

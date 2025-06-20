@@ -85,9 +85,11 @@ const Strategies = () => {
     } else {
 
       // Update display and close modal
-      const doc = { ...modalUpdate }
-      doc.name = doc.name.trim()
-      await updateStrategy(doc)
+      const docUpdates = {
+        name: modalUpdate.name.trim(),
+        tags: modalUpdate.tags || []
+      }
+      await updateStrategy(modalUpdate._id, docUpdates)
       return setModalUpdate(null)
     }
   }
@@ -257,7 +259,7 @@ const Strategies = () => {
         isLoading={isProcessingStrategy}
         onClose={() => setModalDelete(null)}
         onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete strategy` }))}
-        onDelete={async () => await deleteStrategy(modalDelete)}
+        onDelete={async () => await deleteStrategy(modalDelete._id)}
       />
     }
     <Page title='Strategies' buttons={[buttonCreate]}>

@@ -254,17 +254,22 @@ export const ProjectProvider = ({ children }) => {
   /**
    * Create, update, or delete a doc
    */
-  const handleDoc = async (action, docType, doc) => {
-    console.debug(`Creating ${docType} for project: ${projectId}`)
+  const handleDoc = async (action, docType, _id, doc) => {
+    if (action == 'create')
+      console.debug(`Creating ${docType} for project: ${projectId}`)
+    else if (action == 'update')
+      console.debug(`Updating ${docType} for project: ${projectId}`)
+    else if (action == 'delete')
+      console.debug(`Deleting ${docType} for project: ${projectId}`)
     let response
     try {
       fnSetIsProcessing[docType](true)
       if (action == 'create')
         response = await fnCreate[docType](projectId, doc)
       else if (action == 'update')
-        response = await fnUpdate[docType](projectId, doc._id, doc)
+        response = await fnUpdate[docType](projectId, _id, doc)
       else if (action == 'delete')
-        response = await fnDelete[docType](projectId, doc._id)
+        response = await fnDelete[docType](projectId, _id)
     } catch (err) {
       return addToast(api.errorToast(err, { title: `Failed to ${action} ${docType}` }))
     } finally {
@@ -274,23 +279,25 @@ export const ProjectProvider = ({ children }) => {
     // Handle API response
     if (response.status > 299)
       return addToast(utils.toastClientResponse(response))
-    addToast(utils.toastDocCreateUpdateDelete(action, docType, doc))
+    addToast(utils.toastDocCreateUpdateDelete(action, docType, _id || response.data._id, doc))
     const newDoc = { ...doc }
     if (action == 'create') {
-
       // Add doc to context state
       newDoc._id = response.data._id
       fnSetContext[docType](prev => ({ ...prev, [newDoc._id]: newDoc }))
-
     } else if (action == 'update') {
-      // Add doc to context state
-      fnSetContext[docType](prev => ({ ...prev, [newDoc._id]: newDoc }))
-
+      // Apply updated fields to doc in context state
+      fnSetContext[docType](prev => ({
+        ...prev,
+        [_id]: Object.fromEntries(
+          Object.entries({ ...prev[_id], ...newDoc }).filter(([k, v]) => v !== undefined)
+        )
+      }))
     } else if (action == 'delete') {
       // Remove doc from context state
       fnSetContext[docType](prev => {
         const copy = { ...prev }
-        delete copy[doc._id]
+        delete copy[_id]
         return copy
       })
     }
@@ -299,21 +306,21 @@ export const ProjectProvider = ({ children }) => {
     return response
   }
 
-  const createDisplay = async (doc) => handleDoc('create', 'display', doc)
-  const updateDisplay = async (doc) => handleDoc('update', 'display', doc)
-  const deleteDisplay = async (doc) => handleDoc('delete', 'display', doc)
+  const createDisplay = async (doc) => handleDoc('create', 'display', null, doc)
+  const updateDisplay = async (_id, doc) => handleDoc('update', 'display', _id, doc)
+  const deleteDisplay = async (_id) => handleDoc('delete', 'display', _id, null)
 
-  const createScenario = async (doc) => handleDoc('create', 'scenario', doc)
-  const updateScenario = async (doc) => handleDoc('update', 'scenario', doc)
-  const deleteScenario = async (doc) => handleDoc('delete', 'scenario', doc)
+  const createScenario = async (doc) => handleDoc('create', 'scenario', null, doc)
+  const updateScenario = async (_id, doc) => handleDoc('update', 'scenario', _id, doc)
+  const deleteScenario = async (_id) => handleDoc('delete', 'scenario', _id, null)
 
-  const createStrategy = async (doc) => handleDoc('create', 'strategy', doc)
-  const updateStrategy = async (doc) => handleDoc('update', 'strategy', doc)
-  const deleteStrategy = async (doc) => handleDoc('delete', 'strategy', doc)
+  const createStrategy = async (doc) => handleDoc('create', 'strategy', null, doc)
+  const updateStrategy = async (_id, doc) => handleDoc('update', 'strategy', _id, doc)
+  const deleteStrategy = async (_id) => handleDoc('delete', 'strategy', _id, null)
 
-  const createBenchmark = async (doc) => handleDoc('create', 'benchmark', doc)
-  const updateBenchmark = async (doc) => handleDoc('update', 'benchmark', doc)
-  const deleteBenchmark = async (doc) => handleDoc('delete', 'benchmark', doc)
+  const createBenchmark = async (doc) => handleDoc('create', 'benchmark', null, doc)
+  const updateBenchmark = async (_id, doc) => handleDoc('update', 'benchmark', _id, doc)
+  const deleteBenchmark = async (_id) => handleDoc('delete', 'benchmark', _id, null)
 
   return (
     <ProjectContext.Provider value={{

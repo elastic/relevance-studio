@@ -67,26 +67,20 @@ const FlyoutForm = ({ action, doc, onClose }) => {
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
-    const newDoc = doc ? { ...doc } : {}
-    newDoc.name = form.name.trim()
-    newDoc.params = form.values.map(value => value.name)
-    newDoc.values = Object.fromEntries(form.values.map(({ name, value }) => [name, value.trim()]))
-    newDoc.tags = (form.tags || []).sort()
-    if (action == 'create')
-      return onSubmitCreate(newDoc)
-    if (action == 'update')
-      return onSubmitUpdate(newDoc)
-  }
-
-  const onSubmitCreate = async (newDoc) => {
-    await createScenario(newDoc)
-    onClose()
-  }
-
-  const onSubmitUpdate = async (newDoc) => {
-    await updateScenario({ ...doc, ...newDoc })
+    const newDoc = {
+      name: form.name.trim(),
+      tags: (form.tags || []).sort()
+    }
+    if (action == 'create') {
+      newDoc.values = Object.fromEntries(
+        form.values.map(({ name, value }) => [name, value.trim()])
+      )
+      await createScenario(newDoc)
+    } else if (action == 'update') {
+      await updateScenario(doc._id, newDoc)
+    }
     onClose()
   }
 
@@ -128,6 +122,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
         <div key={i}>
           <EuiFieldText
             aria-label='Set value name'
+            disabled={action == 'update' ? true : false}
             onChange={(e) => {
               setForm(prev => {
                 const newValues = [...prev.values]
