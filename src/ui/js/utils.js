@@ -9,6 +9,7 @@ const utils = {}
  * Creates a generic toast for responses from the axios client.
  */
 utils.toastClientResponse = (response) => {
+  console.debug(`Toast: [response]`, response)
   return {
     title: response.statusText,
     text: (
@@ -23,6 +24,7 @@ utils.toastClientResponse = (response) => {
  * Creates a generic toast for errors from the axios client.
  */
 utils.toastClientError = (error) => {
+  console.debug(`Toast: [Error]`, error)
   return {
     title: error.statusText,
     color: 'danger',
@@ -38,6 +40,7 @@ utils.toastClientError = (error) => {
  * Creates a generic toast for successfully creating, updating, or deleting a doc.
  */
 utils.toastDocCreateUpdateDelete = (action, docType, _id, doc) => {
+  console.debug(`Toast: ${action} ${docType} ${_id}`)
   let title
   if (action == 'create')
     title = `Created ${docType}`

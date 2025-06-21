@@ -10,7 +10,7 @@ import {
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import { Page } from '../../Layout'
+import { ModalDelete, Page } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
 import api from '../../api'
 
@@ -68,15 +68,9 @@ const Benchmarks = () => {
         truncateText: true,
         render: (name, doc) => (
           <EuiLink href={`#/projects/${project._id}/benchmarks/${doc._id}`}>
-            {doc._id}
+            {doc.name}
           </EuiLink>
         )
-      },
-      {
-        field: '@timestamp',
-        name: 'Time run',
-        sortable: true,
-        render: (name, doc) => new Date(doc['@timestamp']).toLocaleString()
       },
       {
         name: 'Actions',
@@ -128,7 +122,7 @@ const Benchmarks = () => {
         isLoading={isProcessingBenchmark}
         onClose={() => setModalDelete(null)}
         onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete benchmark` }))}
-        onDelete={async () => await deleteBenchmark(modalDelete)}
+        onDelete={async () => await deleteBenchmark(modalDelete._id)}
       />
     }
     {flyout &&

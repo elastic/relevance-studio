@@ -194,6 +194,11 @@ api.benchmarks_delete = async (project_id, benchmark_id) => {
   return await client.del(`/api/projects/${project_id}/benchmarks/${benchmark_id}`)
 }
 
+api.benchmarks_make_candidate_pool = async (project_id, body) => {
+  validateArgs('api.benchmarks_make_candidate_pool', { project_id, body })
+  return await client.post(`/api/projects/${project_id}/benchmarks/_candidates`, { data: body })
+}
+
 
 ////  API: Evaluations  ////////////////////////////////////////////////////////
 

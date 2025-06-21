@@ -215,7 +215,7 @@ export const ProjectProvider = ({ children }) => {
               }
             })
           }
-          setScenariosAggs(aggs)
+          setBenchmarksAggs(aggs)
         })
         .finally(() => setIsLoadingBenchmarks(false)))
     }
@@ -229,26 +229,31 @@ export const ProjectProvider = ({ children }) => {
     display: api.displays_create,
     scenario: api.scenarios_create,
     strategy: api.strategies_create,
+    benchmark: api.benchmarks_create,
   }
   const fnUpdate = {
     display: api.displays_update,
     scenario: api.scenarios_update,
     strategy: api.strategies_update,
+    benchmark: api.benchmarks_update,
   }
   const fnDelete = {
     display: api.displays_delete,
     scenario: api.scenarios_delete,
     strategy: api.strategies_delete,
+    benchmark: api.benchmarks_delete,
   }
   const fnSetIsProcessing = {
     display: setIsProcessingDisplay,
     scenario: setIsProcessingScenario,
     strategy: setIsProcessingStrategy,
+    benchmark: setIsProcessingBenchmark,
   }
   const fnSetContext = {
     display: setDisplays,
     scenario: setScenarios,
     strategy: setStrategies,
+    benchmark: setBenchmarks,
   }
 
   /**

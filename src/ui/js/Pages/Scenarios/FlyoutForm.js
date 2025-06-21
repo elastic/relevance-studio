@@ -23,7 +23,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
 
   const {
     project,
-    isLoadingScenario,
+    isProcessingScenario,
     createScenario,
     updateScenario
   } = useProjectContext()
@@ -75,7 +75,9 @@ const FlyoutForm = ({ action, doc, onClose }) => {
     }
     if (action == 'create') {
       newDoc.values = Object.fromEntries(
-        form.values.map(({ name, value }) => [name, value.trim()])
+        form.values
+          .map(({ name, value }) => [name, String(value).trim()])
+          .filter(([, trimmed]) => trimmed !== "")
       )
       await createScenario(newDoc)
     } else if (action == 'update') {
@@ -187,7 +189,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
           <EuiFlexGroup justifyContent='spaceBetween'>
             <EuiFlexItem grow={false}>
               <EuiButtonEmpty
-                disabled={isLoadingScenario}
+                disabled={isProcessingScenario}
                 flush='left'
                 iconType='cross'
                 onClick={onClose}
@@ -198,7 +200,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
             <EuiFlexItem grow={false}>
               <EuiButton
                 color='primary'
-                disabled={isLoadingScenario || isInvalidForm()}
+                disabled={isProcessingScenario || isInvalidForm()}
                 fill
                 onClick={onSubmit}
                 type='submit'

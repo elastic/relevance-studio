@@ -6,11 +6,30 @@
     "esrs-evaluations*"
   ],
   "template": {
+    "settings": {
+      "index": {
+        "sort.field": "@meta.created_at",
+        "sort.order": "desc"
+      }
+    },
     "mappings": {
       "dynamic": "strict",
       "properties": {
-        "@timestamp": {
-          "type": "date"
+        "@meta": {
+          "properties": {
+            "status": {
+              "type": "keyword"
+            },
+            "created_at": {
+              "type": "date"
+            },
+            "started_at": {
+              "type": "date"
+            },
+            "stopped_at": {
+              "type": "date"
+            }
+          }
         },
         "project_id": {
           "type": "keyword"
@@ -24,13 +43,33 @@
         "strategy_id": {
           "type": "keyword"
         },
-        "config": {
+        "task": {
           "properties": {
             "metrics": {
               "type": "keyword"
             },
             "k": {
               "type": "short"
+            },
+            "strategies": {
+              "properties": {
+                "_ids": {
+                  "type": "keyword"
+                },
+                "tags": {
+                  "type": "keyword"
+                }
+              }
+            },
+            "scenarios": {
+              "properties": {
+                "_ids": {
+                  "type": "keyword"
+                },
+                "tags": {
+                  "type": "keyword"
+                }
+              }
             }
           }
         },

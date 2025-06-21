@@ -252,7 +252,7 @@ const Evaluations = () => {
       truncateText: true,
       render: (name, doc) => {
         const metrics = []
-        doc.config.metrics.forEach((metric) => {
+        doc.task.metrics.forEach((metric) => {
           metrics.push(<EuiBadge color='hollow' key={metric}>{metric}</EuiBadge>)
         })
         return metrics
@@ -271,10 +271,28 @@ const Evaluations = () => {
       render: (name, doc) => doc.scenario_id.length
     },
     {
-      field: '@timestamp',
-      name: 'Time run',
+      field: '@meta.created_at',
+      name: 'Created',
       sortable: true,
-      render: (name, doc) => new Date(doc['@timestamp']).toLocaleString()
+      render: (name, doc) => new Date(doc['@meta']?.created_at).toLocaleString()
+    },
+    {
+      field: '@meta.started_at',
+      name: 'Started',
+      sortable: true,
+      render: (name, doc) => new Date(doc['@meta']?.started_at).toLocaleString()
+    },
+    {
+      field: '@meta.finished_at',
+      name: 'Finished',
+      sortable: true,
+      render: (name, doc) => new Date(doc['@meta']?.stopped_at).toLocaleString()
+    },
+    {
+      field: '@meta.status',
+      name: 'Status',
+      sortable: true,
+      render: (name, doc) => doc['@meta']?.status
     },
     {
       name: 'Actions',
