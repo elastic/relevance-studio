@@ -21,7 +21,7 @@ import { Page } from '../../Layout'
 import api from '../../api'
 import utils from '../../utils'
 
-const Evaluations = () => {
+const BenchmarksView = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -359,4 +359,4 @@ const Evaluations = () => {
   </>)
 }
 
-export default Evaluations
+export default BenchmarksView

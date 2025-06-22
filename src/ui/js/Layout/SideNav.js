@@ -70,11 +70,11 @@ const SideNav = () => {
             isSelected: path.startsWith('/projects/:project_id/strategies'),
           },
           {
-            name: 'Evaluations',
-            id: 'evaluations',
-            icon: <EuiIcon color='subdued' type='flask' size='m' />,
-            href: `#/projects/${project._id}/evaluations`,
-            isSelected: path.startsWith('/projects/:project_id/evaluations'),
+            name: 'Benchmarks',
+            id: 'benchmarks',
+            icon: <EuiIcon color='subdued' type='visBarVerticalStacked' size='m' />,
+            href: `#/projects/${project._id}/benchmarks`,
+            isSelected: path.startsWith('/projects/:project_id/benchmarks'),
           }
         ]
       }

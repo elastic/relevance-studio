@@ -1,7 +1,7 @@
 import { Benchmarks } from './Benchmarks'
+import { BenchmarksView } from './BenchmarksView'
 import { Displays } from './Displays'
 import { DisplaysEdit } from './DisplaysEdit'
-import { Evaluations } from './Evaluations'
 import { EvaluationsView } from './EvaluationsView'
 import { Home } from './Home'
 import { Judgements } from './Judgements'
@@ -13,9 +13,9 @@ import { StrategiesEdit } from './StrategiesEdit'
 const Pages = ({ children }) => <>{children}</>
 
 Pages.Benchmarks = Benchmarks
+Pages.BenchmarksView = BenchmarksView
 Pages.Displays = Displays
 Pages.DisplaysEdit = DisplaysEdit
-Pages.Evaluations = Evaluations
 Pages.EvaluationsView = EvaluationsView
 Pages.Home = Home
 Pages.Judgements = Judgements

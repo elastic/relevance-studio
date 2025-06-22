@@ -55,13 +55,9 @@ const Routes = () => {
                 document.title = `Benchmarks - ${title}`
                 return <Pages.Benchmarks />
               }} />
-              <Route path='/projects/:project_id/evaluations' exact render={() => {
-                document.title = `Evaluations - ${title}`
-                return <Pages.Evaluations />
-              }} />
-              <Route path='/projects/:project_id/evaluations/:evaluation_id' render={(r) => {
-                document.title = `Evaluations - ${r.match.params.evaluation_id} - ${title}`
-                return <Pages.EvaluationsView />
+              <Route path='/projects/:project_id/benchmarks/:benchmarks_id' render={(r) => {
+                document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
+                return <Pages.BenchmarksView />
               }} />
             </Switch>
           </ProjectContextRoute>
