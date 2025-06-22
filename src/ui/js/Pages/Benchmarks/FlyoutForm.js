@@ -196,8 +196,8 @@ const FlyoutForm = ({ action, doc, onClose }) => {
     e.preventDefault();
     const newDoc = doc ? { ...doc } : {}
     newDoc.name = form.name.trim()
-    const _description = form.description.trim() != ''
-    if (_description)
+    const _description = form.description.trim()
+    if (_description != '')
       newDoc.description = _description
     const _tags = form.tags.map(t => t.trim()).filter(t => t != '').sort()
     if (_tags.length)
