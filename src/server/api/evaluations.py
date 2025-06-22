@@ -427,18 +427,17 @@ def run(task: Dict[str, Any]):
         response["_id"] = es_response["_id"]
     return response
 
-def browse(project_id: str, size: int = 10000) -> Dict[str, Any]:
+def browse(project_id: str, benchmark_id: str, size: int = 10000) -> Dict[str, Any]:
     """
     List evaluations in Elasticsearch.
     """
     body={
         "query": {
             "bool": {
-                "filter": {
-                    "term": {
-                        "project_id": project_id
-                    }
-                }
+                "filter": [
+                    { "term": { "project_id": project_id }},
+                    { "term": { "benchmark_id": benchmark_id }}
+                ]
             }
         },
         "size": size

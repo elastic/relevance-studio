@@ -236,24 +236,25 @@ def benchmarks_delete(project_id, _id):
 
 ####  API: Evaluations  ########################################################
 
-@api_route("/api/projects/<string:project_id>/evaluations", methods=["GET"])
-def evaluations_browse(project_id):
-    return api.evaluations.browse(project_id)
+@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations", methods=["GET"])
+def evaluations_browse(project_id, benchmark_id):
+    return api.evaluations.browse(project_id, benchmark_id)
 
-@api_route("/api/projects/<string:project_id>/evaluations/<string:_id>", methods=["GET"])
-def evaluations_get(project_id, _id):
+@api_route("/api/projects/<string:project_id>//benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["GET"])
+def evaluations_get(project_id, benchmark_id, _id):
     return api.evaluations.get(_id)
 
-@api_route("/api/projects/<string:project_id>/evaluations/<string:_id>", methods=["DELETE"])
-def evaluations_delete(project_id, _id):
+@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["DELETE"])
+def evaluations_delete(project_id, benchmark_id, _id):
     return api.evaluations.delete(_id)
 
-@api_route("/api/projects/<string:project_id>/evaluations", methods=["POST"])
-def evaluations_run(project_id):
+@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations", methods=["POST"])
+def evaluations_run(project_id, benchmark_id):
     body = request.get_json()
     if "store_results" in request.args:
         body["store_results"] = request.args["store_results"]
     body["project_id"] = project_id # ensure project_id from path is in body
+    body["benchmark_id"] = project_id # ensure benchmark_id from path is in body
     return api.evaluations.run(body)
 
 

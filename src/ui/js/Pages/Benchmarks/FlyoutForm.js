@@ -217,7 +217,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
     if (form.scenarios_ids.length)
       _scenarios._ids = form.scenarios_ids
     if (form.scenarios_tags.length)
-      _scenarioss.tags = form.scenarios_tags
+      _scenarios.tags = form.scenarios_tags
     if (form.scenarios_sample_size)
       _scenarios.sample_size = form.scenarios_sample_size
     if (form.scenarios_sample_seed !== '')

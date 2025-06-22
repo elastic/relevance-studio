@@ -202,24 +202,24 @@ api.benchmarks_make_candidate_pool = async (project_id, body) => {
 
 ////  API: Evaluations  ////////////////////////////////////////////////////////
 
-api.evaluations_browse = async (project_id) => {
-  validateArgs('api.evaluations_browse', { project_id, })
-  return await client.get(`/api/projects/${project_id}/evaluations`)
+api.evaluations_browse = async (project_id, benchmark_id) => {
+  validateArgs('api.evaluations_browse', { project_id, benchmark_id, })
+  return await client.get(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations`)
 }
 
-api.evaluations_get = async (project_id, evaluation_id) => {
-  validateArgs('api.evaluations_get', { project_id, evaluation_id, })
-  return await client.get(`/api/projects/${project_id}/evaluations/${evaluation_id}`)
+api.evaluations_get = async (project_id, benchmark_id, evaluation_id) => {
+  validateArgs('api.evaluations_get', { project_id, benchmark_id, evaluation_id, })
+  return await client.get(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations/${evaluation_id}`)
 }
 
-api.evaluations_run = async (project_id, body, params) => {
-  validateArgs('api.evaluations_run', { project_id, body, })
-  return await client.post(`/api/projects/${project_id}/evaluations`, { data: body, params: params })
+api.evaluations_run = async (project_id, benchmark_id, body, params) => {
+  validateArgs('api.evaluations_run', { project_id, benchmark_id, body, })
+  return await client.post(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations/${evaluation_id}`, { data: body, params: params })
 }
 
-api.evaluations_delete = async (project_id, evaluation_id) => {
-  validateArgs('api.evaluations_delete', { project_id, evaluation_id, })
-  return await client.del(`/api/projects/${project_id}/evaluations/${evaluation_id}`)
+api.evaluations_delete = async (project_id, benchmark_id, evaluation_id) => {
+  validateArgs('api.evaluations_delete', { project_id, benchmark_id, evaluation_id, })
+  return await client.del(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations/${evaluation_id}`)
 }
 
 

@@ -22,6 +22,11 @@ import EvaluationsScatterplot from './EvaluationsScatterplot'
 
 const EvaluationsView = () => {
 
+  /**
+   * benchmarkId comes from the URL path: /projects/:project_id/benchmarks/:benchmark_id
+   */
+  const { benchmark_id: benchmarkId } = useParams()
+
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
@@ -87,7 +92,7 @@ const EvaluationsView = () => {
       let response
       try {
         setLoadingEvaluation(true)
-        response = await api.evaluations_get(project._id, evaluationId)
+        response = await api.evaluations_get(project._id, benchmarkId, evaluationId)
       } catch (error) {
         return addToast(api.errorToast(error, {
           title: 'Failed to get evaluation'

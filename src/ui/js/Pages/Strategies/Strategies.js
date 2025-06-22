@@ -64,6 +64,7 @@ const Strategies = () => {
    * object: open modal to update a given doc (object)
    */
   const [modalUpdate, setModalUpdate] = useState(null)
+  
   /**
    * null:   close modal
    * object: open modal to delete a given doc (object)

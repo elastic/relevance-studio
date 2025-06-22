@@ -35,29 +35,41 @@ export const ProjectProvider = ({ children }) => {
   const [strategies, setStrategies] = useState({})
   const [benchmarks, setBenchmarks] = useState({})
   const [benchmarksAggs, setBenchmarksAggs] = useState({})
+  const [evaluations, setEvaluations] = useState({})
 
   // Loading indicators when getting lists of assets
   const [isLoadingProject, setIsLoadingProject] = useState(false)
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false)
   const [isLoadingIndices, setIsLoadingIndices] = useState(false)
   const [isLoadingDisplays, setIsLoadingDisplays] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
   const [isLoadingStrategies, setIsLoadingStrategies] = useState(false)
   const [isLoadingBenchmarks, setIsLoadingBenchmarks] = useState(false)
+  const [isLoadingEvaluations, setIsLoadingEvaluations] = useState(false)
 
   // Loading indicators when getting a single asset
   const [isLoadingDisplay, setIsLoadingDisplay] = useState(false)
   const [isLoadingScenario, setIsLoadingScenario] = useState(false)
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(false)
   const [isLoadingBenchmark, setIsLoadingBenchmark] = useState(false)
+  const [isLoadingEvaluation, setIsLoadingEvaluation] = useState(false)
 
   // Loading indicators when creating, updating, or deleting a single asset
   const [isProcessingDisplay, setIsProcessingDisplay] = useState(false)
   const [isProcessingScenario, setIsProcessingScenario] = useState(false)
   const [isProcessingStrategy, setIsProcessingStrategy] = useState(false)
   const [isProcessingBenchmark, setIsProcessingBenchmark] = useState(false)
+  const [isProcessingEvaluation, setIsProcessingEvaluation] = useState(false)
 
   // High-level loading indicators
-  const isLoading = isLoadingProject || isLoadingIndices || isLoadingDisplays || isLoadingScenarios || isLoadingStrategies || isLoadingBenchmarks
+  const isLoading = isLoadingProject ||
+    isLoadingAssets ||
+    isLoadingIndices ||
+    isLoadingDisplays || isLoadingDisplay ||
+    isLoadingScenarios || isLoadingScenario ||
+    isLoadingStrategies || isLoadingStrategy ||
+    isLoadingBenchmarks || isLoadingBenchmark ||
+    isLoadingEvaluations || isLoadingEvaluation
   const isProjectReady = project && !isLoading
 
   ////  Loaders  ///////////////////////////////////////////////////////////////
@@ -111,8 +123,9 @@ export const ProjectProvider = ({ children }) => {
       strategies,
       benchmarks,
       benchmarksAggs,
+      evaluations,
     })
-  }, [project, indices, displays, scenarios, strategies, benchmarks])
+  }, [project, indices, displays, scenarios, strategies, benchmarks, evaluations])
 
   /**
    * Load project assets when project._id is available, which mean we've
@@ -125,102 +138,142 @@ export const ProjectProvider = ({ children }) => {
     scenarios: shouldLoadScenarios,
     strategies: shouldLoadStrategies,
     benchmarks: shouldLoadBenchmarks,
+    evaluations: shouldLoadEvaluations,
   }) => {
     if (!project?._id)
       return
-    const tasks = []
+    setIsLoadingAssets(true)
+    try {
+      const tasks = []
 
-    // Load indices
-    if (shouldLoadIndices) {
-      console.debug(`Loading indices for project: ${projectId}`)
-      setIsLoadingIndices(true)
-      tasks.push(api.content_mappings_browse(project.index_pattern)
-        .then(response => {
+      // Load indices
+      if (shouldLoadIndices === true) {
+        console.debug(`Loading indices for project: ${projectId}`)
+        setIsLoadingIndices(true)
+        tasks.push(api.content_mappings_browse(project.index_pattern)
+          .then(response => {
 
-          // Set indices
-          setIndices(response.data)
-        })
-        .finally(() => setIsLoadingIndices(false)))
-    }
+            // Set indices
+            setIndices(response.data)
+          })
+          .finally(() => setIsLoadingIndices(false)))
+      }
 
-    // Load displays
-    if (shouldLoadDisplays) {
-      console.debug(`Loading displays for project: ${projectId}`)
-      setIsLoadingDisplays(true)
-      tasks.push(api.displays_browse(projectId)
-        .then(response => {
+      // Load displays
+      if (shouldLoadDisplays === true) {
+        console.debug(`Loading displays for project: ${projectId}`)
+        setIsLoadingDisplays(true)
+        tasks.push(api.displays_browse(projectId)
+          .then(response => {
 
-          // Set display docs
-          setDisplays(utils.toMap(utils.hitsToDocs(response)))
-        })
-        .finally(() => setIsLoadingDisplays(false)))
-    }
+            // Set display docs
+            setDisplays(utils.toMap(utils.hitsToDocs(response)))
+          })
+          .finally(() => setIsLoadingDisplays(false)))
+      }
 
-    // Load scenarios
-    if (shouldLoadScenarios) {
-      console.debug(`Loading scenarios for project: ${projectId}`)
-      setIsLoadingScenarios(true)
-      tasks.push(api.scenarios_browse(projectId)
-        .then(response => {
+      // Load scenarios
+      if (shouldLoadScenarios === true) {
+        console.debug(`Loading scenarios for project: ${projectId}`)
+        setIsLoadingScenarios(true)
+        tasks.push(api.scenarios_browse(projectId)
+          .then(response => {
 
-          // Set scenario docs
-          setScenarios(utils.toMap(utils.hitsToDocs(response)))
+            // Set scenario docs
+            setScenarios(utils.toMap(utils.hitsToDocs(response)))
 
-          // Set scenario aggs
-          const aggs = {}
-          if (response.data.aggregations?.counts?.buckets) {
-            response.data.aggregations.counts.buckets.forEach(agg => {
-              aggs[agg.key] = {
-                ...aggs[agg.key] || {},
-                judgements: agg.judgements?.doc_count || 0,
-                //evaluations: agg.evaluations?.doc_count || 0
+            // Set scenario aggs
+            const aggs = {}
+            if (response.data.aggregations?.counts?.buckets) {
+              response.data.aggregations.counts.buckets.forEach(agg => {
+                aggs[agg.key] = {
+                  ...aggs[agg.key] || {},
+                  judgements: agg.judgements?.doc_count || 0,
+                  //evaluations: agg.evaluations?.doc_count || 0
+                }
+              })
+            }
+            setScenariosAggs(aggs)
+          })
+          .finally(() => setIsLoadingScenarios(false)))
+      }
+
+      // Load strategies
+      if (shouldLoadStrategies === true) {
+        console.debug(`Loading strategies for project: ${projectId}`)
+        setIsLoadingStrategies(true)
+        tasks.push(api.strategies_browse(projectId)
+          .then(response => {
+
+            // Set strategy docs
+            setStrategies(utils.toMap(utils.hitsToDocs(response)))
+          })
+          .finally(() => setIsLoadingStrategies(false)))
+      }
+
+      // Load benchmarks
+      if (shouldLoadBenchmarks) {
+        if (shouldLoadBenchmarks === true) {
+
+          // Load all benchmarks
+          console.debug(`Loading benchmarks for project: ${projectId}`)
+          setIsLoadingBenchmarks(true)
+          tasks.push(api.benchmarks_browse(projectId)
+            .then(response => {
+
+              // Set benchmark docs
+              setBenchmarks(utils.toMap(utils.hitsToDocs(response)))
+
+              // Set benchmark aggs
+              const aggs = {}
+              if (response.data.aggregations?.counts?.buckets) {
+                response.data.aggregations.counts.buckets.forEach(agg => {
+                  aggs[agg.key] = {
+                    ...aggs[agg.key] || {},
+                    evaluations: agg.evaluations?.doc_count || 0
+                  }
+                })
               }
+              setBenchmarksAggs(aggs)
             })
-          }
-          setScenariosAggs(aggs)
-        })
-        .finally(() => setIsLoadingScenarios(false)))
-    }
+            .finally(() => setIsLoadingBenchmarks(false)))
 
-    // Load strategies
-    if (shouldLoadStrategies) {
-      console.debug(`Loading strategies for project: ${projectId}`)
-      setIsLoadingStrategies(true)
-      tasks.push(api.strategies_browse(projectId)
-        .then(response => {
+        } else {
 
-          // Set strategy docs
-          setStrategies(utils.toMap(utils.hitsToDocs(response)))
-        })
-        .finally(() => setIsLoadingStrategies(false)))
-    }
+          // Load one benchmark
+          const benchmarkId = shouldLoadBenchmarks
+          console.debug(`Loading benchmark ${benchmarkId} for project: ${projectId}`)
+          setIsLoadingBenchmark(true)
+          tasks.push(api.benchmarks_get(projectId, benchmarkId)
+            .then(response => {
 
-    // Load benchmarks
-    if (shouldLoadBenchmarks) {
-      console.debug(`Loading benchmarks for project: ${projectId}`)
-      setIsLoadingBenchmarks(true)
-      tasks.push(api.benchmarks_browse(projectId)
-        .then(response => {
-
-          // Set benchmark docs
-          setBenchmarks(utils.toMap(utils.hitsToDocs(response)))
-
-          // Set benchmark aggs
-          const aggs = {}
-          if (response.data.aggregations?.counts?.buckets) {
-            response.data.aggregations.counts.buckets.forEach(agg => {
-              aggs[agg.key] = {
-                ...aggs[agg.key] || {},
-                evaluations: agg.evaluations?.doc_count || 0
-              }
+              // Set benchmark docs
+              setBenchmarks(utils.toMap(utils.hitsToDocs(response)))
             })
-          }
-          setBenchmarksAggs(aggs)
-        })
-        .finally(() => setIsLoadingBenchmarks(false)))
-    }
+            .finally(() => setIsLoadingBenchmark(false)))
 
-    await Promise.all(tasks)
+        }
+      }
+
+      // Load evaluations
+      if (shouldLoadEvaluations) {
+        const benchmarkId = shouldLoadEvaluations
+        console.debug(`Loading evaluations for project: ${projectId} and benchmark: ${benchmarkId}`)
+        setIsLoadingEvaluations(true)
+        tasks.push(api.evaluations_browse(projectId, benchmarkId)
+          .then(response => {
+
+            // Set evaluation docs
+            setEvaluations(utils.toMap(utils.hitsToDocs(response)))
+          })
+          .finally(() => setIsLoadingEvaluations(false)))
+      }
+
+      // Load all requested assets
+      await Promise.all(tasks)
+    } finally {
+      setIsLoadingAssets(false)
+    }
   }, [project?._id])
 
   ////  Mutators  //////////////////////////////////////////////////////////////
@@ -230,30 +283,35 @@ export const ProjectProvider = ({ children }) => {
     scenario: api.scenarios_create,
     strategy: api.strategies_create,
     benchmark: api.benchmarks_create,
+    //evaluation: api.evaluations_create, // evaluations are created by workers, not the UI
   }
   const fnUpdate = {
     display: api.displays_update,
     scenario: api.scenarios_update,
     strategy: api.strategies_update,
     benchmark: api.benchmarks_update,
+    //evaluation: api.evaluations_update, // evaluations are immutable
   }
   const fnDelete = {
     display: api.displays_delete,
     scenario: api.scenarios_delete,
     strategy: api.strategies_delete,
     benchmark: api.benchmarks_delete,
+    evaluation: api.evaluations_delete,
   }
   const fnSetIsProcessing = {
     display: setIsProcessingDisplay,
     scenario: setIsProcessingScenario,
     strategy: setIsProcessingStrategy,
     benchmark: setIsProcessingBenchmark,
+    evaluation: setIsProcessingEvaluation,
   }
   const fnSetContext = {
     display: setDisplays,
     scenario: setScenarios,
     strategy: setStrategies,
     benchmark: setBenchmarks,
+    evaluation: setEvaluations,
   }
 
   /**
@@ -327,6 +385,10 @@ export const ProjectProvider = ({ children }) => {
   const updateBenchmark = async (_id, doc) => handleDoc('update', 'benchmark', _id, doc)
   const deleteBenchmark = async (_id) => handleDoc('delete', 'benchmark', _id, null)
 
+  //const createEvaluation = async (doc) => handleDoc('create', 'evaluation', null, doc) // evaluations are created by workers, not the UI
+  //const updateEvaluation = async (_id, doc) => handleDoc('update', 'evaluation', _id, doc) // evaluations are immutable
+  const deleteEvaluation = async (_id) => handleDoc('delete', 'evaluation', _id, null)
+
   return (
     <ProjectContext.Provider value={{
 
@@ -337,6 +399,7 @@ export const ProjectProvider = ({ children }) => {
       scenarios, scenariosAggs,
       strategies,
       benchmarks, benchmarksAggs,
+      evaluations,
 
       // Loaders
       loadProject, loadAssets,
@@ -349,13 +412,15 @@ export const ProjectProvider = ({ children }) => {
       isLoadingScenarios, isLoadingScenario, isProcessingScenario,
       isLoadingStrategies, isLoadingStrategy, isProcessingStrategy,
       isLoadingBenchmarks, isLoadingBenchmark, isProcessingBenchmark,
+      isLoadingEvaluations, isLoadingEvaluation, isProcessingEvaluation,
       isProjectReady,
 
       // Mutators
       createDisplay, updateDisplay, deleteDisplay,
       createScenario, updateScenario, deleteScenario,
       createStrategy, updateStrategy, deleteStrategy,
-      createBenchmark, updateBenchmark, deleteBenchmark
+      createBenchmark, updateBenchmark, deleteBenchmark,
+      deleteEvaluation
     }}>
       {children}
     </ProjectContext.Provider>

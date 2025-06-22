@@ -67,9 +67,13 @@ utils.toastDocCreateUpdateDelete = (action, docType, _id, doc) => {
  * convert them into an array of docs containing their _source and _id.
  */
 utils.hitsToDocs = (response) => {
-  return response.data.hits.hits.map(doc => ({
-    ...doc._source, _id: doc._id
-  }))
+  
+  // If response has hits, it's from POST _search
+  if (response.data.hits)
+    return response.data.hits.hits.map(doc => ({ ...doc._source, _id: doc._id }))
+  
+  // Otherwise, it's from GET /_doc
+  return [{ ...response.data._source, _id: response.data._id }]
 }
 
 /**
@@ -112,7 +116,7 @@ utils.average = (arr) => {
 utils.iconTypeFromFieldType = (fieldType) => {
   var iconColor = 'success'
   var iconType = 'tokenField'
-  switch(fieldType) {
+  switch (fieldType) {
     case 'binary':
       iconColor = 'danger'
       iconType = 'tokenBinary'

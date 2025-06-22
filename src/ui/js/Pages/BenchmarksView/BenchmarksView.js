@@ -1,72 +1,63 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import {
   EuiBadge,
   EuiButton,
   EuiCallOut,
-  EuiForm,
   EuiInMemoryTable,
   EuiLink,
-  EuiModal,
-  EuiModalHeaderTitle,
-  EuiModalBody,
-  EuiModalFooter,
-  EuiModalHeader,
   EuiSkeletonText,
+  EuiSkeletonTitle,
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import { Page } from '../../Layout'
+import { ModalDelete, Page } from '../../Layout'
 import api from '../../api'
 import utils from '../../utils'
 
 const BenchmarksView = () => {
 
+  /**
+   * benchmarkId comes from the URL path: /projects/:project_id/benchmarks/:benchmark_id
+   */
+  const { benchmark_id: benchmarkId } = useParams()
+
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const { project, isProjectReady } = useProjectContext()
+  const {
+    project,
+    isProjectReady,
+    loadAssets,
+    benchmarks,
+    evaluations,
+    deleteEvaluation
+  } = useProjectContext()
+
+  /**
+   * Load (or reload) any needed assets when project is ready.
+   */
+  useEffect(() => {
+    if (isProjectReady)
+      loadAssets({ benchmarks: benchmarkId, evaluations: benchmarkId })
+  }, [project?._id])
+
+  /**
+   * Evaluations as an array for the table component
+   */
+  const evaluationsList = Object.values(evaluations) || []
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [evaluations, setEvaluations] = useState([])
-  const [isLoadingEvaluations, setIsLoadingEvaluations] = useState(true)
   const [isProcessingEvaluation, setIsProcessingEvaluation] = useState(false)
-  const [modalData, setModalData] = useState({})
-  const [modalDeleteVisible, setModalDeleteVisible] = useState(false)
 
   /**
-   * Get evaluations on load
+   * null:   close modal
+   * object: open modal to delete a given doc (object)
    */
-  useEffect(() => {
-    if (!project?._id)
-      return
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setIsLoadingEvaluations(true)
-        response = await api.evaluations_browse(project._id)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to get evaluations'
-        }))
-      } finally {
-        setIsLoadingEvaluations(false)
-      }
-
-      // Handle API response
-      const docs = []
-      response.data.hits.hits.forEach(hit => {
-        const doc = hit._source
-        doc._id = hit._id
-        docs.push(doc)
-      })
-      setEvaluations(docs)
-    })()
-  }, [project])
+  const [modalDelete, setModalDelete] = useState(null)
 
   const onRunEvaluationSubmit = (e) => {
     e.preventDefault();
@@ -140,180 +131,89 @@ const BenchmarksView = () => {
     })()
   }
 
-  const onModalDeleteSubmit = (e) => {
-    e.preventDefault();
-    (async () => {
-
-      // Submit API request
-      const doc = { ...modalData }
-      let response
-      try {
-        setIsProcessingEvaluation(true)
-        response = await api.evaluations_delete(project._id, modalData._id)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to delete evaluation'
-        }))
-      } finally {
-        setIsProcessingEvaluation(false)
-      }
-
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Deleted evaluation',
-        color: 'success',
-        iconType: 'check',
-        text: (
-          <EuiText size='xs'>
-            <b>{modalData._id}</b><br />
-            <EuiText color='subdued' size='xs'>{modalData._id}</EuiText>
-          </EuiText>
-        )
-      })
-      setEvaluations(evaluations.filter(doc => doc._id !== modalData._id))
-      onModalDeleteClose()
-    })()
-  }
-
-  ////  Handlers: Modal open and close  ////////////////////////////////////////
-
-  const onModalDeleteOpen = (doc) => {
-    setModalData(doc)
-    setModalDeleteVisible(true)
-  }
-
-  const onModalDeleteClose = () => {
-    setModalData({})
-    setModalDeleteVisible(false)
-  }
-
-  ////  Elements: Modals  //////////////////////////////////////////////////////
-
-  /**
-   * Modal to delete an evaluation.
-   */
-  const modalDelete = (
-    <EuiModal onClose={onModalDeleteClose}>
-      <EuiModalHeader>
-        <EuiModalHeaderTitle>
-          Delete evaluation?
-        </EuiModalHeaderTitle>
-      </EuiModalHeader>
-      <EuiModalBody>
-        <EuiForm component='form' id='delete'>
-          <EuiText color='subdued' size='xs'>Evaluation _id:<br /><b>{modalData._id}</b></EuiText>
-          <EuiSpacer size='m' />
-          <EuiText>This action can't be undone.</EuiText>
-        </EuiForm>
-      </EuiModalBody>
-      <EuiModalFooter>
-        <EuiButton
-          color='danger'
-          disabled={isProcessingEvaluation}
-          fill
-          form='modal-delete'
-          isLoading={isProcessingEvaluation}
-          onClick={onModalDeleteSubmit}
-          type='submit'
-        >
-          Delete
-        </EuiButton>
-        <EuiButton
-          color='text'
-          disabled={isProcessingEvaluation}
-          onClick={onModalDeleteClose}
-        >
-          Cancel
-        </EuiButton>
-      </EuiModalFooter>
-    </EuiModal>
-  )
-
   ////  Render  ////////////////////////////////////////////////////////////////
 
   const columns = useMemo(() => {
-      return [
-    {
-      field: '_id',
-      name: 'Evaluation',
-      sortable: true,
-      truncateText: true,
-      render: (name, doc) => (
-        <EuiLink href={`#/projects/${project._id}/evaluations/${doc._id}`}>
-          {doc._id}
-        </EuiLink>
-      )
-    },
-    {
-      field: 'metrics',
-      name: 'Metrics',
-      truncateText: true,
-      render: (name, doc) => {
-        const metrics = []
-        doc.task.metrics.forEach((metric) => {
-          metrics.push(<EuiBadge color='hollow' key={metric}>{metric}</EuiBadge>)
-        })
-        return metrics
-      }
-    },
-    {
-      field: 'num_strategies',
-      name: 'Strategies',
-      sortable: true,
-      render: (name, doc) => doc.strategy_id.length
-    },
-    {
-      field: 'num_scenarios',
-      name: 'Scenarios',
-      sortable: true,
-      render: (name, doc) => doc.scenario_id.length
-    },
-    {
-      field: '@meta.created_at',
-      name: 'Created',
-      sortable: true,
-      render: (name, doc) => new Date(doc['@meta']?.created_at).toLocaleString()
-    },
-    {
-      field: '@meta.started_at',
-      name: 'Started',
-      sortable: true,
-      render: (name, doc) => new Date(doc['@meta']?.started_at).toLocaleString()
-    },
-    {
-      field: '@meta.finished_at',
-      name: 'Finished',
-      sortable: true,
-      render: (name, doc) => new Date(doc['@meta']?.stopped_at).toLocaleString()
-    },
-    {
-      field: '@meta.status',
-      name: 'Status',
-      sortable: true,
-      render: (name, doc) => doc['@meta']?.status
-    },
-    {
-      name: 'Actions',
-      actions: [
-        {
-          color: 'danger',
-          description: 'Delete this strategy',
-          icon: 'trash',
-          name: 'delete',
-          onClick: onModalDeleteOpen,
-          type: 'icon',
+    return [
+      {
+        field: '_id',
+        name: 'Evaluation',
+        sortable: true,
+        truncateText: true,
+        render: (name, doc) => (
+          <EuiLink href={`#/projects/${project._id}/benchmarks/${benchmarkId}/evaluations/${doc._id}`}>
+            {doc._id}
+          </EuiLink>
+        )
+      },
+      {
+        field: 'metrics',
+        name: 'Metrics',
+        truncateText: true,
+        render: (name, doc) => {
+          const metrics = []
+          doc.task.metrics.forEach((metric) => {
+            metrics.push(<EuiBadge color='hollow' key={metric}>{metric}</EuiBadge>)
+          })
+          return metrics
         }
-      ],
-    }
-  ]
-}, [evaluations])
+      },
+      {
+        field: 'num_strategies',
+        name: 'Strategies',
+        sortable: true,
+        render: (name, doc) => doc.strategy_id.length
+      },
+      {
+        field: 'num_scenarios',
+        name: 'Scenarios',
+        sortable: true,
+        render: (name, doc) => doc.scenario_id.length
+      },
+      {
+        field: '@meta.created_at',
+        name: 'Created',
+        sortable: true,
+        render: (name, doc) => new Date(doc['@meta']?.created_at).toLocaleString()
+      },
+      {
+        field: '@meta.started_at',
+        name: 'Started',
+        sortable: true,
+        render: (name, doc) => new Date(doc['@meta']?.started_at).toLocaleString()
+      },
+      {
+        field: '@meta.finished_at',
+        name: 'Finished',
+        sortable: true,
+        render: (name, doc) => new Date(doc['@meta']?.stopped_at).toLocaleString()
+      },
+      {
+        field: '@meta.status',
+        name: 'Status',
+        sortable: true,
+        render: (name, doc) => doc['@meta']?.status
+      },
+      {
+        name: 'Actions',
+        actions: [
+          {
+            color: 'danger',
+            description: 'Delete this evaluation',
+            icon: 'trash',
+            name: 'delete',
+            onClick: (doc) => setModalDelete(doc),
+            type: 'icon',
+          }
+        ],
+      }
+    ]
+  }, [evaluations])
 
   /**
    * Button that navigates to the page to create an evaluation.
    */
-  const buttonCreate = (
+  /*const buttonCreate = (
     <EuiButton
       fill
       iconType='plusInCircle'
@@ -321,12 +221,32 @@ const BenchmarksView = () => {
       onClick={onRunEvaluationSubmit}>
       Run evaluation
     </EuiButton>
-  )
+  )*/
 
   return (<>
-    {modalDeleteVisible && modalDelete}
-    <Page title='Evaluations' buttons={[buttonCreate]}>
-      <EuiSkeletonText isLoading={!isProjectReady || isLoadingEvaluations} lines={10}>
+    {modalDelete &&
+      <ModalDelete
+        doc={modalDelete}
+        docType='evaluation'
+        isLoading={isProcessingEvaluation}
+        onClose={() => setModalDelete(null)}
+        onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete evaluation` }))}
+        onDelete={async () => await deleteEvaluation(modalDelete._id)}
+      />
+    }
+    <Page title={
+      <EuiSkeletonTitle isLoading={!isProjectReady} size='l'>
+        {!benchmarks?.[benchmarkId] &&
+          <>Not found</>
+        }
+        {!!benchmarks?.[benchmarkId] &&
+          <>{benchmarks[benchmarkId].name}</>
+        }
+      </EuiSkeletonTitle>
+    }
+    //buttons={[buttonCreate]}
+    >
+      <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
         {!evaluations &&
           <EuiCallOut
             color='primary'
@@ -342,7 +262,7 @@ const BenchmarksView = () => {
         {!!evaluations &&
           <EuiInMemoryTable
             columns={columns}
-            items={evaluations}
+            items={evaluationsList}
             pagination={true}
             responsiveBreakpoint={false}
             sorting={{
