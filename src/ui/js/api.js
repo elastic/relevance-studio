@@ -212,9 +212,9 @@ api.evaluations_get = async (project_id, benchmark_id, evaluation_id) => {
   return await client.get(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations/${evaluation_id}`)
 }
 
-api.evaluations_run = async (project_id, benchmark_id, body, params) => {
-  validateArgs('api.evaluations_run', { project_id, benchmark_id, body, })
-  return await client.post(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations/${evaluation_id}`, { data: body, params: params })
+api.evaluations_create = async (project_id, benchmark_id, doc) => {
+  validateArgs('api.evaluations_create', { project_id, benchmark_id, doc, })
+  return await client.post(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations`, { data: doc })
 }
 
 api.evaluations_delete = async (project_id, benchmark_id, evaluation_id) => {

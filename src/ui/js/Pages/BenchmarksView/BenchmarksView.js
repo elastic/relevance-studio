@@ -33,6 +33,7 @@ const BenchmarksView = () => {
     loadAssets,
     benchmarks,
     evaluations,
+    createEvaluation,
     deleteEvaluation
   } = useProjectContext()
 
@@ -64,47 +65,14 @@ const BenchmarksView = () => {
     (async () => {
       try {
         setIsProcessingEvaluation(true)
-
-        // Get strategies
-        let strategies = []
-        try {
-          const res1 = await api.strategies_browse(project._id)
-          res1.data.hits.hits.forEach(doc => {
-            strategies.push(doc._id)
-          })
-        } catch (error) {
-          return addToast(api.errorToast(error, {
-            title: 'Failed to get strategies for evaluation'
-          }))
-        }
-
-        // Get scenarios
-        let scenarios = []
-        try {
-          const res2 = await api.scenarios_browse(project._id)
-          res2.data.hits.hits.forEach(doc => {
-            scenarios.push(doc._id)
-          })
-        } catch (error) {
-          return addToast(api.errorToast(error, {
-            title: 'Failed to get scenarios for evaluation'
-          }))
-        }
-
-        // Submit API request
-        const params = {
-          store_results: 'true'
-        }
-        const body = {
-          strategies: strategies,
-          scenarios: scenarios,
-          metrics: ['ndcg', 'precision', 'recall'],
-          k: 10,
-        }
         let response
         try {
           setIsProcessingEvaluation(true)
-          response = await api.evaluations_run(project._id, body, params)
+          response = await api.evaluations_create(
+            project._id,
+            benchmarkId,
+            benchmarks[benchmarkId].task
+          )
         } catch (error) {
           return addToast(api.errorToast(error, {
             title: 'Failed to run evaluation'
@@ -115,12 +83,10 @@ const BenchmarksView = () => {
 
         // Handle API response
         if (response.status < 200 && response.status > 299)
-          addToast(utils.toastClientResponse(response))
-
-        // Redirect to scenarios on success
-        window.location.href = `/#/projects/${project._id}/evaluations/${response.data._id}`
+          return addToast(utils.toastClientResponse(response))
+        
         addToast({
-          title: 'Ran evaluation',
+          title: 'Queued evaluation',
           color: 'success',
           iconType: 'check'
         })
@@ -147,28 +113,16 @@ const BenchmarksView = () => {
         )
       },
       {
-        field: 'metrics',
-        name: 'Metrics',
-        truncateText: true,
-        render: (name, doc) => {
-          const metrics = []
-          doc.task.metrics.forEach((metric) => {
-            metrics.push(<EuiBadge color='hollow' key={metric}>{metric}</EuiBadge>)
-          })
-          return metrics
-        }
-      },
-      {
         field: 'num_strategies',
         name: 'Strategies',
         sortable: true,
-        render: (name, doc) => doc.strategy_id.length
+        render: (name, doc) => doc.strategy_id?.length || 0
       },
       {
         field: 'num_scenarios',
         name: 'Scenarios',
         sortable: true,
-        render: (name, doc) => doc.scenario_id.length
+        render: (name, doc) => doc.scenario_id?.length || 0
       },
       {
         field: '@meta.created_at',
@@ -211,17 +165,17 @@ const BenchmarksView = () => {
   }, [evaluations])
 
   /**
-   * Button that navigates to the page to create an evaluation.
+   * Button that queues an evaluation to be run.
    */
-  /*const buttonCreate = (
+  const buttonRun = (
     <EuiButton
       fill
-      iconType='plusInCircle'
+      iconType='play'
       isLoading={isProcessingEvaluation}
       onClick={onRunEvaluationSubmit}>
       Run evaluation
     </EuiButton>
-  )*/
+  )
 
   return (<>
     {modalDelete &&
@@ -244,7 +198,7 @@ const BenchmarksView = () => {
         }
       </EuiSkeletonTitle>
     }
-    //buttons={[buttonCreate]}
+    buttons={[buttonRun]}
     >
       <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
         {!evaluations &&

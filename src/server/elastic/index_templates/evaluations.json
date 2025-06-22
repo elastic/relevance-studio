@@ -68,6 +68,12 @@
                 },
                 "tags": {
                   "type": "keyword"
+                },
+                "sample_size": {
+                  "type": "integer"
+                },
+                "sample_seed": {
+                  "type": "keyword"
                 }
               }
             }

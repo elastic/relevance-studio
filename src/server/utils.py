@@ -9,11 +9,18 @@ from hashlib import blake2b
 # Pre-compiled regular expressions
 RE_PARAMS = re.compile(r"{{\s*([\w.]+)\s*}}")
 
+def serialize(obj):
+    """
+    Serialize an object as JSON without whitespace and with sorted keys as a
+    standard and deterministic form of serialization.
+    """
+    return json.dumps(obj, separators=(',', ':'), sort_keys=True)
+
 def fingerprint(obj):
     """
     Generate a determinsitic fingerprint of an object:
     
-    1. Serialize the object as JSON without whitespace and with sorted keys.
+    1. Serialize the object as JSON deterministically.
     2. Calculate a 128-bit BLAKE2b digest of the serialized value.
     
     """

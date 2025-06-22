@@ -283,7 +283,7 @@ export const ProjectProvider = ({ children }) => {
     scenario: api.scenarios_create,
     strategy: api.strategies_create,
     benchmark: api.benchmarks_create,
-    //evaluation: api.evaluations_create, // evaluations are created by workers, not the UI
+    evaluation: api.evaluations_create,
   }
   const fnUpdate = {
     display: api.displays_update,
@@ -385,7 +385,7 @@ export const ProjectProvider = ({ children }) => {
   const updateBenchmark = async (_id, doc) => handleDoc('update', 'benchmark', _id, doc)
   const deleteBenchmark = async (_id) => handleDoc('delete', 'benchmark', _id, null)
 
-  //const createEvaluation = async (doc) => handleDoc('create', 'evaluation', null, doc) // evaluations are created by workers, not the UI
+  const createEvaluation = async (doc) => handleDoc('create', 'evaluation', null, doc)
   //const updateEvaluation = async (_id, doc) => handleDoc('update', 'evaluation', _id, doc) // evaluations are immutable
   const deleteEvaluation = async (_id) => handleDoc('delete', 'evaluation', _id, null)
 
@@ -420,7 +420,7 @@ export const ProjectProvider = ({ children }) => {
       createScenario, updateScenario, deleteScenario,
       createStrategy, updateStrategy, deleteStrategy,
       createBenchmark, updateBenchmark, deleteBenchmark,
-      deleteEvaluation
+      createEvaluation, deleteEvaluation,
     }}>
       {children}
     </ProjectContext.Provider>
