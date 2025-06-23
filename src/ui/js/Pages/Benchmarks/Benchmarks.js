@@ -62,7 +62,7 @@ const Benchmarks = () => {
   const columns = useMemo(() => {
     return [
       {
-        field: '_id',
+        field: 'name',
         name: 'Benchmark',
         sortable: true,
         truncateText: true,
@@ -162,8 +162,8 @@ const Benchmarks = () => {
             responsiveBreakpoint={false}
             sorting={{
               sort: {
-                field: '@timestamp',
-                direction: 'desc',
+                field: 'name',
+                direction: 'asc',
               }
             }}
             tableLayout='auto'

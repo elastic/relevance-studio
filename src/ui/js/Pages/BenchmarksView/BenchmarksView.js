@@ -46,9 +46,18 @@ const BenchmarksView = () => {
   }, [project?._id])
 
   /**
-   * Evaluations as an array for the table component
+   * Evaluations as an array for the table component.
+   * Add additional fields for the table.
    */
   const evaluationsList = Object.values(evaluations) || []
+  const dateFields = [ 'created_at', 'started_at', 'stopped_at' ]
+  for (const e in evaluationsList) {
+    const lastUpdated = new Date(Math.max(
+      ...dateFields
+        .map(k => new Date(evaluationsList[e]["@meta"]?.[k] || 0).getTime())
+    )).toISOString()
+    evaluationsList[e]['@meta']['last_updated'] = lastUpdated
+  }
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -84,7 +93,7 @@ const BenchmarksView = () => {
         // Handle API response
         if (response.status < 200 && response.status > 299)
           return addToast(utils.toastClientResponse(response))
-        
+
         addToast({
           title: 'Queued evaluation',
           color: 'success',
@@ -103,7 +112,7 @@ const BenchmarksView = () => {
     return [
       {
         field: '_id',
-        name: 'Evaluation',
+        name: 'Evaluation ID',
         sortable: true,
         truncateText: true,
         render: (name, doc) => (
@@ -116,37 +125,61 @@ const BenchmarksView = () => {
         field: 'num_strategies',
         name: 'Strategies',
         sortable: true,
-        render: (name, doc) => doc.strategy_id?.length || 0
+        render: (name, doc) => doc.strategy_id?.length || '-'
       },
       {
         field: 'num_scenarios',
         name: 'Scenarios',
         sortable: true,
-        render: (name, doc) => doc.scenario_id?.length || 0
-      },
-      {
-        field: '@meta.created_at',
-        name: 'Created',
-        sortable: true,
-        render: (name, doc) => new Date(doc['@meta']?.created_at).toLocaleString()
-      },
-      {
-        field: '@meta.started_at',
-        name: 'Started',
-        sortable: true,
-        render: (name, doc) => new Date(doc['@meta']?.started_at).toLocaleString()
-      },
-      {
-        field: '@meta.finished_at',
-        name: 'Finished',
-        sortable: true,
-        render: (name, doc) => new Date(doc['@meta']?.stopped_at).toLocaleString()
+        render: (name, doc) => doc.scenario_id?.length || '-'
       },
       {
         field: '@meta.status',
         name: 'Status',
         sortable: true,
-        render: (name, doc) => doc['@meta']?.status
+        render: (name, doc) => {
+          if (doc['@meta']?.status == 'completed')
+            return (
+              <EuiBadge color='success'>
+                Completed
+              </EuiBadge>
+            )
+          if (doc['@meta']?.status == 'failed')
+            return (
+              <EuiBadge color='danger'>
+                Failed
+              </EuiBadge>
+            )
+          if (doc['@meta']?.status == 'skipped')
+            return (
+              <EuiBadge color='text'>
+                Skipped
+              </EuiBadge>
+            )
+          if (doc['@meta']?.status == 'running')
+            return (
+              <EuiBadge color='primary'>
+                Running
+              </EuiBadge>
+            )
+          if (doc['@meta']?.status == 'pending')
+            return (
+              <EuiBadge color='text'>
+                Pending
+              </EuiBadge>
+            )
+          return (
+            <EuiBadge color='hollow'>
+              Unknown
+            </EuiBadge>
+          )
+        }
+      },
+      {
+        field: '@meta.last_updated',
+        name: 'Updated',
+        sortable: true,
+        render: (name, doc) => doc['@meta']?.last_updated ? utils.timeAgo(doc['@meta']?.last_updated) : '-'
       },
       {
         name: 'Actions',
@@ -198,7 +231,7 @@ const BenchmarksView = () => {
         }
       </EuiSkeletonTitle>
     }
-    buttons={[buttonRun]}
+      buttons={[buttonRun]}
     >
       <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
         {!evaluations &&
@@ -221,7 +254,7 @@ const BenchmarksView = () => {
             responsiveBreakpoint={false}
             sorting={{
               sort: {
-                field: '@timestamp',
+                field: '@meta.last_updated',
                 direction: 'desc',
               }
             }}

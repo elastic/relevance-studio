@@ -67,11 +67,11 @@ utils.toastDocCreateUpdateDelete = (action, docType, _id, doc) => {
  * convert them into an array of docs containing their _source and _id.
  */
 utils.hitsToDocs = (response) => {
-  
+
   // If response has hits, it's from POST _search
   if (response.data.hits)
     return response.data.hits.hits.map(doc => ({ ...doc._source, _id: doc._id }))
-  
+
   // Otherwise, it's from GET /_doc
   return [{ ...response.data._source, _id: response.data._id }]
 }
@@ -108,6 +108,29 @@ utils.getNestedValue = (obj, path) => {
 utils.average = (arr) => {
   const avg = arr.reduce((a, b) => a + b, 0) / arr.length
   return isNaN(avg) ? 0 : avg
+}
+
+/**
+ * Convert a timestamp to "time ago" format
+ */
+utils.timeAgo = (timestamp) => {
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
+  const seconds = Math.floor((Date.now() - new Date(timestamp)) / 1000)
+  const ranges = {
+    year: 31536000,
+    month: 2592000,
+    week: 604800,
+    day: 86400,
+    hour: 3600,
+    minute: 60,
+    second: 1
+  }
+  for (const [unit, secondsInUnit] of Object.entries(ranges)) {
+    const delta = Math.floor(seconds / secondsInUnit)
+    if (Math.abs(delta) >= 1)
+      return rtf.format(-delta, unit) // negative for "ago"
+  }
+  return 'just now'
 }
 
 /**
