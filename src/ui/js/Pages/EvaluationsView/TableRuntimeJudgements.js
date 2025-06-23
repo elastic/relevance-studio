@@ -20,6 +20,8 @@ const TableRuntimeJudgements = ({ items }) => {
   }
 
   const renderDetails = (item) => {
+    const _item = { ...item }
+    delete _item.scenario
     return (
       <EuiPanel color='transparent' paddingSize='none'>
         <EuiCodeBlock
@@ -29,7 +31,7 @@ const TableRuntimeJudgements = ({ items }) => {
           overflowHeight={300}
           style={{ width: '100%' }}
         >
-          {JSON.stringify(item, null, 2)}
+          {JSON.stringify(_item, null, 2)}
         </EuiCodeBlock>
       </EuiPanel>
     )
@@ -62,11 +64,11 @@ const TableRuntimeJudgements = ({ items }) => {
       },
     },
     {
-      field: 'scenario_id',
+      field: 'scenario',
       name: 'Scenario',
       sortable: true,
       truncateText: true,
-      render: (name, item) => item.scenario_id
+      render: (name, item) => item.scenario
     },
     {
       field: 'index',
@@ -105,6 +107,16 @@ const TableRuntimeJudgements = ({ items }) => {
           schema: true,
         },
         filters: [
+          {
+            autoSortOptions: false,
+            field: 'scenario',
+            multiSelect: 'or',
+            name: 'Scenario',
+            options: Array.from(new Set(items.map(({ scenario }) => scenario))).map(scenario => ({
+              value: scenario
+            })),
+            type: 'field_value_selection',
+          },
           {
             autoSortOptions: false,
             field: 'index',

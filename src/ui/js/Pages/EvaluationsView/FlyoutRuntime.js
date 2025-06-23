@@ -25,7 +25,7 @@ const FlyoutRuntime = ({ runtime, onClose }) => {
   const scenarios = Object.entries(runtime.scenarios || {})
     .map(([key, value]) => ({ _id: key, ...value }))
   const judgements = Object.entries(runtime.judgements || {})
-    .map(([key, value]) => ({ _id: key, ...value }))
+    .map(([key, value]) => ({ _id: key, ...value, scenario: runtime.scenarios?.[value.scenario_id]?.name }))
 
   const renderIndices = () => {
     return (<>
