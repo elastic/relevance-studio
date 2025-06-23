@@ -1,5 +1,5 @@
 import React from 'react'
-import { EuiPageTemplate, EuiProvider } from '@elastic/eui'
+import { EuiFlyoutBody, EuiPageTemplate, EuiProvider } from '@elastic/eui'
 import { useAppContext } from '../Contexts/AppContext'
 import SideNav from './SideNav'
 
@@ -9,7 +9,7 @@ const Page = ({ title, buttons, children }) => {
 
   const { darkMode } = useAppContext()
 
-  ////  Render  ///////////////////////////////////////////////////////////////
+  ////  Render  ////////////////////////////////////////////////////////////////
 
   return (
     <EuiProvider colorMode={darkMode ? 'dark' : 'light'}>
@@ -18,9 +18,9 @@ const Page = ({ title, buttons, children }) => {
         grow={true}
         offset={0}
         panelled={false}
-        restrictWidth={true}
+        restrictWidth={false}
       >
-        <EuiPageTemplate.Sidebar>
+        <EuiPageTemplate.Sidebar paddingSize='m'>
           <SideNav />
         </EuiPageTemplate.Sidebar>
         <EuiPageTemplate.Header
