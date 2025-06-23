@@ -9,12 +9,14 @@ from hashlib import blake2b
 # Pre-compiled regular expressions
 RE_PARAMS = re.compile(r"{{\s*([\w.]+)\s*}}")
 
-def serialize(obj):
+def unique_id(input=None):
     """
-    Serialize an object as JSON without whitespace and with sorted keys as a
-    standard and deterministic form of serialization.
+    Generate a unique ID, either randomly when input=is None or
+    deterministically when input is not None.
     """
-    return json.dumps(obj, separators=(',', ':'), sort_keys=True)
+    if input is None:
+        return str(uuid.uuid4())
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, fingerprint(input)))
 
 def fingerprint(obj):
     """
@@ -24,18 +26,14 @@ def fingerprint(obj):
     2. Calculate a 128-bit BLAKE2b digest of the serialized value.
     
     """
-    serialized = json.dumps(obj, separators=(',', ':'), sort_keys=True)
-    digest = blake2b(serialized.encode(), digest_size=16).hexdigest()
-    return digest
+    return blake2b((serialize(obj)).encode(), digest_size=16).hexdigest()
 
-def unique_id(input=None):
+def serialize(obj):
     """
-    Generate a unique ID, either randomly when input=is None or
-    deterministically when input is not None.
+    Serialize an object as JSON without whitespace and with sorted keys as a
+    standard and deterministic form of serialization.
     """
-    if input is None:
-        return str(uuid.uuid4())
-    return str(uuid.uuid5(uuid.NAMESPACE_DNS, fingerprint(input)))
+    return json.dumps(obj, separators=(',', ':'), sort_keys=True)
 
 def timestamp(t=None):
     """

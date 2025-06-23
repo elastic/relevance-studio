@@ -332,10 +332,10 @@ def run(
         
         # Store results
         if store_results:
-            es_response = es("studio").index(
+            es_response = es("studio").update(
                 index="esrs-evaluations",
                 id=evaluation_id,
-                document=evaluation,
+                doc=evaluation,
                 refresh=True
             )
         return evaluation
@@ -347,10 +347,10 @@ def run(
             evaluation["@meta"]["status"] = "failed"
             evaluation["@meta"]["stopped_at"] = utils.timestamp(time.time())
             evaluation["took"] = int(( stopped_at - started_at) * 1000)
-            es("studio").index(
+            es("studio").update(
                 index="esrs-evaluations",
                 id=evaluation_id,
-                document=evaluation,
+                doc=evaluation,
                 refresh=True
             )
         raise e

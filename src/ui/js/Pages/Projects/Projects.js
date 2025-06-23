@@ -137,11 +137,11 @@ const Projects = () => {
         ),
       },
       {
-        field: 'evaluations',
-        name: 'Evaluations',
+        field: 'benchmarks',
+        name: 'Benchmarks',
         sortable: true,
         render: (name, doc) => (
-          <EuiLink href={`#/projects/${doc._id}/evaluations`}>
+          <EuiLink href={`#/projects/${doc._id}/benchmarks`}>
             {projectsAggs[doc._id]?.evaluations.toLocaleString() || 0}
           </EuiLink>
         ),

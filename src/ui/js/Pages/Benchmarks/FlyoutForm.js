@@ -188,6 +188,11 @@ const FlyoutForm = ({ action, doc, onClose }) => {
       scenarios_sample_size: doc.task?.scenarios_sample_size || 1000,
       scenarios_sample_seed: doc.task?.scenarios_sample_seed || '',
     })
+    // Open the toggle switches for strategy tags and scenario tags if used
+    if (doc.task?.strategies?.tags)
+      setLimitStrategiesByTags(true)
+    if (doc.task?.scenarios?.tags)
+      setLimitScenariosByTags(true)
   }, [doc])
 
   ////  Event handlers  ////////////////////////////////////////////////////////
@@ -196,7 +201,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
     e.preventDefault();
     const newDoc = doc ? { ...doc } : {}
     newDoc.name = form.name.trim()
-    const _description = form.description.trim()
+    const _description = form.description?.trim() || ''
     if (_description != '')
       newDoc.description = _description
     const _tags = form.tags.map(t => t.trim()).filter(t => t != '').sort()
@@ -281,11 +286,11 @@ const FlyoutForm = ({ action, doc, onClose }) => {
         onChange={(options) => {
           const tags = []
           options.forEach((option) => tags.push(option.key))
-          setForm(prev => ({ ...prev, ['tags']: tags }))
+          setForm(prev => ({ ...prev, tags: tags }))
         }}
         onCreateOption={(tag) => {
           const tags = form.tags?.concat(tag)
-          setForm(prev => ({ ...prev, ['tags']: tags }))
+          setForm(prev => ({ ...prev, tags: tags }))
         }}
         placeholder='Tags'
         selectedOptions={form.tags?.map((tag) => ({
@@ -311,7 +316,6 @@ const FlyoutForm = ({ action, doc, onClose }) => {
               'precision': form.metrics.includes('precision'),
               'recall': form.metrics.includes('recall'),
             }}
-            isInvalid={formBlurs.metrics && isInvalidMetrics()}
             legend='Metric'
             onBlur={() => {
               setFormBlurs(prev => ({ ...prev, metrics: true }))
@@ -453,7 +457,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
             compressed
             onChange={() => {
               if (limitStrategiesByTags) {
-                setForm(prev => ({ ...prev, ['strategies_tags']: [] }))
+                setForm(prev => ({ ...prev, strategies_tags: [] }))
                 setLimitStrategiesByTags(false)
               } else {
                 setLimitStrategiesByTags(true)
@@ -467,7 +471,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
               color='subdued'
               onClick={() => {
                 if (limitStrategiesByTags) {
-                  setForm(prev => ({ ...prev, ['strategies_tags']: [] }))
+                  setForm(prev => ({ ...prev, strategies_tags: [] }))
                   setLimitStrategiesByTags(false)
                 } else {
                   setLimitStrategiesByTags(true)
@@ -482,17 +486,17 @@ const FlyoutForm = ({ action, doc, onClose }) => {
           {!!limitStrategiesByTags &&
             <EuiComboBox
               aria-label='Strategy tags'
-              autoFocus
+              autoFocus={false}
               compressed
               fullWidth
               onChange={(options) => {
                 const tags = []
                 options.forEach((option) => tags.push(option.key))
-                setForm(prev => ({ ...prev, ['strategies_tags']: tags }))
+                setForm(prev => ({ ...prev, strategies_tags: tags }))
               }}
               onCreateOption={(tag) => {
                 const tags = form.strategies_tags?.concat(tag)
-                setForm(prev => ({ ...prev, ['strategies_tags']: tags }))
+                setForm(prev => ({ ...prev, strategies_tags: tags }))
               }}
               options={strategiesTagsOptions}
               placeholder='Limit by tags'
@@ -508,7 +512,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
     )
   }
 
-  const renderFormScenariosTags = () => {
+  const renderFormScenariosTags = () => {    
     return (
       <EuiFlexGroup alignItems='center' gutterSize='none' style={{ height: '32px' }}>
         <EuiFlexItem grow={false}>
@@ -517,7 +521,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
             compressed
             onChange={() => {
               if (limitScenariosByTags) {
-                setForm(prev => ({ ...prev, ['scenarios_tags']: [] }))
+                setForm(prev => ({ ...prev, scenarios_tags: [] }))
                 setLimitScenariosByTags(false)
               } else {
                 setLimitScenariosByTags(true)
@@ -531,7 +535,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
               color='subdued'
               onClick={() => {
                 if (limitScenariosByTags) {
-                  setForm(prev => ({ ...prev, ['scenarios_tags']: [] }))
+                  setForm(prev => ({ ...prev, scenarios_tags: [] }))
                   setLimitScenariosByTags(false)
                 } else {
                   setLimitScenariosByTags(true)
@@ -546,17 +550,17 @@ const FlyoutForm = ({ action, doc, onClose }) => {
           {!!limitScenariosByTags &&
             <EuiComboBox
               aria-label='Scenario tags'
-              autoFocus
+              autoFocus={false}
               compressed
               fullWidth
               onChange={(options) => {
                 const tags = []
                 options.forEach((option) => tags.push(option.key))
-                setForm(prev => ({ ...prev, ['scenarios_tags']: tags }))
+                setForm(prev => ({ ...prev, scenarios_tags: tags }))
               }}
               onCreateOption={(tag) => {
                 const tags = form.scenarios_tags?.concat(tag)
-                setForm(prev => ({ ...prev, ['scenarios_tags']: tags }))
+                setForm(prev => ({ ...prev, scenarios_tags: tags }))
               }}
               options={scenariosTagsOptions}
               placeholder='Limit by tags'
@@ -622,7 +626,6 @@ const FlyoutForm = ({ action, doc, onClose }) => {
               direction: 'asc',
             }
           }}
-          tableLayout='custom'
         >
         </EuiInMemoryTable>
       </>
