@@ -81,13 +81,12 @@ const Scenarios = () => {
           return (
             <div style={{ width: '100%' }}>
               <EuiCodeBlock
-                isCopyable
                 language='json'
-                overflowHeight={140}
                 paddingSize='s'
                 style={{ fontSize: '11px' }}
+                transparentBackground
               >
-                {JSON.stringify(doc.values, null, 2)}
+                {JSON.stringify(doc.values)}
               </EuiCodeBlock>
             </div>
           )
