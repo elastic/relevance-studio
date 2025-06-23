@@ -869,9 +869,6 @@ const FlyoutForm = ({ action, doc, onClose }) => {
                   }
                 ]}
                 initialSelectedTab={'strategies'}
-                onTabClick={(tab) => {
-                  console.log('clicked tab', tab);
-                }}
               />
             </EuiPanel>
           </EuiFlexItem>

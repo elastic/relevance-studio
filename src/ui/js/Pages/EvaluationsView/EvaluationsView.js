@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
+  EuiButton,
   EuiFilterButton,
   EuiFilterGroup,
   EuiFlexGroup,
@@ -18,6 +19,7 @@ import api from '../../api'
 import { Page } from '../../Layout'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
+import FlyoutRuntime from './FlyoutRuntime'
 import EvaluationsScatterplot from './EvaluationsScatterplot'
 
 const EvaluationsView = () => {
@@ -36,6 +38,7 @@ const EvaluationsView = () => {
 
   const [evaluation, setEvaluation] = useState({})
   const [evaluationId, setEvaluationId] = useState(null)
+  const [isFlyoutRuntimeOpen, setIsFlyoutRuntimeOpen] = useState(false)
   const [loadingEvaluation, setLoadingEvaluation] = useState(true)
   const [metricOpen, setMetricOpen] = useState(false)
   const [metricOptions, setMetricOptions] = useState([
@@ -87,7 +90,7 @@ const EvaluationsView = () => {
     if (!project?._id || evaluationId == null)
       return
     (async () => {
-        
+
       // Submit API request
       let response
       try {
@@ -133,7 +136,7 @@ const EvaluationsView = () => {
             setMetricSelected(changedOption)
           }}
           singleSelection='always'
-          listProps={{ css: { '.euiSelectableList__list': { maxBlockSize: 250 }}}}
+          listProps={{ css: { '.euiSelectableList__list': { maxBlockSize: 250 } } }}
         >
           {(list, search) => (
             <div style={{ width: 250 }}>
@@ -144,7 +147,7 @@ const EvaluationsView = () => {
       </EuiPopover>
     )
   }
-  
+
   const renderSelectXGroupBy = () => {
     return (
       <EuiPopover
@@ -170,7 +173,7 @@ const EvaluationsView = () => {
             setXGroupBySelected(changedOption)
           }}
           singleSelection='always'
-          listProps={{ css: { '.euiSelectableList__list': { maxBlockSize: 250 }}}}
+          listProps={{ css: { '.euiSelectableList__list': { maxBlockSize: 250 } } }}
         >
           {(list, search) => (
             <div style={{ width: 250 }}>
@@ -181,7 +184,7 @@ const EvaluationsView = () => {
       </EuiPopover>
     )
   }
-  
+
   const renderSelectYGroupBy = () => {
     return (
       <EuiPopover
@@ -207,7 +210,7 @@ const EvaluationsView = () => {
             setYGroupBySelected(changedOption)
           }}
           singleSelection='always'
-          listProps={{ css: { '.euiSelectableList__list': { maxBlockSize: 250 }}}}
+          listProps={{ css: { '.euiSelectableList__list': { maxBlockSize: 250 } } }}
         >
           {(list, search) => (
             <div style={{ width: 250 }}>
@@ -244,7 +247,7 @@ const EvaluationsView = () => {
             setYSortBySelected(changedOption)
           }}
           singleSelection='always'
-          listProps={{ css: { '.euiSelectableList__list': { maxBlockSize: 250 }}}}
+          listProps={{ css: { '.euiSelectableList__list': { maxBlockSize: 250 } } }}
         >
           {(list, search) => (
             <div style={{ width: 250 }}>
@@ -296,7 +299,24 @@ const EvaluationsView = () => {
     )
   }
 
-  return (
+  /**
+   * Button to open flyout to inspect runtime assets.
+   */
+  const buttonRuntime = (
+    <EuiButton
+      iconType='inspect'
+      onClick={() => setIsFlyoutRuntimeOpen(!isFlyoutRuntimeOpen)}>
+      View runtime assets
+    </EuiButton>
+  )
+
+  return (<>
+    {isFlyoutRuntimeOpen &&
+      <FlyoutRuntime
+        runtime={evaluation.runtime}
+        onClose={() => setIsFlyoutRuntimeOpen(false)}
+      />
+    }
     <Page title={
       <EuiSkeletonTitle isLoading={loadingEvaluation} size='l'>
         {!evaluation.results &&
@@ -306,25 +326,27 @@ const EvaluationsView = () => {
           <>{evaluationId}</>
         }
       </EuiSkeletonTitle>
-    }>
+    }
+      buttons={[buttonRuntime]}
+    >
 
       <EuiSpacer size='m' />
-      
+
       {/* Heatmap */}
       <EuiPanel hasBorder>
         <EuiSkeletonText lines={16} isLoading={loadingEvaluation}>
-          { evaluation.results &&
-          <>
-            {renderHeatmapControls()}
-            <EuiSpacer size='m' />
-            <EvaluationsHeatmap
-              evaluation={evaluation}
-              metric={metricSelected._id}
-              xGroupBy={xGroupBySelected._id}
-              yGroupBy={yGroupBySelected._id}
-              ySortBy={ySortBySelected._id}
-            />
-          </>
+          {evaluation.results &&
+            <>
+              {renderHeatmapControls()}
+              <EuiSpacer size='m' />
+              <EvaluationsHeatmap
+                evaluation={evaluation}
+                metric={metricSelected._id}
+                xGroupBy={xGroupBySelected._id}
+                yGroupBy={yGroupBySelected._id}
+                ySortBy={ySortBySelected._id}
+              />
+            </>
           }
         </EuiSkeletonText>
       </EuiPanel>
@@ -334,19 +356,19 @@ const EvaluationsView = () => {
       {/* Scatterplot */}
       <EuiPanel hasBorder>
         <EuiSkeletonText lines={16} isLoading={loadingEvaluation}>
-          { evaluation.results &&
-          <>
-            <EvaluationsScatterplot
-              evaluation={evaluation}
+          {evaluation.results &&
+            <>
+              <EvaluationsScatterplot
+                evaluation={evaluation}
               //groupBy={yGroupBySelected._id}
-            />
-          </>
+              />
+            </>
           }
         </EuiSkeletonText>
       </EuiPanel>
 
     </Page>
-  )
+  </>)
 }
 
 export default EvaluationsView

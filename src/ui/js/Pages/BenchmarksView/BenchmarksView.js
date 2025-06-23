@@ -182,6 +182,12 @@ const BenchmarksView = () => {
         render: (name, doc) => doc['@meta']?.last_updated ? utils.timeAgo(doc['@meta']?.last_updated) : '-'
       },
       {
+        field: 'took',
+        name: 'Duration',
+        sortable: true,
+        render: (name, doc) => doc.took ? utils.formatDuration(doc.took) : '-'
+      },
+      {
         name: 'Actions',
         actions: [
           {

@@ -72,7 +72,7 @@ const SideNav = () => {
           {
             name: 'Benchmarks',
             id: 'benchmarks',
-            icon: <EuiIcon color='subdued' type='visBarVerticalStacked' size='m' />,
+            icon: <EuiIcon color='subdued' type='stats' size='m' />,
             href: `#/projects/${project._id}/benchmarks`,
             isSelected: path.startsWith('/projects/:project_id/benchmarks'),
           }

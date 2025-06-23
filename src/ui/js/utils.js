@@ -134,6 +134,22 @@ utils.timeAgo = (timestamp) => {
 }
 
 /**
+ * Given a number of milliseconds, return a human readable format of that time.
+ */
+utils.formatDuration = (ms) => {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+
+  return (
+    (h ? `${h}h` : '') +
+    (m ? `${m}m` : '') +
+    (sec || (!h && !m) ? `${sec}s` : '')
+  )
+}
+
+/**
  * Given an Elasticsearch field type, return its corresponding EuiIcon type and color.
  */
 utils.iconTypeFromFieldType = (fieldType) => {
