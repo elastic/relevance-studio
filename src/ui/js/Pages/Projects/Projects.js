@@ -75,6 +75,7 @@ const Projects = () => {
             scenarios: agg.scenarios?.doc_count || 0,
             judgements: agg.judgements?.doc_count || 0,
             strategies: agg.strategies?.doc_count || 0,
+            benchmarks: agg.benchmarks?.doc_count || 0,
             evaluations: agg.evaluations?.doc_count || 0,
           }
         })
@@ -142,7 +143,7 @@ const Projects = () => {
         sortable: true,
         render: (name, doc) => (
           <EuiLink href={`#/projects/${doc._id}/benchmarks`}>
-            {projectsAggs[doc._id]?.evaluations.toLocaleString() || 0}
+            {projectsAggs[doc._id]?.benchmarks.toLocaleString() || 0}
           </EuiLink>
         ),
       },

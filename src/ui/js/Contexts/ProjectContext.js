@@ -230,7 +230,7 @@ export const ProjectProvider = ({ children }) => {
                 response.data.aggregations.counts.buckets.forEach(agg => {
                   aggs[agg.key] = {
                     ...aggs[agg.key] || {},
-                    evaluations: agg.evaluations?.doc_count || 0
+                    benchmarks: agg.benchmarks?.doc_count || 0
                   }
                 })
               }
