@@ -90,6 +90,12 @@ const TableRuntimeIndices = ({ items }) => {
       items={items}
       pagination={true}
       responsiveBreakpoint={false}
+      search={{
+        box: {
+          incremental: true,
+          schema: true,
+        }
+      }}
       sorting={{
         sort: {
           field: 'index',

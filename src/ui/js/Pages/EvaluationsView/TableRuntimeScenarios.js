@@ -113,6 +113,24 @@ const TableRuntimeScenarios = ({ items }) => {
       items={items}
       pagination={true}
       responsiveBreakpoint={false}
+      search={{
+        box: {
+          incremental: true,
+          schema: true,
+        },
+        filters: [
+          {
+            autoSortOptions: false,
+            field: 'tags',
+            multiSelect: 'or',
+            name: 'Tags',
+            options: Array.from(new Set(items.flatMap(({ tags }) => tags))).map(tag => ({
+              value: tag
+            })),
+            type: 'field_value_selection',
+          },
+        ]
+      }}
       sorting={{
         sort: {
           field: 'name',
