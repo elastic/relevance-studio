@@ -1,9 +1,16 @@
 services:
-  es-relevance-studio:
+  es-relevance-studio-server:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - 4096:4096
+    env_file:
+      - .env
+  es-relevance-studio-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "server.worker"]
     env_file:
       - .env
