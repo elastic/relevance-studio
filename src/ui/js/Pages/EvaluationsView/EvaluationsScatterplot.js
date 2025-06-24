@@ -189,6 +189,7 @@ const EvaluationsScatterplot = (props) => {
         position={Position.Bottom}
         showOverlappingTicks={true}
         showOverlappingLabels={true}
+        ticks={11}
         tickFormat={(d) => Number(d).toFixed(1)}
         tickValues={[...Array(11).keys()].map(i => i / 10)} // 0.0 to 1.0
         title='Recall'
@@ -198,6 +199,7 @@ const EvaluationsScatterplot = (props) => {
         position={Position.Left}
         showOverlappingTicks={true}
         showOverlappingLabels={true}
+        ticks={11}
         tickFormat={(d) => Number(d).toFixed(1)}
         tickValues={[...Array(11).keys()].map(i => i / 10)} // 0.0 to 1.0
         title='Precision'
