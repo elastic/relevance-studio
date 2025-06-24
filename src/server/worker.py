@@ -15,7 +15,9 @@ from .client import es
 # Parse environment variables
 load_dotenv()
 
-POLL_INTERVAL = 5
+CLEANUP_INTERVAL = 60
+CLEANUP_TIME_RANGE = "2h"
+EVALUATIONS_INTERVAL = 5
 
 logger = logging.getLogger('esrs.worker')
 formatter = logging.Formatter(
@@ -109,15 +111,26 @@ def run_loop():
     logger.info("Running worker...")
     
     # Jitter delay to prevent many workers from polling at the same time
-    time.sleep(random.uniform(0, POLL_INTERVAL))
+    time.sleep(random.uniform(0, EVALUATIONS_INTERVAL))
+    
+    # Track when the worker last cleaned up stale evaluations
+    time_last_cleanup = None
     
     # Start main loop
     while True:
+        
+        # Attempt to claim and run a pending evaluation
         evaluation = claim_next_evaluation()
         if evaluation:
             run_evaluation(evaluation)
         else:
-            time.sleep(POLL_INTERVAL)
+            time.sleep(EVALUATIONS_INTERVAL)
+            
+        # Periodically clean up stale evaluations
+        if not time_last_cleanup or time.time() - time_last_cleanup > CLEANUP_INTERVAL:
+            logger.info("Cleaning up any stale evaluations...")
+            api.evaluations.cleanup(CLEANUP_TIME_RANGE)
+            time_last_cleanup = time.time()
 
 if __name__ == "__main__":
     run_loop()

@@ -457,3 +457,26 @@ def delete(_id: str) -> Dict[str, Any]:
         refresh=True
     )
     return es_response
+
+def cleanup(time_ago: str = "2h") -> Dict[str, Any]:
+    """
+    Delete stale evaluations in Elasticsearch, which have had a status of
+    "running" for too long of a time.
+    """
+    body = {
+        "query": {
+            "bool": {
+                "must": [
+                    { "term": { "@meta.status": "running" }},
+                    { "range": { "@meta.started_at": { "lt": f"now-{time_ago}" }}}
+                ]
+            }
+        }
+    }
+    es_response = es("studio").options(ignore_status=404).delete_by_query(
+        index=INDEX_NAME,
+        body=body,
+        refresh=True
+    )
+    return es_response
+    
