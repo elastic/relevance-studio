@@ -49,8 +49,8 @@ const EvaluationsHeatmap = (props) => {
     })
   }
 
-  const runtimeScenario = (scenarioId) => evaluation.runtime?.scenarios[scenarioId]
-  const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]
+  const runtimeScenario = (scenarioId) => evaluation.runtime?.scenarios?.[scenarioId]
+  const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies?.[strategyId]
 
   /**
    * Create chart data from evaluation results.
@@ -85,42 +85,51 @@ const EvaluationsHeatmap = (props) => {
      */
     const groups = {}
     evaluation.results.forEach((result) => {
+      let yKeys = []
       switch (yGroupBy) {
         case 'strategy_id':
+          yKeys = [result.strategy_id]
           if (!groups[result.strategy_id])
             groups[result.strategy_id] = {}
           break
         case 'strategy_tag':
-          runtimeStrategy(result.strategy_id).tags.forEach((tag) => {
+          yKeys = runtimeStrategy(result.strategy_id).tags
+          yKeys.forEach((tag) => {
             if (!groups[tag])
               groups[tag] = {}
           })
           break
         default:
           console.warn(`Not implemented: ${yGroupBy}`)
-          break
+          return
       }
-      for (var yKey in groups) {
-        result.searches.forEach((search) => {
-          switch (xGroupBy) {
-            case 'scenario_id':
-              if (!groups[yKey][search.scenario_id])
-                groups[yKey][search.scenario_id] = []
-              break
-            case 'scenario_tag':
-              runtimeScenario(search.scenario_id).tags.forEach((tag) => {
+      result.searches.forEach((search) => {
+        switch (xGroupBy) {
+          case 'scenario_id': {
+            const xKey = search.scenario_id
+            yKeys.forEach(yKey => {
+              if (!groups[yKey][xKey])
+                groups[yKey][xKey] = []
+              groups[yKey][xKey].push(search.metrics[metric])
+            })
+            break
+          }
+          case 'scenario_tag': {
+            const tags = runtimeScenario(search.scenario_id).tags
+            yKeys.forEach(yKey => {
+              tags.forEach(tag => {
                 if (!groups[yKey][tag])
                   groups[yKey][tag] = []
+                groups[yKey][tag].push(search.metrics[metric])
               })
-              break
-            default:
-              console.warn(`Not implemented: ${yGroupBy}`)
-              break
+            })
+            break
           }
-          for (var xKey in groups[yKey])
-            groups[yKey][xKey].push(search.metrics[metric])
-        })
-      }
+          default:
+            console.warn(`Not implemented: ${xGroupBy}`)
+            return
+        }
+      })
     })
 
     // Aggregate the metrics, and create a total _avg column
@@ -144,6 +153,7 @@ const EvaluationsHeatmap = (props) => {
       yRow.unshift({ x: '_avg', y, value: yAvg }) // _avg always comes first
       groupsData.push(...yRow)
     }
+    console.warn(groupsData)
 
     // Y axis order
     const yOrder = avgRows

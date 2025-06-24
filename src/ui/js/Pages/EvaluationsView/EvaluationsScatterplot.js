@@ -33,7 +33,7 @@ const EvaluationsScatterplot = (props) => {
 
   const evaluation = props.evaluation
   const groupBy = props.groupBy || 'strategy_id'
-  
+
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [data, setData] = useState([])
@@ -68,28 +68,31 @@ const EvaluationsScatterplot = (props) => {
      */
     const groups = {}
     evaluation.results.forEach((result) => {
+      let keys = []
       switch (groupBy) {
         case 'strategy_id':
+          keys = [result.strategy_id]
           if (!groups[result.strategy_id])
             groups[result.strategy_id] = { precision: [], recall: [], ndcg: [] }
           break
         case 'strategy_tag':
-          runtimeStrategy(result.strategy_id).tags.forEach((tag) => {
+          keys = runtimeStrategy(result.strategy_id).tags
+          keys.forEach((tag) => {
             if (!groups[tag])
               groups[tag] = { precision: [], recall: [], ndcg: [] }
           })
           break
         default:
           console.warn(`Not implemented: ${groupBy}`)
-          break
+          return
       }
-      for (const key in groups) {
-        result.searches.forEach((search) => {
+      result.searches.forEach((search) => {
+        keys.forEach((key) => {
           groups[key].precision.push(search.metrics.precision)
           groups[key].recall.push(search.metrics.recall)
           groups[key].ndcg.push(search.metrics.ndcg)
         })
-      }
+      })
     })
 
     // Aggregate the metrics
@@ -135,8 +138,8 @@ const EvaluationsScatterplot = (props) => {
   return (
     <Chart size={[400, 400]}>
       <Settings
-        onBrushEnd={(e)=> console.log(e)}
-        onElementClick={(e)=> console.log(e)}
+        onBrushEnd={(e) => console.log(e)}
+        onElementClick={(e) => console.log(e)}
         pointBuffer={(r) => 20 / r}
         theme={merge({}, darkMode ? DARK_THEME : LIGHT_THEME, baseTheme)}
         xDomain={{ min: 0, max: 1 }}
@@ -147,7 +150,7 @@ const EvaluationsScatterplot = (props) => {
         type={TooltipType.Follow}
         customTooltip={(d) => {
           const items = []
-          const header = [ 'Strategy', 'Precision', 'Recall', 'NDCG' ]
+          const header = ['Strategy', 'Precision', 'Recall', 'NDCG']
           header.forEach((value, i) => {
             items.push(
               <EuiFlexItem grow={false} key={i}>
@@ -160,7 +163,7 @@ const EvaluationsScatterplot = (props) => {
           d.values.forEach((value, i) => {
             if (!value.isHighlighted)
               return
-            const keys = [ 'label', 'precision', 'recall', 'ndcg' ]
+            const keys = ['label', 'precision', 'recall', 'ndcg']
             keys.forEach((key, i) => {
               const v = value.datum[key]
               items.push(
