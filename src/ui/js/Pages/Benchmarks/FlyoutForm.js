@@ -27,6 +27,7 @@ import {
   EuiTextArea,
   EuiTitle,
 } from '@elastic/eui'
+import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
 import api from '../../api'
 
@@ -34,6 +35,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
+  const { darkMode } = useAppContext()
   const {
     project,
     isProjectReady,
@@ -839,7 +841,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
           </EuiFlexItem>
 
           {/* Preview */}
-          <EuiFlexItem grow={5} style={{ borderLeft: '1px solid rgb(211, 218, 230)' }}>
+          <EuiFlexItem grow={5} style={{ borderLeft: darkMode ? '1px solid rgb(0, 0, 0)' : '1px solid rgb(211, 218, 230)' }}>
             <EuiPanel color='transparent' paddingSize='l'>
               <EuiTitle>
                 <EuiText>

@@ -39,13 +39,21 @@ def search(index_patterns: str, body: Dict[str, Any]) -> Dict[str, Any]:
     )
     return es_response
 
+def get(index_patterns: str) -> Dict[str, Any]:
+    """
+    Given a comma-separated string of index patterns for the content deployment,
+    return the matching indices with their settings and mappings.
+    """
+    response = es("content").options(ignore_status=404).indices.get(index=index_patterns)
+    if response.get("status") == 404:
+        return {}
+    return response.body
+
 def mappings_browse(index_patterns: str) -> Dict[str, Any]:
     """
     Given a comma-separated string of index patterns for the content deployment,
     return the matching indices with their fields and types in a flat structure.
     """
-    
-    # Get matching indices and their mappings
     response = es("content").options(ignore_status=404).indices.get_mapping(index=index_patterns)
     if response.get("status") == 404:
         return {}
@@ -65,7 +73,7 @@ def make_index_relevance_fingerprints(index_pattern: str) -> Dict[str, Any]:
     
     {
         INDEX_NAME: {
-            "fingerprint": STRING,
+            "_fingerprint": STRING,
             "shards": [
                 {
                     "id": SHARD_ID,
@@ -82,7 +90,7 @@ def make_index_relevance_fingerprints(index_pattern: str) -> Dict[str, Any]:
      
     {
         "products-2025": {
-            "fingerprint": "c1d9b14ae26538325d2bb56471497844",
+            "_fingerprint": "c1d9b14ae26538325d2bb56471497844",
             "shards": [
                 { "id": 0, "max_seq_no": 111 },
                 { "id": 1, "max_seq_no": 112 }
@@ -90,7 +98,7 @@ def make_index_relevance_fingerprints(index_pattern: str) -> Dict[str, Any]:
             "uuid": "abc123..."
         },
         "products-2024": {
-            "fingerprint": "03f758f51a1bae0ce87125ea295785a4",
+            "_fingerprint": "03f758f51a1bae0ce87125ea295785a4",
             "shards": [
                 { "id": 0, "max_seq_no": 301 }
             ],
@@ -100,13 +108,13 @@ def make_index_relevance_fingerprints(index_pattern: str) -> Dict[str, Any]:
     """
     
     # Create a fingerprint for each index in the given index pattern
-    settings = es("content").indices.get_settings(index=index_pattern)
+    indices = get(index_pattern)
     stats = es("content").indices.stats(index=index_pattern, level="shards")
-    fingerprints = {}
-    for index_name in settings.keys():
+    result = {}
+    for index_name in indices.keys():
         if index_name not in stats["indices"]:
             continue
-        index_uuid = settings[index_name]["settings"]["index"]["uuid"]
+        index_uuid = indices[index_name]["settings"]["index"]["uuid"]
 
         # Collect and deduplicate max_seq_no by shard
         shard_seq_nos = []
@@ -120,20 +128,22 @@ def make_index_relevance_fingerprints(index_pattern: str) -> Dict[str, Any]:
         for shard_id, seq_no in shard_seq_nos:
             shard_maxes[shard_id] = max(seq_no, shard_maxes.get(shard_id, -1))
 
-        # Prepare the data for hashing
+        # Prepare the data for hashing, ensuring that shards are sorted by id
+        # for deterministic hashing.
         shard_list = [
             {"id": shard_id, "max_seq_no": seq_no}
             for shard_id, seq_no in sorted(shard_maxes.items())
         ]
-        fingerprint_obj = {
-            "index": index_name,
-            "uuid": index_uuid,
+        result[index_name] = {
+            "_index": index_name,
+            "_fingerprint": utils.fingerprint({
+                "index": index_name,
+                "uuid": index_uuid,
+                "shards": shard_list
+            }),
+            "aliases": indices[index_name].get("aliases") or {},
+            "settings": indices[index_name].get("settings") or {},
+            "mappings": indices[index_name].get("mappings") or {},
             "shards": shard_list
         }
-
-        # Include the digest in the result
-        fingerprints[index_name] = {
-            **fingerprint_obj,
-            "fingerprint": utils.fingerprint(fingerprint_obj)
-        }
-    return fingerprints
+    return result

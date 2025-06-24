@@ -180,31 +180,31 @@ const Scenarios = () => {
     </EuiButton>
   )
 
-  return (<>
-    {modalDelete &&
-      <ModalDelete
-        description={
-          !!scenariosAggs[modalDelete._id]?.judgements &&
-          <EuiText>
-            This will delete {scenariosAggs[modalDelete._id]?.judgements == 1 ? ' ' : 'all '}{scenariosAggs[modalDelete._id]?.judgements} judgement{scenariosAggs[modalDelete._id]?.judgements == 1 ? '' : 's'} related to this scenario.
-          </EuiText>
-        }
-        doc={modalDelete}
-        docType='scenario'
-        isLoading={isProcessingScenario}
-        onClose={() => setModalDelete(null)}
-        onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete scenario` }))}
-        onDelete={async () => await deleteScenario(modalDelete._id)}
-      />
-    }
-    {flyout &&
-      <FlyoutForm
-        action={flyout === true ? 'create' : 'update'}
-        doc={flyout}
-        onClose={() => setFlyout(null)}
-      />
-    }
+  return (
     <Page title='Scenarios' buttons={[buttonCreate]}>
+      {modalDelete &&
+        <ModalDelete
+          description={
+            !!scenariosAggs[modalDelete._id]?.judgements &&
+            <EuiText>
+              This will delete {scenariosAggs[modalDelete._id]?.judgements == 1 ? ' ' : 'all '}{scenariosAggs[modalDelete._id]?.judgements} judgement{scenariosAggs[modalDelete._id]?.judgements == 1 ? '' : 's'} related to this scenario.
+            </EuiText>
+          }
+          doc={modalDelete}
+          docType='scenario'
+          isLoading={isProcessingScenario}
+          onClose={() => setModalDelete(null)}
+          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete scenario` }))}
+          onDelete={async () => await deleteScenario(modalDelete._id)}
+        />
+      }
+      {flyout &&
+        <FlyoutForm
+          action={flyout === true ? 'create' : 'update'}
+          doc={flyout}
+          onClose={() => setFlyout(null)}
+        />
+      }
       <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
         {!scenarios &&
           <EuiCallOut
@@ -240,7 +240,7 @@ const Scenarios = () => {
         }
       </EuiSkeletonText>
     </Page>
-  </>)
+  )
 }
 
 export default Scenarios

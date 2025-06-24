@@ -2,10 +2,13 @@ import React, { useState } from 'react'
 import {
   EuiBadge,
   EuiButtonIcon,
+  EuiCode,
   EuiCodeBlock,
+  EuiIcon,
   EuiInMemoryTable,
   EuiPanel,
   EuiScreenReaderOnly,
+  EuiToolTip,
 } from '@elastic/eui'
 
 const TableRuntimeStrategies = ({ items }) => {
@@ -27,7 +30,7 @@ const TableRuntimeStrategies = ({ items }) => {
           isCopyable
           language='json'
           paddingSize='m'
-          overflowHeight={300}
+          overflowHeight={400}
           style={{ width: '100%' }}
         >
           {JSON.stringify(item, null, 2)}
@@ -84,6 +87,22 @@ const TableRuntimeStrategies = ({ items }) => {
         return tags
       },
     },
+    {
+      field: '_fingerprint',
+      style: { width: '275px' },
+      name: <>
+        <EuiToolTip content='A hash of the strategy template. If this fingerprint changes between evaluations, it can affect relevance metrics in subsequent evaluations.'>
+          <span>
+            Fingerprint <EuiIcon type='question' />
+          </span>
+        </EuiToolTip>
+      </>,
+      render: (name, item) => (
+        <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
+          {item._fingerprint}
+        </EuiCode>
+      )
+    }
   ]
 
   return (

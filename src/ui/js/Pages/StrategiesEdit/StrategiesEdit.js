@@ -177,7 +177,7 @@ const StrategiesEdit = () => {
     </EuiButton>
   )
 
-  return (<>
+  return (
     <Page title={
       <EuiSkeletonTitle isLoading={loadingStrategy} size='l'>
         {!strategy.name &&
@@ -252,7 +252,7 @@ const StrategiesEdit = () => {
 
       </EuiFlexGroup>
     </Page >
-  </>)
+  )
 }
 
 export default StrategiesEdit

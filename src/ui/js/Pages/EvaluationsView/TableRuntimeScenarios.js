@@ -2,10 +2,13 @@ import React, { useState } from 'react'
 import {
   EuiBadge,
   EuiButtonIcon,
+  EuiCode,
   EuiCodeBlock,
+  EuiIcon,
   EuiInMemoryTable,
   EuiPanel,
   EuiScreenReaderOnly,
+  EuiToolTip,
 } from '@elastic/eui'
 
 const TableRuntimeScenarios = ({ items }) => {
@@ -102,6 +105,22 @@ const TableRuntimeScenarios = ({ items }) => {
           )
         return tags
       },
+    },
+    {
+      field: '_fingerprint',
+      style: { width: '275px' },
+      name: <>
+        <EuiToolTip content='A hash of the scenario values. If this fingerprint changes between evaluations, it can affect relevance metrics in subsequent evaluations.'>
+          <span>
+            Fingerprint <EuiIcon type='question' />
+          </span>
+        </EuiToolTip>
+      </>,
+      render: (name, item) => (
+        <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
+          {item._fingerprint}
+        </EuiCode>
+      )
     }
   ]
 

@@ -137,10 +137,10 @@ const BenchmarksView = () => {
         field: '_id',
         name: 'Evaluation',
         sortable: true,
-        style: { width: '325px' },
+        style: { width: '300px' },
         render: (name, doc) => (
           <EuiLink href={`#/projects/${project._id}/benchmarks/${benchmarkId}/evaluations/${doc._id}`}>
-            <EuiCode transparentBackground style={{ color: 'inherit', fontWeight: 'normal' }}>
+            <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
               {doc._id}
             </EuiCode>
           </EuiLink>
@@ -266,35 +266,7 @@ const BenchmarksView = () => {
     </EuiButton>
   )
 
-  return (<>
-    {modalDelete &&
-      <ModalDelete
-        doc={modalDelete}
-        docType='evaluation'
-        isLoading={isProcessingEvaluation}
-        onClose={() => setModalDelete(null)}
-        onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete evaluation` }))}
-        onDelete={async () => {
-          console.debug(`Deleting evaluation for project: ${project._id}`)
-          let response
-          try {
-            setIsProcessingEvaluation(true)
-            response = await api.evaluations_delete(project._id, benchmarkId, modalDelete._id)
-          } catch (err) {
-            return addToast(api.errorToast(err, { title: `Failed to delete evaluation` }))
-          } finally {
-            setIsProcessingEvaluation(false)
-          }
-          // Handle API response
-          if (response.status > 299)
-            return addToast(utils.toastClientResponse(response))
-          addToast(utils.toastDocCreateUpdateDelete('delete', 'evaluation', modalDelete._id, modalDelete))
-
-          // Reload table
-          loadAssets({ evaluations: benchmarkId })
-        }}
-      />
-    }
+  return (
     <Page title={
       <EuiSkeletonTitle isLoading={isLoadingBenchmarks} size='l'>
         {!benchmarks?.[benchmarkId] &&
@@ -307,6 +279,34 @@ const BenchmarksView = () => {
     }
       buttons={[buttonRun]}
     >
+      {modalDelete &&
+        <ModalDelete
+          doc={modalDelete}
+          docType='evaluation'
+          isLoading={isProcessingEvaluation}
+          onClose={() => setModalDelete(null)}
+          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete evaluation` }))}
+          onDelete={async () => {
+            console.debug(`Deleting evaluation for project: ${project._id}`)
+            let response
+            try {
+              setIsProcessingEvaluation(true)
+              response = await api.evaluations_delete(project._id, benchmarkId, modalDelete._id)
+            } catch (err) {
+              return addToast(api.errorToast(err, { title: `Failed to delete evaluation` }))
+            } finally {
+              setIsProcessingEvaluation(false)
+            }
+            // Handle API response
+            if (response.status > 299)
+              return addToast(utils.toastClientResponse(response))
+            addToast(utils.toastDocCreateUpdateDelete('delete', 'evaluation', modalDelete._id, modalDelete))
+
+            // Reload table
+            loadAssets({ evaluations: benchmarkId })
+          }}
+        />
+      }
       <EuiSkeletonText isLoading={!evaluations} lines={10}>
         {!evaluations &&
           <EuiCallOut
@@ -343,7 +343,7 @@ const BenchmarksView = () => {
         }
       </EuiSkeletonText>
     </Page>
-  </>)
+  )
 }
 
 export default BenchmarksView

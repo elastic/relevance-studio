@@ -217,74 +217,74 @@ const Projects = () => {
     </EuiButton>
   )
 
-  return (<>
-    {modalDelete &&
-      <ModalDelete
-        description={
-          !!Object.keys((projectsAggs[modalDelete._id]) || {}).length &&
-          <EuiText>
-            <p>This will delete all assets related to this project:</p>
-            <ul>
-              {!!projectsAggs[modalDelete._id]?.displays &&
-                <li>{projectsAggs[modalDelete._id]?.displays || 0} display{projectsAggs[modalDelete._id]?.displays == 1 ? '' : 's'}</li>
-              }
-              {!!projectsAggs[modalDelete._id]?.scenarios &&
-                <li>{projectsAggs[modalDelete._id]?.scenarios || 0} scenario{projectsAggs[modalDelete._id]?.scenarios == 1 ? '' : 's'}</li>
-              }
-              {!!projectsAggs[modalDelete._id]?.judgements &&
-                <li>{projectsAggs[modalDelete._id]?.judgements || 0} judgement{projectsAggs[modalDelete._id]?.judgements == 1 ? '' : 's'}</li>
-              }
-              {!!projectsAggs[modalDelete._id]?.strategies &&
-                <li>{projectsAggs[modalDelete._id]?.strategies || 0} {projectsAggs[modalDelete._id]?.strategies == 1 ? 'strategy' : 'strategies'}</li>
-              }
-              {!!projectsAggs[modalDelete._id]?.evaluations &&
-                <li>{projectsAggs[modalDelete._id]?.evaluations || 0} evaluation{projectsAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'}</li>
-              }
-            </ul>
-          </EuiText>
-        }
-        doc={modalDelete}
-        docType='project'
-        isLoading={isLoadingProject}
-        onClose={() => setModalDelete(null)}
-        onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete project` }))}
-        onDelete={async () => {
-          setIsLoadingProject(true)
-          try {
-            await api.projects_delete(modalDelete._id)
-          } finally {
-            setIsLoadingProject(false)
-          }
-        }}
-        onDeleted={(doc) => {
-          setProjects(prev => {
-            const { [doc._id]: _, ...rest } = prev
-            return rest
-          })
-          setProjectsAggs(prev => {
-            const { [doc._id]: _, ...rest } = prev
-            return rest
-          })
-          setModalDelete(null)
-        }}
-      />
-    }
-    {flyout &&
-      <FlyoutForm
-        action={flyout === true ? 'create' : 'update'}
-        doc={flyout}
-        onClose={() => setFlyout(null)}
-        onCreated={(newDoc) => {
-          // Redirect to displays
-          window.location.href = `/#/projects/${newDoc._id}/displays`
-        }}
-        onUpdated={(newDoc) => {
-          // Update doc in table
-          setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
-        }}
-      />
-    }
+  return (
     <Page title='Projects' buttons={[buttonCreate]}>
+      {modalDelete &&
+        <ModalDelete
+          description={
+            !!Object.keys((projectsAggs[modalDelete._id]) || {}).length &&
+            <EuiText>
+              <p>This will delete all assets related to this project:</p>
+              <ul>
+                {!!projectsAggs[modalDelete._id]?.displays &&
+                  <li>{projectsAggs[modalDelete._id]?.displays || 0} display{projectsAggs[modalDelete._id]?.displays == 1 ? '' : 's'}</li>
+                }
+                {!!projectsAggs[modalDelete._id]?.scenarios &&
+                  <li>{projectsAggs[modalDelete._id]?.scenarios || 0} scenario{projectsAggs[modalDelete._id]?.scenarios == 1 ? '' : 's'}</li>
+                }
+                {!!projectsAggs[modalDelete._id]?.judgements &&
+                  <li>{projectsAggs[modalDelete._id]?.judgements || 0} judgement{projectsAggs[modalDelete._id]?.judgements == 1 ? '' : 's'}</li>
+                }
+                {!!projectsAggs[modalDelete._id]?.strategies &&
+                  <li>{projectsAggs[modalDelete._id]?.strategies || 0} {projectsAggs[modalDelete._id]?.strategies == 1 ? 'strategy' : 'strategies'}</li>
+                }
+                {!!projectsAggs[modalDelete._id]?.evaluations &&
+                  <li>{projectsAggs[modalDelete._id]?.evaluations || 0} evaluation{projectsAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'}</li>
+                }
+              </ul>
+            </EuiText>
+          }
+          doc={modalDelete}
+          docType='project'
+          isLoading={isLoadingProject}
+          onClose={() => setModalDelete(null)}
+          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete project` }))}
+          onDelete={async () => {
+            setIsLoadingProject(true)
+            try {
+              await api.projects_delete(modalDelete._id)
+            } finally {
+              setIsLoadingProject(false)
+            }
+          }}
+          onDeleted={(doc) => {
+            setProjects(prev => {
+              const { [doc._id]: _, ...rest } = prev
+              return rest
+            })
+            setProjectsAggs(prev => {
+              const { [doc._id]: _, ...rest } = prev
+              return rest
+            })
+            setModalDelete(null)
+          }}
+        />
+      }
+      {flyout &&
+        <FlyoutForm
+          action={flyout === true ? 'create' : 'update'}
+          doc={flyout}
+          onClose={() => setFlyout(null)}
+          onCreated={(newDoc) => {
+            // Redirect to displays
+            window.location.href = `/#/projects/${newDoc._id}/displays`
+          }}
+          onUpdated={(newDoc) => {
+            // Update doc in table
+            setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
+          }}
+        />
+      }
       <EuiSkeletonText lines={10} isLoading={isLoadingProjects}>
         {!projectsList.length &&
           <EuiCallOut
@@ -319,7 +319,7 @@ const Projects = () => {
         }
       </EuiSkeletonText>
     </Page>
-  </>)
+  )
 }
 
 export default Projects

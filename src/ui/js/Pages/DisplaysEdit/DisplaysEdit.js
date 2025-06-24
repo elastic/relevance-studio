@@ -250,7 +250,7 @@ const DisplaysEdit = () => {
     return false
   }
 
-  return (<>
+  return (
     <Page title={
       <EuiSkeletonTitle isLoading={!isProjectReady || isLoadingDisplay} size='l'>
         {!display &&
@@ -445,7 +445,7 @@ const DisplaysEdit = () => {
         </EuiFlexItem>
       </EuiFlexGroup>
     </Page>
-  </>)
+  )
 }
 
 export default DisplaysEdit

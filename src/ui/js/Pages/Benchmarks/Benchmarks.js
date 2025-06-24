@@ -108,39 +108,39 @@ const Benchmarks = () => {
     </EuiButton>
   )
 
-  return (<>
-    {modalDelete &&
-      <ModalDelete
-        description={
-          !!benchmarksAggs[modalDelete._id]?.evaluations &&
-          <EuiText>
-            This will delete {benchmarksAggs[modalDelete._id]?.evaluations == 1 ? ' ' : 'all '}{benchmarksAggs[modalDelete._id]?.evaluations} evaluation{benchmarksAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'} related to this benchmark.
-          </EuiText>
-        }
-        doc={modalDelete}
-        docType='benchmark'
-        isLoading={isProcessingBenchmark}
-        onClose={() => setModalDelete(null)}
-        onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete benchmark` }))}
-        onDelete={async () => await deleteBenchmark(modalDelete._id)}
-      />
-    }
-    {flyout &&
-      <FlyoutForm
-        action={flyout === true ? 'create' : 'update'}
-        doc={flyout}
-        onClose={() => setFlyout(null)}
-        onCreated={(newDoc) => {
-          // Add doc to table
-          setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
-        }}
-        onUpdated={(newDoc) => {
-          // Update doc in table
-          setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
-        }}
-      />
-    }
+  return (
     <Page title='Benchmarks' buttons={[buttonCreate]}>
+      {modalDelete &&
+        <ModalDelete
+          description={
+            !!benchmarksAggs[modalDelete._id]?.evaluations &&
+            <EuiText>
+              This will delete {benchmarksAggs[modalDelete._id]?.evaluations == 1 ? ' ' : 'all '}{benchmarksAggs[modalDelete._id]?.evaluations} evaluation{benchmarksAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'} related to this benchmark.
+            </EuiText>
+          }
+          doc={modalDelete}
+          docType='benchmark'
+          isLoading={isProcessingBenchmark}
+          onClose={() => setModalDelete(null)}
+          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete benchmark` }))}
+          onDelete={async () => await deleteBenchmark(modalDelete._id)}
+        />
+      }
+      {flyout &&
+        <FlyoutForm
+          action={flyout === true ? 'create' : 'update'}
+          doc={flyout}
+          onClose={() => setFlyout(null)}
+          onCreated={(newDoc) => {
+            // Add doc to table
+            setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
+          }}
+          onUpdated={(newDoc) => {
+            // Update doc in table
+            setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
+          }}
+        />
+      }
       <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
         {!benchmarks &&
           <EuiCallOut
@@ -171,7 +171,7 @@ const Benchmarks = () => {
         }
       </EuiSkeletonText>
     </Page>
-  </>)
+  )
 }
 
 export default Benchmarks

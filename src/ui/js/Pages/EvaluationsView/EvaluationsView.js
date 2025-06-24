@@ -310,13 +310,7 @@ const EvaluationsView = () => {
     </EuiButton>
   )
 
-  return (<>
-    {isFlyoutRuntimeOpen &&
-      <FlyoutRuntime
-        runtime={evaluation.runtime}
-        onClose={() => setIsFlyoutRuntimeOpen(false)}
-      />
-    }
+  return (
     <Page title={
       <EuiSkeletonTitle isLoading={loadingEvaluation} size='l'>
         {!evaluation.results &&
@@ -329,7 +323,12 @@ const EvaluationsView = () => {
     }
       buttons={[buttonRuntime]}
     >
-
+      {isFlyoutRuntimeOpen &&
+        <FlyoutRuntime
+          runtime={evaluation.runtime}
+          onClose={() => setIsFlyoutRuntimeOpen(false)}
+        />
+      }
       <EuiSpacer size='m' />
 
       {/* Heatmap */}
@@ -368,7 +367,7 @@ const EvaluationsView = () => {
       </EuiPanel>
 
     </Page>
-  </>)
+  )
 }
 
 export default EvaluationsView

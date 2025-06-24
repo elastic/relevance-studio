@@ -115,7 +115,7 @@ def run(
                 "template": hit["_source"]["template"]
             })
             evaluation["runtime"]["strategies"][hit["_id"]] = {
-                "_version": hit["_version"],
+                "_fingerprint": utils.fingerprint([ hit["_source"]["template"] ]),
                 "name": hit["_source"]["name"],
                 "params": hit["_source"]["params"],
                 "tags": hit["_source"]["tags"],
@@ -148,7 +148,7 @@ def run(
                 "rating": hit["_source"]["rating"],
             })
             evaluation["runtime"]["judgements"][hit["_id"]] = {
-                "_version": hit["_version"],
+                "_fingerprint": utils.fingerprint([ hit["_id"], hit["_source"]["rating"] ]),
                 "@timestamp": hit["_source"]["@timestamp"],
                 "@author": hit["_source"]["@author"],
                 "scenario_id": hit["_source"]["scenario_id"],
@@ -181,7 +181,7 @@ def run(
         for hit in es_response.body["hits"]["hits"]:
             scenarios[hit["_id"]] = hit["_source"]["values"]
             evaluation["runtime"]["scenarios"][hit["_id"]] = {
-                "_version": hit["_version"],
+                "_fingerprint": utils.fingerprint([ hit["_source"]["values"] ]),
                 "name": hit["_source"]["name"],
                 "params": hit["_source"]["params"],
                 "values": hit["_source"]["values"],

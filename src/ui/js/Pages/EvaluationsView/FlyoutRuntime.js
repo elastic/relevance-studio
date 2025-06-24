@@ -64,7 +64,7 @@ const FlyoutRuntime = ({ runtime, onClose }) => {
   }
 
   return (
-    <EuiFlyout hideCloseButton onClose={onClose} ownFocus size='m'>
+    <EuiFlyout hideCloseButton onClose={onClose} ownFocus size='l'>
       <EuiFlyoutHeader>
         <EuiTitle size='m'>
           <h2>Runtime assets</h2>

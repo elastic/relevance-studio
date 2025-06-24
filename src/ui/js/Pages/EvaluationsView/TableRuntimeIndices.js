@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import {
   EuiButtonIcon,
+  EuiCode,
   EuiCodeBlock,
   EuiIcon,
   EuiInMemoryTable,
@@ -30,7 +31,7 @@ const TableRuntimeIndices = ({ items }) => {
           isCopyable
           language='json'
           paddingSize='m'
-          overflowHeight={300}
+          overflowHeight={400}
           style={{ width: '100%' }}
         >
           {JSON.stringify(_item, null, 2)}
@@ -66,19 +67,30 @@ const TableRuntimeIndices = ({ items }) => {
       },
     },
     {
-      field: 'index',
+      field: '_index',
       name: 'Index',
       sortable: true,
       truncateText: true,
-      render: (name, item) => item.index
+      render: (name, item) => item._index
     },
     {
-      field: 'uuid',
+      field: 'settings.index.creation_date',
+      name: 'Created',
+      render: (name, item) => item.settings?.index?.creation_date ? new Date(Number(item.settings?.index?.creation_date)).toISOString() : ''
+    },
+    {
+      field: 'settings.index.uuid',
       name: 'UUID',
-      render: (name, item) => item.uuid
+      style: { width: '200px' },
+      render: (name, item) => (
+        <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
+          {item.settings?.index?.uuid}
+        </EuiCode>
+      )
     },
     {
-      field: 'fingerprint',
+      field: '_fingerprint',
+      style: { width: '275px' },
       name: <>
         <EuiToolTip content='A hash of the index UUID and the max_seq_no of its shards. If this fingerprint changes between evaluations, it means the index executed write operations, which can affect relevance metrics in subsequent evaluations.'>
           <span>
@@ -86,7 +98,11 @@ const TableRuntimeIndices = ({ items }) => {
           </span>
         </EuiToolTip>
       </>,
-      render: (name, item) => item.fingerprint
+      render: (name, item) => (
+        <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
+          {item._fingerprint}
+        </EuiCode>
+      )
     }
   ]
 
@@ -106,7 +122,7 @@ const TableRuntimeIndices = ({ items }) => {
       }}
       sorting={{
         sort: {
-          field: 'index',
+          field: '_index',
           direction: 'asc',
         }
       }}

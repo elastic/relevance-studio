@@ -406,7 +406,7 @@ const Judgements = () => {
     return grid
   }
 
-  return (<>
+  return (
     <Page title='Judgements'>
       <EuiFlexGroup gutterSize='m' alignItems='flexStart'>
         <EuiFlexItem grow>
@@ -555,7 +555,7 @@ const Judgements = () => {
         </EuiFlexItem>
       </EuiFlexGroup>
     </Page>
-  </>)
+  )
 }
 
 export default Judgements

@@ -132,7 +132,7 @@ const Displays = () => {
         <EuiForm component='form' id='create-update'>
           <EuiFormRow label='Index Pattern' helpText={<>
             <p>
-              An <a href='https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-multiple-data-streams-indices' target='_blank'>index pattern</a> whose documents will render with this display.<br/>It must be a subset of this project's index pattern.
+              An <a href='https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-multiple-data-streams-indices' target='_blank'>index pattern</a> whose documents will render with this display.<br />It must be a subset of this project's index pattern.
             </p>
             <br />
             <p>
@@ -259,19 +259,19 @@ const Displays = () => {
     </EuiButton>
   )
 
-  return (<>
-    {(modalCreate || modalUpdate) && renderModalCreateUpdate()}
-    {modalDelete &&
-      <ModalDelete
-        doc={modalDelete}
-        docType='display'
-        isLoading={isProcessingDisplay}
-        onClose={() => setModalDelete(null)}
-        onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete display` }))}
-        onDelete={async () => await deleteDisplay(modalDelete._id)}
-      />
-    }
+  return (
     <Page title='Displays' buttons={[buttonCreate]}>
+      {(modalCreate || modalUpdate) && renderModalCreateUpdate()}
+      {modalDelete &&
+        <ModalDelete
+          doc={modalDelete}
+          docType='display'
+          isLoading={isProcessingDisplay}
+          onClose={() => setModalDelete(null)}
+          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete display` }))}
+          onDelete={async () => await deleteDisplay(modalDelete._id)}
+        />
+      }
       <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
         {!displays &&
           <EuiCallOut
@@ -302,7 +302,7 @@ const Displays = () => {
         }
       </EuiSkeletonText>
     </Page>
-  </>)
+  )
 }
 
 export default Displays

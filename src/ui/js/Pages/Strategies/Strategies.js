@@ -64,7 +64,7 @@ const Strategies = () => {
    * object: open modal to update a given doc (object)
    */
   const [modalUpdate, setModalUpdate] = useState(null)
-  
+
   /**
    * null:   close modal
    * object: open modal to delete a given doc (object)
@@ -251,19 +251,19 @@ const Strategies = () => {
     </EuiButton>
   )
 
-  return (<>
-    {(modalCreate || modalUpdate) && renderModalCreateUpdate()}
-    {modalDelete &&
-      <ModalDelete
-        doc={modalDelete}
-        docType='strategy'
-        isLoading={isProcessingStrategy}
-        onClose={() => setModalDelete(null)}
-        onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete strategy` }))}
-        onDelete={async () => await deleteStrategy(modalDelete._id)}
-      />
-    }
+  return (
     <Page title='Strategies' buttons={[buttonCreate]}>
+      {(modalCreate || modalUpdate) && renderModalCreateUpdate()}
+      {modalDelete &&
+        <ModalDelete
+          doc={modalDelete}
+          docType='strategy'
+          isLoading={isProcessingStrategy}
+          onClose={() => setModalDelete(null)}
+          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete strategy` }))}
+          onDelete={async () => await deleteStrategy(modalDelete._id)}
+        />
+      }
       <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
         {!strategies &&
           <EuiCallOut
@@ -294,7 +294,7 @@ const Strategies = () => {
         }
       </EuiSkeletonText>
     </Page>
-  </>)
+  )
 }
 
 export default Strategies
