@@ -9,6 +9,7 @@ import {
   EuiSkeletonText,
   EuiSkeletonTitle,
   EuiSpacer,
+  EuiSwitch,
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
@@ -26,31 +27,46 @@ const BenchmarksView = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { addToast } = useAppContext()
+  const { addToast, autoRefresh, setAutoRefresh } = useAppContext()
   const {
     project,
     isProjectReady,
     loadAssets,
+    isLoadingBenchmarks,
     benchmarks,
     evaluations,
     createEvaluation,
-    deleteEvaluation
+    deleteEvaluation,
+    setEvaluations,
   } = useProjectContext()
 
   /**
    * Load (or reload) any needed assets when project is ready.
+   * Enable or disable auto-refresh.
    */
   useEffect(() => {
-    if (isProjectReady)
+    if (isProjectReady && benchmarkId)
       loadAssets({ benchmarks: benchmarkId, evaluations: benchmarkId })
-  }, [project?._id])
+  }, [project?._id, benchmarkId])
+
+  /**
+   * Enable or disable auto-refresh.
+   */
+  useEffect(() => {
+    if (!isProjectReady || !benchmarkId || !autoRefresh)
+      return
+    const interval = setInterval(() => {
+      loadAssets({ evaluations: benchmarkId })
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [project?._id, benchmarkId, autoRefresh])
 
   /**
    * Evaluations as an array for the table component.
    * Add additional fields for the table.
    */
   const evaluationsList = Object.values(evaluations) || []
-  const dateFields = [ 'created_at', 'started_at', 'stopped_at' ]
+  const dateFields = ['created_at', 'started_at', 'stopped_at']
   for (const e in evaluationsList) {
     const lastUpdated = new Date(Math.max(
       ...dateFields
@@ -99,6 +115,9 @@ const BenchmarksView = () => {
           color: 'success',
           iconType: 'check'
         })
+
+        // Reload table
+        loadAssets({ evaluations: benchmarkId })
 
       } finally {
         setIsProcessingEvaluation(false)
@@ -157,11 +176,20 @@ const BenchmarksView = () => {
               </EuiBadge>
             )
           if (doc['@meta']?.status == 'running')
-            return (
-              <EuiBadge color='primary'>
-                Running
-              </EuiBadge>
-            )
+            // Evaluations are "stale" if they are running for more than 2 hours
+            if (Date.now() - new Date(doc['@meta']?.started_at).getTime() > 2 * 60 * 60 * 1000) {
+              return (
+                <EuiBadge color='accent'>
+                  Stale
+                </EuiBadge>
+              )
+            } else {
+              return (
+                <EuiBadge color='primary'>
+                  Running
+                </EuiBadge>
+              )
+            }
           if (doc['@meta']?.status == 'pending')
             return (
               <EuiBadge color='text'>
@@ -204,6 +232,19 @@ const BenchmarksView = () => {
   }, [evaluations])
 
   /**
+   * Button that toggles automatically refreshing tables.
+   */
+  const buttonAutoRefresh = (
+    <EuiSwitch
+      checked={autoRefresh}
+      compressed
+      label='Auto-refresh'
+      onClick={() => setAutoRefresh(!autoRefresh)}
+      style={{ align: 'right' }}
+    />
+  )
+
+  /**
    * Button that queues an evaluation to be run.
    */
   const buttonRun = (
@@ -228,7 +269,7 @@ const BenchmarksView = () => {
       />
     }
     <Page title={
-      <EuiSkeletonTitle isLoading={!isProjectReady} size='l'>
+      <EuiSkeletonTitle isLoading={isLoadingBenchmarks} size='l'>
         {!benchmarks?.[benchmarkId] &&
           <>Not found</>
         }
@@ -239,7 +280,7 @@ const BenchmarksView = () => {
     }
       buttons={[buttonRun]}
     >
-      <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
+      <EuiSkeletonText isLoading={!evaluations} lines={10}>
         {!evaluations &&
           <EuiCallOut
             color='primary'
@@ -253,19 +294,25 @@ const BenchmarksView = () => {
           </EuiCallOut>
         }
         {!!evaluations &&
-          <EuiInMemoryTable
-            columns={columns}
-            items={evaluationsList}
-            pagination={true}
-            responsiveBreakpoint={false}
-            sorting={{
-              sort: {
-                field: '@meta.last_updated',
-                direction: 'desc',
-              }
-            }}
-            tableLayout='auto'
-          />
+          <>
+            <div style={{ textAlign: 'right' }}>
+              {buttonAutoRefresh}
+            </div>
+            <EuiSpacer size='l' />
+            <EuiInMemoryTable
+              columns={columns}
+              items={evaluationsList}
+              pagination={true}
+              responsiveBreakpoint={false}
+              sorting={{
+                sort: {
+                  field: '@meta.last_updated',
+                  direction: 'desc',
+                }
+              }}
+              tableLayout='auto'
+            />
+          </>
         }
       </EuiSkeletonText>
     </Page>

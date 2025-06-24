@@ -18,12 +18,16 @@ export const AppProvider = ({ children }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
+  // Local storage state
+  const [autoRefresh, setAutoRefresh] = useState(() => {
+    const val = localStorage.getItem('autoRefresh')
+    return val === null ? true : val === 'true' // defaults to true
+  })
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true' // defaults to false
   })
   const [toasts, setToasts] = useState([])
-
-  // Store darkMode in local storage
+  useEffect(() => localStorage.setItem('autoRefresh', autoRefresh), [autoRefresh])
   useEffect(() => localStorage.setItem('darkMode', darkMode), [darkMode])
 
   // Toasts
@@ -43,9 +47,11 @@ export const AppProvider = ({ children }) => {
 
   const value = useMemo(() => ({
     addToast,
+    autoRefresh,
     darkMode,
+    setAutoRefresh,
     setDarkMode,
-  }), [toasts, darkMode])
+  }), [toasts, darkMode, autoRefresh])
 
   return (
     <AppContext.Provider value={value}>
