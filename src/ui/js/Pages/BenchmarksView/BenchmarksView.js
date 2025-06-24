@@ -4,6 +4,7 @@ import {
   EuiBadge,
   EuiButton,
   EuiCallOut,
+  EuiCode,
   EuiInMemoryTable,
   EuiLink,
   EuiSkeletonText,
@@ -35,9 +36,6 @@ const BenchmarksView = () => {
     isLoadingBenchmarks,
     benchmarks,
     evaluations,
-    createEvaluation,
-    deleteEvaluation,
-    setEvaluations,
   } = useProjectContext()
 
   /**
@@ -89,7 +87,6 @@ const BenchmarksView = () => {
     e.preventDefault();
     (async () => {
       try {
-        setIsProcessingEvaluation(true)
         let response
         try {
           setIsProcessingEvaluation(true)
@@ -111,9 +108,16 @@ const BenchmarksView = () => {
           return addToast(utils.toastClientResponse(response))
 
         addToast({
-          title: 'Queued evaluation',
+          title: 'Queued valuation',
           color: 'success',
-          iconType: 'check'
+          iconType: 'check',
+          text: (
+            <EuiText size='xs'>
+              <EuiText color='subdued' size='xs'>
+                <small>{response.data._id}</small>
+              </EuiText>
+            </EuiText>
+          )
         })
 
         // Reload table
@@ -131,31 +135,22 @@ const BenchmarksView = () => {
     return [
       {
         field: '_id',
-        name: 'Evaluation ID',
+        name: 'Evaluation',
         sortable: true,
-        truncateText: true,
+        style: { width: '325px' },
         render: (name, doc) => (
           <EuiLink href={`#/projects/${project._id}/benchmarks/${benchmarkId}/evaluations/${doc._id}`}>
-            {doc._id}
+            <EuiCode transparentBackground style={{ color: 'inherit', fontWeight: 'normal' }}>
+              {doc._id}
+            </EuiCode>
           </EuiLink>
         )
-      },
-      {
-        field: 'num_strategies',
-        name: 'Strategies',
-        sortable: true,
-        render: (name, doc) => doc.strategy_id?.length || '-'
-      },
-      {
-        field: 'num_scenarios',
-        name: 'Scenarios',
-        sortable: true,
-        render: (name, doc) => doc.scenario_id?.length || '-'
       },
       {
         field: '@meta.status',
         name: 'Status',
         sortable: true,
+        style: { width: '120px' },
         render: (name, doc) => {
           if (doc['@meta']?.status == 'completed')
             return (
@@ -207,13 +202,27 @@ const BenchmarksView = () => {
         field: '@meta.last_updated',
         name: 'Updated',
         sortable: true,
+        style: { width: '150px' },
         render: (name, doc) => doc['@meta']?.last_updated ? utils.timeAgo(doc['@meta']?.last_updated) : '-'
       },
       {
         field: 'took',
         name: 'Duration',
         sortable: true,
+        style: { width: '100px' },
         render: (name, doc) => doc.took ? utils.formatDuration(doc.took) : '-'
+      },
+      {
+        field: 'num_strategies',
+        name: 'Strategies',
+        sortable: true,
+        render: (name, doc) => doc.strategy_id?.length || '-'
+      },
+      {
+        field: 'num_scenarios',
+        name: 'Scenarios',
+        sortable: true,
+        render: (name, doc) => doc.scenario_id?.length || '-'
       },
       {
         name: 'Actions',
@@ -265,7 +274,25 @@ const BenchmarksView = () => {
         isLoading={isProcessingEvaluation}
         onClose={() => setModalDelete(null)}
         onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete evaluation` }))}
-        onDelete={async () => await deleteEvaluation(modalDelete._id)}
+        onDelete={async () => {
+          console.debug(`Deleting evaluation for project: ${project._id}`)
+          let response
+          try {
+            setIsProcessingEvaluation(true)
+            response = await api.evaluations_delete(project._id, benchmarkId, modalDelete._id)
+          } catch (err) {
+            return addToast(api.errorToast(err, { title: `Failed to delete evaluation` }))
+          } finally {
+            setIsProcessingEvaluation(false)
+          }
+          // Handle API response
+          if (response.status > 299)
+            return addToast(utils.toastClientResponse(response))
+          addToast(utils.toastDocCreateUpdateDelete('delete', 'evaluation', modalDelete._id, modalDelete))
+
+          // Reload table
+          loadAssets({ evaluations: benchmarkId })
+        }}
       />
     }
     <Page title={
