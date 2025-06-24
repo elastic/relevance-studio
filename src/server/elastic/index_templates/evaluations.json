@@ -178,7 +178,7 @@
           }
         },
         "took": {
-          "type": "short"
+          "type": "integer"
         }
       }
     }

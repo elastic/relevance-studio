@@ -13,7 +13,7 @@ import { euiPaletteForStatus } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import utils from '../../utils'
 
-const EvaluationsHeatmap = (props) => {
+const ChartMetricsHeatmap = (props) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -153,7 +153,6 @@ const EvaluationsHeatmap = (props) => {
       yRow.unshift({ x: '_avg', y, value: yAvg }) // _avg always comes first
       groupsData.push(...yRow)
     }
-    console.warn(groupsData)
 
     // Y axis order
     const yOrder = avgRows
@@ -268,4 +267,4 @@ const EvaluationsHeatmap = (props) => {
   )
 }
 
-export default EvaluationsHeatmap
+export default ChartMetricsHeatmap

@@ -6,6 +6,7 @@ import {
   EuiFilterGroup,
   EuiFlexGroup,
   EuiFlexItem,
+  EuiHorizontalRule,
   EuiFormRow,
   EuiPanel,
   EuiPopover,
@@ -13,14 +14,16 @@ import {
   EuiSkeletonText,
   EuiSkeletonTitle,
   EuiSpacer,
+  EuiTitle,
 } from '@elastic/eui'
-import EvaluationsHeatmap from './EvaluationsHeatmap'
 import api from '../../api'
 import { Page } from '../../Layout'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
 import FlyoutRuntime from './FlyoutRuntime'
-import EvaluationsScatterplot from './EvaluationsScatterplot'
+import ChartMetricsScatterplot from './ChartMetricsScatterplot'
+import ChartMetricsHeatmap from './ChartMetricsHeatmap'
+import TableMetrics from './TableMetrics'
 
 const EvaluationsView = () => {
 
@@ -38,6 +41,7 @@ const EvaluationsView = () => {
 
   const [evaluation, setEvaluation] = useState({})
   const [evaluationId, setEvaluationId] = useState(null)
+  const [strategyInFocus, setStrategyInFocus] = useState(null)
   const [isFlyoutRuntimeOpen, setIsFlyoutRuntimeOpen] = useState(false)
   const [loadingEvaluation, setLoadingEvaluation] = useState(true)
   const [metricOpen, setMetricOpen] = useState(false)
@@ -331,41 +335,63 @@ const EvaluationsView = () => {
       }
       <EuiSpacer size='m' />
 
-      {/* Heatmap */}
-      <EuiPanel hasBorder>
-        <EuiSkeletonText lines={16} isLoading={loadingEvaluation}>
-          {evaluation.results &&
-            <>
-              {renderHeatmapControls()}
-              <EuiSpacer size='m' />
-              <EvaluationsHeatmap
-                evaluation={evaluation}
-                metric={metricSelected._id}
-                xGroupBy={xGroupBySelected._id}
-                yGroupBy={yGroupBySelected._id}
-                ySortBy={ySortBySelected._id}
-              />
-            </>
-          }
-        </EuiSkeletonText>
-      </EuiPanel>
+      {/* Metrics */}
+      <EuiPanel hasBorder paddingSize='none'>
+        <EuiPanel color='transparent'>
+          <EuiTitle size='s'>
+            <h2>Summary</h2>
+          </EuiTitle>
+        </EuiPanel>
+        <EuiHorizontalRule margin='none' />
+        <EuiPanel color='transparent'>
+          <EuiSkeletonText lines={16} isLoading={loadingEvaluation}>
+            {evaluation.results &&
+              <EuiFlexGroup>
 
+                {/* Table */}
+                <EuiFlexItem>
+                  <TableMetrics evaluation={evaluation} rowOnHover={setStrategyInFocus} />
+                </EuiFlexItem>
+
+                {/* Scatterplot */}
+                <EuiFlexItem grow={false}>
+                  <EuiPanel color='subdued'>
+                    <ChartMetricsScatterplot evaluation={evaluation} strategyInFocus={strategyInFocus} />
+                  </EuiPanel>
+                </EuiFlexItem>
+              </EuiFlexGroup>
+            }
+          </EuiSkeletonText>
+        </EuiPanel>
+      </EuiPanel>
       <EuiSpacer size='m' />
 
-      {/* Scatterplot */}
-      <EuiPanel hasBorder>
-        <EuiSkeletonText lines={16} isLoading={loadingEvaluation}>
-          {evaluation.results &&
-            <>
-              <EvaluationsScatterplot
-                evaluation={evaluation}
-              //groupBy={yGroupBySelected._id}
-              />
-            </>
-          }
-        </EuiSkeletonText>
+      {/* Heatmap */}
+      <EuiPanel hasBorder paddingSize='none'>
+        <EuiPanel color='transparent'>
+          <EuiTitle size='s'>
+            <h2>Strategies by scenario</h2>
+          </EuiTitle>
+        </EuiPanel>
+        <EuiHorizontalRule margin='none' />
+        <EuiPanel color='transparent'>
+          <EuiSkeletonText lines={16} isLoading={loadingEvaluation}>
+            {evaluation.results &&
+              <>
+                {renderHeatmapControls()}
+                <EuiSpacer size='m' />
+                <ChartMetricsHeatmap
+                  evaluation={evaluation}
+                  metric={metricSelected._id}
+                  xGroupBy={xGroupBySelected._id}
+                  yGroupBy={yGroupBySelected._id}
+                  ySortBy={ySortBySelected._id}
+                />
+              </>
+            }
+          </EuiSkeletonText>
+        </EuiPanel>
       </EuiPanel>
-
     </Page>
   )
 }

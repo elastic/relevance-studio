@@ -273,6 +273,7 @@ const Judgements = () => {
       singleSelection
       searchable
       searchProps={{
+        autoFocus: true,
         value: scenarioSearchString,
         isClearable: false,
         isLoading: loadingScenarios,

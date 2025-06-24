@@ -23,16 +23,11 @@ import {
 import { useAppContext } from '../../Contexts/AppContext'
 import utils from '../../utils'
 
-const EvaluationsScatterplot = (props) => {
+const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategyInFocus }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { darkMode } = useAppContext()
-
-  ////  Props  /////////////////////////////////////////////////////////////////
-
-  const evaluation = props.evaluation
-  const groupBy = props.groupBy || 'strategy_id'
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -122,6 +117,9 @@ const EvaluationsScatterplot = (props) => {
 
   const baseTheme = {
     axes: {
+      axisTitle: {
+        fontWeight: 500,
+      },
       gridLine: {
         horizontal: { visible: true },
         vertical: { visible: true },
@@ -129,93 +127,103 @@ const EvaluationsScatterplot = (props) => {
     },
     bubbleSeriesStyle: {
       point: {
-        opacity: 0.6
+        fill: darkMode ? '#A6EDEA' : '#16C5C0',
+        strokeWidth: 0
       },
     },
     markSizeRatio: 20,
   }
 
   return (
-    <Chart size={[400, 400]}>
-      <Settings
-        onBrushEnd={(e) => console.log(e)}
-        onElementClick={(e) => console.log(e)}
-        pointBuffer={(r) => 20 / r}
-        theme={merge({}, darkMode ? DARK_THEME : LIGHT_THEME, baseTheme)}
-        xDomain={{ min: 0, max: 1 }}
-        yDomain={{ min: 0, max: 1 }}
-      />
-      <Tooltip
-        snap={false}
-        type={TooltipType.Follow}
-        customTooltip={(d) => {
-          const items = []
-          const header = ['Strategy', 'Precision', 'Recall', 'NDCG']
-          header.forEach((value, i) => {
-            items.push(
-              <EuiFlexItem grow={false} key={i}>
-                <EuiText size='xs'>
-                  <b><small>{value}</small></b>
-                </EuiText>
-              </EuiFlexItem>
-            )
-          })
-          d.values.forEach((value, i) => {
-            if (!value.isHighlighted)
-              return
-            const keys = ['label', 'precision', 'recall', 'ndcg']
-            keys.forEach((key, i) => {
-              const v = value.datum[key]
+    <EuiPanel hasBorder={false} hasShadow={false} paddingSize='s'>
+      <Chart size={[350, 350]}>
+        <Settings
+          onBrushEnd={(e) => console.log(e)}
+          onElementClick={(e) => console.log(e)}
+          pointBuffer={(r) => 20 / r}
+          theme={merge({}, darkMode ? DARK_THEME : LIGHT_THEME, baseTheme)}
+          xDomain={{ min: 0, max: 1 }}
+          yDomain={{ min: 0, max: 1 }}
+        />
+        <Tooltip
+          snap={false}
+          type={TooltipType.Follow}
+          customTooltip={(d) => {
+            const items = []
+            const header = ['Strategy', 'Precision', 'Recall', 'NDCG']
+            header.forEach((value, i) => {
               items.push(
-                <EuiFlexItem>
+                <EuiFlexItem grow={false} key={i}>
                   <EuiText size='xs'>
-                    {key == 'label' ? runtimeStrategy(v).name : v.toFixed(4)}
+                    <b><small>{value}</small></b>
                   </EuiText>
                 </EuiFlexItem>
               )
             })
-          })
-          return (
-            <EuiPanel paddingSize='s'>
-              <EuiFlexGrid columns={4}>
-                {items}
-              </EuiFlexGrid>
-            </EuiPanel>
-          )
-        }}
-      />
-      <Axis
-        id='x'
-        position={Position.Bottom}
-        showOverlappingTicks={true}
-        showOverlappingLabels={true}
-        ticks={11}
-        tickFormat={(d) => Number(d).toFixed(1)}
-        tickValues={[...Array(11).keys()].map(i => i / 10)} // 0.0 to 1.0
-        title='Recall'
-      />
-      <Axis
-        id='y'
-        position={Position.Left}
-        showOverlappingTicks={true}
-        showOverlappingLabels={true}
-        ticks={11}
-        tickFormat={(d) => Number(d).toFixed(1)}
-        tickValues={[...Array(11).keys()].map(i => i / 10)} // 0.0 to 1.0
-        title='Precision'
-      />
-      <BubbleSeries
-        id='scatter'
-        data={data}
-        markFormat={(d) => `NDCG: ${Number(d).toFixed(4)}`}
-        markSizeAccessor='ndcg'
-        xScaleType={ScaleType.Linear}
-        yScaleType={ScaleType.Linear}
-        xAccessor='recall'
-        yAccessors={['precision']}
-      />
-    </Chart>
+            d.values.forEach((value, i) => {
+              if (!value.isHighlighted)
+                return
+              const keys = ['label', 'precision', 'recall', 'ndcg']
+              keys.forEach((key, i) => {
+                const v = value.datum[key]
+                items.push(
+                  <EuiFlexItem>
+                    <EuiText size='xs'>
+                      {key == 'label' ? runtimeStrategy(v).name : v.toFixed(4)}
+                    </EuiText>
+                  </EuiFlexItem>
+                )
+              })
+            })
+            return (
+              <EuiPanel paddingSize='s'>
+                <EuiFlexGrid columns={4}>
+                  {items}
+                </EuiFlexGrid>
+              </EuiPanel>
+            )
+          }}
+        />
+        <Axis
+          id='x'
+          position={Position.Bottom}
+          showOverlappingTicks={true}
+          showOverlappingLabels={true}
+          ticks={11}
+          tickFormat={(d) => Number(d).toFixed(1)}
+          tickValues={[...Array(11).keys()].map(i => i / 10)} // 0.0 to 1.0
+          title='Recall'
+        />
+        <Axis
+          id='y'
+          position={Position.Left}
+          showOverlappingTicks={true}
+          showOverlappingLabels={true}
+          ticks={11}
+          tickFormat={(d) => Number(d).toFixed(1)}
+          tickValues={[...Array(11).keys()].map(i => i / 10)} // 0.0 to 1.0
+          title='Precision'
+        />
+        <BubbleSeries
+          id='scatter'
+          data={data}
+          markFormat={(d) => `NDCG: ${Number(d).toFixed(4)}`}
+          markSizeAccessor='ndcg'
+          pointStyleAccessor={(d) => {
+            if (!strategyInFocus)
+              return { opacity: 0.67 }
+            if (strategyInFocus == d.datum.label)
+              return { opacity: 1.0 }
+            return { opacity: 0.15 }
+          }}
+          xScaleType={ScaleType.Linear}
+          yScaleType={ScaleType.Linear}
+          xAccessor='recall'
+          yAccessors={['precision']}
+        />
+      </Chart>
+    </EuiPanel>
   )
 }
 
-export default EvaluationsScatterplot
+export default ChartMetricsScatterplot
