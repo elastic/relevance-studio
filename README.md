@@ -65,6 +65,16 @@ In a terminal, navigate to the root-level directory of this project and run:
 
 Repeat steps 1, 3, and 4 anytime you need to start the UI in a new terminal.
 
+**Step 5. Run an evaluation worker process**
+
+In a terminal, navigate to the root-level directory of this project and run:
+
+1. Run `conda create -n esrs python=3.10` to create a virtual environment
+2. Run `conda activate esrs` to activate the virtual environment
+3. Run `python -m src.server.worker` to run a worker process
+
+Repeat steps 2 and 3 anytime you need to start a worker in another terminal.
+
 ### Testing
 
 1. Run `pytest -x` to run tests for the server. The test script will run the server and a single-node Elasticsearch cluster in docker compose.
