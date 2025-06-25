@@ -10,7 +10,16 @@ import utils from '../../utils'
 
 const TableMetrics = ({ evaluation, rowOnHover }) => {
 
+  ////  State  /////////////////////////////////////////////////////////////////
+
   const [items, setItems] = useState([])
+  const [sort, setSort] = useState({
+    field: 'name',
+    direction: 'asc',
+  })
+
+
+  ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
    * Configure color bands
@@ -29,10 +38,9 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     return bands.find(b => value >= b.start && value < b.end)?.color || colors[colors.length - 1]
   }
 
-
-  ////  Render  ////////////////////////////////////////////////////////////////
-
   const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]
+
+  const sortPriority = ['ndcg', 'precision', 'recall']
 
   /**
    * Create chart data from evaluation results.
@@ -71,9 +79,26 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         row.metrics[metric] = utils.average(metricsAvg[metric])
       rows.push(row)
     }
-    console.warn(rows)
     setItems(rows)
+
+    // Sort by preferred metric, otherwise by strategy name.
+    // Only auto-apply sort if user hasn't changed it yet.
+    if (sort.field === 'name') {
+      for (const metric of sortPriority) {
+        if ((evaluation.task?.metrics || []).includes(metric)) {
+          setSort({
+            field: `metrics.${metric}`,
+            direction: 'desc',
+          });
+          break;
+        }
+      }
+    }
   }, [evaluation])
+
+
+
+  ////  Render  ////////////////////////////////////////////////////////////////
 
   const columns = [
     {
@@ -168,28 +193,15 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     })
   }
 
-  // Sort by preferred metric, otherwise by strategy name
-  let sort = {
-    field: 'name',
-    direction: 'asc',
-  }
-  const sortPriority = ['ndcg', 'precision', 'recall']
-  for (const i in sortPriority) {
-    if ((evaluation.task?.metrics || []).includes(sortPriority[i])) {
-      sort = {
-        field: `metrics.${sortPriority[i]}`,
-        direction: 'desc',
-      }
-      break
-    }
-  }
-
   return (
     <div class='evaluations-table-metrics' style={{ height: '390px', overflow: 'auto' }}>
       <EuiInMemoryTable
         columns={columns}
         itemId='strategy_id'
         items={items}
+        onTableChange={({ sort: newSort }) => {
+          if (newSort) setSort(newSort)
+        }}
         pagination={false}
         rowProps={(item) => ({
           onMouseEnter: () => rowOnHover(item.strategy_id),
