@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EuiBadge,
   EuiButton,
@@ -7,50 +7,28 @@ import {
   EuiForm,
   EuiFormRow,
   EuiIcon,
-  EuiInMemoryTable,
   EuiLink,
   EuiModal,
   EuiModalHeaderTitle,
   EuiModalBody,
   EuiModalFooter,
   EuiModalHeader,
-  EuiSkeletonText,
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import { ModalDelete, Page } from '../../Layout'
+import { useSearchHandler } from '../../Hooks'
+import { ModalDelete, Page, SearchTable } from '../../Layout'
 import api from '../../api'
+import utils from '../../utils'
 
 const Displays = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const {
-    project,
-    isProjectReady,
-    isProcessingDisplay,
-    loadAssets,
-    displays,
-    createDisplay,
-    updateDisplay,
-    deleteDisplay
-  } = useProjectContext()
-
-  /**
-   * Load (or reload) any needed assets when project is ready.
-   */
-  useEffect(() => {
-    if (isProjectReady)
-      loadAssets({ indices: true, displays: true })
-  }, [project?._id])
-
-  /**
-   * Displays as an array for the table component
-   */
-  const displaysList = Object.values(displays) || []
+  const { project, isProjectReady } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -71,27 +49,118 @@ const Displays = () => {
    */
   const [modalDelete, setModalDelete] = useState(null)
 
+  /**
+   * Whether a doc is being updated or deleted
+   */
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  /**
+   * Search state
+   */
+  const [hasEverSearched, setHasEverSearched] = useState(false)
+  const [isIndexEmpty, setIsIndexEmpty] = useState(null)
+  const [isSearchLoading, setIsSearchLoading] = useState(false)
+  const [searchDocs, setSearchDocs] = useState([])
+  const [searchPage, setSearchPage] = useState(1)
+  const [searchSize, setSearchSize] = useState(10)
+  const [searchSortField, setSearchSortField] = useState("index_pattern")
+  const [searchSortOrder, setSearchSortOrder] = useState("asc")
+  const [searchText, setSearchText] = useState("")
+  const [searchTotal, setSearchTotal] = useState(null)
+
+  ////  Effects  ///////////////////////////////////////////////////////////////
+
+  /**
+   * Automatically submit the search and return to page one either when the
+   * project is ready or when the user changes pagination settings.
+   */
+  useEffect(() => {
+    if (isProjectReady) {
+      onSubmitSearch()
+      setSearchPage(1)
+    }
+  }, [project?._id, searchSize, searchSortField, searchSortOrder])
+
+  /**
+   * Automatically submit the search when the user selects a different page in
+   * the search results.
+   */
+  useEffect(() => {
+    if (isProjectReady)
+      onSubmitSearch()
+  }, [searchPage])
+
+  /**
+   * Search handler
+   */
+  const onSubmitSearch = useSearchHandler({
+    searchFn: api.displays_search, // search displauy
+    projectId: project?._id,
+    searchText,
+    searchPage,
+    searchSize,
+    searchSortField,
+    searchSortOrder,
+    useAggs: false, // displays don't have aggs
+    setDocs: setSearchDocs,
+    setTotal: setSearchTotal,
+    setLoading: setIsSearchLoading,
+    setHasEverSearched: setHasEverSearched,
+    setIsIndexEmpty: setIsIndexEmpty,
+  })
+
   ////  Event handlers  ////////////////////////////////////////////////////////
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
+  const onSubmitModal = async (action, doc, _id) => {
+    let response
+    try {
+      setIsProcessing(true)
+      if (action == 'create')
+        response = await api.displays_create(project._id, doc)
+      else if (action == 'update')
+        response = await api.displays_update(project._id, _id, doc)
+      else if (action == 'delete')
+        response = await api.displays_delete(project._id, _id)
+    } catch (err) {
+      return addToast(api.errorToast(err, { title: `Failed to ${action} display` }))
+    } finally {
+      setIsProcessing(false)
+    }
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
+    addToast(utils.toastDocCreateUpdateDelete(action, 'display', _id || response.data._id))
+
     if (modalCreate) {
 
-      // Create display and redirect to its editor
-      const doc = { ...modalCreate }
-      doc.index_pattern = doc.index_pattern.trim()
-      const response = await createDisplay(doc)
+      // Redirect to display editor
       window.location.href = `/#/projects/${project._id}/displays/${response.data._id}`
       return setModalCreate(null)
     } else {
 
-      // Update display and close modal
-      const docUpdates = {
+      // Reload table and close modal
+      setModalUpdate(null)
+      onSubmitSearch()
+      setSearchPage(1)
+    }
+  }
+
+  const onSubmitModalCreateUpdate = async (e) => {
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
+
+    if (modalCreate) {
+      // Prepare doc
+      const doc = { ...modalCreate }
+      doc.index_pattern = doc.index_pattern.trim()
+      return await onSubmitModal('create', doc)
+
+    } else if (modalUpdate) {
+      // Prepare doc field updates
+      const doc = {
         index_pattern: modalUpdate.index_pattern.trim(),
         template: modalUpdate.template
       }
-      await updateDisplay(modalUpdate._id, docUpdates)
-      return setModalUpdate(null)
+      return await onSubmitModal('update', doc, modalUpdate._id)
     }
   }
 
@@ -113,10 +182,63 @@ const Displays = () => {
     )
   }
 
-  ////  Render  ////////////////////////////////////////////////////////////////
-
   const indexPatternInput = (modalCreate?.index_pattern || modalUpdate?.index_pattern) || ''
   const indexPatternInScope = project ? isIndexPatternInProjectScope(indexPatternInput, project.index_pattern) : false
+
+  ////  Render  ////////////////////////////////////////////////////////////////
+
+  const columns = [
+    {
+      field: 'index_pattern',
+      name: 'Index Pattern',
+      sortable: true,
+      truncateText: true,
+      render: (name, doc) => {
+        return <EuiLink href={`#/projects/${project._id}/displays/${doc._id}`}>
+          {doc.index_pattern}
+        </EuiLink>
+      }
+    },
+    {
+      field: 'fields',
+      width: '100px',
+      name: 'Fields',
+      render: (name, doc) => {
+        const fields = []
+        for (var i in doc.fields)
+          fields.push(
+            <EuiBadge color='hollow' key={doc.fields[i]}>
+              {doc.fields[i]}
+            </EuiBadge>
+          )
+        if (!fields.length)
+          return <EuiBadge color='warning' iconType='warningFilled' size='xs'>none</EuiBadge>
+        return fields
+      },
+    },
+    {
+      name: 'Actions',
+      width: '100px',
+      actions: [
+        {
+          color: 'text',
+          description: 'Update this display',
+          icon: 'documentEdit',
+          name: 'update',
+          onClick: (doc) => setModalUpdate(doc),
+          type: 'icon',
+        },
+        {
+          color: 'danger',
+          description: 'Delete this display',
+          icon: 'trash',
+          name: 'delete',
+          onClick: (doc) => setModalDelete(doc),
+          type: 'icon',
+        }
+      ],
+    }
+  ]
 
   /**
    * Modal to create or update a display.
@@ -172,18 +294,18 @@ const Displays = () => {
       </EuiModalBody>
       <EuiModalFooter>
         <EuiButton
-          disabled={isProcessingDisplay || !indexPatternInput.trim().length || !indexPatternInScope}
+          disabled={isProcessing || !indexPatternInput.trim().length || !indexPatternInScope}
           fill
           form='create-update'
-          isLoading={isProcessingDisplay}
-          onClick={onSubmit}
+          isLoading={isProcessing}
+          onClick={onSubmitModalCreateUpdate}
           type='submit'
         >
-          {modalCreate === true ? 'Create' : 'Update'}
+          {modalCreate ? 'Create' : 'Update'}
         </EuiButton>
         <EuiButton
           color='text'
-          disabled={isProcessingDisplay}
+          disabled={isProcessing}
           onClick={() => { setModalCreate(null); setModalUpdate(null) }}
         >
           Cancel
@@ -192,65 +314,22 @@ const Displays = () => {
     </EuiModal>
   )
 
-  ////  Render  ////////////////////////////////////////////////////////////////
-
-  const columns = useMemo(() => {
-    return [
-      {
-        field: 'name',
-        name: 'Index Pattern',
-        sortable: true,
-        truncateText: true,
-        render: (name, doc) => {
-          return <EuiLink href={`#/projects/${project._id}/displays/${doc._id}`}>
-            {doc.index_pattern}
-          </EuiLink>
-        }
-      },
-      {
-        field: 'fields',
-        name: 'Fields',
-        render: (name, doc) => {
-          const fields = []
-          for (var i in doc.fields)
-            fields.push(
-              <EuiBadge color='hollow' key={doc.fields[i]}>
-                {doc.fields[i]}
-              </EuiBadge>
-            )
-          if (!fields.length)
-            return <EuiBadge color='warning' iconType='warningFilled' size='xs'>none</EuiBadge>
-          return fields
-        },
-      },
-      {
-        name: 'Actions',
-        actions: [
-          {
-            color: 'text',
-            description: 'Update this display',
-            icon: 'documentEdit',
-            name: 'update',
-            onClick: (doc) => setModalUpdate(doc),
-            type: 'icon',
-          },
-          {
-            color: 'danger',
-            description: 'Delete this display',
-            icon: 'trash',
-            name: 'delete',
-            onClick: (doc) => setModalDelete(doc),
-            type: 'icon',
-          }
-        ],
-      }
-    ]
-  }, [displays])
+  const renderModalDelete = () => (
+    <ModalDelete
+      doc={modalDelete}
+      docType='display'
+      isProcessing={isProcessing}
+      onClose={() => setModalDelete(null)}
+      onDelete={async () => await api.displays_delete(project._id, modalDelete._id)}
+      onSuccess={onSubmitSearch}
+      setIsProcessing={setIsProcessing}
+    />
+  )
 
   /**
    * Button that opens the modal to create a display.
    */
-  const buttonCreate = (
+  const renderButtonCreate = () => (
     <EuiButton
       fill
       iconType='plusInCircle'
@@ -260,47 +339,49 @@ const Displays = () => {
   )
 
   return (
-    <Page title='Displays' buttons={[buttonCreate]}>
+    <Page title='Displays' buttons={[renderButtonCreate()]}>
       {(modalCreate || modalUpdate) && renderModalCreateUpdate()}
-      {modalDelete &&
-        <ModalDelete
-          doc={modalDelete}
-          docType='display'
-          isLoading={isProcessingDisplay}
-          onClose={() => setModalDelete(null)}
-          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete display` }))}
-          onDelete={async () => await deleteDisplay(modalDelete._id)}
-        />
+      {modalDelete && renderModalDelete()}
+      {hasEverSearched &&
+        <>
+          {isIndexEmpty &&
+            <EuiCallOut
+              color='primary'
+              title='Welcome!'
+            >
+              <EuiText>
+                Create your first display to get started.
+              </EuiText>
+              <EuiSpacer size='m' />
+              {renderButtonCreate()}
+            </EuiCallOut>
+          }
+          {isIndexEmpty === false &&
+            <SearchTable
+              docs={searchDocs}
+              total={searchTotal}
+              page={searchPage}
+              size={searchSize}
+              sortField={searchSortField}
+              sortOrder={searchSortOrder}
+              isLoading={isSearchLoading}
+              columns={columns}
+              searchText={searchText}
+              onChangeText={setSearchText}
+              onChangePage={setSearchPage}
+              onChangeSize={setSearchSize}
+              onChangeSort={(field, order) => {
+                setSearchSortField(field)
+                setSearchSortOrder(order)
+              }}
+              onSubmit={() => {
+                onSubmitSearch()
+                setSearchPage(1)
+              }}
+            />
+          }
+        </>
       }
-      <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
-        {!displays &&
-          <EuiCallOut
-            color='primary'
-            title='Welcome!'
-          >
-            <EuiText>
-              Create your first display to get started.
-            </EuiText>
-            <EuiSpacer size='m' />
-            {buttonCreate}
-          </EuiCallOut>
-        }
-        {!!displays &&
-          <EuiInMemoryTable
-            columns={columns}
-            items={displaysList}
-            pagination={true}
-            responsiveBreakpoint={false}
-            sorting={{
-              sort: {
-                field: 'name',
-                direction: 'asc',
-              }
-            }}
-            tableLayout='auto'
-          />
-        }
-      </EuiSkeletonText>
     </Page>
   )
 }

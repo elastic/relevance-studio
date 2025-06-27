@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   EuiCodeBlock,
   EuiFlexGroup,
@@ -41,7 +40,7 @@ const DocCard = ({ body, doc, imagePosition, imageUrl, ...props }) => {
 
   const renderImage = () => {
     const style = {
-      background: `url('${replaceMustacheVariables(imageUrl, doc)}')`,
+      backgroundImage: `url('${replaceMustacheVariables(imageUrl, doc)}')`,
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat',
       backgroundSize: 'contain',

@@ -1,4 +1,3 @@
-import React from 'react'
 import { AppProvider } from './Contexts/AppContext'
 import Routes from './Routes'
 

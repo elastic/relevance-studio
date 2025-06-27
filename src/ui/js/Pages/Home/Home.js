@@ -1,7 +1,4 @@
-import React from 'react'
-import {
-  EuiText,
-} from '@elastic/eui'
+import { EuiText } from '@elastic/eui'
 import { Page } from '../../Layout'
 
 const Home = () => {

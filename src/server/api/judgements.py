@@ -4,8 +4,10 @@ from typing import Any, Dict
 # App packages
 from .. import utils
 from ..client import es
+from ..models import JudgementModel
 
 INDEX_NAME = "esrs-judgements"
+SEARCH_FIELDS = utils.get_search_fields_from_mapping("judgements")
 
 def search(
         project_id: str,
@@ -14,7 +16,7 @@ def search(
         query_string: str = "*",
         filter: str = None, # options: "rated", "rated-ai", "rated-human", "unrated" (or omitted for no filter)
         sort: str = None, # options: "match", "rating-newest", "rating-oldest"
-        _source: Dict[str, Any] = True
+        _source: Dict[str, Any] = None
     ) -> Dict[str, Any]:
     """
     Get documents from the content deployment with ratings joined to them.
@@ -24,6 +26,7 @@ def search(
     # Get judgements for scenario
     judgements = {}
     body = {
+        "size": 10000,
         "query": {
             "bool": {
                 "filter": [
@@ -32,7 +35,11 @@ def search(
                 ]
             }
         },
-        "size": 10000
+        "_source": {
+            "excludes": [
+                "_search"
+            ]
+        }
     }
     if filter == "rated-human":
         body["query"]["bool"]["filter"].append({
@@ -50,19 +57,28 @@ def search(
         body["sort"] = [{
             "@timestamp": "asc"
         }]
-    es_response = es("studio").search(index="esrs-judgements", body=body)
-    for hit in es_response.body["hits"]["hits"]:
+    es_response = es("studio").options(ignore_status=404).search(index="esrs-judgements", body=body)
+    for hit in es_response.body.get("hits", {}).get("hits") or []:
         _index = hit["_source"]["index"]
         _id = hit["_source"]["doc_id"]
         if _index not in judgements:
             judgements[_index] = {}
         judgements[_index][_id] = {
+            "_id": hit["_id"],
             "@timestamp": hit["_source"].get("@timestamp"),
             "@author": hit["_source"].get("@author"),
             "rating": hit["_source"].get("rating")
         }
         
     # Search docs on the content deployment
+    # Exclude fields that exist only for searchability
+    body["_source"] = { "excludes": [ "_search" ]}
+    if _source:
+        if _source.get("includes"):
+            body["_source"]["includes"] = _source["includes"]
+        if _source.get("excludes"):
+            for field in _source["excludes"]:
+                body["_source"]["excludes"].append(field)
     body = {
         "size": 48,
         "query": {
@@ -105,6 +121,7 @@ def search(
     response["hits"] = es_response.body["hits"]
     for i, hit in enumerate(response["hits"]["hits"]):
         response["hits"]["hits"][i] = {
+            "_id": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("_id", None),
             "@timestamp": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("@timestamp", None),
             "@author": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("@author", None),
             "rating": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("rating", None),
@@ -116,50 +133,39 @@ def search(
         response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: hit.get("@timestamp") or fallback, reverse=reverse)
     return response
 
-def set(
-        project_id: str,
-        scenario_id: str,
-        index: str,
-        doc_id: str,
-        rating: int,
-        author: str = "human"
-    ) -> Dict[str, Any]:
+def set(doc: JudgementModel) -> Dict[str, Any]:
     """
     Create or update a judgement in Elasticsearch.
     
     Use a deterministic _id for UX efficiency, and to prevent the creation of
     duplicate judgements for the same scenario, index, and doc.
     """
-    doc = {
-        "@timestamp": utils.timestamp(),
-        "@author": author,
-        "project_id": project_id,
-        "scenario_id": scenario_id,
-        "index": index,
-        "doc_id": doc_id,
-        "rating": rating
-    }
+    # Always use the latest timestamp
+    doc = doc.model_copy(update={"timestamp_": utils.timestamp()})
+    # Copy searchable fields to _search
+    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
+    doc_dict = utils.remove_empty_values(doc_dict)
     es_response = es("studio").index(
         index=INDEX_NAME,
-        id=utils.unique_id([ project_id, scenario_id, index, doc_id ]),
-        document=doc,
+        id=utils.unique_id([
+            doc.project_id,
+            doc.scenario_id,
+            doc.index,
+            doc.doc_id
+        ]),
+        document=doc_dict,
         refresh=True
     )
     return es_response
 
-def unset(
-        project_id: str,
-        scenario_id: str,
-        index: str,
-        doc_id: str
-    ) -> Dict[str, Any]:
+def unset(_id: str) -> Dict[str, Any]:
     """
     Delete a judgement in Elasticsearch.
-    Use a deterministic _id for UX efficiency.
     """
     es_response = es("studio").delete(
         index=INDEX_NAME,
-        id=utils.unique_id([ project_id, scenario_id, index, doc_id ]),
+        id=_id,
         refresh=True
     )
     return es_response

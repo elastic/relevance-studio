@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
+  EuiButton,
   EuiButtonGroup,
   EuiFieldSearch,
   EuiFilterButton,
@@ -19,9 +20,10 @@ import {
   EuiText,
   EuiToolTip,
 } from '@elastic/eui'
+import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import { Page } from '../../Layout'
+import { Page, SearchCount } from '../../Layout'
 import JudgementsCard from './JudgementsCard'
 import api from '../../api'
 
@@ -84,11 +86,9 @@ const Judgements = () => {
       let response
       try {
         setLoadingDisplays(true)
-        response = await api.displays_browse(project._id)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to get displays'
-        }))
+        response = await api.displays_search(project._id, { text: '*' })
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to get displays' }))
       } finally {
         setLoadingDisplays(false)
       }
@@ -113,39 +113,23 @@ const Judgements = () => {
     })()
   }, [project])
 
-  /**
-   * Get scenarios for project
-   */
+  // Fetch immediately when opening the dropdown
   useEffect(() => {
-    if (!project?._id)
+    if (!project?._id || !scenariosOpen)
       return
-    (async () => {
+    onSearchScenarios(`*${scenarioSearchString}*`)
+  }, [project?._id, scenariosOpen])
 
-      // Submit API request
-      let response
-      try {
-        setLoadingScenarios(true)
-        response = await api.scenarios_browse(project._id)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to get scenarios'
-        }))
-      } finally {
-        setLoadingScenarios(false)
-      }
-
-      // Handle API response
-      const options = []
-      response.data.hits.hits.forEach((doc) => {
-        const option = { _id: doc._id, label: doc._source.name }
-        if (location.state?.query_on_load?.scenario_id == doc._id)
-          option.checked = 'on'
-        options.push(option)
-      })
-      setScenariosOptions(options)
-      setLoadingScenarios(false)
-    })()
-  }, [project])
+  // Fetch with debounce when typing
+  useEffect(() => {
+    if (!project?._id || !scenariosOpen)
+      return
+    const debounced = debounce(() => {
+      onSearchScenarios(`*${scenarioSearchString}*`)
+    }, 300)
+    debounced()
+    return () => debounced.cancel()
+  }, [scenarioSearchString])
 
   useEffect(() => {
     if (!project?._id || !scenariosOptions)
@@ -158,6 +142,10 @@ const Judgements = () => {
       }
     }
   }, [scenariosOptions])
+
+  useEffect(() => {
+    setScenariosOpen(true) // will trigger the fetch useEffect above
+  }, [])
 
   /**
    * Search on page load
@@ -174,6 +162,7 @@ const Judgements = () => {
     }
     setFiltersOptions(_filterOptions)
   }, [location])
+
 
   /**
    * Search when filters or sorts change
@@ -209,9 +198,31 @@ const Judgements = () => {
   }, [sortOptions])
 
   /**
+   * Search for scenarios
+   */
+  const onSearchScenarios = async (text) => {
+    try {
+      setLoadingScenarios(true)
+      const response = await api.scenarios_search(project._id, { text })
+      const options = response.data.hits.hits.map((doc) => ({
+        _id: doc._id,
+        label: doc._source.name,
+        checked: location.state?.query_on_load?.scenario_id === doc._id ? 'on' : undefined
+      }))
+      setScenariosOptions(options)
+    } catch (e) {
+      addToast(api.errorToast(e, { title: 'Failed to get scenarios' }))
+    } finally {
+      setLoadingScenarios(false)
+    }
+  }
+
+  /**
    * Handle search bar submission
    */
-  const onSearch = () => {
+  const onSearch = (e) => {
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
     (async () => {
 
       // Submit API request
@@ -229,10 +240,8 @@ const Judgements = () => {
       try {
         setLoadingResults(true)
         response = await api.judgements_search(project._id, scenario._id, body)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to search docs'
-        }))
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to search docs' }))
       } finally {
         setLoadingResults(false)
       }
@@ -262,8 +271,17 @@ const Judgements = () => {
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  const renderSelectScenarios = () => {
-    return <EuiSelectable
+  const renderSelectScenarios = () => (
+    <EuiSelectable
+      emptyMessage={
+        loadingScenarios || scenariosOptions.length === 0 && !scenarioSearchString
+          ? 'Loading scenarios...'
+          : 'No scenarios found'
+      }
+      isPreFiltered
+      listProps={{
+        css: { '.euiSelectableList__list': { maxBlockSize: 200 } },
+      }}
       options={scenariosOptions}
       onChange={(newOptions, event, changedOption) => {
         setScenariosOptions(newOptions)
@@ -274,24 +292,27 @@ const Judgements = () => {
       searchable
       searchProps={{
         autoFocus: true,
-        value: scenarioSearchString,
         isClearable: false,
         isLoading: loadingScenarios,
         onChange: (value) => {
           setScenarioSearchString(value)
-          setLoadingScenarios(true)
         },
         onKeyDown: (event) => {
           if (event.key === 'Tab') return setScenariosOpen(false)
           if (event.key !== 'Escape') return setScenariosOpen(true)
         },
-        onClick: () => setScenariosOpen(true),
-        onFocus: () => setScenariosOpen(true),
-        placeholder: loadingScenarios ? '' : 'Choose a scenario'
-      }}
-      isPreFiltered={loadingScenarios ? false : { highlightSearch: false }} // Shows the full list when not actively typing to search
-      listProps={{
-        css: { '.euiSelectableList__list': { maxBlockSize: 200 } },
+        onClick: () => {
+          if (scenarioSearchString.trim())
+            setScenariosOptions([])
+          setScenariosOpen(true)
+        },
+        onFocus: () => {
+          if (scenarioSearchString.trim())
+            setScenariosOptions([])
+          setScenariosOpen(true)
+        },
+        placeholder: loadingScenarios ? '' : 'Choose a scenario',
+        value: scenarioSearchString,
       }}
     >
       {(scenariosOptions, scenarioSearchString) => (
@@ -308,10 +329,10 @@ const Judgements = () => {
         </EuiInputPopover>
       )}
     </EuiSelectable>
-  }
+  )
 
-  const renderSelectFilters = () => {
-    return <EuiSelectable
+  const renderSelectFilters = () => (
+    <EuiSelectable
       options={filtersOptions}
       onChange={(newOptions, event, changedOption) => {
         setFiltersOptions(newOptions)
@@ -341,10 +362,10 @@ const Judgements = () => {
         </div>
       )}
     </EuiSelectable>
-  }
+  )
 
-  const renderSelectSort = () => {
-    return <EuiSelectable
+  const renderSelectSort = () => (
+    <EuiSelectable
       options={sortOptions}
       onChange={(newOptions, event, changedOption) => {
         setSortOptions(newOptions)
@@ -374,15 +395,15 @@ const Judgements = () => {
         </div>
       )}
     </EuiSelectable>
-  }
-
+  )
 
   const renderResults = () => {
     const cards = []
     results.forEach((result) => {
       cards.push(
         <JudgementsCard
-          key={result.doc._id}
+          key={`${result.doc._id}~${result.doc._id}`}
+          _id={result._id}
           doc={result.doc}
           project={project}
           scenario={scenario}
@@ -413,137 +434,152 @@ const Judgements = () => {
         <EuiFlexItem grow>
 
           {/* Top bar */}
-          <EuiFlexItem style={{
-            boxShadow: darkMode ? '0 10px 10px -10px rgba(0, 0, 0, 1)' : '0 10px 10px -10px rgba(0, 0, 0, 0.25)',
-            margin: '0 -20px 10px -20px',
-            padding: '0 20px',
-            position: 'sticky',
-            top: 0,
-            zIndex: 999
-          }}>
-            <EuiPanel
-              hasBorder={false}
-              hasShadow={false}
-              paddingSize='none'
-              style={{ borderRadius: 0 }}
-            >
-              <EuiSpacer size='s' />
-              <EuiFlexGroup gutterSize='s'>
+          <EuiForm component='form' onSubmit={onSearch}>
+            <EuiFlexItem style={{
+              boxShadow: darkMode ? '0 10px 10px -10px rgba(0, 0, 0, 1)' : '0 10px 10px -10px rgba(0, 0, 0, 0.25)',
+              margin: '0 -20px 10px -20px',
+              padding: '0 20px',
+              position: 'sticky',
+              top: 0,
+              zIndex: 999
+            }}>
+              <EuiPanel
+                hasBorder={false}
+                hasShadow={false}
+                paddingSize='none'
+                style={{ borderRadius: 0 }}
+              >
+                <EuiSpacer size='s' />
+                <EuiFlexGroup gutterSize='s'>
 
-                {/* Select scenario */}
-                <EuiFlexItem grow={2}>
-                  <EuiFormRow fullWidth label='Scenario'>
-                    {renderSelectScenarios()}
-                  </EuiFormRow>
-                </EuiFlexItem>
-
-                {/* Search */}
-                <EuiFlexItem grow={8}>
-                  {!!scenario &&
-                    <EuiFormRow fullWidth label='Search'>
-                      <EuiFlexGroup gutterSize='s'>
-
-                        {/* Search bar */}
-                        <EuiFlexItem grow={6}>
-                          <EuiFieldSearch
-                            fullWidth
-                            isLoading={loadingResults}
-                            placeholder="Find documents..."
-                            value={queryString}
-                            onChange={(e) => setQueryString(e.target.value)}
-                            onSearch={onSearch}
-                          />
-                        </EuiFlexItem>
-
-                        {/* Filter and sort */}
-                        <EuiFlexItem grow={4}>
-                          <EuiFilterGroup>
-
-                            {/* Filter */}
-                            <EuiPopover
-                              button={
-                                <EuiFilterButton
-                                  iconType='arrowDown'
-                                  onClick={(e) => setFiltersOpen(!filtersOpen)}
-                                  isSelected={filtersOpen}
-                                >
-                                  {filterSelected.label}
-                                </EuiFilterButton>
-                              }
-                              closePopover={(e) => setFiltersOpen(false)}
-                              isOpen={filtersOpen}
-                              panelPaddingSize='none'
-                              style={{ width: '50%' }}
-                            >
-                              {renderSelectFilters()}
-                            </EuiPopover>
-
-                            {/* Sort */}
-                            <EuiPopover
-                              button={
-                                <EuiFilterButton
-                                  iconType='arrowDown'
-                                  onClick={(e) => setSortOpen(!sortOpen)}
-                                  isSelected={sortOpen}
-                                >
-                                  {sortSelected.label}
-                                </EuiFilterButton>
-                              }
-                              closePopover={(e) => setSortOpen(false)}
-                              isOpen={sortOpen}
-                              panelPaddingSize='none'
-                              style={{ width: '50%' }}
-                            >
-                              {renderSelectSort()}
-                            </EuiPopover>
-
-                          </EuiFilterGroup>
-                        </EuiFlexItem>
-                      </EuiFlexGroup>
+                  {/* Select scenario */}
+                  <EuiFlexItem grow={2}>
+                    <EuiFormRow fullWidth label='Scenario'>
+                      {renderSelectScenarios()}
                     </EuiFormRow>
-                  }
-                </EuiFlexItem>
-              </EuiFlexGroup>
-              <EuiSpacer size='s' />
-              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-                {!!results.length &&
-                  <EuiFlexGroup alignItems='center' gutterSize='s'>
-                    <EuiFlexItem grow={5}>
-                      <EuiText color='subdued' size='xs'>
-                        Showing {results.length.toLocaleString()} of {numResults.toLocaleString()}{numResults >= 10000 ? '+' : ''} result{numResults != 1 ? 's' : ''}
-                      </EuiText>
-                    </EuiFlexItem>
-                    <EuiFlexItem grow={5}>
-                      <EuiText color='subdued' size='xs' style={{ textAlign: 'right' }}>
-                        <EuiIcon
-                          color='subdued'
-                          type='grid'
-                          size='xs'
-                          style={{ marginRight: '6px' }}
-                        />
-                        <EuiToolTip content='Change grid size' position='bottom'>
-                          <EuiButtonGroup
-                            buttonSize='compressed'
-                            prepend='Grid size'
-                            idSelected={`grid-size-${resultsPerRow}`}
-                            legend='Grid size'
-                            onChange={(id) => setResultsPerRow(id.slice(-1))}
-                            options={[
-                              { id: 'grid-size-1', label: <EuiText size='xs'><small>1</small></EuiText> },
-                              { id: 'grid-size-2', label: <EuiText size='xs'><small>2</small></EuiText> },
-                              { id: 'grid-size-3', label: <EuiText size='xs'><small>3</small></EuiText> },
-                              { id: 'grid-size-4', label: <EuiText size='xs'><small>4</small></EuiText> }
-                            ]}
+                  </EuiFlexItem>
+
+                  {/* Search */}
+                  <EuiFlexItem grow={8}>
+                    {!!scenario &&
+                      <EuiFormRow fullWidth label='Search'>
+                        <EuiFlexGroup gutterSize='s'>
+
+                          {/* Search bar */}
+                          <EuiFlexItem grow={5}>
+                            <EuiFieldSearch
+                              fullWidth
+                              placeholder="Find documents..."
+                              value={queryString}
+                              onChange={(e) => setQueryString(e.target.value)}
+                            />
+                          </EuiFlexItem>
+
+                          {/* Filter and sort */}
+                          <EuiFlexItem grow={4}>
+                            <EuiFilterGroup>
+
+                              {/* Filter */}
+                              <EuiPopover
+                                button={
+                                  <EuiFilterButton
+                                    iconType='arrowDown'
+                                    onClick={(e) => setFiltersOpen(!filtersOpen)}
+                                    isSelected={filtersOpen}
+                                  >
+                                    {filterSelected.label}
+                                  </EuiFilterButton>
+                                }
+                                closePopover={(e) => setFiltersOpen(false)}
+                                isOpen={filtersOpen}
+                                panelPaddingSize='none'
+                                style={{ width: '50%' }}
+                              >
+                                {renderSelectFilters()}
+                              </EuiPopover>
+
+                              {/* Sort */}
+                              <EuiPopover
+                                button={
+                                  <EuiFilterButton
+                                    iconType='arrowDown'
+                                    onClick={(e) => setSortOpen(!sortOpen)}
+                                    isSelected={sortOpen}
+                                  >
+                                    {sortSelected.label}
+                                  </EuiFilterButton>
+                                }
+                                closePopover={(e) => setSortOpen(false)}
+                                isOpen={sortOpen}
+                                panelPaddingSize='none'
+                                style={{ width: '50%' }}
+                              >
+                                {renderSelectSort()}
+                              </EuiPopover>
+
+                            </EuiFilterGroup>
+                          </EuiFlexItem>
+
+                          {/* Search submit button */}
+                          <EuiFlexItem grow={1}>
+                            <EuiButton
+                              isLoading={loadingResults}
+                              iconType='search'
+                              type='submit'
+                            >
+                              Search
+                            </EuiButton>
+                          </EuiFlexItem>
+                        </EuiFlexGroup>
+                      </EuiFormRow>
+                    }
+                  </EuiFlexItem>
+                </EuiFlexGroup>
+                <EuiSpacer size='s' />
+
+                {/* Show number of results and change grid size */}
+                <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
+                  {!!results.length &&
+                    <EuiFlexGroup alignItems='center' gutterSize='s'>
+
+                      {/* Show number of results */}
+                      <EuiFlexItem grow={5}>
+                        <SearchCount showing={results.length} total={numResults} />
+                      </EuiFlexItem>
+
+                      {/* Change grid size */}
+                      <EuiFlexItem grow={5}>
+                        <EuiText color='subdued' size='xs' style={{ textAlign: 'right' }}>
+                          <EuiIcon
+                            color='subdued'
+                            type='grid'
+                            size='xs'
+                            style={{ marginRight: '6px' }}
                           />
-                        </EuiToolTip>
-                      </EuiText>
-                    </EuiFlexItem>
-                  </EuiFlexGroup>
-                }
+                          <EuiToolTip content='Change grid size' position='bottom'>
+                            <EuiButtonGroup
+                              buttonSize='compressed'
+                              prepend='Grid size'
+                              idSelected={`grid-size-${resultsPerRow}`}
+                              legend='Grid size'
+                              onChange={(id) => setResultsPerRow(id.slice(-1))}
+                              options={[
+                                { id: 'grid-size-1', label: <EuiText size='xs'><small>1</small></EuiText> },
+                                { id: 'grid-size-2', label: <EuiText size='xs'><small>2</small></EuiText> },
+                                { id: 'grid-size-3', label: <EuiText size='xs'><small>3</small></EuiText> },
+                                { id: 'grid-size-4', label: <EuiText size='xs'><small>4</small></EuiText> }
+                              ]}
+                            />
+                          </EuiToolTip>
+                        </EuiText>
+                      </EuiFlexItem>
+                    </EuiFlexGroup>
+                  }
+                </EuiPanel>
+                <EuiSpacer size='s' />
               </EuiPanel>
-              <EuiSpacer size='s' />
-            </EuiPanel>
-          </EuiFlexItem>
+            </EuiFlexItem>
+          </EuiForm>
 
           <EuiSpacer size='m' />
 

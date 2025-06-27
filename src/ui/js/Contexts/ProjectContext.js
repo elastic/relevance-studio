@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState
-} from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAppContext } from './AppContext'
 import api from '../api'
@@ -342,7 +336,7 @@ export const ProjectProvider = ({ children }) => {
     // Handle API response
     if (response.status > 299)
       return addToast(utils.toastClientResponse(response))
-    addToast(utils.toastDocCreateUpdateDelete(action, docType, _id || response.data._id, doc))
+    addToast(utils.toastDocCreateUpdateDelete(action, docType, _id || response.data._id))
     const newDoc = { ...doc }
     if (action == 'create') {
       // Add doc to context state

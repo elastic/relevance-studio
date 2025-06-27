@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, os.path.abspath("src"))
 from server.client import es
 from server import api, utils
+from server.models import *
 
 ####  Configuration  ###########################################################
 
@@ -197,7 +198,7 @@ def count_lines(filepath):
             num_lines += 1
     return num_lines
 
-def read_jsonl_lines(filepath, transformer=None):
+def read_jsonl_lines(filepath, transformer):
     """
     Lazily read and yield JSON objects from a .jsonl or .ndjson file.
     """
@@ -207,30 +208,30 @@ def read_jsonl_lines(filepath, transformer=None):
             if not line:
                 continue
             line = json.loads(line)
+            _id = line["_id"]
             if transformer:
                 line = transformer(line)
-            yield line
+            yield line, _id
             
-def format_for_bulk(docs, index):
+def format_for_bulk(docs_with_ids, index):
     """
     Lazily yield actions for the Elasticsearch Bulk API.
     """
-    for doc in docs:
+    for doc, _id in docs_with_ids:
         action = {
             "_op_type": "index",
             "_index": index,
-            "_source": doc
+            "_id": _id
         }
-        if doc.get("_id"):
-            action["_id"] = doc["_id"]
-            del doc["_id"]
+        doc.pop("_id", None)
+        action["_source"] = doc
         yield action
         
-def bulk_index_worker(docs, index):
+def bulk_index_worker(docs_with_ids, index):
     """
     Perform bulk indexing for a batch of documents.
     """
-    actions = format_for_bulk(docs, index)
+    actions = format_for_bulk(docs_with_ids, index)
     try:
         success, errors = helpers.bulk(es("studio"), actions, raise_on_error=False)
         sys.stdout.write("e" if errors else ".")
@@ -268,6 +269,7 @@ def parallel_bulk_import(filepath, index, transformer=None, chunk_size=500):
         num_errors = 0
         for chunk in chunked_iterable(read_jsonl_lines(filepath, transformer), size=chunk_size):
             num_docs += len(chunk)
+            ids = [doc_id for _, doc_id in chunk]
             futures.append(executor.submit(bulk_index_worker, chunk, index))
         for future in futures:
             successes, errors = future.result()
@@ -440,7 +442,12 @@ def load_strategies(dataset):
     """
     logger.debug(f"Loading strategies for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "strategies.jsonl")
-    parallel_bulk_import(filepath, "esrs-strategies")
+    def transformer(doc):
+        doc = StrategyModel(**doc)
+        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = utils.copy_fields_to_search(doc_dict, api.strategies.SEARCH_FIELDS)
+        return doc_dict
+    parallel_bulk_import(filepath, "esrs-strategies", transformer)
 
 def load_judgements(dataset):
     """
@@ -448,7 +455,12 @@ def load_judgements(dataset):
     """
     logger.debug(f"Loading judgements for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "judgements.jsonl")
-    parallel_bulk_import(filepath, "esrs-judgements")
+    def transformer(doc):
+        doc = JudgementModel(**doc)
+        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = utils.copy_fields_to_search(doc_dict, api.judgements.SEARCH_FIELDS)
+        return doc_dict
+    parallel_bulk_import(filepath, "esrs-judgements", transformer)
 
 def load_scenarios(dataset):
     """
@@ -456,7 +468,12 @@ def load_scenarios(dataset):
     """
     logger.debug(f"Loading scenarios for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "scenarios.jsonl")
-    parallel_bulk_import(filepath, "esrs-scenarios")
+    def transformer(doc):
+        doc = ScenarioModel(**doc)
+        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = utils.copy_fields_to_search(doc_dict, api.scenarios.SEARCH_FIELDS)
+        return doc_dict
+    parallel_bulk_import(filepath, "esrs-scenarios", transformer)
 
 def load_displays(dataset):
     """
@@ -464,7 +481,12 @@ def load_displays(dataset):
     """
     logger.debug(f"Loading displays for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "displays.jsonl")
-    parallel_bulk_import(filepath, "esrs-displays")
+    def transformer(doc):
+        doc = DisplayModel(**doc)
+        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = utils.copy_fields_to_search(doc_dict, api.displays.SEARCH_FIELDS)
+        return doc_dict
+    parallel_bulk_import(filepath, "esrs-displays", transformer)
     
 def load_project(dataset):
     """
@@ -474,7 +496,12 @@ def load_project(dataset):
     logger.debug(f"Deleting old project if it exist for: {make_index_name(dataset)}")
     api.projects.delete(make_project_id(dataset))
     filepath = os.path.join(staging_directory(dataset), "projects.jsonl")
-    parallel_bulk_import(filepath, "esrs-projects")
+    def transformer(doc):
+        doc = ProjectModel(**doc)
+        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = utils.copy_fields_to_search(doc_dict, api.projects.SEARCH_FIELDS)
+        return doc_dict
+    parallel_bulk_import(filepath, "esrs-projects", transformer)
 
 def load_dataset_assets(dataset):
     """
@@ -659,7 +686,7 @@ def load_dataset(dataset):
     es("content").options(ignore_status=404).indices.delete(index=make_index_name(dataset))
     filepath = os.path.join(dataset_directory(dataset), "corpus.jsonl")
     def transformer(doc):
-        doc.pop("metadata")
+        doc.pop("metadata", None)
         return doc
     logger.debug(f"Bulk loading data into index: {make_index_name(dataset)}")
     parallel_bulk_import(filepath, make_index_name(dataset), transformer)

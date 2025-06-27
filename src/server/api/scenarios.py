@@ -4,57 +4,35 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
+from ..models import ScenarioModel
 
 INDEX_NAME = "esrs-scenarios"
+SEARCH_FIELDS = utils.get_search_fields_from_mapping("scenarios")
 
-def browse(project_id: str, size: int = 10000) -> Dict[str, Any]:
+def search(
+        project_id: str,
+        text: str = "",
+        filters: List[Dict[str, Any]] = [],
+        sort: Dict[str, Any] = {},
+        size: int = 10,
+        page: int = 1,
+        aggs: bool = False,
+    ) -> Dict[str, Any]:
     """
-    List scenario in Elasticsearch.
+    Search scenarios in Elasticsearch.
     """
-    body = {
-        "size": 10000,
-        "query": {
-            "bool": {
-                "filter": {
-                    "term": {
-                        "project_id": project_id
-                    }
-                }
-            }
-        },
-        "post_filter": {
-            "term": {
-                "_index": "esrs-scenarios"
-            }
-        },
-        "aggs": {
-            "counts": {
-                "terms": {
-                    "field": "scenario_id",
-                    "size": 10000
-                },
-                "aggs": {
-                    "judgements": {
-                        "filter": {
-                            "term": {
-                                "_index": "esrs-judgements"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    index = ",".join([
-        "esrs-scenarios",
-        "esrs-judgements"
-    ])
-    response = es("studio").search(
-        index=index,
-        body=body,
-        ignore_unavailable=True
+    response = utils.search_assets(
+        "scenarios", project_id, text, filters, sort, size, page,
+        counts=[ "judgements" ] if aggs else []
     )
     return response
+
+def tags(project_id: str) -> Dict[str, Any]:
+    """
+    Search tags for scenarios in Elasticsearch.
+    """
+    es_response = utils.search_tags("scenarios", project_id)
+    return es_response
 
 def get(_id: str) -> Dict[str, Any]:
     """
@@ -62,58 +40,47 @@ def get(_id: str) -> Dict[str, Any]:
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
-        id=_id
+        id=_id,
+        source_excludes="_search",
     )
     return es_response
 
-def create(
-        project_id: str,
-        name: str,
-        values: Dict[str, Any],
-        tags: List[str] = [],
-    ) -> Dict[str, Any]:
+def create(doc: ScenarioModel) -> Dict[str, Any]:
     """
     Create a scenario in Elasticsearch.
     
     Use a deterministic _id for UX efficiency, and to prevent the creation of
     duplicate scenarios for the same values.
     """
-    doc = {
-        "@timestamp": utils.timestamp(),
-        "project_id": project_id,
-        "name": name,
-        "tags": tags or [],
-        "params": list(values.keys()),
-        "values": values,
-    }
+    # Always use the latest timestamp
+    doc = doc.model_copy(update={"timestamp_": utils.timestamp()})
+    # Copy searchable fields to _search
+    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
+    doc_dict = utils.remove_empty_values(doc_dict)
     es_response = es("studio").index(
         index=INDEX_NAME,
-        id=utils.unique_id([ project_id, values ]),
-        document=doc,
-        refresh=True
+        id=utils.unique_id([ doc.project_id, doc.values ]),
+        document=doc_dict,
+        refresh=True,
     )
     return es_response
 
-def update(
-        _id: str,
-        name: str = None,
-        tags: List[str] = [],
-    ) -> Dict[str, Any]:
+def update(_id: str, doc: ScenarioModel) -> Dict[str, Any]:
     """
     Update a scenario in Elasticsearch.
     """
-    doc_updates = {
-        "@timestamp": utils.timestamp()
-    }
-    if name:
-        doc_updates["name"] = name
-    if tags:
-        doc_updates["tags"] = tags
+    # Always use the latest timestamp
+    doc = doc.model_copy(update={"timestamp_": utils.timestamp()})
+    # Copy searchable fields to _search
+    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
+    doc_dict = utils.remove_empty_values(doc_dict)
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
-        doc=doc_updates,
-        refresh=True
+        doc=doc_dict,
+        refresh=True,
     )
     return es_response
 
@@ -152,6 +119,6 @@ def delete(_id: str) -> Dict[str, Any]:
         body=body,
         refresh=True,
         conflicts="proceed",
-        ignore_unavailable=True
+        ignore_unavailable=True,
     )
     return es_response

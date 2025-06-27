@@ -21,6 +21,19 @@
         "template": {
           "type": "object",
           "enabled": false
+        },
+        "_search": {
+          "properties": {
+            "index_pattern": {
+              "type": "text"
+            },
+            "fields": {
+              "type": "text"
+            },
+            "template": {
+              "type": "text"
+            }
+          }
         }
       }
     }

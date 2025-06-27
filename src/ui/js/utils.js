@@ -1,7 +1,4 @@
-import React from 'react'
-import {
-  EuiText,
-} from '@elastic/eui'
+import { EuiText } from '@elastic/eui'
 
 const utils = {}
 
@@ -39,7 +36,7 @@ utils.toastClientError = (error) => {
 /**
  * Creates a generic toast for successfully creating, updating, or deleting a doc.
  */
-utils.toastDocCreateUpdateDelete = (action, docType, _id, doc) => {
+utils.toastDocCreateUpdateDelete = (action, docType, _id) => {
   console.debug(`Toast: ${action} ${docType} ${_id}`)
   let title
   if (action == 'create')
@@ -48,6 +45,8 @@ utils.toastDocCreateUpdateDelete = (action, docType, _id, doc) => {
     title = `Updated ${docType}`
   else if (action == 'delete')
     title = `Deleted ${docType}`
+  else if (action == 'queue')
+    title = `Queued ${docType}`
   return {
     title: title,
     color: 'success',
@@ -74,6 +73,26 @@ utils.hitsToDocs = (response) => {
 
   // Otherwise, it's from GET /_doc
   return [{ ...response.data._source, _id: response.data._id }]
+}
+
+/**
+ * After getting aggregations, convert them into aggs keyed by doc _id.
+ */
+utils.hitsToAggs = (response) => {
+  const aggs = {}
+  response.data.aggregations?.counts?.buckets?.forEach(agg => {
+    const subAggs = {};
+    for (const [key, value] of Object.entries(agg)) {
+      if (key === 'key' || key === 'doc_count')
+        continue
+      subAggs[key] = value?.doc_count || 0;
+    }
+    aggs[agg.key] = {
+      ...aggs[agg.key] || {},
+      ...subAggs
+    }
+  })
+  return aggs
 }
 
 /**

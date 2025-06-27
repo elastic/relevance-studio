@@ -6,12 +6,14 @@ from functools import wraps
 from dotenv import load_dotenv
 from flask import Flask, current_app, jsonify, request
 from flask_cors import CORS
+from werkzeug.exceptions import BadRequest
 
 # Elastic packages
 from elasticsearch.exceptions import ApiError
 
 # App packages
 from . import api
+from .models import *
 
 ####  Configuration  ###########################################################
 
@@ -78,11 +80,35 @@ def make_api_route(router):
 api_route = make_api_route(app)
 
 
-####  API: Projects  #####################################################
+####  API: Validations  ########################################################
 
-@api_route("/api/projects", methods=["GET"])
-def projects_browse():
-    return api.projects.browse()
+def validate_project_id_match(body, project_id_from_url):
+    """
+    When updating documents, if a project_id is given in the request body,
+    it must match the project_id from the URL.
+    """
+    if body.get("project_id") and body["project_id"] != project_id_from_url:
+        raise BadRequest("The project_id in the URL must match project_id in request body if given.")
+
+def validate_id_match(body, _id_from_url):
+    """
+    When updating documents, if an _id is given in the request body, it must
+    match the _id from the URL.
+    """
+    if body.get("_id") and body["_id"] != _id_from_url:
+        raise BadRequest("The _id in the URL must match _id in request body if given.")
+    
+
+####  API: Projects  ###########################################################
+
+@api_route("/api/projects/_search", methods=["POST"])
+def projects_search():
+    body = request.get_json() or {}
+    return api.projects.search(**body)
+
+@api_route("/api/projects/<string:project_id>/benchmarks/_tags", methods=["GET"])
+def projects_tags(project_id):
+    return api.projects.tags("projects")
 
 @api_route("/api/projects/<string:_id>", methods=["GET"])
 def projects_get(_id):
@@ -90,13 +116,15 @@ def projects_get(_id):
 
 @api_route("/api/projects", methods=["POST"])
 def projects_create():
-    doc = request.get_json()
-    return api.projects.create(doc)
+    body = request.get_json()
+    _id = body.pop("_id", None) # accept an optional _id if given
+    return api.projects.create(ProjectModel(**body), _id)
 
 @api_route("/api/projects/<string:_id>", methods=["PUT"])
 def projects_update(_id):
-    doc = request.get_json()
-    return api.projects.update(_id, doc)
+    body = request.get_json()
+    validate_id_match(body, _id)
+    return api.projects.update(_id, ProjectModel(**body))
 
 @api_route("/api/projects/<string:_id>", methods=["DELETE"])
 def projects_delete(_id):
@@ -105,9 +133,10 @@ def projects_delete(_id):
 
 ####  API: Displays  ###########################################################
 
-@api_route("/api/projects/<string:project_id>/displays", methods=["GET"])
-def displays_browse(project_id):
-    return api.displays.browse(project_id)
+@api_route("/api/projects/<string:project_id>/displays/_search", methods=["POST"])
+def displays_search(project_id):
+    body = request.get_json() or {}
+    return api.displays.search(project_id, **body)
 
 @api_route("/api/projects/<string:project_id>/displays/<string:_id>", methods=["GET"])
 def displays_get(project_id, _id):
@@ -115,15 +144,19 @@ def displays_get(project_id, _id):
 
 @api_route("/api/projects/<string:project_id>/displays", methods=["POST"])
 def displays_create(project_id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.displays.create(doc)
+    body = request.get_json()
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    _id = body.pop("_id", None) # accept an optional _id if given
+    return api.displays.create(DisplayModel(**body), _id)
 
 @api_route("/api/projects/<string:project_id>/displays/<string:_id>", methods=["PUT"])
 def displays_update(project_id, _id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.displays.update(_id, doc)
+    body = request.get_json()
+    validate_id_match(body, _id)
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    return api.displays.update(_id, DisplayModel(**body))
 
 @api_route("/api/projects/<string:project_id>/displays/<string:_id>", methods=["DELETE"])
 def displays_delete(project_id, _id):
@@ -132,9 +165,14 @@ def displays_delete(project_id, _id):
 
 ####  API: Scenarios  ###########################################################
 
-@api_route("/api/projects/<string:project_id>/scenarios", methods=["GET"])
-def scenarios_browse(project_id):
-    return api.scenarios.browse(project_id)
+@api_route("/api/projects/<string:project_id>/scenarios/_search", methods=["POST"])
+def scenarios_search(project_id):
+    body = request.get_json() or {}
+    return api.scenarios.search(project_id, **body)
+
+@api_route("/api/projects/<string:project_id>/scenarios/_tags", methods=["GET"])
+def scenarios_tags(project_id):
+    return api.scenarios.tags(project_id)
 
 @api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["GET"])
 def scenarios_get(project_id, _id):
@@ -142,14 +180,19 @@ def scenarios_get(project_id, _id):
 
 @api_route("/api/projects/<string:project_id>/scenarios", methods=["POST"])
 def scenarios_create(project_id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.scenarios.create(**doc)
+    body = request.get_json()
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    body.pop("_id", None) # _id is always generated from body
+    return api.scenarios.create(ScenarioModel(**body))
 
 @api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["PUT"])
 def scenarios_update(project_id, _id):
-    doc_updates = request.get_json()
-    return api.scenarios.update(_id, **doc_updates)
+    body = request.get_json()
+    validate_id_match(body, _id)
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    return api.scenarios.update(_id, ScenarioModel(**body))
 
 @api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["DELETE"])
 def scenarios_delete(project_id, _id):
@@ -166,22 +209,27 @@ def judgements_search(project_id):
 
 @api_route("/api/projects/<string:project_id>/judgements", methods=["PUT"])
 def judgements_set(project_id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.judgements.set(**doc)
+    body = request.get_json()
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    body.pop("_id", None) # _id is always generated from body
+    return api.judgements.set(JudgementModel(**body))
 
-@api_route("/api/projects/<string:project_id>/judgements", methods=["DELETE"])
-def judgements_unset(project_id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.judgements.unset(**doc)
+@api_route("/api/projects/<string:project_id>/judgements/<string:_id>", methods=["DELETE"])
+def judgements_unset(project_id, _id):
+    return api.judgements.unset(_id)
 
 
 ####  API: Strategies  ###########################################################
 
-@api_route("/api/projects/<string:project_id>/strategies", methods=["GET"])
-def strategies_browse(project_id):
-    return api.strategies.browse(project_id)
+@api_route("/api/projects/<string:project_id>/strategies/_search", methods=["POST"])
+def strategies_search(project_id):
+    body = request.get_json() or {}
+    return api.strategies.search(project_id, **body)
+
+@api_route("/api/projects/<string:project_id>/strategies/_tags", methods=["GET"])
+def strategies_tags(project_id):
+    return api.strategies.tags(project_id)
 
 @api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["GET"])
 def strategies_get(project_id, _id):
@@ -189,14 +237,19 @@ def strategies_get(project_id, _id):
 
 @api_route("/api/projects/<string:project_id>/strategies", methods=["POST"])
 def strategies_create(project_id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.strategies.create(**doc)
+    body = request.get_json()
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    _id = body.pop("_id", None) # accept an optional _id if given
+    return api.strategies.create(StrategyModel(**body), _id)
 
 @api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["PUT"])
 def strategies_update(project_id, _id):
-    doc_updates = request.get_json()
-    return api.strategies.update(_id, **doc_updates)
+    body = request.get_json()
+    validate_id_match(body, _id)
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    return api.strategies.update(_id, StrategyModel(**body))
 
 @api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["DELETE"])
 def strategies_delete(project_id, _id):
@@ -205,9 +258,14 @@ def strategies_delete(project_id, _id):
 
 ####  API: Benchmarks  #########################################################
 
-@api_route("/api/projects/<string:project_id>/benchmarks", methods=["GET"])
-def benchmarks_browse(project_id):
-    return api.benchmarks.browse(project_id)
+@api_route("/api/projects/<string:project_id>/benchmarks/_search", methods=["POST"])
+def benchmarks_search(project_id):
+    body = request.get_json() or {}
+    return api.benchmarks.search(project_id, **body)
+
+@api_route("/api/projects/<string:project_id>/benchmarks/_tags", methods=["GET"])
+def benchmarks_tags(project_id):
+    return api.benchmarks.tags(project_id)
 
 @api_route("/api/projects/<string:project_id>/benchmarks/_candidates", methods=["POST"])
 def benchmarks_make_candidate_pool(project_id):
@@ -219,15 +277,19 @@ def benchmarks_get(project_id, _id):
 
 @api_route("/api/projects/<string:project_id>/benchmarks", methods=["POST"])
 def benchmarks_create(project_id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.benchmarks.create(doc)
+    body = request.get_json()
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    _id = body.pop("_id", None) # accept an optional _id if given
+    return api.benchmarks.create(BenchmarkModel(**body), _id)
 
 @api_route("/api/projects/<string:project_id>/benchmarks/<string:_id>", methods=["PUT"])
 def benchmarks_update(project_id, _id):
-    doc = request.get_json()
-    doc["project_id"] = project_id # ensure project_id from path is in doc
-    return api.benchmarks.update(_id, doc)
+    body = request.get_json()
+    validate_id_match(body, _id)
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    return api.benchmarks.update(_id, BenchmarkModel(**body))
 
 @api_route("/api/projects/<string:project_id>/benchmarks/<string:_id>", methods=["DELETE"])
 def benchmarks_delete(project_id, _id):
@@ -236,9 +298,10 @@ def benchmarks_delete(project_id, _id):
 
 ####  API: Evaluations  ########################################################
 
-@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations", methods=["GET"])
-def evaluations_browse(project_id, benchmark_id):
-    return api.evaluations.browse(project_id, benchmark_id)
+@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations/_search", methods=["POST"])
+def evaluations_search(project_id, benchmark_id):
+    body = request.get_json() or {}
+    return api.evaluations.search(project_id, benchmark_id, **body)
 
 @api_route("/api/projects/<string:project_id>//benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["GET"])
 def evaluations_get(project_id, benchmark_id, _id):

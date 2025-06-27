@@ -5,56 +5,34 @@ from typing import Any, Dict, List, Set, Tuple
 # App packages
 from .. import utils
 from ..client import es
+from ..models import BenchmarkModel
 
 INDEX_NAME = "esrs-benchmarks"
+SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmarks")
 
-def browse(project_id: str, size: int = 10000) -> Dict[str, Any]:
+def search(
+        project_id: str,
+        text: str = "",
+        filters: List[Dict[str, Any]] = [],
+        sort: Dict[str, Any] = {},
+        size: int = 10,
+        page: int = 1,
+        aggs: bool = False,
+    ) -> Dict[str, Any]:
     """
-    List benchmarks in Elasticsearch.
+    Search benchmarks in Elasticsearch.
     """
-    body = {
-        "size": size,
-        "query": {
-            "bool": {
-                "filter": {
-                    "term": {
-                        "project_id": project_id
-                    }
-                }
-            }
-        },
-        "post_filter": {
-            "term": {
-                "_index": "esrs-benchmarks"
-            }
-        },
-        "aggs": {
-            "counts": {
-                "terms": {
-                    "field": "scenario_id",
-                    "size": 10000
-                },
-                "aggs": {
-                    "judgements": {
-                        "filter": {
-                            "term": {
-                                "_index": "esrs-evaluations"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    index = ",".join([
-        "esrs-benchmarks",
-        "esrs-evaluations"
-    ])
-    es_response = es("studio").search(
-        index=index,
-        body=body,
-        ignore_unavailable=True
+    response = utils.search_assets(
+        "benchmarks", project_id, text, filters, sort, size, page,
+        counts=[ "evaluations" ] if aggs else []
     )
+    return response
+
+def tags(project_id: str) -> Dict[str, Any]:
+    """
+    Search tags for benchmarks in Elasticsearch.
+    """
+    es_response = utils.search_tags("benchmarks", project_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
@@ -63,33 +41,40 @@ def get(_id: str) -> Dict[str, Any]:
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
-        id=_id
+        id=_id,
+        source_excludes="_search",
     )
     return es_response
 
-def create(doc: Dict[str, Any]) -> Dict[str, Any]:
+def create(doc: BenchmarkModel, _id: str = None) -> Dict[str, Any]:
     """
-    Create a benchmark in Elasticsearch.
+    Create a benchmark in Elasticsearch. Allow a predetermined _id.
     """
-    doc.pop("_id", None) # es doesn't want _id in doc
+    # Copy searchable fields to _search
+    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
+    doc_dict = utils.remove_empty_values(doc_dict)
     es_response = es("studio").index(
         index="esrs-benchmarks",
-        id=utils.unique_id(),
-        document=doc,
-        refresh=True
+        id=_id or utils.unique_id(),
+        document=doc_dict,
+        refresh=True,
     )
     return es_response
 
-def update(_id: str, doc: Dict[str, Any]) -> Dict[str, Any]:
+def update(_id: str, doc: BenchmarkModel) -> Dict[str, Any]:
     """
     Update a benchmark in Elasticsearch.
     """
-    doc.pop("_id", None) # es doesn't want _id in doc
+    # Copy searchable fields to _search
+    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
+    doc_dict = utils.remove_empty_values(doc_dict)
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
-        doc=doc,
-        refresh=True
+        doc=doc_dict,
+        refresh=True,
     )
     return es_response
 
@@ -128,13 +113,13 @@ def delete(_id: str) -> Dict[str, Any]:
         body=body,
         refresh=True,
         conflicts="proceed",
-        ignore_unavailable=True
+        ignore_unavailable=True,
     )
     return es_response
 
 def make_candidate_pool(project_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     match_mode = payload.get("match_mode", "subset")
-    sample_size = min(int(payload.get("scenario_sample_size", 1000)), 1000)
+    sample_size = min(int(payload.get("scenarios_sample_size", 1000)), 1000)
     assert match_mode in {"exact", "subset"}
 
     def fetch_strategies() -> Dict[str, Set[str]]:

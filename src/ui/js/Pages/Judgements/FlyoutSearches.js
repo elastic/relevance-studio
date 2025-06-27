@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EuiFlyout,
   EuiFlyoutBody,
@@ -12,8 +12,6 @@ import {
   EuiSwitch,
   EuiText,
 } from '@elastic/eui'
-import client from '../../client'
-import utils from '../../utils'
 
 const FlyoutSearches = (props) => {
 

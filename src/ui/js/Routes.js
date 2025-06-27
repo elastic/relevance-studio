@@ -1,4 +1,3 @@
-import React from 'react'
 import { HashRouter as Router, Redirect, Route, Switch } from 'react-router-dom'
 import { ProjectProvider } from './Contexts/ProjectContext'
 import { Pages } from './Pages'

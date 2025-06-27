@@ -1,37 +1,20 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EuiBadge,
   EuiButton,
   EuiCallOut,
-  EuiInMemoryTable,
   EuiLink,
-  EuiSkeletonText,
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
-import { useAppContext } from '../../Contexts/AppContext'
-import { ModalDelete, Page } from '../../Layout'
+import { useSearchHandler } from '../../Hooks'
+import { ModalDelete, Page, SearchTable } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
 import api from '../../api'
-import utils from '../../utils'
 
 const Projects = () => {
 
-  ////  Context  ///////////////////////////////////////////////////////////////
-
-  const { addToast } = useAppContext()
-
   ////  State  /////////////////////////////////////////////////////////////////
-
-  const [projects, setProjects] = useState({})
-  const [projectsAggs, setProjectsAggs] = useState({})
-  const [isLoadingProjects, setIsLoadingProjects] = useState(true)
-  const [isLoadingProject, setIsLoadingProject] = useState(false)
-
-  /**
-   * Scenarios as an array for the table component
-   */
-  const projectsList = Object.values(projects) || []
 
   /**
    * null:   close flyout
@@ -46,278 +29,280 @@ const Projects = () => {
    */
   const [modalDelete, setModalDelete] = useState(null)
 
+  /**
+   * Whether a doc is being updated or deleted
+   */
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  /**
+   * Search state
+   */
+  const [hasEverSearched, setHasEverSearched] = useState(false)
+  const [isIndexEmpty, setIsIndexEmpty] = useState(null)
+  const [isSearchLoading, setIsSearchLoading] = useState(false)
+  const [searchAggs, setSearchAggs] = useState({})
+  const [searchDocs, setSearchDocs] = useState([])
+  const [searchPage, setSearchPage] = useState(1)
+  const [searchSize, setSearchSize] = useState(10)
+  const [searchSortField, setSearchSortField] = useState("name")
+  const [searchSortOrder, setSearchSortOrder] = useState("asc")
+  const [searchText, setSearchText] = useState("")
+  const [searchTotal, setSearchTotal] = useState(null)
+
   ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
-   * Get projects on load
+   * Automatically submit the search and return to page one either when the
+   * project is ready or when the user changes pagination settings.
    */
   useEffect(() => {
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setIsLoadingProjects(true)
-        response = await api.projects_browse()
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to get projects' }))
-      } finally {
-        setIsLoadingProjects(false)
-      }
-
-      // Handle API response
-      setProjects(utils.toMap(utils.hitsToDocs(response)))
-      const aggs = {}
-      if (response.data.aggregations?.counts?.buckets) {
-        response.data.aggregations.counts.buckets.forEach(agg => {
-          aggs[agg.key] = {
-            displays: agg.displays?.doc_count || 0,
-            scenarios: agg.scenarios?.doc_count || 0,
-            judgements: agg.judgements?.doc_count || 0,
-            strategies: agg.strategies?.doc_count || 0,
-            benchmarks: agg.benchmarks?.doc_count || 0,
-            evaluations: agg.evaluations?.doc_count || 0,
-          }
-        })
-      }
-      setProjectsAggs(aggs)
-    })()
-  }, [])
+    onSubmitSearch()
+    setSearchPage(1)
+  }, [searchSize, searchSortField, searchSortOrder])
 
   /**
-   * Log projects state
+   * Automatically submit the search when the user selects a different page in
+   * the search results.
    */
   useEffect(() => {
-    if (!projects)
-      return
-    console.debug('[Projects state updated]', {
-      projects: projects,
-      projectsAggs: projectsAggs
-    })
-  }, [projects])
+    onSubmitSearch()
+  }, [searchPage])
+
+  /**
+   * Search handler
+   */
+  const onSubmitSearch = useSearchHandler({
+    searchFn: api.projects_search, // search projects
+    searchText,
+    searchPage,
+    searchSize,
+    searchSortField,
+    searchSortOrder,
+    useAggs: true, // projects have aggs
+    setDocs: setSearchDocs,
+    setAggs: setSearchAggs,
+    setTotal: setSearchTotal,
+    setLoading: setIsSearchLoading,
+    setHasEverSearched: setHasEverSearched,
+    setIsIndexEmpty: setIsIndexEmpty,
+  })
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  const columns = useMemo(() => {
-    return [
-      {
-        field: 'name',
-        name: 'Name',
-        sortable: true,
-        truncateText: true,
-        render: (name, doc) => (<>{doc.name}</>),
+  const columns = [
+    {
+      field: 'name',
+      name: 'Name',
+      sortable: true,
+      truncateText: true,
+      render: (name, doc) => (<>{doc.name}</>),
+    },
+    {
+      field: 'scenarios',
+      name: 'Scenarios',
+      sortable: true,
+      render: (name, doc) => (
+        <EuiLink href={`#/projects/${doc._id}/scenarios`}>
+          {searchAggs[doc._id]?.scenarios.toLocaleString() || 0}
+        </EuiLink>
+      ),
+    },
+    {
+      field: 'judgements',
+      name: 'Judgements',
+      sortable: true,
+      render: (name, doc) => (
+        <EuiLink href={`#/projects/${doc._id}/judgements`}>
+          {searchAggs[doc._id]?.judgements.toLocaleString() || 0}
+        </EuiLink>
+      ),
+    },
+    {
+      field: 'strategies',
+      name: 'Strategies',
+      sortable: true,
+      render: (name, doc) => (
+        <EuiLink href={`#/projects/${doc._id}/strategies`}>
+          {searchAggs[doc._id]?.strategies.toLocaleString() || 0}
+        </EuiLink>
+      ),
+    },
+    {
+      field: 'benchmarks',
+      name: 'Benchmarks',
+      sortable: true,
+      render: (name, doc) => (
+        <EuiLink href={`#/projects/${doc._id}/benchmarks`}>
+          {searchAggs[doc._id]?.benchmarks.toLocaleString() || 0}
+        </EuiLink>
+      ),
+    },
+    {
+      field: 'indices',
+      name: 'Indices',
+      render: (name, doc) => {
+        const patterns = [];
+        (doc.index_pattern || '').split(',').forEach((pattern, i) => {
+          patterns.push(
+            <EuiBadge color='hollow' key={i}>
+              {pattern}
+            </EuiBadge>
+          )
+        })
+        return patterns
       },
-      {
-        field: 'scenarios',
-        name: 'Scenarios',
-        sortable: true,
-        render: (name, doc) => (
-          <EuiLink href={`#/projects/${doc._id}/scenarios`}>
-            {projectsAggs[doc._id]?.scenarios.toLocaleString() || 0}
-          </EuiLink>
-        ),
-      },
-      {
-        field: 'judgements',
-        name: 'Judgements',
-        sortable: true,
-        render: (name, doc) => (
-          <EuiLink href={`#/projects/${doc._id}/judgements`}>
-            {projectsAggs[doc._id]?.judgements.toLocaleString() || 0}
-          </EuiLink>
-        ),
-      },
-      {
-        field: 'strategies',
-        name: 'Strategies',
-        sortable: true,
-        render: (name, doc) => (
-          <EuiLink href={`#/projects/${doc._id}/strategies`}>
-            {projectsAggs[doc._id]?.strategies.toLocaleString() || 0}
-          </EuiLink>
-        ),
-      },
-      {
-        field: 'benchmarks',
-        name: 'Benchmarks',
-        sortable: true,
-        render: (name, doc) => (
-          <EuiLink href={`#/projects/${doc._id}/benchmarks`}>
-            {projectsAggs[doc._id]?.benchmarks.toLocaleString() || 0}
-          </EuiLink>
-        ),
-      },
-      {
-        field: 'indices',
-        name: 'Indices',
-        render: (name, doc) => {
-          const patterns = [];
-          (doc.index_pattern || '').split(',').forEach((pattern, i) => {
-            patterns.push(
-              <EuiBadge color='hollow' key={i}>
-                {pattern}
-              </EuiBadge>
-            )
-          })
-          return patterns
+    },
+    {
+      field: 'rating_scale',
+      name: 'Rating scale',
+      render: (name, doc) => (<>
+        {doc.rating_scale.min} <span style={{ fontSize: '10px', padding: '0 4px' }}>{'-->'}</span> {doc.rating_scale.max}
+      </>),
+    },
+    {
+      name: 'Actions',
+      actions: [
+        {
+          color: 'text',
+          description: 'Manage displays',
+          icon: 'palette',
+          isPrimary: true,
+          name: 'Displays',
+          onClick: (doc) => {
+            window.location.href = `/#/projects/${doc._id}/displays`
+          },
+          type: 'icon'
         },
-      },
-      {
-        field: 'rating_scale',
-        name: 'Rating scale',
-        render: (name, doc) => (<>
-          {doc.rating_scale.min} <span style={{ fontSize: '10px', padding: '0 4px' }}>{'-->'}</span> {doc.rating_scale.max}
-        </>),
-      },
-      {
-        name: 'Actions',
-        actions: [
-          {
-            color: 'text',
-            description: 'Manage displays',
-            icon: 'palette',
-            isPrimary: true,
-            name: 'Displays',
-            onClick: (doc) => {
-              window.location.href = `/#/projects/${doc._id}/displays`
-            },
-            type: 'icon'
-          },
-          {
-            color: 'text',
-            description: 'Update this project',
-            icon: 'documentEdit',
-            isPrimary: true,
-            name: 'Update',
-            onClick: (doc) => setFlyout(doc),
-            type: 'icon',
-          },
-          {
-            color: 'danger',
-            description: 'Delete this project',
-            icon: 'trash',
-            name: 'Delete',
-            onClick: (doc) => setModalDelete(doc),
-            type: 'icon',
-          }
-        ],
-      }
-    ]
-  }, [projects])
+        {
+          color: 'text',
+          description: 'Update this project',
+          icon: 'documentEdit',
+          isPrimary: true,
+          name: 'Update',
+          onClick: (doc) => setFlyout(doc),
+          type: 'icon',
+        },
+        {
+          color: 'danger',
+          description: 'Delete this project',
+          icon: 'trash',
+          name: 'Delete',
+          onClick: (doc) => setModalDelete(doc),
+          type: 'icon',
+        }
+      ],
+    }
+  ]
 
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  const buttonCreate = (
-    <EuiButton
-      fill
-      iconType='plusInCircle'
-      onClick={() => setFlyout(true)}>
+  const renderFlyout = () => (
+    <FlyoutForm
+      action={flyout === true ? 'create' : 'update'}
+      doc={flyout}
+      isProcessing={isProcessing}
+      onClose={() => setFlyout(null)}
+      onCreated={(newDoc) => {
+        // Redirect to displays
+        window.location.href = `/#/projects/${newDoc._id}/displays`
+      }}
+      onSuccess={onSubmitSearch}
+      setIsProcessing={setIsProcessing}
+    />
+  )
+
+  const renderModalDelete = () => (
+    <ModalDelete
+      description={
+        !!Object.keys((searchAggs[modalDelete._id]) || {}).length &&
+        <EuiText>
+          <p>This will delete all assets related to this project:</p>
+          <ul>
+            {!!searchAggs[modalDelete._id]?.displays &&
+              <li>{searchAggs[modalDelete._id]?.displays || 0} display{searchAggs[modalDelete._id]?.displays == 1 ? '' : 's'}</li>
+            }
+            {!!searchAggs[modalDelete._id]?.scenarios &&
+              <li>{searchAggs[modalDelete._id]?.scenarios || 0} scenario{searchAggs[modalDelete._id]?.scenarios == 1 ? '' : 's'}</li>
+            }
+            {!!searchAggs[modalDelete._id]?.judgements &&
+              <li>{searchAggs[modalDelete._id]?.judgements || 0} judgement{searchAggs[modalDelete._id]?.judgements == 1 ? '' : 's'}</li>
+            }
+            {!!searchAggs[modalDelete._id]?.strategies &&
+              <li>{searchAggs[modalDelete._id]?.strategies || 0} {searchAggs[modalDelete._id]?.strategies == 1 ? 'strategy' : 'strategies'}</li>
+            }
+            {!!searchAggs[modalDelete._id]?.evaluations &&
+              <li>{searchAggs[modalDelete._id]?.evaluations || 0} evaluation{searchAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'}</li>
+            }
+          </ul>
+        </EuiText>
+      }
+      doc={modalDelete}
+      docType='project'
+      isLoading={isProcessing}
+      onClose={() => setModalDelete(null)}
+      //onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete project` }))}
+      onDelete={async () => await api.projects_delete(modalDelete._id)}
+      onSuccess={onSubmitSearch}
+      setIsProcessing={setIsProcessing}
+    />
+  )
+
+  const renderButtonCreate = () => (
+    <EuiButton fill iconType='plusInCircle' onClick={() => setFlyout(true)}>
       Create a new project
     </EuiButton>
   )
 
   return (
-    <Page title='Projects' buttons={[buttonCreate]}>
-      {modalDelete &&
-        <ModalDelete
-          description={
-            !!Object.keys((projectsAggs[modalDelete._id]) || {}).length &&
-            <EuiText>
-              <p>This will delete all assets related to this project:</p>
-              <ul>
-                {!!projectsAggs[modalDelete._id]?.displays &&
-                  <li>{projectsAggs[modalDelete._id]?.displays || 0} display{projectsAggs[modalDelete._id]?.displays == 1 ? '' : 's'}</li>
-                }
-                {!!projectsAggs[modalDelete._id]?.scenarios &&
-                  <li>{projectsAggs[modalDelete._id]?.scenarios || 0} scenario{projectsAggs[modalDelete._id]?.scenarios == 1 ? '' : 's'}</li>
-                }
-                {!!projectsAggs[modalDelete._id]?.judgements &&
-                  <li>{projectsAggs[modalDelete._id]?.judgements || 0} judgement{projectsAggs[modalDelete._id]?.judgements == 1 ? '' : 's'}</li>
-                }
-                {!!projectsAggs[modalDelete._id]?.strategies &&
-                  <li>{projectsAggs[modalDelete._id]?.strategies || 0} {projectsAggs[modalDelete._id]?.strategies == 1 ? 'strategy' : 'strategies'}</li>
-                }
-                {!!projectsAggs[modalDelete._id]?.evaluations &&
-                  <li>{projectsAggs[modalDelete._id]?.evaluations || 0} evaluation{projectsAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'}</li>
-                }
-              </ul>
-            </EuiText>
+    <Page title='Projects' buttons={[renderButtonCreate()]}>
+      {modalDelete && renderModalDelete()}
+      {flyout && renderFlyout()}
+      {hasEverSearched &&
+        <>
+          {isIndexEmpty &&
+            <EuiCallOut
+              color='primary'
+              title='Welcome!'
+            >
+              <EuiText>
+                Create your first project to get started.
+              </EuiText>
+              <EuiSpacer size='m' />
+              <EuiButton
+                fill
+                iconType='plusInCircle'
+                onClick={() => setFlyout(true)}>
+                Create a new project
+              </EuiButton>
+            </EuiCallOut>
           }
-          doc={modalDelete}
-          docType='project'
-          isLoading={isLoadingProject}
-          onClose={() => setModalDelete(null)}
-          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete project` }))}
-          onDelete={async () => {
-            setIsLoadingProject(true)
-            try {
-              await api.projects_delete(modalDelete._id)
-            } finally {
-              setIsLoadingProject(false)
-            }
-          }}
-          onDeleted={(doc) => {
-            setProjects(prev => {
-              const { [doc._id]: _, ...rest } = prev
-              return rest
-            })
-            setProjectsAggs(prev => {
-              const { [doc._id]: _, ...rest } = prev
-              return rest
-            })
-            setModalDelete(null)
-          }}
-        />
+          {isIndexEmpty === false &&
+            <SearchTable
+              docs={searchDocs}
+              total={searchTotal}
+              page={searchPage}
+              size={searchSize}
+              sortField={searchSortField}
+              sortOrder={searchSortOrder}
+              isLoading={isSearchLoading}
+              columns={columns}
+              searchText={searchText}
+              onChangeText={setSearchText}
+              onChangePage={setSearchPage}
+              onChangeSize={setSearchSize}
+              onChangeSort={(field, order) => {
+                setSearchSortField(field)
+                setSearchSortOrder(order)
+              }}
+              onSubmit={() => {
+                onSubmitSearch()
+                setSearchPage(1)
+              }}
+            />
+          }
+        </>
       }
-      {flyout &&
-        <FlyoutForm
-          action={flyout === true ? 'create' : 'update'}
-          doc={flyout}
-          onClose={() => setFlyout(null)}
-          onCreated={(newDoc) => {
-            // Redirect to displays
-            window.location.href = `/#/projects/${newDoc._id}/displays`
-          }}
-          onUpdated={(newDoc) => {
-            // Update doc in table
-            setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
-          }}
-        />
-      }
-      <EuiSkeletonText lines={10} isLoading={isLoadingProjects}>
-        {!projectsList.length &&
-          <EuiCallOut
-            color='primary'
-            title='Welcome!'
-          >
-            <EuiText>
-              Create your first project to get started.
-            </EuiText>
-            <EuiSpacer size='m' />
-            <EuiButton
-              fill
-              iconType='plusInCircle'
-              onClick={() => setFlyout(true)}>
-              Create a new project
-            </EuiButton>
-          </EuiCallOut>
-        }
-        {!!projectsList.length &&
-          <EuiInMemoryTable
-            columns={columns}
-            items={projectsList}
-            pagination={true}
-            responsiveBreakpoint={false}
-            sorting={{
-              sort: {
-                field: 'name',
-                direction: 'asc',
-              }
-            }}
-          />
-        }
-      </EuiSkeletonText>
     </Page>
   )
 }

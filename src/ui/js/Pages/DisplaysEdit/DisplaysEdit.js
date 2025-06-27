@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   EuiButton,
@@ -19,34 +19,30 @@ import {
   IconBoxAlignLeftFilled,
   IconBoxAlignTopLeftFilled,
   IconBoxAlignTopRightFilled,
-  IconBoxAlignRightFilled
+  IconBoxAlignRightFilled,
 } from '@tabler/icons-react'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
 import { Page } from '../../Layout'
 import DocCard from '../Displays/DocCard'
 import api from '../../api'
+import utils from '../../utils'
 
 const DisplaysEdit = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
-  const {
-    project,
-    isProjectReady,
-    isLoadingDisplay,
-    isProcessingDisplay,
-    loadAssets,
-    displays,
-    indices,
-    updateDisplay
-  } = useProjectContext()
+  const { project, isProjectReady, loadAssets, indices } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
+  const [display, setDisplay] = useState(null)
+  const [displayId, setDisplayId] = useState(null)
+  const [isLoadingDisplay, setIsLoadingDisplay] = useState(true)
   const [isLoadingDocById, setIsLoadingDocById] = useState(false)
   const [isLoadingDocRandom, setIsLoadingDocRandom] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [mustacheVariables, setMustacheVariables] = useState(false)
   const [queryString, setQueryString] = useState('')
   const [sampleDoc, setSampleDoc] = useState()
@@ -55,23 +51,44 @@ const DisplaysEdit = () => {
   const [templateImageUrl, setTemplateImageUrl] = useState('')
   const mustacheVariablesRef = useRef(mustacheVariablesRef)
 
-  /**
-   * Parse displayId from URL path
-   */
-  const { display_id: displayId } = useParams()
+
+  ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
    * Load (or reload) any needed assets when project is ready.
    */
   useEffect(() => {
     if (isProjectReady)
-      loadAssets({ indices: true, displays: true })
+      loadAssets({ indices: true })
   }, [project?._id])
 
   /**
-   * Reference the display in the project state when editing
+   * Parse displayId from URL path
    */
-  const display = displays?.[displayId]
+  const { display_id } = useParams()
+  useEffect(() => setDisplayId(display_id), [display_id])
+
+  /**
+   * Get display on load
+   */
+  useEffect(() => {
+    if (!project?._id || displayId == null)
+      return
+    (async () => {
+      // Submit API request
+      let response
+      try {
+        setIsLoadingDisplay(true)
+        response = await api.displays_get(project._id, displayId)
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to get display' }))
+      } finally {
+        setIsLoadingDisplay(false)
+      }
+      // Handle API response
+      setDisplay(response.data._source)
+    })()
+  }, [project, displayId])
 
   /**
    * Initialize display once loaded
@@ -85,7 +102,8 @@ const DisplaysEdit = () => {
       setTemplateImagePosition(display.template.image.position)
     if (display.template?.image?.url)
       setTemplateImageUrl(display.template.image.url)
-    onGetDocRandom()
+    if (!sampleDoc)
+      onGetDocRandom()
   }, [display])
 
   /**
@@ -139,68 +157,102 @@ const DisplaysEdit = () => {
   }
 
   const onSaveDisplay = async (e) => {
-    e.preventDefault();
-    const newDoc = {
-      _id: display._id,
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
+
+    // Prepare doc field updates
+    const doc = {
       index_pattern: display.index_pattern,
       template: {
         body: templateBodyDraft
       }
     }
     if (templateImagePosition || templateImageUrl)
-      newDoc.template.image = {}
+      doc.template.image = {}
     if (templateImagePosition)
-      newDoc.template.image.position = templateImagePosition
+      doc.template.image.position = templateImagePosition
     if (templateImageUrl)
-      newDoc.template.image.url = templateImageUrl
-    await updateDisplay(display._id, newDoc)
+      doc.template.image.url = templateImageUrl
+
+    // Update doc
+    let response
+    try {
+      setIsProcessing(true)
+      response = await api.displays_update(project._id, displayId, doc)
+    } catch (err) {
+      return addToast(api.errorToast(err, { title: `Failed to update display` }))
+    } finally {
+      setIsProcessing(false)
+    }
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
+    addToast(utils.toastDocCreateUpdateDelete('update', 'display', displayId))
+
+    // Update doc in editor
+    setDisplay(prev => ({
+      ...prev,
+      ...doc,
+      template: {
+        ...prev.template,
+        ...doc.template
+      }
+    }))
   }
 
-  const onGetDocRandom = () => {
-    (async () => {
-      const body = {
-        query: { function_score: { random_score: {} } },
-        size: 1
-      }
-
-      // Submit API request
-      let response
-      try {
-        setIsLoadingDocRandom(true)
-        response = await api.content_search(display.index_pattern, body)
-      } catch (error) {
-        return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
-      } finally {
-        setIsLoadingDocRandom(false)
-      }
-
-      // Handle API response
-      setSampleDoc(response.data.hits.hits[0])
-      setQueryString('')
-    })()
+  const onGetDocRandom = async () => {
+    if (!display?.index_pattern)
+      return
+    const body = {
+      query: { function_score: { random_score: {} } },
+      size: 1
+    }
+    // Submit API request
+    let response
+    try {
+      setIsLoadingDocRandom(true)
+      response = await api.content_search(display.index_pattern, body)
+    } catch (error) {
+      return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
+    } finally {
+      setIsLoadingDocRandom(false)
+    }
+    // Handle API response
+    setSampleDoc(response.data.hits.hits[0])
+    setQueryString('')
   }
 
-  const onGetDocById = () => {
-    (async () => {
-      const body = {
-        query: { ids: { values: [queryString] } },
-        size: 1
-      }
+  const onGetDocById = async () => {
+    if (!display?.index_pattern)
+      return
+    const body = {
+      query: { ids: { values: [queryString] } },
+      size: 1
+    }
+    // Submit API request
+    let response
+    try {
+      setIsLoadingDocById(true)
+      response = await api.content_search(display.index_pattern, body)
+    } catch (error) {
+      return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
+    } finally {
+      setIsLoadingDocById(false)
+    }
+    // Handle API response
+    setSampleDoc(response.data.hits.hits[0])
+  }
 
-      // Submit API request
-      let response
-      try {
-        setIsLoadingDocById(true)
-        response = await api.content_search(display.index_pattern, body)
-      } catch (error) {
-        return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
-      } finally {
-        setIsLoadingDocById(false)
-      }
-
-      // Handle API response
-      setSampleDoc(response.data.hits.hits[0])
-    })()
+  /**
+   * Check if the draft template differs from the saved template.
+   */
+  const doesDraftDiffer = () => {
+    if (display?.template?.image?.position != templateImagePosition)
+      return true
+    if (display?.template?.image?.url != templateImageUrl)
+      return true
+    if (display?.template?.body != templateBodyDraft)
+      return true
+    return false
   }
 
 
@@ -237,19 +289,6 @@ const DisplaysEdit = () => {
     )
   }
 
-  /**
-   * Check if the draft template differs from the saved template.
-   */
-  const doesDraftDiffer = () => {
-    if (display?.template?.image?.position != templateImagePosition)
-      return true
-    if (display?.template?.image?.url != templateImageUrl)
-      return true
-    if (display?.template?.body != templateBodyDraft)
-      return true
-    return false
-  }
-
   return (
     <Page title={
       <EuiSkeletonTitle isLoading={!isProjectReady || isLoadingDisplay} size='l'>
@@ -275,7 +314,7 @@ const DisplaysEdit = () => {
                 <EuiFlexItem grow={false}>
                   <EuiButton
                     color='primary'
-                    disabled={isProcessingDisplay || !doesDraftDiffer()}
+                    disabled={isProcessing || !doesDraftDiffer()}
                     fill
                     onClick={onSaveDisplay}
                     type='submit'
@@ -286,7 +325,7 @@ const DisplaysEdit = () => {
                 <EuiFlexItem grow={false}>
                   <EuiButton
                     color='text'
-                    disabled={isProcessingDisplay || !doesDraftDiffer()}
+                    disabled={isProcessing || !doesDraftDiffer()}
                     onClick={() => { setTemplateBodyDraft(display.template.body) }}
                   >
                     Reset
@@ -416,8 +455,10 @@ const DisplaysEdit = () => {
           <EuiSpacer size='l' />
 
           {/* Body */}
-          <EuiSkeletonText lines={10} isLoading={isLoadingDocById || isLoadingDocRandom}>
-            {sampleDoc &&
+          {sampleDoc &&
+            <EuiPanel color='transparent' paddingSize='none' style={{
+              opacity: isLoadingDocById || isLoadingDocRandom ? 0.5 : 1.0
+            }}>
               <EuiFormRow fullWidth label='Example (large)'>
                 <EuiFlexGroup>
                   <EuiFlexItem grow={10}>
@@ -425,11 +466,7 @@ const DisplaysEdit = () => {
                   </EuiFlexItem>
                 </EuiFlexGroup>
               </EuiFormRow>
-            }
-          </EuiSkeletonText>
-          <EuiSpacer size='m' />
-          <EuiSkeletonText lines={10} isLoading={isLoadingDocById || isLoadingDocRandom}>
-            {sampleDoc &&
+              <EuiSpacer size='m' />
               <EuiFormRow fullWidth label='Example (small)'>
                 <EuiFlexGroup>
                   <EuiFlexItem grow={5}>
@@ -439,8 +476,8 @@ const DisplaysEdit = () => {
                   </EuiFlexItem>
                 </EuiFlexGroup>
               </EuiFormRow>
-            }
-          </EuiSkeletonText>
+            </EuiPanel>
+          }
 
         </EuiFlexItem>
       </EuiFlexGroup>

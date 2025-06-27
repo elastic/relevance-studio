@@ -1,7 +1,7 @@
 # Standard packages
 import itertools
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 # App packages
 from . import benchmarks, content
@@ -9,6 +9,7 @@ from .. import utils
 from ..client import es
 
 INDEX_NAME = "esrs-evaluations"
+SEARCH_FIELDS = utils.get_search_fields_from_mapping("evaluations")
 VALID_METRICS = set([ "ndcg", "precision", "recall" ])
 
 def validate_k(value):
@@ -103,7 +104,8 @@ def run(
         body = {
             "query": { "ids": { "values": evaluation["strategy_id"] }},
             "size": size,
-            "version": True
+            "version": True,
+            "_source": { "excludes": [ "_search" ]},
         }
         es_response = es("studio").search(
             index="esrs-strategies",
@@ -114,13 +116,14 @@ def run(
                 "id": hit["_id"],
                 "template": hit["_source"]["template"]
             })
-            evaluation["runtime"]["strategies"][hit["_id"]] = {
-                "_fingerprint": utils.fingerprint([ hit["_source"]["template"] ]),
-                "name": hit["_source"]["name"],
-                "params": hit["_source"]["params"],
-                "tags": hit["_source"]["tags"],
-                "template": hit["_source"]["template"]
+            runtime_strategy = {
+                "_fingerprint": utils.fingerprint([ hit["_source"]["template"] ])
             }
+            for field, value in hit["_source"].items():
+                if field == "project_id":
+                    continue
+                runtime_strategy[field] = value
+            evaluation["runtime"]["strategies"][hit["_id"]] = runtime_strategy
         
         # Get judgements, add them to "ratings" in _rank_eval, and track their
         # original contents. Track which scenarios had judgements, in case the
@@ -131,7 +134,8 @@ def run(
         body = {
             "query": { "terms": { "scenario_id": evaluation["scenario_id"] }},
             "size": size,
-            "version": True
+            "version": True,
+            "_source": { "excludes": [ "_search" ]},
         }
         es_response = es("studio").search(
             index="esrs-judgements",
@@ -147,15 +151,14 @@ def run(
                 "_id": hit["_source"]["doc_id"],
                 "rating": hit["_source"]["rating"],
             })
-            evaluation["runtime"]["judgements"][hit["_id"]] = {
-                "_fingerprint": utils.fingerprint([ hit["_id"], hit["_source"]["rating"] ]),
-                "@timestamp": hit["_source"]["@timestamp"],
-                "@author": hit["_source"]["@author"],
-                "scenario_id": hit["_source"]["scenario_id"],
-                "index": hit["_source"]["index"],
-                "doc_id": hit["_source"]["doc_id"],
-                "rating": hit["_source"]["rating"]
+            runtime_judgement = {
+                "_fingerprint": utils.fingerprint([ hit["_id"], hit["_source"]["rating"] ])
             }
+            for field, value in hit["_source"].items():
+                if field == "project_id":
+                    continue
+                runtime_judgement[field] = value
+            evaluation["runtime"]["judgements"][hit["_id"]] = runtime_judgement
         
         # Track results by strategy and scenarios
         _results = {}
@@ -172,7 +175,8 @@ def run(
         body = {
             "query": { "ids": { "values": evaluation["scenario_id"] }},
             "size": size,
-            "version": True
+            "version": True,
+            "_source": { "excludes": [ "_search" ]},
         }
         es_response = es("studio").search(
             index="esrs-scenarios",
@@ -180,13 +184,14 @@ def run(
         )
         for hit in es_response.body["hits"]["hits"]:
             scenarios[hit["_id"]] = hit["_source"]["values"]
-            evaluation["runtime"]["scenarios"][hit["_id"]] = {
-                "_fingerprint": utils.fingerprint([ hit["_source"]["values"] ]),
-                "name": hit["_source"]["name"],
-                "params": hit["_source"]["params"],
-                "values": hit["_source"]["values"],
-                "tags": hit["_source"]["tags"]
+            runtime_scenario = {
+                "_fingerprint": utils.fingerprint([ hit["_source"]["values"] ])
             }
+            for field, value in hit["_source"].items():
+                if field == "project_id":
+                    continue
+                runtime_scenario[field] = value
+            evaluation["runtime"]["scenarios"][hit["_id"]] = runtime_scenario
             
         # Store index relevance fingerprints
         evaluation["runtime"]["indices"] = content.make_index_relevance_fingerprints(index_pattern)
@@ -354,28 +359,25 @@ def run(
                 refresh=True
             )
         raise e
-
-def browse(project_id: str, benchmark_id: str, size: int = 10000) -> Dict[str, Any]:
+    
+def search(
+        project_id: str,
+        benchmark_id: str,
+        text: str = "",
+        filters: List[Dict[str, Any]] = [],
+        sort: Dict[str, Any] = {},
+        size: int = 10,
+        page: int = 1,
+        aggs: bool = False,
+    ) -> Dict[str, Any]:
     """
-    List evaluations in Elasticsearch.
+    Search evaluations in Elasticsearch.
     """
-    body={
-        "query": {
-            "bool": {
-                "filter": [
-                    { "term": { "project_id": project_id }},
-                    { "term": { "benchmark_id": benchmark_id }}
-                ]
-            }
-        },
-        "size": size
-    }
-    es_response = es("studio").search(
-        index=INDEX_NAME,
-        body=body,
-        ignore_unavailable=True
+    filters = [{ "term": { "benchmark_id": benchmark_id }}]
+    response = utils.search_assets(
+        "evaluations", project_id, text, filters, sort, size, page
     )
-    return es_response
+    return response
 
 def get(_id: str) -> Dict[str, Any]:
     """
@@ -383,7 +385,8 @@ def get(_id: str) -> Dict[str, Any]:
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
-        id=_id
+        id=_id,
+        source_excludes="_search",
     )
     return es_response
 
@@ -443,7 +446,7 @@ def create(
         index=INDEX_NAME,
         id=utils.unique_id(),
         document=doc,
-        refresh=True
+        refresh=True,
     )
     return es_response
 
@@ -454,7 +457,7 @@ def delete(_id: str) -> Dict[str, Any]:
     es_response = es("studio").delete(
         index=INDEX_NAME,
         id=_id,
-        refresh=True
+        refresh=True,
     )
     return es_response
 
@@ -476,7 +479,7 @@ def cleanup(time_ago: str = "2h") -> Dict[str, Any]:
     es_response = es("studio").options(ignore_status=404).delete_by_query(
         index=INDEX_NAME,
         body=body,
-        refresh=True
+        refresh=True,
     )
     return es_response
     

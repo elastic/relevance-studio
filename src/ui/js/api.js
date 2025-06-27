@@ -34,8 +34,12 @@ const validateArgs = (fnName, requiredArgs) => {
 
 ////  API: Projects  ///////////////////////////////////////////////////////////
 
-api.projects_browse = async () => {
-  return await client.get(`/api/projects`)
+api.projects_search = async (body) => {
+  return await client.post(`/api/projects/_search`, body ? { data: body } : {})
+}
+
+api.projects_tags = async () => {
+  return await client.get(`/api/projects/_tags`)
 }
 
 api.projects_get = async (project_id) => {
@@ -61,9 +65,9 @@ api.projects_delete = async (project_id) => {
 
 ////  API: Displays  ///////////////////////////////////////////////////////////
 
-api.displays_browse = async (project_id) => {
-  validateArgs('api.displays_browse', { project_id, })
-  return await client.get(`/api/projects/${project_id}/displays`)
+api.displays_search = async (project_id, body) => {
+  validateArgs('api.displays_search', { project_id, })
+  return await client.post(`/api/projects/${project_id}/displays/_search`, body ? { data: body } : {})
 }
 
 api.displays_get = async (project_id, display_id) => {
@@ -89,9 +93,14 @@ api.displays_delete = async (project_id, display_id) => {
 
 ////  API: Scenarios  //////////////////////////////////////////////////////////
 
-api.scenarios_browse = async (project_id) => {
-  validateArgs('api.scenarios_browse', { project_id, })
-  return await client.get(`/api/projects/${project_id}/scenarios`)
+api.scenarios_search = async (project_id, body) => {
+  validateArgs('api.scenarios_search', { project_id, })
+  return await client.post(`/api/projects/${project_id}/scenarios/_search`, body ? { data: body } : {})
+}
+
+api.scenarios_tags = async (project_id) => {
+  validateArgs('api.scenarios_tags', { project_id, })
+  return await client.get(`/api/projects/${project_id}/scenarios/_tags`)
 }
 
 api.scenarios_get = async (project_id, scenario_id) => {
@@ -131,19 +140,22 @@ api.judgements_set = async (project_id, scenario_id, doc) => {
   return await client.put(`/api/projects/${project_id}/judgements`, { data: doc })
 }
 
-api.judgements_unset = async (project_id, scenario_id, doc) => {
-  doc.project_id = project_id
-  doc.scenario_id = scenario_id
-  validateArgs('api.judgements_unset', { project_id, scenario_id, doc, })
-  return await client.del(`/api/projects/${project_id}/judgements`, { data: doc })
+api.judgements_unset = async (project_id, judgement_id) => {
+  validateArgs('api.judgements_unset', { project_id, judgement_id, })
+  return await client.del(`/api/projects/${project_id}/judgements/${judgement_id}`)
 }
 
 
 ////  API: Strategies  /////////////////////////////////////////////////////////
 
-api.strategies_browse = async (project_id) => {
-  validateArgs('api.strategies_browse', { project_id, })
-  return await client.get(`/api/projects/${project_id}/strategies`)
+api.strategies_search = async (project_id, body) => {
+  validateArgs('api.strategies_search', { project_id, })
+  return await client.post(`/api/projects/${project_id}/strategies/_search`, body ? { data: body } : {})
+}
+
+api.strategies_tags = async (project_id) => {
+  validateArgs('api.strategies_tags', { project_id, })
+  return await client.get(`/api/projects/${project_id}/strategies/_tags`)
 }
 
 api.strategies_get = async (project_id, strategy_id) => {
@@ -169,9 +181,14 @@ api.strategies_delete = async (project_id, strategy_id) => {
 
 ////  API: Benchmarks  /////////////////////////////////////////////////////////
 
-api.benchmarks_browse = async (project_id) => {
-  validateArgs('api.benchmarks_browse', { project_id, })
-  return await client.get(`/api/projects/${project_id}/benchmarks`)
+api.benchmarks_search = async (project_id, body) => {
+  validateArgs('api.benchmarks_search', { project_id, })
+  return await client.post(`/api/projects/${project_id}/benchmarks/_search`, body ? { data: body } : {})
+}
+
+api.benchmarks_tags = async (project_id) => {
+  validateArgs('api.benchmarks_tags', { project_id, })
+  return await client.get(`/api/projects/${project_id}/benchmarks/_tags`)
 }
 
 api.benchmarks_get = async (project_id, benchmark_id) => {
@@ -202,9 +219,9 @@ api.benchmarks_make_candidate_pool = async (project_id, body) => {
 
 ////  API: Evaluations  ////////////////////////////////////////////////////////
 
-api.evaluations_browse = async (project_id, benchmark_id) => {
-  validateArgs('api.evaluations_browse', { project_id, benchmark_id, })
-  return await client.get(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations`)
+api.evaluations_search = async (project_id, benchmark_id, body) => {
+  validateArgs('api.evaluations_search', { project_id, benchmark_id, })
+  return await client.post(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations/_search`, body ? { data: body } : {})
 }
 
 api.evaluations_get = async (project_id, benchmark_id, evaluation_id) => {

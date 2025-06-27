@@ -1,46 +1,26 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useHistory } from 'react-router-dom'
 import {
+  EuiBadge,
   EuiButton,
   EuiCallOut,
-  EuiInMemoryTable,
   EuiLink,
-  EuiSkeletonText,
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
-import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import { ModalDelete, Page } from '../../Layout'
+import { useSearchHandler } from '../../Hooks'
+import { ModalDelete, Page, SearchTable } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
 import api from '../../api'
 
 const Benchmarks = () => {
 
+  const history = useHistory()
+
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { addToast } = useAppContext()
-  const {
-    project,
-    isProjectReady,
-    isProcessingBenchmark,
-    loadAssets,
-    benchmarks,
-    benchmarksAggs,
-    deleteBenchmark
-  } = useProjectContext()
-
-  /**
-   * Load (or reload) any needed assets when project is ready.
-   */
-  useEffect(() => {
-    if (isProjectReady)
-      loadAssets({ benchmarks: true })
-  }, [project?._id])
-
-  /**
-   * Benchmarks as an array for the table component
-   */
-  const benchmarksList = Object.values(benchmarks) || []
+  const { project, isProjectReady } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -57,119 +37,238 @@ const Benchmarks = () => {
    */
   const [modalDelete, setModalDelete] = useState(null)
 
-  ////  Render  ////////////////////////////////////////////////////////////////
-
-  const columns = useMemo(() => {
-    return [
-      {
-        field: 'name',
-        name: 'Benchmark',
-        sortable: true,
-        truncateText: true,
-        render: (name, doc) => (
-          <EuiLink href={`#/projects/${project._id}/benchmarks/${doc._id}`}>
-            {doc.name}
-          </EuiLink>
-        )
-      },
-      {
-        name: 'Actions',
-        actions: [
-          {
-            color: 'text',
-            description: 'Update this benchmark',
-            icon: 'documentEdit',
-            name: 'update',
-            onClick: (doc) => setFlyout(doc),
-            type: 'icon',
-          },
-          {
-            color: 'danger',
-            description: 'Delete this benchmark',
-            icon: 'trash',
-            name: 'delete',
-            onClick: (doc) => setModalDelete(doc),
-            type: 'icon',
-          }
-        ],
-      }
-    ]
-  }, [benchmarks])
+  /**
+   * Whether a doc is being updated or deleted
+   */
+  const [isProcessing, setIsProcessing] = useState(false)
 
   /**
-   * Button that navigates to the page to create a benchmark.
+   * Search state
    */
-  const buttonCreate = (
-    <EuiButton
-      fill
-      iconType='plusInCircle'
-      onClick={() => setFlyout(true)}>
+  const [hasEverSearched, setHasEverSearched] = useState(false)
+  const [isIndexEmpty, setIsIndexEmpty] = useState(null)
+  const [isSearchLoading, setIsSearchLoading] = useState(false)
+  const [searchAggs, setSearchAggs] = useState({})
+  const [searchDocs, setSearchDocs] = useState([])
+  const [searchPage, setSearchPage] = useState(1)
+  const [searchSize, setSearchSize] = useState(10)
+  const [searchSortField, setSearchSortField] = useState("name")
+  const [searchSortOrder, setSearchSortOrder] = useState("asc")
+  const [searchText, setSearchText] = useState("")
+  const [searchTotal, setSearchTotal] = useState(null)
+
+  ////  Effects  ///////////////////////////////////////////////////////////////
+
+  /**
+   * Automatically submit the search and return to page one either when the
+   * project is ready or when the user changes pagination settings.
+   */
+  useEffect(() => {
+    if (isProjectReady) {
+      onSubmitSearch()
+      setSearchPage(1)
+    }
+  }, [project?._id, searchSize, searchSortField, searchSortOrder])
+
+  /**
+   * Automatically submit the search when the user selects a different page in
+   * the search results.
+   */
+  useEffect(() => {
+    if (isProjectReady)
+      onSubmitSearch()
+  }, [searchPage])
+
+  /**
+   * Search handler
+   */
+  const onSubmitSearch = useSearchHandler({
+    searchFn: api.benchmarks_search, // search benchmarks
+    projectId: project?._id,
+    searchText,
+    searchPage,
+    searchSize,
+    searchSortField,
+    searchSortOrder,
+    useAggs: true, // benchmarks have aggs
+    setDocs: setSearchDocs,
+    setAggs: setSearchAggs,
+    setTotal: setSearchTotal,
+    setLoading: setIsSearchLoading,
+    setHasEverSearched: setHasEverSearched,
+    setIsIndexEmpty: setIsIndexEmpty,
+  })
+
+  ////  Render  ////////////////////////////////////////////////////////////////
+
+  const columns = [
+    {
+      field: 'name',
+      name: 'Benchmark',
+      sortable: true,
+      truncateText: true,
+      render: (name, doc) => (
+        <EuiLink href={`#/projects/${project._id}/benchmarks/${doc._id}`}>
+          {doc.name}
+        </EuiLink>
+      )
+    },
+    {
+      field: 'evaluations',
+      name: 'Evaluations',
+      width: '100px',
+      render: (name, doc) => {
+        const count = searchAggs?.[doc._id]?.evaluations ?? 0
+        return (
+          <EuiLink onClick={(e) => {
+            history.push({
+              pathname: `/projects/${project._id}/bencharms/${doc._id}/evaluations`,
+            })
+          }}>
+            {count.toLocaleString()}
+          </EuiLink>
+        )
+      }
+    },
+    {
+      field: 'tags',
+      name: 'Tags',
+      width: '100px',
+      render: (name, doc) => {
+        const tags = []
+        for (var i in doc.tags)
+          tags.push(
+            <EuiBadge color='hollow' key={doc.tags[i]}>
+              {doc.tags[i]}
+            </EuiBadge>
+          )
+        return tags
+      },
+    },
+    {
+      field: 'metrics',
+      name: 'Metrics',
+      width: '100px',
+      render: (name, doc) => {
+        const tags = []
+        for (var i in doc.task?.metrics)
+          tags.push(
+            <EuiBadge color='hollow' key={doc.task.metrics[i]}>
+              {doc.task.metrics[i]}
+            </EuiBadge>
+          )
+        return tags
+      },
+    },
+    {
+      field: 'k',
+      name: 'k',
+      width: '100px',
+      render: (name, doc) => doc.task?.k,
+    },
+    {
+      name: 'Actions',
+      width: '100px',
+      actions: [
+        {
+          color: 'text',
+          description: 'Update this benchmark',
+          icon: 'documentEdit',
+          name: 'update',
+          onClick: (doc) => setFlyout(doc),
+          type: 'icon',
+        },
+        {
+          color: 'danger',
+          description: 'Delete this benchmark',
+          icon: 'trash',
+          name: 'delete',
+          onClick: (doc) => setModalDelete(doc),
+          type: 'icon',
+        }
+      ],
+    }
+  ]
+
+  const renderFlyout = () => (
+    <FlyoutForm
+      action={flyout === true ? 'create' : 'update'}
+      doc={flyout}
+      isProcessing={isProcessing}
+      onClose={() => setFlyout(null)}
+      onSuccess={onSubmitSearch}
+      setIsProcessing={setIsProcessing}
+    />
+  )
+
+  const renderModalDelete = () => (
+    <ModalDelete
+      description={
+        !!searchAggs[modalDelete._id]?.evaluations &&
+        <EuiText>
+          This will delete {searchAggs[modalDelete._id]?.evaluations == 1 ? ' ' : 'all '}{searchAggs[modalDelete._id]?.evaluations} evaluation{searchAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'} related to this benchmark.
+        </EuiText>
+      }
+      doc={modalDelete}
+      docType='benchmark'
+      isLoading={isProcessing}
+      onClose={() => setModalDelete(null)}
+      onDelete={async () => await api.benchmarks_delete(project._id, modalDelete._id)}
+      onSuccess={onSubmitSearch}
+      setIsProcessing={setIsProcessing}
+    />
+  )
+
+  const renderButtonCreate = () => (
+    <EuiButton fill iconType='plusInCircle' onClick={() => setFlyout(true)}>
       Create a new benchmark
     </EuiButton>
   )
 
   return (
-    <Page title='Benchmarks' buttons={[buttonCreate]}>
-      {modalDelete &&
-        <ModalDelete
-          description={
-            !!benchmarksAggs[modalDelete._id]?.evaluations &&
-            <EuiText>
-              This will delete {benchmarksAggs[modalDelete._id]?.evaluations == 1 ? ' ' : 'all '}{benchmarksAggs[modalDelete._id]?.evaluations} evaluation{benchmarksAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'} related to this benchmark.
-            </EuiText>
+    <Page title='Benchmarks' buttons={[renderButtonCreate()]}>
+      {modalDelete && renderModalDelete()}
+      {flyout && renderFlyout()}
+      {hasEverSearched &&
+        <>
+          {isIndexEmpty &&
+            <EuiCallOut
+              color='primary'
+              title='Welcome!'
+            >
+              <EuiText>
+                Create your first benchmark to get started.
+              </EuiText>
+              <EuiSpacer size='m' />
+              {renderButtonCreate()}
+            </EuiCallOut>
           }
-          doc={modalDelete}
-          docType='benchmark'
-          isLoading={isProcessingBenchmark}
-          onClose={() => setModalDelete(null)}
-          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete benchmark` }))}
-          onDelete={async () => await deleteBenchmark(modalDelete._id)}
-        />
+          {isIndexEmpty === false &&
+            <SearchTable
+              docs={searchDocs}
+              total={searchTotal}
+              page={searchPage}
+              size={searchSize}
+              sortField={searchSortField}
+              sortOrder={searchSortOrder}
+              isLoading={isSearchLoading}
+              columns={columns}
+              searchText={searchText}
+              onChangeText={setSearchText}
+              onChangePage={setSearchPage}
+              onChangeSize={setSearchSize}
+              onChangeSort={(field, order) => {
+                setSearchSortField(field)
+                setSearchSortOrder(order)
+              }}
+              onSubmit={() => {
+                onSubmitSearch()
+                setSearchPage(1)
+              }}
+            />
+          }
+        </>
       }
-      {flyout &&
-        <FlyoutForm
-          action={flyout === true ? 'create' : 'update'}
-          doc={flyout}
-          onClose={() => setFlyout(null)}
-          onCreated={(newDoc) => {
-            // Add doc to table
-            setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
-          }}
-          onUpdated={(newDoc) => {
-            // Update doc in table
-            setProjects(prev => ({ ...prev, [newDoc._id]: newDoc }))
-          }}
-        />
-      }
-      <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
-        {!benchmarks &&
-          <EuiCallOut
-            color='primary'
-            title='Welcome!'
-          >
-            <EuiText>
-              Create your first benchmark to get started.
-            </EuiText>
-            <EuiSpacer size='m' />
-            {buttonCreate}
-          </EuiCallOut>
-        }
-        {!!benchmarks &&
-          <EuiInMemoryTable
-            columns={columns}
-            items={benchmarksList}
-            pagination={true}
-            responsiveBreakpoint={false}
-            sorting={{
-              sort: {
-                field: 'name',
-                direction: 'asc',
-              }
-            }}
-            tableLayout='auto'
-          />
-        }
-      </EuiSkeletonText>
     </Page>
   )
 }

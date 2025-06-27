@@ -1,5 +1,4 @@
-import React from 'react'
-import { EuiFlyoutBody, EuiPageTemplate, EuiProvider } from '@elastic/eui'
+import { EuiPageTemplate, EuiProvider } from '@elastic/eui'
 import { useAppContext } from '../Contexts/AppContext'
 import SideNav from './SideNav'
 

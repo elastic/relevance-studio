@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EuiBadge,
   EuiButton,
@@ -7,49 +7,28 @@ import {
   EuiFieldText,
   EuiForm,
   EuiFormRow,
-  EuiInMemoryTable,
   EuiLink,
   EuiModal,
   EuiModalHeaderTitle,
   EuiModalBody,
   EuiModalFooter,
   EuiModalHeader,
-  EuiSkeletonText,
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import { ModalDelete, Page } from '../../Layout'
+import { useSearchHandler } from '../../Hooks'
+import { ModalDelete, Page, SearchTable } from '../../Layout'
+import api from '../../api'
+import utils from '../../utils'
 
 const Strategies = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const {
-    project,
-    isProjectReady,
-    isProcessingStrategy,
-    loadAssets,
-    strategies,
-    createStrategy,
-    updateStrategy,
-    deleteStrategy
-  } = useProjectContext()
-
-  /**
-   * Load (or reload) any needed assets when project is ready.
-   */
-  useEffect(() => {
-    if (isProjectReady)
-      loadAssets({ strategies: true })
-  }, [project?._id])
-
-  /**
-   * Strategies as an array for the table component
-   */
-  const strategiesList = Object.values(strategies) || []
+  const { project, isProjectReady } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -71,31 +50,190 @@ const Strategies = () => {
    */
   const [modalDelete, setModalDelete] = useState(null)
 
+  /**
+   * Whether a doc is being updated or deleted
+   */
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  /**
+   * Search state
+   */
+  const [hasEverSearched, setHasEverSearched] = useState(false)
+  const [isIndexEmpty, setIsIndexEmpty] = useState(null)
+  const [isSearchLoading, setIsSearchLoading] = useState(false)
+  const [searchDocs, setSearchDocs] = useState([])
+  const [searchPage, setSearchPage] = useState(1)
+  const [searchSize, setSearchSize] = useState(10)
+  const [searchSortField, setSearchSortField] = useState("name")
+  const [searchSortOrder, setSearchSortOrder] = useState("asc")
+  const [searchText, setSearchText] = useState("")
+  const [searchTotal, setSearchTotal] = useState(null)
+
+  ////  Effects  ///////////////////////////////////////////////////////////////
+
+  /**
+   * Automatically submit the search and return to page one either when the
+   * project is ready or when the user changes pagination settings.
+   */
+  useEffect(() => {
+    if (isProjectReady) {
+      onSubmitSearch()
+      setSearchPage(1)
+    }
+  }, [project?._id, searchSize, searchSortField, searchSortOrder])
+
+  /**
+   * Automatically submit the search when the user selects a different page in
+   * the search results.
+   */
+  useEffect(() => {
+    if (isProjectReady)
+      onSubmitSearch()
+  }, [searchPage])
+
+  /**
+   * Search handler
+   */
+  const onSubmitSearch = useSearchHandler({
+    searchFn: api.strategies_search, // search strategies
+    projectId: project?._id,
+    searchText,
+    searchPage,
+    searchSize,
+    searchSortField,
+    searchSortOrder,
+    useAggs: false, // strategies don't have aggs
+    setDocs: setSearchDocs,
+    setTotal: setSearchTotal,
+    setLoading: setIsSearchLoading,
+    setHasEverSearched: setHasEverSearched,
+    setIsIndexEmpty: setIsIndexEmpty,
+  })
+
   ////  Event handlers  ////////////////////////////////////////////////////////
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
+  const onSubmitModal = async (action, doc, _id) => {
+    let response
+    try {
+      setIsProcessing(true)
+      if (action == 'create')
+        response = await api.strategies_create(project._id, doc)
+      else if (action == 'update')
+        response = await api.strategies_update(project._id, _id, doc)
+      else if (action == 'delete')
+        response = await api.strategies_delete(project._id, _id)
+    } catch (err) {
+      return addToast(api.errorToast(err, { title: `Failed to ${action} strategy` }))
+    } finally {
+      setIsProcessing(false)
+    }
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
+    addToast(utils.toastDocCreateUpdateDelete(action, 'strategy', _id || response.data._id))
+
     if (modalCreate) {
 
-      // Create strategy and redirect to its editor
-      const doc = { ...modalCreate }
-      doc.name = doc.name.trim()
-      const response = await createStrategy(doc)
+      // Redirect to strategy editor
       window.location.href = `/#/projects/${project._id}/strategies/${response.data._id}`
       return setModalCreate(null)
     } else {
 
-      // Update display and close modal
-      const docUpdates = {
-        name: modalUpdate.name.trim(),
-        tags: modalUpdate.tags || []
-      }
-      await updateStrategy(modalUpdate._id, docUpdates)
-      return setModalUpdate(null)
+      // Reload table and close modal
+      setModalUpdate(null)
+      onSubmitSearch()
+      setSearchPage(1)
+    }
+  }
+
+  const onSubmitModalCreateUpdate = async (e) => {
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
+
+    if (modalCreate) {
+      // Prepare doc
+      const doc = { ...modalCreate }
+      doc.name = doc.name.trim()
+      return await onSubmitModal('create', doc)
+
+    } else if (modalUpdate) {
+      // Prepare doc field updates
+      // Pass whole doc, because index() is required for updates to strategies.
+      const doc = { ...modalUpdate }
+      doc.name = modalUpdate.name.trim()
+      doc.tag = modalUpdate.tags || []
+      return await onSubmitModal('update', doc, modalUpdate._id)
     }
   }
 
   ////  Render  ////////////////////////////////////////////////////////////////
+
+  const columns = [
+    {
+      field: 'name',
+      name: 'Strategy',
+      sortable: true,
+      truncateText: true,
+      render: (name, doc) => (
+        <EuiLink href={`#/projects/${project._id}/strategies/${doc._id}`}>
+          {doc.name}
+        </EuiLink>
+      )
+    },
+    {
+      field: 'tags',
+      name: 'Tags',
+      width: '100px',
+      render: (name, doc) => {
+        const tags = []
+        for (var i in doc.tags)
+          tags.push(
+            <EuiBadge color='hollow' key={doc.tags[i]}>
+              {doc.tags[i]}
+            </EuiBadge>
+          )
+        return tags
+      },
+    },
+    {
+      field: 'params',
+      name: 'Params',
+      width: '100px',
+      render: (name, doc) => {
+        const params = []
+        for (var i in doc.params)
+          params.push(
+            <EuiBadge color='hollow' key={doc.params[i]}>
+              {doc.params[i]}
+            </EuiBadge>
+          )
+        if (!params.length)
+          return <EuiBadge color='warning' iconType='warningFilled' size='xs'>none</EuiBadge>
+        return params
+      },
+    },
+    {
+      name: 'Actions',
+      width: '100px',
+      actions: [
+        {
+          color: 'text',
+          description: 'Update this strategy',
+          icon: 'documentEdit',
+          name: 'update',
+          onClick: (doc) => setModalUpdate(doc),
+          type: 'icon',
+        },
+        {
+          color: 'danger',
+          description: 'Delete this strategy',
+          icon: 'trash',
+          name: 'delete',
+          onClick: (doc) => setModalDelete(doc),
+          type: 'icon',
+        }
+      ],
+    }
+  ]
 
   /**
    * Modal to create or update a strategy.
@@ -146,18 +284,18 @@ const Strategies = () => {
       </EuiModalBody>
       <EuiModalFooter>
         <EuiButton
-          disabled={isProcessingStrategy || !((modalCreate || modalUpdate).name || '').length}
+          disabled={isProcessing || !((modalCreate || modalUpdate).name || '').length}
           fill
           form='create-update'
-          isLoading={isProcessingStrategy}
-          onClick={onSubmit}
+          isLoading={isProcessing}
+          onClick={onSubmitModalCreateUpdate}
           type='submit'
         >
-          Create
+          {modalCreate ? 'Create' : 'Update'}
         </EuiButton>
         <EuiButton
           color='text'
-          disabled={isProcessingStrategy}
+          disabled={isProcessing}
           onClick={() => { setModalCreate(null); setModalUpdate(null) }}
         >
           Cancel
@@ -166,133 +304,74 @@ const Strategies = () => {
     </EuiModal>
   )
 
-  const columns = useMemo(() => {
-    return [
-      {
-        field: 'name',
-        name: 'Strategy',
-        sortable: true,
-        truncateText: true,
-        render: (name, doc) => (
-          <EuiLink href={`#/projects/${project._id}/strategies/${doc._id}`}>
-            {doc.name}
-          </EuiLink>
-        )
-      },
-      {
-        field: 'tags',
-        name: 'Tags',
-        render: (name, doc) => {
-          const tags = []
-          for (var i in doc.tags)
-            tags.push(
-              <EuiBadge color='hollow' key={doc.tags[i]}>
-                {doc.tags[i]}
-              </EuiBadge>
-            )
-          return tags
-        },
-      },
-      {
-        field: 'params',
-        name: 'Params',
-        render: (name, doc) => {
-          const params = []
-          for (var i in doc.params)
-            params.push(
-              <EuiBadge color='hollow' key={doc.params[i]}>
-                {doc.params[i]}
-              </EuiBadge>
-            )
-          if (!params.length)
-            return <EuiBadge color='warning' iconType='warningFilled' size='xs'>none</EuiBadge>
-          return params
-        },
-      },
-      {
-        name: 'Actions',
-        actions: [
-          {
-            color: 'text',
-            description: 'Update this strategy',
-            icon: 'documentEdit',
-            name: 'update',
-            onClick: (doc) => setModalUpdate(doc),
-            type: 'icon',
-          },
-          {
-            color: 'danger',
-            description: 'Delete this strategy',
-            icon: 'trash',
-            name: 'delete',
-            onClick: (doc) => setModalDelete(doc),
-            type: 'icon',
-          }
-        ],
-      }
-    ]
-  }, [strategies])
+  const renderModalDelete = () => (
+    <ModalDelete
+      doc={modalDelete}
+      docType='strategy'
+      isProcessing={isProcessing}
+      onClose={() => setModalDelete(null)}
+      onDelete={async () => await api.strategies_delete(project._id, modalDelete._id)}
+      onSuccess={onSubmitSearch}
+      setIsProcessing={setIsProcessing}
+    />
+  )
 
-  /**
-   * Button that opens the modal to create a strategy.
-   */
-  const buttonCreate = (
-    <EuiButton
-      fill
-      iconType='plusInCircle'
-      onClick={() => setModalCreate({
-        name: '',
-        tags: [],
-        template: {
-          source: {}
-        }
-      })}>
+  const renderButtonCreate = () => (
+    <EuiButton fill iconType='plusInCircle' onClick={() => setModalCreate({
+      name: '',
+      tags: [],
+      template: {
+        source: {}
+      }
+    })}>
       Create a new strategy
     </EuiButton>
   )
 
   return (
-    <Page title='Strategies' buttons={[buttonCreate]}>
+    <Page title='Strategies' buttons={[renderButtonCreate()]}>
       {(modalCreate || modalUpdate) && renderModalCreateUpdate()}
-      {modalDelete &&
-        <ModalDelete
-          doc={modalDelete}
-          docType='strategy'
-          isLoading={isProcessingStrategy}
-          onClose={() => setModalDelete(null)}
-          onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete strategy` }))}
-          onDelete={async () => await deleteStrategy(modalDelete._id)}
-        />
+      {modalDelete && renderModalDelete()}
+      {hasEverSearched &&
+        <>
+          {isIndexEmpty &&
+            <EuiCallOut
+              color='primary'
+              title='Welcome!'
+            >
+              <EuiText>
+                Create your first strategy to get started.
+              </EuiText>
+              <EuiSpacer size='m' />
+              {renderButtonCreate()}
+            </EuiCallOut>
+          }
+          {isIndexEmpty === false &&
+            <SearchTable
+              docs={searchDocs}
+              total={searchTotal}
+              page={searchPage}
+              size={searchSize}
+              sortField={searchSortField}
+              sortOrder={searchSortOrder}
+              isLoading={isSearchLoading}
+              columns={columns}
+              searchText={searchText}
+              onChangeText={setSearchText}
+              onChangePage={setSearchPage}
+              onChangeSize={setSearchSize}
+              onChangeSort={(field, order) => {
+                setSearchSortField(field)
+                setSearchSortOrder(order)
+              }}
+              onSubmit={() => {
+                onSubmitSearch()
+                setSearchPage(1)
+              }}
+            />
+          }
+        </>
       }
-      <EuiSkeletonText isLoading={!isProjectReady} lines={10}>
-        {!strategies &&
-          <EuiCallOut
-            color='primary'
-            title='Welcome!'
-          >
-            <EuiText>
-              Create your first strategy to get started.
-            </EuiText>
-            <EuiSpacer size='m' />
-            {buttonCreate}
-          </EuiCallOut>
-        }
-        {!!strategies &&
-          <EuiInMemoryTable
-            columns={columns}
-            items={strategiesList}
-            pagination={true}
-            responsiveBreakpoint={false}
-            sorting={{
-              sort: {
-                field: 'name',
-                direction: 'asc',
-              }
-            }}
-            tableLayout='auto'
-          />
-        }
-      </EuiSkeletonText>
     </Page>
   )
 }

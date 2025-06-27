@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EuiButton,
   EuiButtonEmpty,
@@ -17,16 +17,18 @@ import {
 } from '@elastic/eui'
 import { useProjectContext } from '../../Contexts/ProjectContext'
 
-const FlyoutForm = ({ action, doc, onClose }) => {
+const FlyoutForm = ({
+  action,
+  doc,
+  isProcessing,
+  onClose,
+  onSuccess,
+  setIsProcessing
+}) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const {
-    project,
-    isProcessingScenario,
-    createScenario,
-    updateScenario
-  } = useProjectContext()
+  const { project, createScenario, updateScenario } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -68,22 +70,31 @@ const FlyoutForm = ({ action, doc, onClose }) => {
   ////  Event handlers  ////////////////////////////////////////////////////////
 
   const onSubmit = async (e) => {
-    e.preventDefault();
-    const newDoc = {
-      name: form.name.trim(),
-      tags: (form.tags || []).sort()
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
+    try {
+      setIsProcessing(true)
+      const newDoc = {
+        name: form.name.trim(),
+        tags: (form.tags || []).sort()
+      }
+      if (action == 'create') {
+        newDoc.values = Object.fromEntries(
+          form.values
+            .map(({ name, value }) => [name, String(value).trim()])
+            .filter(([, trimmed]) => trimmed !== "")
+        )
+        await createScenario(newDoc)
+      } else if (action == 'update') {
+        await updateScenario(doc._id, newDoc)
+      }
+      if (onSuccess)
+        onSuccess()
+      if (onClose)
+        onClose()
+    } finally {
+      setIsProcessing(false)
     }
-    if (action == 'create') {
-      newDoc.values = Object.fromEntries(
-        form.values
-          .map(({ name, value }) => [name, String(value).trim()])
-          .filter(([, trimmed]) => trimmed !== "")
-      )
-      await createScenario(newDoc)
-    } else if (action == 'update') {
-      await updateScenario(doc._id, newDoc)
-    }
-    onClose()
   }
 
   ////  Form validation  ///////////////////////////////////////////////////////
@@ -189,7 +200,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
           <EuiFlexGroup justifyContent='spaceBetween'>
             <EuiFlexItem grow={false}>
               <EuiButtonEmpty
-                disabled={isProcessingScenario}
+                disabled={isProcessing}
                 flush='left'
                 iconType='cross'
                 onClick={onClose}
@@ -200,7 +211,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
             <EuiFlexItem grow={false}>
               <EuiButton
                 color='primary'
-                disabled={isProcessingScenario || isInvalidForm()}
+                disabled={isProcessing || isInvalidForm()}
                 fill
                 onClick={onSubmit}
                 type='submit'

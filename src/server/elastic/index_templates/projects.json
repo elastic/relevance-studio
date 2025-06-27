@@ -27,6 +27,19 @@
               "type": "byte"
             }
           }
+        },
+        "_search": {
+          "properties": {
+            "name": {
+              "type": "text"
+            },
+            "index_pattern": {
+              "type": "text"
+            },
+            "params": {
+              "type": "text"
+            }
+          }
         }
       }
     }

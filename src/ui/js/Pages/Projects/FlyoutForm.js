@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EuiButton,
   EuiButtonEmpty,
@@ -17,14 +17,20 @@ import {
   EuiFlyoutFooter,
   EuiInlineEditTitle,
   EuiSpacer,
-  EuiText,
   EuiToolTip,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import api from '../../api'
 import utils from '../../utils'
 
-const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
+const FlyoutForm = ({
+    action,
+    doc,
+    isProcessing,
+    onClose,
+    onSuccess,
+    setIsProcessing
+  }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -47,7 +53,6 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
     rating_scale_min: false,
     rating_scale_max: false
   })
-  const [isLoading, setIsLoading] = useState(false)
 
   ////  Effects  ///////////////////////////////////////////////////////////////
 
@@ -68,8 +73,9 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
-  const onSubmit = (e) => {
-    e.preventDefault();
+  const onSubmit = async (e) => {
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
     const newDoc = doc ? { ...doc } : {}
     newDoc.name = form.name.trim()
     newDoc.index_pattern = form.index_pattern.trim()
@@ -78,81 +84,27 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
       min: form.rating_scale.min,
       max: form.rating_scale.max
     }
-    if (action == 'create')
-      return onSubmitCreate(newDoc)
-    if (action == 'update')
-      return onSubmitUpdate(newDoc)
-  }
 
-  const onSubmitCreate = (newDoc) => {
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setIsLoading(true)
+    // Submit API request
+    let response
+    try {
+      setIsProcessing(true)
+      if (action == 'create')
         response = await api.projects_create(newDoc)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to create project' }))
-      } finally {
-        setIsLoading(false)
-      }
-
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Created project',
-        color: 'success',
-        iconType: 'check',
-        text: (
-          <EuiText size='xs'>
-            <b>{newDoc.name}</b><br />
-            <EuiText color='subdued' size='xs'>
-              <small>{response.data._id}</small>
-            </EuiText>
-          </EuiText>
-        )
-      })
-      newDoc._id = response.data._id
-      onCreated(newDoc)
-      onClose()
-    })()
-  }
-
-  const onSubmitUpdate = (newDoc) => {
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setIsLoading(true)
+      else
         response = await api.projects_update(doc._id, newDoc)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to create project' }))
-      } finally {
-        setIsLoading(false)
-      }
-
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Updated project',
-        color: 'success',
-        iconType: 'check',
-        text: (
-          <EuiText size='xs'>
-            <b>{newDoc.name}</b><br />
-            <EuiText color='subdued' size='xs'>
-              <small>{response.data._id}</small>
-            </EuiText>
-          </EuiText>
-        )
-      })
-      onUpdated(newDoc)
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: `Failed to {action} project` }))
+    } finally {
+      setIsProcessing(false)
+    }
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
+    addToast(utils.toastDocCreateUpdateDelete(action, 'project', response.data._id, newDoc))
+    if (onSuccess)
+      onSuccess()
+    if (onClose)
       onClose()
-    })()
   }
 
   ////  Form validation  ///////////////////////////////////////////////////////
@@ -351,7 +303,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
           <EuiFlexGroup justifyContent='spaceBetween'>
             <EuiFlexItem grow={false}>
               <EuiButtonEmpty
-                disabled={isLoading}
+                disabled={isProcessing}
                 flush='left'
                 iconType='cross'
                 onClick={onClose}
@@ -362,7 +314,7 @@ const FlyoutForm = ({ action, doc, onClose, onCreated, onUpdated }) => {
             <EuiFlexItem grow={false}>
               <EuiButton
                 color='primary'
-                disabled={isLoading || isInvalidForm()}
+                disabled={isProcessing || isInvalidForm()}
                 fill
                 onClick={onSubmit}
                 type='submit'

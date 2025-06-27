@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import {
@@ -12,23 +12,24 @@ import {
   EuiSkeletonTitle,
   EuiSpacer,
 } from '@elastic/eui'
-import api from '../../api'
-import utils from '../../utils'
-import { Page } from '../../Layout'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
 import FlyoutHelp from './FlyoutHelp'
+import { Page } from '../../Layout'
+import api from '../../api'
+import utils from '../../utils'
 
 const StrategiesEdit = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
-  const { project } = useProjectContext()
+  const { project, isProjectReady } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [loadingStrategy, setLoadingStrategy] = useState(true)
+  const [isLoadingStrategy, setIsLoadingStrategy] = useState(true)
+  const [isProcessing, setIsProcessing] = useState(false)
   const [params, setParams] = useState([])
   const [showHelp, setShowHelp] = useState(false)
   const [strategy, setStrategy] = useState({})
@@ -48,31 +49,29 @@ const StrategiesEdit = () => {
     if (!project?._id || strategyId == null)
       return
     (async () => {
-
       // Submit API request
       let response
       try {
-        setLoadingStrategy(true)
+        setIsLoadingStrategy(true)
         response = await api.strategies_get(project._id, strategyId)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to get strategy' }))
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to get strategy' }))
       } finally {
-        setLoadingStrategy(false)
+        setIsLoadingStrategy(false)
       }
-
       // Handle API response
       setStrategy(response.data._source)
     })()
   }, [project, strategyId])
 
   /**
-   * Get strategy draft from strategy document
+   * Initialize strategy once loaded
    */
   useEffect(() => {
-    if (!strategy.template)
+    if (!strategy?.template)
       return
     setStrategyDraft(JSON.stringify(strategy.template.source, null, 2))
-  }, [strategy.template])
+  }, [strategy])
 
   /**
    * Extract params (formatted as Mustache variables) from a JSON string.
@@ -93,38 +92,42 @@ const StrategiesEdit = () => {
     extractParams(strategyDraft)
   }, [strategyDraft])
 
-  const onSaveStrategy = (e) => {
-    e.preventDefault();
-    (async () => {
+  const onSaveStrategy = async (e) => {
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
 
-      // Submit API request
-      const doc = {
-        name: strategy.name,
-        tags: strategy.tags,
-        template: {
-          source: JSON.parse(strategyDraft)
-        },
-      }
-      let response
-      try {
-        setLoadingStrategy(true)
-        response = await api.strategies_update(project._id, strategyId, doc)
-      } catch (err) {
-        return addToast(api.errorToast(err, { title: 'Failed to update display' }))
-      } finally {
-        setLoadingStrategy(false)
-      }
+    // Prepare doc field updates
+    const doc = {
+      name: strategy.name,
+      tags: strategy.tags,
+      template: {
+        source: JSON.parse(strategyDraft)
+      },
+    }
 
-      // Handle API response
-      if (response.status < 200 && response.status > 299)
-        return addToast(utils.toastClientResponse(response))
-      addToast({
-        title: 'Saved strategy',
-        color: 'success',
-        iconType: 'check'
-      })
-      setStrategy(doc)
-    })()
+    // Update doc
+    let response
+    try {
+      setIsProcessing(true)
+      response = await api.strategies_update(project._id, strategyId, doc)
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: 'Failed to update strategy' }))
+    } finally {
+      setIsProcessing(false)
+    }
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
+    addToast(utils.toastDocCreateUpdateDelete('update', 'strategy', strategyId))
+
+    // Update doc in editor
+    setStrategy(prev => ({
+      ...prev,
+      ...doc,
+      template: {
+        ...prev.template,
+        ...doc.template
+      }
+    }))
   }
 
   /**
@@ -168,26 +171,23 @@ const StrategiesEdit = () => {
     )
   }
 
-  const buttonHelp = (
-    <EuiButton
-      color='text'
-      iconType='help'
-      onClick={() => setShowHelp(!showHelp)}>
+  const renderButtonHelp = () => (
+    <EuiButton color='text' iconType='help' onClick={() => setShowHelp(!showHelp)}>
       Help
     </EuiButton>
   )
 
   return (
     <Page title={
-      <EuiSkeletonTitle isLoading={loadingStrategy} size='l'>
-        {!strategy.name &&
+      <EuiSkeletonTitle isLoading={!isProjectReady || isLoadingStrategy} size='l'>
+        {!strategy &&
           <>Not found</>
         }
-        {!!strategy.name &&
+        {!!strategy &&
           <>{strategy.name}</>
         }
       </EuiSkeletonTitle>
-    } buttons={[buttonHelp]}>
+    } buttons={[renderButtonHelp()]}>
       {showHelp && <FlyoutHelp onClose={() => setShowHelp(false)} />}
       <EuiFlexGroup alignItems='flexStart' style={{ height: 'calc(100vh - 135px)' }}>
 
@@ -203,7 +203,7 @@ const StrategiesEdit = () => {
                 <EuiFlexItem grow={false}>
                   <EuiButton
                     color='primary'
-                    disabled={loadingStrategy || doesDraftDiffer()}
+                    disabled={isProcessing || doesDraftDiffer()}
                     fill
                     onClick={onSaveStrategy}
                     type='submit'
@@ -214,7 +214,7 @@ const StrategiesEdit = () => {
                 <EuiFlexItem grow={false}>
                   <EuiButton
                     color='text'
-                    disabled={loadingStrategy || doesDraftDiffer()}
+                    disabled={isProcessing || doesDraftDiffer()}
                     onClick={() => { setStrategyDraft(JSON.stringify(strategy.template.source, null, 2)) }}
                   >
                     Reset
@@ -226,7 +226,7 @@ const StrategiesEdit = () => {
               {/* Editor */}
               <EuiFormRow fullWidth label='Query DSL editor'>
                 <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-                  <EuiSkeletonText lines={21} isLoading={loadingStrategy}>
+                  <EuiSkeletonText lines={21} isLoading={isLoadingStrategy}>
                     <div style={{ height: 'calc(100vh - 200px)' }}>
                       <EuiPanel
                         hasBorder

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   EuiButton,
@@ -43,7 +43,7 @@ const EvaluationsView = () => {
   const [evaluationId, setEvaluationId] = useState(null)
   const [strategyInFocus, setStrategyInFocus] = useState(null)
   const [isFlyoutRuntimeOpen, setIsFlyoutRuntimeOpen] = useState(false)
-  const [loadingEvaluation, setLoadingEvaluation] = useState(true)
+  const [isLoadingEvaluation, setIsLoadingEvaluation] = useState(true)
   const [metricOpen, setMetricOpen] = useState(false)
   const [metricOptions, setMetricOptions] = useState([
     { _id: 'ndcg', label: 'NDCG', checked: 'on' },
@@ -94,20 +94,16 @@ const EvaluationsView = () => {
     if (!project?._id || evaluationId == null)
       return
     (async () => {
-
       // Submit API request
       let response
       try {
-        setLoadingEvaluation(true)
+        setIsLoadingEvaluation(true)
         response = await api.evaluations_get(project._id, benchmarkId, evaluationId)
-      } catch (error) {
-        return addToast(api.errorToast(error, {
-          title: 'Failed to get evaluation'
-        }))
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to get evaluation' }))
       } finally {
-        setLoadingEvaluation(false)
+        setIsLoadingEvaluation(false)
       }
-
       // Handle API response
       setEvaluation(response.data._source)
     })()
@@ -306,7 +302,7 @@ const EvaluationsView = () => {
   /**
    * Button to open flyout to inspect runtime assets.
    */
-  const buttonRuntime = (
+  const renderButtonRuntime = () => (
     <EuiButton
       iconType='inspect'
       onClick={() => setIsFlyoutRuntimeOpen(!isFlyoutRuntimeOpen)}>
@@ -316,7 +312,7 @@ const EvaluationsView = () => {
 
   return (
     <Page title={
-      <EuiSkeletonTitle isLoading={loadingEvaluation} size='l'>
+      <EuiSkeletonTitle isLoading={isLoadingEvaluation} size='l'>
         {!evaluation.results &&
           <>Not found</>
         }
@@ -325,7 +321,7 @@ const EvaluationsView = () => {
         }
       </EuiSkeletonTitle>
     }
-      buttons={[buttonRuntime]}
+      buttons={[renderButtonRuntime()]}
     >
       {isFlyoutRuntimeOpen &&
         <FlyoutRuntime
@@ -344,7 +340,7 @@ const EvaluationsView = () => {
         </EuiPanel>
         <EuiHorizontalRule margin='none' />
         <EuiPanel color='transparent'>
-          <EuiSkeletonText lines={16} isLoading={loadingEvaluation}>
+          <EuiSkeletonText lines={16} isLoading={isLoadingEvaluation}>
             {evaluation.results &&
               <EuiFlexGroup>
 
@@ -375,7 +371,7 @@ const EvaluationsView = () => {
         </EuiPanel>
         <EuiHorizontalRule margin='none' />
         <EuiPanel color='transparent'>
-          <EuiSkeletonText lines={16} isLoading={loadingEvaluation}>
+          <EuiSkeletonText lines={16} isLoading={isLoadingEvaluation}>
             {evaluation.results &&
               <>
                 {renderHeatmapControls()}

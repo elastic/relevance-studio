@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EuiAccordion,
   EuiBadge,
@@ -30,30 +30,21 @@ import {
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
 import api from '../../api'
+import utils from '../../utils'
 
-const FlyoutForm = ({ action, doc, onClose }) => {
+const FlyoutForm = ({
+  action,
+  doc,
+  isProcessing,
+  onClose,
+  onSuccess,
+  setIsProcessing,
+}) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { darkMode } = useAppContext()
-  const {
-    project,
-    isProjectReady,
-    loadAssets,
-    isProcessingBenchmark,
-    scenarios,
-    strategies,
-    createBenchmark,
-    updateBenchmark
-  } = useProjectContext()
-
-  /**
-   * Load (or reload) any needed assets when project is ready.
-   */
-  useEffect(() => {
-    if (isProjectReady)
-      loadAssets({ scenarios: true, strategies: true })
-  }, [project?._id])
+  const { addToast, darkMode } = useAppContext()
+  const { project } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -78,6 +69,8 @@ const FlyoutForm = ({ action, doc, onClose }) => {
     k: false
   })
   const [isLoadingCandidates, setIsLoadingCandidates] = useState(false)
+  const [isLoadingScenarioTags, setIsLoadingScenarioTags] = useState(false)
+  const [isLoadingStrategyTags, setIsLoadingStrategyTags] = useState(false)
   const [limitScenariosByTags, setLimitScenariosByTags] = useState(false)
   const [limitStrategiesByTags, setLimitStrategiesByTags] = useState(false)
   const [scenariosTagsOptions, setScenariosTagsOptions] = useState([])
@@ -91,51 +84,78 @@ const FlyoutForm = ({ action, doc, onClose }) => {
    * Load strategies tags
    */
   useEffect(() => {
-    if (!strategies)
-      return
-    const tags = {}
-    for (const _id in strategies)
-      (strategies[_id].tags || []).forEach((tag) => tags[tag] = true)
-    const options = []
-    for (const tag in tags) {
-      options.push({
-        color: 'primary',
-        key: tag,
-        label: tag,
-        prepend: <EuiIcon size='s' type='tag' />
+    if (!project._id || strategiesTagsOptions.length)
+      return;
+    (async () => {
+      // Submit API request
+      let response
+      try {
+        setIsLoadingStrategyTags(true)
+        response = await api.strategies_tags(project._id)
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to get strategy tags' }))
+      } finally {
+        setIsLoadingStrategyTags(false)
+      }
+      // Handle API response
+      const tags = {}
+      response.data.aggregations?.tags?.buckets?.forEach(bucket => {
+        tags[bucket.key] = bucket.doc_count
       })
-    }
-    options.sort((a, b) => a.label.localeCompare(b.label))
-    setStrategiesTagsOptions(options)
-  }, [strategies])
+      const options = []
+      for (const tag in tags) {
+        options.push({
+          color: 'primary',
+          key: tag,
+          label: tag,
+          prepend: <EuiIcon size='s' type='tag' />
+        })
+      }
+      options.sort((a, b) => a.label.localeCompare(b.label))
+      setStrategiesTagsOptions(options)
+    })()
+  }, [project._id])
 
   /**
    * Load scenarios tags
    */
   useEffect(() => {
-    if (!scenarios)
-      return
-    const tags = {}
-    for (const _id in scenarios)
-      (scenarios[_id].tags || []).forEach((tag) => tags[tag] = true)
-    const options = []
-    for (const tag in tags) {
-      options.push({
-        key: tag,
-        label: tag,
-        prepend: <EuiIcon size='s' type='tag' />
+    if (!project._id || scenariosTagsOptions.length)
+      return;
+    (async () => {
+      // Submit API request
+      let response
+      try {
+        setIsLoadingScenarioTags(true)
+        response = await api.scenarios_tags(project._id)
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to get scenario tags' }))
+      } finally {
+        setIsLoadingScenarioTags(false)
+      }
+      // Handle API response
+      const tags = {}
+      response.data.aggregations?.tags?.buckets?.forEach(bucket => {
+        tags[bucket.key] = bucket.doc_count
       })
-    }
-    options.sort((a, b) => a.label.localeCompare(b.label))
-    setScenariosTagsOptions(options)
-  }, [scenarios])
+      const options = []
+      for (const tag in tags) {
+        options.push({
+          color: 'primary',
+          key: tag,
+          label: tag,
+          prepend: <EuiIcon size='s' type='tag' />
+        })
+      }
+      options.sort((a, b) => a.label.localeCompare(b.label))
+      setScenariosTagsOptions(options)
+    })()
+  }, [project._id])
 
   /**
    * Preview candidate pool
    */
   useEffect(() => {
-    if (!strategies || !scenarios)
-      return
     const previewCandidatePool = async () => {
       setIsLoadingCandidates(true)
       try {
@@ -152,9 +172,23 @@ const FlyoutForm = ({ action, doc, onClose }) => {
         }
         if (form.scenarios_sample_seed != '')
           body.scenarios_sample_seed = form.scenarios_sample_seed
+
+        // Get _ids of candidate strategies and scenarios
         const response = await api.benchmarks_make_candidate_pool(project._id, body)
-        setStrategiesCandidates(response.data?.strategies || [])
-        setScenariosCandidates(response.data?.scenarios || [])
+        const strategyIds = response.data?.strategies || []
+        const scenarioIds = response.data?.scenarios || []
+
+        // Get full strategies and scenarios by _ids 
+        const [strategiesRes, scenariosRes] = await Promise.all([
+          api.strategies_search(project._id, {
+            filters: [{ "ids": { "values": strategyIds } }]
+          }),
+          api.scenarios_search(project._id, {
+            filters: [{ "ids": { "values": scenarioIds } }]
+          }),
+        ])
+        setStrategiesCandidates(utils.hitsToDocs(strategiesRes))
+        setScenariosCandidates(utils.hitsToDocs(scenariosRes))
       } finally {
         setIsLoadingCandidates(false)
       }
@@ -162,7 +196,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
     previewCandidatePool()
   }, [
     form.strategies_mode,
-    form.strategies_ids, 
+    form.strategies_ids,
     form.strategies_tags,
     form.scenarios_mode,
     form.scenarios_ids,
@@ -200,7 +234,8 @@ const FlyoutForm = ({ action, doc, onClose }) => {
   ////  Event handlers  ////////////////////////////////////////////////////////
 
   const onSubmit = async (e) => {
-    e.preventDefault();
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
     const newDoc = doc ? { ...doc } : {}
     newDoc.name = form.name.trim()
     const _description = form.description?.trim() || ''
@@ -231,12 +266,25 @@ const FlyoutForm = ({ action, doc, onClose }) => {
       _scenarios.sample_seed = form.scenarios_sample_seed
     if (Object.keys(_scenarios).length)
       newDoc.task.scenarios = _scenarios
-    if (action == 'create') {
-      await createBenchmark(newDoc)
-    } else if (action == 'update') {
-      await updateBenchmark(doc._id, newDoc)
+    let response
+    try {
+      setIsProcessing(true)
+      if (action == 'create')
+        response = await api.benchmarks_create(project._id, newDoc)
+      else
+        response = await api.benchmarks_update(project._id, doc._id, newDoc)
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: `Failed to ${action} benchmark` }))
+    } finally {
+      setIsProcessing(false)
     }
-    onClose()
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
+    addToast(utils.toastDocCreateUpdateDelete(action, 'benchmark', doc._id || response.data._id, newDoc))
+    if (onSuccess)
+      onSuccess()
+    if (onClose)
+      onClose()
   }
 
   ////  Form validation  ///////////////////////////////////////////////////////
@@ -514,7 +562,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
     )
   }
 
-  const renderFormScenariosTags = () => {    
+  const renderFormScenariosTags = () => {
     return (
       <EuiFlexGroup alignItems='center' gutterSize='none' style={{ height: '32px' }}>
         <EuiFlexItem grow={false}>
@@ -579,8 +627,6 @@ const FlyoutForm = ({ action, doc, onClose }) => {
   }
 
   const renderFormStrategiesCandidates = () => {
-    const docs = []
-    strategiesCandidates.forEach((_id) => docs.push(strategies[_id]))
     return (
       <>
         <EuiSpacer size='s' />
@@ -619,7 +665,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
               },
             },
           ]}
-          items={docs}
+          items={strategiesCandidates}
           pagination={true}
           responsiveBreakpoint={false}
           sorting={{
@@ -635,8 +681,6 @@ const FlyoutForm = ({ action, doc, onClose }) => {
   }
 
   const renderFormScenariosCandidates = () => {
-    const docs = []
-    scenariosCandidates.forEach((_id) => docs.push(scenarios[_id]))
     return (
       <>
         <EuiSpacer size='s' />
@@ -675,7 +719,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
               },
             },
           ]}
-          items={docs}
+          items={scenariosCandidates}
           pagination={true}
           responsiveBreakpoint={false}
           sorting={{
@@ -817,7 +861,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
               <EuiFlexGroup justifyContent='spaceBetween'>
                 <EuiFlexItem grow={false}>
                   <EuiButtonEmpty
-                    disabled={isProcessingBenchmark}
+                    disabled={isProcessing}
                     flush='left'
                     iconType='cross'
                     onClick={onClose}
@@ -828,7 +872,7 @@ const FlyoutForm = ({ action, doc, onClose }) => {
                 <EuiFlexItem grow={false}>
                   <EuiButton
                     color='primary'
-                    disabled={isProcessingBenchmark || isInvalidForm()}
+                    disabled={isProcessing || isInvalidForm()}
                     fill
                     onClick={onSubmit}
                     type='submit'

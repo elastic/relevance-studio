@@ -29,6 +29,13 @@
         },
         "rating": {
           "type": "byte"
+        },
+        "_search": {
+          "properties": {
+            "index": {
+              "type": "text"
+            }
+          }
         }
       }
     }

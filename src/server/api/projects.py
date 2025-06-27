@@ -1,124 +1,77 @@
 # Standard packages
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 # App packages
 from .. import utils
 from ..client import es
+from ..models import *
 
 INDEX_NAME = "esrs-projects"
+SEARCH_FIELDS = utils.get_search_fields_from_mapping("projects")
 
-def browse(size: int = 10000) -> Dict[str, Any]:
+def search(
+        text: str = "",
+        filters: List[Dict[str, Any]] = [],
+        sort: Dict[str, Any] = {},
+        size: int = 10,
+        page: int = 1,
+        aggs: bool = False,
+    ) -> Dict[str, Any]:
     """
-    List projects in Elasticsearch.
+    Search projects in Elasticsearch.
     """
-    body = {
-        "size": size,
-        "post_filter": {
-            "term": {
-                "_index": "esrs-projects"
-            }
-        },
-        "aggs": {
-            "counts": {
-                "terms": {
-                    "field": "project_id",
-                    "size": 10000
-                },
-                "aggs": {
-                    "displays": {
-                        "filter": {
-                            "term": {
-                                "_index": "esrs-displays"
-                            }
-                        }
-                    },
-                    "scenarios": {
-                        "filter": {
-                            "term": {
-                                "_index": "esrs-scenarios"
-                            }
-                        }
-                    },
-                    "judgements": {
-                        "filter": {
-                            "term": {
-                                "_index": "esrs-judgements"
-                            }
-                        }
-                    },
-                    "strategies": {
-                        "filter": {
-                            "term": {
-                                "_index": "esrs-strategies"
-                            }
-                        }
-                    },
-                    "benchmarks": {
-                        "filter": {
-                            "term": {
-                                "_index": "esrs-benchmarks"
-                            }
-                        }
-                    },
-                    "evaluations": {
-                        "filter": {
-                            "term": {
-                                "_index": "esrs-evaluations"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    index = ",".join([
-        "esrs-projects",
-        "esrs-displays",
-        "esrs-scenarios",
-        "esrs-judgements",
-        "esrs-strategies",
-        "esrs-benchmarks",
-        "esrs-evaluations",
-    ])
-    es_response = es("studio").search(
-        index=index,
-        body=body,
-        ignore_unavailable=True
+    response = utils.search_assets(
+        "projects", None, text, filters, sort, size, page,
+        counts=[ "displays", "scenarios", "judgements", "strategies", "benchmarks" ] if aggs else []
     )
+    return response
+
+def tags() -> Dict[str, Any]:
+    """
+    Search tags for projects in Elasticsearch.
+    """
+    es_response = utils.search_tags("projects")
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
     """
-    Get a project in Elasticsearch.
+    Get a project by in Elasticsearch.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
-        id=_id
+        id=_id,
+        source_excludes="_search",
     )
     return es_response
 
-def create(doc: Dict[str, Any]) -> Dict[str, Any]:
+def create(doc: ProjectModel, _id: str = None) -> Dict[str, Any]:
     """
-    Create a project in Elasticsearch.
+    Create a project in Elasticsearch. Allow a predetermined _id.
     """
-    doc.pop("_id", None) # es doesn't want _id in doc
+    # Copy searchable fields to _search
+    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
+    doc_dict = utils.remove_empty_values(doc_dict)
     es_response = es("studio").index(
         index=INDEX_NAME,
-        id=utils.unique_id(),
-        document=doc,
+        id=_id or utils.unique_id(),
+        document=doc_dict,
         refresh=True
     )
     return es_response
 
-def update(_id: str, doc: Dict[str, Any]) -> Dict[str, Any]:
+def update(_id: str, doc: ProjectModel) -> Dict[str, Any]:
     """
     Update a project in Elasticsearch.
     """
-    doc.pop("_id", None) # es doesn't want _id in doc
+    # Copy searchable fields to _search
+    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
+    doc_dict = utils.remove_empty_values(doc_dict)
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
-        doc=doc,
+        doc=doc_dict,
         refresh=True
     )
     return es_response

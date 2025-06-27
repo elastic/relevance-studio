@@ -27,6 +27,22 @@
         "values": {
           "type": "object",
           "enabled": false
+        },
+        "_search": {
+          "properties": {
+            "name": {
+              "type": "text"
+            },
+            "params": {
+              "type": "text"
+            },
+            "tags": {
+              "type": "text"
+            },
+            "values": {
+              "type": "text"
+            }
+          }
         }
       }
     }

@@ -1,11 +1,10 @@
-import React, { useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   euiPaletteForStatus,
   EuiButtonIcon,
   EuiFlexGroup,
   EuiFlexItem,
   EuiForm,
-  EuiIcon,
   EuiLoadingSpinner,
   EuiPanel,
   EuiRange,
@@ -18,7 +17,7 @@ import { useProjectContext } from '../../Contexts/ProjectContext'
 import api from '../../api'
 import utils from '../../utils'
 
-const JudgementsCard = ({ doc, scenario, template, ...props }) => {
+const JudgementsCard = ({ _id, doc, scenario, template, ...props }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -27,10 +26,10 @@ const JudgementsCard = ({ doc, scenario, template, ...props }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
+  const [judgementId, setJudgementId] = useState(props._id)
   const [loadingRating, setLoadingRating] = useState(false)
   const [author, setAuthor] = useState(props.author)
   const [rating, setRating] = useState(props.rating)
-  const [timestamp, setTimestamp] = useState(props.timestamp)
   const dragging = useRef(false)
   const lastCommittedRating = useRef(rating)
 
@@ -44,8 +43,6 @@ const JudgementsCard = ({ doc, scenario, template, ...props }) => {
     if (rating == lastCommittedRating.current)
       return;
     (async () => {
-
-      // Submit API request
       const newDoc = {
         index: doc._index,
         doc_id: doc._id,
@@ -55,53 +52,46 @@ const JudgementsCard = ({ doc, scenario, template, ...props }) => {
       try {
         setLoadingRating(true)
         response = await api.judgements_set(project._id, scenario._id, newDoc)
-      } catch (err) {
+      } catch (e) {
         setRating(lastCommittedRating.current)
-        return addToast(api.errorToast(err, { title: 'Failed to get scenarios' }))
+        return addToast(api.errorToast(e, { title: 'Failed to set rating' }))
       } finally {
         setLoadingRating(false)
         dragging.current = false
       }
-
-      // Handle API response
-      if (response.status >= 200 && response.status <= 299) {
-        lastCommittedRating.current = rating
-        setAuthor('human')
-      } else {
+      if (response.status > 299) {
         setRating(lastCommittedRating.current)
         addToast(utils.toastClientResponse(response))
+      } else {
+        lastCommittedRating.current = rating
+        setAuthor('human')
+        setJudgementId(response.data._id)
       }
     })()
   }
 
   const onClearRating = () => {
     (async () => {
-
-      // Submit API request
-      const _doc = {
-        index: doc._index,
-        doc_id: doc._id
-      }
       let response
+      console.warn(judgementId)
+      console.warn(doc)
       try {
         setLoadingRating(true)
-        response = await api.judgements_unset(project._id, scenario._id, _doc)
-      } catch (err) {
+        response = await api.judgements_unset(project._id, judgementId)
+      } catch (e) {
         setRating(lastCommittedRating.current)
-        return addToast(api.errorToast(err, { title: 'Failed to get scenarios' }))
+        return addToast(api.errorToast(e, { title: 'Failed to unset rating' }))
       } finally {
         setLoadingRating(false)
         dragging.current = false
       }
-
-      // Handle API response
-      if (response.status >= 200 && response.status <= 299) {
+      if (response.status > 299) {
+        setRating(lastCommittedRating.current)
+        addToast(utils.toastClientResponse(response))
+      } else {
         setRating(null)
         lastCommittedRating.current = null
         setAuthor(null)
-      } else {
-        setRating(lastCommittedRating.current)
-        addToast(utils.toastClientResponse(response))
       }
     })()
   }
@@ -118,163 +108,161 @@ const JudgementsCard = ({ doc, scenario, template, ...props }) => {
     })
   }
 
-  const description = <EuiForm>
-    <EuiFlexGroup alignItems='center' gutterSize='none'>
-      <EuiFlexItem grow>
-        <EuiFlexGroup gutterSize='none'>
-          <EuiFlexItem grow={false} style={{ align: 'center', height: '38px', width: '37px' }}>
-            {!!lastCommittedRating.current &&
-              <EuiPanel
-                hasBorder={false}
-                hasShadow={false}
-                paddingSize='none'
-                style={{
-                  borderBottomLeftRadius: 0,
-                  borderBottomRightRadius: 0,
-                  borderRightStyle: 'none',
-                  borderTopRightRadius: 0
-                }}>
-                {loadingRating &&
-                  <EuiLoadingSpinner
-                    size='l'
-                    style={{
-                      position: 'absolute',
-                      left: '7px',
-                      top: '7px'
-                    }}
-                  />
-                }
-                {!loadingRating &&
-                  <EuiToolTip
-                    content='Clear rating'
-                    anchorProps={{
-                      style: {
-                        marginLeft: '20px'
-                      }
-                    }}
-                  >
-                    <EuiButtonIcon
-                      aria-label='Clear rating'
-                      color='text'
-                      disabled={loadingRating}
-                      display='empty'
-                      iconSize='s'
-                      iconType='cross'
-                      onClick={onClearRating}
-                      size='s'
-                      style={{
-                        position: 'absolute',
-                        left: '3px',
-                        top: '3px'
-                      }}
-                    />
-                  </EuiToolTip>
-                }
-              </EuiPanel>
-            }
-          </EuiFlexItem>
-          <EuiFlexItem grow>
-            <EuiPanel
-              hasBorder
-              paddingSize='none'
-              style={{
-                borderTopLeftRadius: 0,
-                borderTopRightRadius: 0,
-              }}
-            >
-              <div
-                onKeyUp={onCommitRating}
-                onMouseUp={onCommitRating}
-                onTouchEnd={onCommitRating}
-                style={{
-                  marginTop: '2px'
-                }}>
-                <EuiRange
-                  compressed
-                  disabled={loadingRating}
-                  fullWidth
-                  min={project.rating_scale.min}
-                  max={project.rating_scale.max}
-                  levels={rating >= 0 ? [
-                    {
-                      color: colorBands[rating],
-                      min: project.rating_scale.min,
-                      max: project.rating_scale.max
-                    }
-                  ] : [
-                    {
-                      color: 'text'
-                    }
-                  ]}
-                  onChange={(e) => onChangeRating(e.target.value)}
-                  showRange
-                  showTicks
-                  step={1}
-                  ticks={ticks}
-                  value={rating || 0}
-                />
-              </div>
-            </EuiPanel>
-          </EuiFlexItem>
-          <EuiFlexItem grow={false} style={{ align: 'center', height: '38px', width: '37px' }}>
-            <EuiPanel
-              hasBorder={false}
-              hasShadow={false}
-              paddingSize='none'
-              style={{
-                borderBottomLeftRadius: 0,
-                borderBottomRightRadius: 0,
-                borderRightStyle: 'none',
-                borderTopRightRadius: 0
-              }}>
-              {author &&
-                <EuiToolTip
-                  content={`Rated by ${author == 'ai' ? 'AI' : 'human'}`}
-                  anchorProps={{
-                    style: {
-                      marginLeft: '19px'
-                    }
-                  }}
-                >
-                  <EuiButtonIcon
-                    aria-label={`Rated by ${author}`}
-                    color={author == 'ai' ? 'primary' : 'text'}
-                    display={author == 'ai' ? 'base' : 'empty'}
-                    iconSize='m'
-                    iconType={author == 'ai' ? 'sparkles' : 'user'}
-                    onClick={() => { }}
-                    size='s'
-                    style={{
-                      position: 'absolute',
-                      right: '3px',
-                      top: '3px'
-                    }}
-                  />
-                </EuiToolTip>
-              }
-            </EuiPanel>
-          </EuiFlexItem>
-        </EuiFlexGroup>
-      </EuiFlexItem>
-    </EuiFlexGroup>
-    <DocCard
-      doc={doc}
-      panelProps={{
-        hasBorder: false,
-        style: {
-          borderTopLeftRadius: 0,
-          borderTopRightRadius: 0
-        }
-      }}
-      body={template?.body}
-      imagePosition={template?.image?.position}
-      imageUrl={template?.image?.url}
-    />
-  </EuiForm>
-
   return (
     <EuiPanel hasBorder paddingSize='none'>
-      {description}
+      <EuiForm>
+        <EuiFlexGroup alignItems='center' gutterSize='none'>
+          <EuiFlexItem grow>
+            <EuiFlexGroup gutterSize='none'>
+              <EuiFlexItem grow={false} style={{ align: 'center', height: '38px', width: '37px' }}>
+                {!!lastCommittedRating.current &&
+                  <EuiPanel
+                    hasBorder={false}
+                    hasShadow={false}
+                    paddingSize='none'
+                    style={{
+                      borderBottomLeftRadius: 0,
+                      borderBottomRightRadius: 0,
+                      borderRightStyle: 'none',
+                      borderTopRightRadius: 0
+                    }}>
+                    {loadingRating &&
+                      <EuiLoadingSpinner
+                        size='l'
+                        style={{
+                          position: 'absolute',
+                          left: '7px',
+                          top: '7px'
+                        }}
+                      />
+                    }
+                    {!loadingRating &&
+                      <EuiToolTip
+                        content='Clear rating'
+                        anchorProps={{
+                          style: {
+                            marginLeft: '20px'
+                          }
+                        }}
+                      >
+                        <EuiButtonIcon
+                          aria-label='Clear rating'
+                          color='text'
+                          disabled={loadingRating}
+                          display='empty'
+                          iconSize='s'
+                          iconType='cross'
+                          onClick={onClearRating}
+                          size='s'
+                          style={{
+                            position: 'absolute',
+                            left: '3px',
+                            top: '3px'
+                          }}
+                        />
+                      </EuiToolTip>
+                    }
+                  </EuiPanel>
+                }
+              </EuiFlexItem>
+              <EuiFlexItem grow>
+                <EuiPanel
+                  hasBorder
+                  paddingSize='none'
+                  style={{
+                    borderTopLeftRadius: 0,
+                    borderTopRightRadius: 0,
+                  }}
+                >
+                  <div
+                    onKeyUp={onCommitRating}
+                    onMouseUp={onCommitRating}
+                    onTouchEnd={onCommitRating}
+                    style={{
+                      marginTop: '2px'
+                    }}>
+                    <EuiRange
+                      compressed
+                      disabled={loadingRating}
+                      fullWidth
+                      min={project.rating_scale.min}
+                      max={project.rating_scale.max}
+                      levels={rating >= 0 ? [
+                        {
+                          color: colorBands[rating],
+                          min: project.rating_scale.min,
+                          max: project.rating_scale.max
+                        }
+                      ] : [
+                        {
+                          color: 'text'
+                        }
+                      ]}
+                      onChange={(e) => onChangeRating(e.target.value)}
+                      showRange
+                      showTicks
+                      step={1}
+                      ticks={ticks}
+                      value={rating || 0}
+                    />
+                  </div>
+                </EuiPanel>
+              </EuiFlexItem>
+              <EuiFlexItem grow={false} style={{ align: 'center', height: '38px', width: '37px' }}>
+                <EuiPanel
+                  hasBorder={false}
+                  hasShadow={false}
+                  paddingSize='none'
+                  style={{
+                    borderBottomLeftRadius: 0,
+                    borderBottomRightRadius: 0,
+                    borderRightStyle: 'none',
+                    borderTopRightRadius: 0
+                  }}>
+                  {author &&
+                    <EuiToolTip
+                      content={`Rated by ${author == 'ai' ? 'AI' : 'human'}`}
+                      anchorProps={{
+                        style: {
+                          marginLeft: '19px'
+                        }
+                      }}
+                    >
+                      <EuiButtonIcon
+                        aria-label={`Rated by ${author}`}
+                        color={author == 'ai' ? 'primary' : 'text'}
+                        display={author == 'ai' ? 'base' : 'empty'}
+                        iconSize='m'
+                        iconType={author == 'ai' ? 'sparkles' : 'user'}
+                        onClick={() => { }}
+                        size='s'
+                        style={{
+                          position: 'absolute',
+                          right: '3px',
+                          top: '3px'
+                        }}
+                      />
+                    </EuiToolTip>
+                  }
+                </EuiPanel>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+          </EuiFlexItem>
+        </EuiFlexGroup>
+        <DocCard
+          doc={doc}
+          panelProps={{
+            hasBorder: false,
+            style: {
+              borderTopLeftRadius: 0,
+              borderTopRightRadius: 0
+            }
+          }}
+          body={template?.body}
+          imagePosition={template?.image?.position}
+          imageUrl={template?.image?.url}
+        />
+      </EuiForm>
     </EuiPanel>
   )
 }

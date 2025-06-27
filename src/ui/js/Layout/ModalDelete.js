@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   EuiButton,
   EuiForm,
@@ -10,29 +9,50 @@ import {
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
+import { useAppContext } from '../Contexts/AppContext'
+import api from '../api'
+import utils from '../utils'
 
 const ModalDelete = ({
-    description, doc, docType, isLoading, onClose, onDelete, onDeleted, onError
-  }) => {
+  description,
+  doc,
+  docType,
+  isProcessing,
+  onClose,
+  onDelete,
+  onError,
+  onSuccess,
+  setIsProcessing,
+}) => {
+
+  ////  Context  ///////////////////////////////////////////////////////////////
+
+  const { addToast } = useAppContext()
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
   const onSubmit = async (e) => {
-    e.preventDefault();
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
     try {
+      setIsProcessing(true)
       try {
         await onDelete()
       } catch (e) {
         if (onError)
           return onError(e)
-        throw (e)
+        else
+          return addToast(api.errorToast(e, { title: `Failed to delete ${docType}` }))
       }
-      if (onDeleted)
-        onDeleted(doc)
+      addToast(utils.toastDocCreateUpdateDelete('delete', docType, doc._id, doc))
+      if (onSuccess)
+        onSuccess()
       if (onClose)
         onClose()
     } catch (e) {
       throw (e)
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -51,17 +71,17 @@ const ModalDelete = ({
             _id:<br /><b>{doc._id}</b>
           </EuiText>
           <EuiSpacer size='m' />
-          { !description && <EuiText>This action can't be undone.</EuiText> }
-          { !!description && description }
+          {!description && <EuiText>This action can't be undone.</EuiText>}
+          {!!description && description}
         </EuiForm>
       </EuiModalBody>
       <EuiModalFooter>
         <EuiButton
           color='danger'
-          disabled={isLoading}
+          disabled={isProcessing}
           fill
           form='modal-delete'
-          isLoading={isLoading}
+          isLoading={isProcessing}
           onClick={onSubmit}
           type='submit'
         >
@@ -69,7 +89,7 @@ const ModalDelete = ({
         </EuiButton>
         <EuiButton
           color='text'
-          disabled={isLoading}
+          disabled={isProcessing}
           onClick={onClose}
         >
           Cancel
