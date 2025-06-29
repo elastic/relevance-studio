@@ -6,13 +6,11 @@ import {
   EuiFieldSearch,
   EuiFilterButton,
   EuiFilterGroup,
-  EuiFlexGrid,
   EuiFlexGroup,
   EuiFlexItem,
   EuiForm,
   EuiFormRow,
   EuiIcon,
-  EuiInputPopover,
   EuiPanel,
   EuiPopover,
   EuiSpacer,
@@ -23,7 +21,12 @@ import {
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import { JudgementCard, Page, SearchCount } from '../../Layout'
+import {
+  Page,
+  SearchCount,
+  SelectScenario,
+  SearchResultsJudgements,
+} from '../../Layout'
 import api from '../../api'
 
 const Judgements = () => {
@@ -57,16 +60,16 @@ const Judgements = () => {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filtersOptions, setFiltersOptions] = useState(defaultFilterOptions.map(o => ({ ...o })))
   const [indexPatternRegexes, setIndexPatternRegexes] = useState({})
-  const [loadingDisplays, setLoadingDisplays] = useState(false)
-  const [loadingResults, setLoadingResults] = useState(false)
-  const [loadingScenarios, setLoadingScenarios] = useState(false)
+  const [isLoadingDisplays, setIsLoadingDisplays] = useState(false)
+  const [isLoadingResults, setIsLoadingResults] = useState(false)
+  const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
+  const [isScenariosOpen, setIsScenariosOpen] = useState(false)
   const [numResults, setNumResults] = useState(0)
   const [queryString, setQueryString] = useState('')
   const [results, setResults] = useState([])
   const [resultsPerRow, setResultsPerRow] = useState(3)
   const [scenario, setScenario] = useState(null)
-  const [scenariosOpen, setScenariosOpen] = useState(false)
-  const [scenariosOptions, setScenariosOptions] = useState([])
+  const [scenarioOptions, setScenarioOptions] = useState([])
   const [scenarioSearchString, setScenarioSearchString] = useState('')
   const [sortOpen, setSortOpen] = useState(false)
   const [sortOptions, setSortOptions] = useState(defaultSortOptions.map(o => ({ ...o })))
@@ -84,12 +87,12 @@ const Judgements = () => {
       // Submit API request
       let response
       try {
-        setLoadingDisplays(true)
+        setIsLoadingDisplays(true)
         response = await api.displays_search(project._id, { text: '*' })
       } catch (e) {
         return addToast(api.errorToast(e, { title: 'Failed to get displays' }))
       } finally {
-        setLoadingDisplays(false)
+        setIsLoadingDisplays(false)
       }
 
       // Handle API response
@@ -112,16 +115,16 @@ const Judgements = () => {
     })()
   }, [project])
 
-  // Fetch immediately when opening the dropdown
+  // Fetch scenarios immediately when opening the dropdown
   useEffect(() => {
-    if (!project?._id || !scenariosOpen)
+    if (!project?._id || !isScenariosOpen)
       return
     onSearchScenarios(`*${scenarioSearchString}*`)
-  }, [project?._id, scenariosOpen])
+  }, [project?._id, isScenariosOpen])
 
-  // Fetch with debounce when typing
+  // Fetch scenarios with debounce when typing
   useEffect(() => {
-    if (!project?._id || !scenariosOpen)
+    if (!project?._id || !isScenariosOpen)
       return
     const debounced = debounce(() => {
       onSearchScenarios(`*${scenarioSearchString}*`)
@@ -131,19 +134,19 @@ const Judgements = () => {
   }, [scenarioSearchString])
 
   useEffect(() => {
-    if (!project?._id || !scenariosOptions)
+    if (!project?._id || !scenarioOptions)
       return
-    for (const i in scenariosOptions) {
-      if (scenariosOptions[i].checked) {
-        setScenario(scenariosOptions[i])
-        setScenarioSearchString(scenariosOptions[i].checked === 'on' ? scenariosOptions[i].label : '')
+    for (const i in scenarioOptions) {
+      if (scenarioOptions[i].checked) {
+        setScenario(scenarioOptions[i])
+        setScenarioSearchString(scenarioOptions[i].checked === 'on' ? scenarioOptions[i].label : '')
         break
       }
     }
-  }, [scenariosOptions])
+  }, [scenarioOptions])
 
   useEffect(() => {
-    setScenariosOpen(true) // will trigger the fetch useEffect above
+    setIsScenariosOpen(true) // will trigger the fetch useEffect above
   }, [])
 
   /**
@@ -201,18 +204,18 @@ const Judgements = () => {
    */
   const onSearchScenarios = async (text) => {
     try {
-      setLoadingScenarios(true)
+      setIsLoadingScenarios(true)
       const response = await api.scenarios_search(project._id, { text })
       const options = response.data.hits.hits.map((doc) => ({
         _id: doc._id,
         label: doc._source.name,
         checked: location.state?.query_on_load?.scenario_id === doc._id ? 'on' : undefined
       }))
-      setScenariosOptions(options)
+      setScenarioOptions(options)
     } catch (e) {
       addToast(api.errorToast(e, { title: 'Failed to get scenarios' }))
     } finally {
-      setLoadingScenarios(false)
+      setIsLoadingScenarios(false)
     }
   }
 
@@ -237,12 +240,12 @@ const Judgements = () => {
         body._source = { includes: sourceFilters }
       let response
       try {
-        setLoadingResults(true)
+        setIsLoadingResults(true)
         response = await api.judgements_search(project._id, scenario._id, body)
       } catch (e) {
         return addToast(api.errorToast(e, { title: 'Failed to search docs' }))
       } finally {
-        setLoadingResults(false)
+        setIsLoadingResults(false)
       }
 
       // Handle API response
@@ -251,83 +254,20 @@ const Judgements = () => {
     })()
   }
 
-  /**
-   * Given an index name, find the display whose index pattern matches it
-   * with the most specificity.
-   */
-  const resolveIndexToDisplay = (index) => {
-    const matches = []
-    for (const indexPattern in indexPatternRegexes)
-      if (indexPatternRegexes[indexPattern].test(index))
-        matches.push(indexPattern)
-    if (matches.length === 0)
-      return null
-    const bestMatch = matches.reduce((mostSpecific, current) =>
-      current.length > mostSpecific.length ? current : mostSpecific
-    )
-    return displays[bestMatch]
-  }
-
   ////  Render  ////////////////////////////////////////////////////////////////
 
   const renderSelectScenarios = () => (
-    <EuiSelectable
-      emptyMessage={
-        loadingScenarios || scenariosOptions.length === 0 && !scenarioSearchString
-          ? 'Loading scenarios...'
-          : 'No scenarios found'
-      }
-      isPreFiltered
-      listProps={{
-        css: { '.euiSelectableList__list': { maxBlockSize: 200 } },
-      }}
-      options={scenariosOptions}
-      onChange={(newOptions, event, changedOption) => {
-        setScenariosOptions(newOptions)
-        setScenariosOpen(false)
-        setLoadingScenarios(false)
-      }}
-      singleSelection
-      searchable
-      searchProps={{
-        autoFocus: true,
-        isClearable: false,
-        isLoading: loadingScenarios,
-        onChange: (value) => {
-          setScenarioSearchString(value)
-        },
-        onKeyDown: (event) => {
-          if (event.key === 'Tab') return setScenariosOpen(false)
-          if (event.key !== 'Escape') return setScenariosOpen(true)
-        },
-        onClick: () => {
-          if (scenarioSearchString.trim())
-            setScenariosOptions([])
-          setScenariosOpen(true)
-        },
-        onFocus: () => {
-          if (scenarioSearchString.trim())
-            setScenariosOptions([])
-          setScenariosOpen(true)
-        },
-        placeholder: loadingScenarios ? '' : 'Choose a scenario',
-        value: scenarioSearchString,
-      }}
-    >
-      {(scenariosOptions, scenarioSearchString) => (
-        <EuiInputPopover
-          closeOnScroll
-          closePopover={() => setScenariosOpen(false)}
-          disableFocusTrap
-          fullWidth
-          input={scenarioSearchString}
-          isOpen={scenariosOpen}
-          panelPaddingSize='none'
-        >
-          {scenariosOptions}
-        </EuiInputPopover>
-      )}
-    </EuiSelectable>
+    <SelectScenario
+      autoFocus={true}
+      isLoading={isLoadingScenarios}
+      isOpen={isScenariosOpen}
+      options={scenarioOptions}
+      searchString={scenarioSearchString}
+      setSearchString={setScenarioSearchString}
+      setIsLoading={setIsLoadingScenarios}
+      setIsOpen={setIsScenariosOpen}
+      setOptions={setScenarioOptions}
+    />
   )
 
   const renderSelectFilters = () => (
@@ -396,36 +336,16 @@ const Judgements = () => {
     </EuiSelectable>
   )
 
-  const renderResults = () => {
-    const cards = []
-    results.forEach((result) => {
-      cards.push(
-        <JudgementCard
-          key={`${result.doc._id}~${result.doc._id}`}
-          _id={result._id}
-          doc={result.doc}
-          project={project}
-          scenario={scenario}
-          rating={result.rating}
-          author={result['@author']}
-          timestamp={result['@timestamp']}
-          template={resolveIndexToDisplay(result.doc._index)?.template}
-        />
-      )
-    })
-    const grid = <>
-      <EuiFlexGrid columns={parseInt(resultsPerRow)} direction='row' gutterSize='m'>
-        {cards.map((card, i) => {
-          return (
-            <EuiFlexItem key={i}>
-              {card}
-            </EuiFlexItem>
-          )
-        })}
-      </EuiFlexGrid>
-    </>
-    return grid
-  }
+  const renderResults = () => (
+    <SearchResultsJudgements
+      displays={displays}
+      indexPatternRegexes={indexPatternRegexes}
+      project={project}
+      scenario={scenario}
+      results={results}
+      resultsPerRow={resultsPerRow}
+    />
+  )
 
   return (
     <Page title='Judgements' color='subdued' panelled={true}>
@@ -525,7 +445,7 @@ const Judgements = () => {
                           {/* Search submit button */}
                           <EuiFlexItem grow={1}>
                             <EuiButton
-                              isLoading={loadingResults}
+                              isLoading={isLoadingResults}
                               iconType='search'
                               type='submit'
                             >

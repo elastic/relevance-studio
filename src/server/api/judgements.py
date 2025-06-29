@@ -13,6 +13,7 @@ def search(
         project_id: str,
         scenario_id: str,
         index_pattern: str,
+        query: Dict[str, Any] = {},
         query_string: str = "*",
         filter: str = None, # options: "rated", "rated-ai", "rated-human", "unrated" (or omitted for no filter)
         sort: str = None, # options: "match", "rating-newest", "rating-oldest"
@@ -81,7 +82,19 @@ def search(
                 body["_source"]["excludes"].append(field)
     body = {
         "size": 48,
-        "query": {
+        "_source": _source
+    }
+    if query:
+        # From strategy editor UI
+        if "retriever" in query:
+            body["retriever"] = query["retriever"]
+        elif "query" in query:
+            body["query"] = query["query"]
+        else:
+            raise Exception("Unsupported query syntax")
+    else:
+        # From judgements search UI
+        body["query"] = {
             "bool": {
                 "must": {
                     "query_string": {
@@ -90,11 +103,9 @@ def search(
                     }
                 }
             }
-        },
-        "_source": _source
-    }
+        }
     
-    # Filter docs by judgements
+    # Filter docs by judgements (used judgement search UI)
     if filter and filter != "all":
         filter_clauses = []
         for _index in judgements.keys():

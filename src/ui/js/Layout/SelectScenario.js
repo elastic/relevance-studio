@@ -1,0 +1,79 @@
+import {
+  EuiInputPopover,
+  EuiSelectable,
+} from '@elastic/eui'
+
+const SelectScenario = ({
+  autoFocus = false,
+  isLoading,
+  isOpen,
+  options,
+  placeholder = 'Choose a scenario',
+  searchString,
+  setSearchString,
+  setIsLoading,
+  setIsOpen,
+  setOptions,
+}) => {
+  return (
+    <EuiSelectable
+      emptyMessage={
+        isLoading || options.length === 0 && !searchString
+          ? 'Loading scenarios...'
+          : 'No scenarios found'
+      }
+      isPreFiltered
+      listProps={{
+        css: { '.euiSelectableList__list': { maxBlockSize: 200 } },
+      }}
+      options={options}
+      onChange={(newOptions, event, changedOption) => {
+        setOptions(newOptions)
+        setIsOpen(false)
+        setIsLoading(false)
+      }}
+      singleSelection
+      searchable
+      searchProps={{
+        autoFocus: autoFocus,
+        isClearable: false,
+        isLoading: isLoading,
+        onChange: (value) => {
+          setSearchString(value)
+        },
+        onKeyDown: (event) => {
+          if (event.key === 'Tab') return setIsOpen(false)
+          if (event.key !== 'Escape') return setIsOpen(true)
+        },
+        onClick: () => {
+          if (searchString.trim())
+            setOptions([])
+          setIsOpen(true)
+        },
+        onFocus: () => {
+          if (searchString.trim())
+            setOptions([])
+          setIsOpen(true)
+        },
+        placeholder: isLoading ? '' : placeholder,
+        value: searchString,
+      }}
+    >
+      {(options, searchString) => (
+        <EuiInputPopover
+          closeOnScroll
+          closePopover={() => setIsOpen(false)}
+          disableFocusTrap
+          fullWidth
+          input={searchString}
+          isOpen={isOpen}
+          panelPaddingSize='none'
+        >
+          {options}
+        </EuiInputPopover>
+      )}
+    </EuiSelectable>
+  )
+}
+
+export default SelectScenario

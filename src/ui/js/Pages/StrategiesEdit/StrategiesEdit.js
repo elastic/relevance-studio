@@ -5,21 +5,20 @@ import {
   EuiButton,
   EuiFlexGroup,
   EuiFlexItem,
-  EuiForm,
-  EuiFormRow,
-  EuiHorizontalRule,
   EuiPanel,
-  EuiResizableButton,
   EuiResizableContainer,
-  EuiResizablePanel,
-  EuiSkeletonText,
   EuiSkeletonTitle,
   EuiSpacer,
 } from '@elastic/eui'
+import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
+import {
+  Page,
+  SelectScenario,
+  SearchResultsJudgements
+} from '../../Layout'
 import FlyoutHelp from './FlyoutHelp'
-import { Page } from '../../Layout'
 import api from '../../api'
 import utils from '../../utils'
 
@@ -32,6 +31,7 @@ const StrategiesEdit = () => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
+  // Strategy editing
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [params, setParams] = useState([])
@@ -39,6 +39,21 @@ const StrategiesEdit = () => {
   const [strategy, setStrategy] = useState({})
   const [strategyDraft, setStrategyDraft] = useState('')
   const [strategyId, setStrategyId] = useState(null)
+
+  // Strategy testing
+  const [displays, setDisplays] = useState({})
+  const [indexPatternRegexes, setIndexPatternRegexes] = useState({})
+  const [isLoadingDisplays, setIsLoadingDisplays] = useState(false)
+  const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
+  const [isLoadingResults, setIsLoadingResults] = useState(false)
+  const [isScenariosOpen, setIsScenariosOpen] = useState(false)
+  const [results, setResults] = useState([])
+  const [scenario, setScenario] = useState(null)
+  const [scenarioOptions, setScenarioOptions] = useState([])
+  const [scenarioSearchString, setScenarioSearchString] = useState('')
+  const [sourceFilters, setSourceFilters] = useState([])
+
+  ///  Strategy editing  ///////////////////////////////////////////////////////
 
   /**
    * Parse strategyId from URL path
@@ -145,8 +160,178 @@ const StrategiesEdit = () => {
     }
   }
 
+  ////  Strategy testing  //////////////////////////////////////////////////////
+
+  /**
+   * Get displays for project
+   */
+  useEffect(() => {
+    if (!project?._id)
+      return
+    (async () => {
+
+      // Submit API request
+      let response
+      try {
+        setIsLoadingDisplays(true)
+        response = await api.displays_search(project._id, { text: '*' })
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to get displays' }))
+      } finally {
+        setIsLoadingDisplays(false)
+      }
+
+      // Handle API response
+      const _displays = {}
+      const _fields = {}
+      const _indexPatternsRegexes = {}
+      response.data.hits.hits?.forEach((doc) => {
+        _displays[doc._source.index_pattern] = doc._source
+        doc._source.fields?.forEach((field) => {
+          _fields[field] = true
+        })
+      })
+      for (var index_pattern in _displays) {
+        const re = new RegExp(`^${index_pattern.replace(/\*/g, '.*')}$`)
+        _indexPatternsRegexes[index_pattern] = re
+      }
+      setDisplays(_displays)
+      setIndexPatternRegexes(_indexPatternsRegexes)
+      setSourceFilters(Object.keys(_fields))
+    })()
+  }, [project])
+
+  // Fetch scenarios immediately when opening the dropdown
+  useEffect(() => {
+    if (!project?._id || !isScenariosOpen)
+      return
+    onSearchScenarios(`*${scenarioSearchString}*`)
+  }, [project?._id, isScenariosOpen])
+
+  // Fetch scenarios with debounce when typing
+  useEffect(() => {
+    if (!project?._id || !isScenariosOpen)
+      return
+    const debounced = debounce(() => {
+      onSearchScenarios(`*${scenarioSearchString}*`)
+    }, 300)
+    debounced()
+    return () => debounced.cancel()
+  }, [scenarioSearchString])
+
+  useEffect(() => {
+    if (!project?._id || !scenarioOptions)
+      return
+    for (const i in scenarioOptions) {
+      if (scenarioOptions[i].checked) {
+        setScenario(scenarioOptions[i])
+        setScenarioSearchString(scenarioOptions[i].checked === 'on' ? scenarioOptions[i].label : '')
+        break
+      }
+    }
+  }, [scenarioOptions])
+
+  ////  Event handlers  ////////////////////////////////////////////////////////
+
+  /**
+   * Search for scenarios
+   * 
+   * TODO: Only find compatible scenarios that have the same params
+   */
+  const onSearchScenarios = async (text) => {
+    try {
+      setIsLoadingScenarios(true)
+      const response = await api.scenarios_search(project._id, { text })
+      const options = response.data.hits.hits.map((doc) => ({
+        _id: doc._id,
+        label: doc._source.name,
+        values: doc._source.values,
+      }))
+      setScenarioOptions(options)
+    } catch (e) {
+      addToast(api.errorToast(e, { title: 'Failed to get scenarios' }))
+    } finally {
+      setIsLoadingScenarios(false)
+    }
+  }
+
+  const renderStrategy = (template, scenarioValues) => {
+    const rendered = template.replace(/{{\s*([\w.]+)\s*}}/g, (_, key) => {
+      return scenarioValues[key]
+    })
+    return JSON.parse(rendered)
+  }
+
+  /**
+   * Handle search bar submission
+   */
+  const onSubmitTest = (e) => {
+    // prevent browser from reloading page if called from a form submission
+    e?.preventDefault();
+    const rendered = renderStrategy(strategyDraft, scenario.values)
+    if (!rendered) {
+      return addToast({
+        title: title,
+        color: 'warning',
+        iconType: 'warning',
+        text: (
+          <EuiText size='xs'>
+            Can't render strategy.
+          </EuiText>
+        )
+      })
+    }
+    (async () => {
+
+      // Submit API request
+      const body = {
+        index_pattern: project.index_pattern,
+        query: rendered
+      }
+      if (sourceFilters)
+        body._source = { includes: sourceFilters }
+      let response
+      console.warn(body)
+      try {
+        setIsLoadingResults(true)
+        response = await api.judgements_search(project._id, scenario._id, body)
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to search docs' }))
+      } finally {
+        setIsLoadingResults(false)
+      }
+
+      // Handle API response
+      setResults(response.data.hits.hits)
+    })()
+  }
 
   ////  Render  ////////////////////////////////////////////////////////////////
+
+  const renderSelectScenarios = () => (
+    <SelectScenario
+      isLoading={isLoadingScenarios}
+      isOpen={isScenariosOpen}
+      options={scenarioOptions}
+      placeholder={'Choose a scenario to test on...'}
+      searchString={scenarioSearchString}
+      setSearchString={setScenarioSearchString}
+      setIsLoading={setIsLoadingScenarios}
+      setIsOpen={setIsScenariosOpen}
+      setOptions={setScenarioOptions}
+    />
+  )
+
+  const renderResults = () => (
+    <SearchResultsJudgements
+      displays={displays}
+      indexPatternRegexes={indexPatternRegexes}
+      project={project}
+      scenario={scenario}
+      results={results}
+      resultsPerRow={48}
+    />
+  )
 
   const renderTestPanel = () => (
     <EuiPanel
@@ -160,37 +345,29 @@ const StrategiesEdit = () => {
       }}
     >
       <EuiPanel color='transparent' grow={false} paddingSize='none'>
-        <EuiPanel color='transparent'>
-          <EuiFlexGroup gutterSize='m'>
-            <EuiFlexItem grow={false}>
-              <EuiButton
-                color='primary'
-                disabled={isProcessing || doesDraftDiffer()}
-                fill
-                onClick={onSaveStrategy}
-                type='submit'
-              >
-                Save
-              </EuiButton>
-            </EuiFlexItem>
-            <EuiFlexItem grow={false}>
-              <EuiButton
-                color="text"
-                disabled={isProcessing || doesDraftDiffer()}
-                onClick={() => {
-                  setStrategyDraft(JSON.stringify(strategy.template.source, null, 2));
-                }}
-              >
-                Reset
-              </EuiButton>
-            </EuiFlexItem>
-          </EuiFlexGroup>
-        </EuiPanel>
-        <EuiHorizontalRule margin='none' />
+        <EuiFlexGroup gutterSize='m'>
+          <EuiFlexItem grow>
+            {renderSelectScenarios()}
+          </EuiFlexItem>
+          <EuiFlexItem grow={false}>
+            <EuiButton
+              color='primary'
+              disabled={isProcessing}
+              iconType='play'
+              onClick={onSubmitTest}
+              type='submit'
+            >
+              Test
+            </EuiButton>
+          </EuiFlexItem>
+        </EuiFlexGroup>
       </EuiPanel>
-      <div style={{ flex: 1, display: 'flex' }}>
-        test
-      </div>
+      <EuiSpacer size='m' />
+      <EuiPanel color='transparent' hasBorder paddingSize='none' style={{ flex: 1, display: 'flex' }}>
+        <EuiPanel color='subdued' paddingSize='m'>
+          {renderResults()}
+        </EuiPanel>
+      </EuiPanel>
     </EuiPanel>
   )
 
@@ -234,37 +411,35 @@ const StrategiesEdit = () => {
       }}
     >
       <EuiPanel color='transparent' grow={false} paddingSize='none'>
-        <EuiPanel color='transparent'>
-          <EuiFlexGroup gutterSize='m'>
-            <EuiFlexItem grow={false}>
-              <EuiButton
-                color='primary'
-                disabled={isProcessing || doesDraftDiffer()}
-                fill
-                onClick={onSaveStrategy}
-                type='submit'
-              >
-                Save
-              </EuiButton>
-            </EuiFlexItem>
-            <EuiFlexItem grow={false}>
-              <EuiButton
-                color="text"
-                disabled={isProcessing || doesDraftDiffer()}
-                onClick={() => {
-                  setStrategyDraft(JSON.stringify(strategy.template.source, null, 2));
-                }}
-              >
-                Reset
-              </EuiButton>
-            </EuiFlexItem>
-          </EuiFlexGroup>
-        </EuiPanel>
-        <EuiHorizontalRule margin='none' />
+        <EuiFlexGroup gutterSize='m'>
+          <EuiFlexItem grow={false}>
+            <EuiButton
+              color='primary'
+              disabled={isProcessing || doesDraftDiffer()}
+              fill
+              onClick={onSaveStrategy}
+              type='submit'
+            >
+              Save
+            </EuiButton>
+          </EuiFlexItem>
+          <EuiFlexItem grow={false}>
+            <EuiButton
+              color="text"
+              disabled={isProcessing || doesDraftDiffer()}
+              onClick={() => {
+                setStrategyDraft(JSON.stringify(strategy.template.source, null, 2));
+              }}
+            >
+              Reset
+            </EuiButton>
+          </EuiFlexItem>
+        </EuiFlexGroup>
       </EuiPanel>
-      <div style={{ flex: 1, display: 'flex' }}>
+      <EuiSpacer size='m' />
+      <EuiPanel hasBorder paddingSize='none' style={{ flex: 1, display: 'flex' }}>
         {renderEditor()}
-      </div>
+      </EuiPanel>
     </EuiPanel>
   )
 
@@ -273,16 +448,18 @@ const StrategiesEdit = () => {
       <EuiResizableContainer direction='horizontal' style={{ height: '100%' }}>
         {(EuiResizablePanel, EuiResizableButton) => (
           <>
+            {/* Editor panel */}
             <EuiResizablePanel initialSize={50} minSize='300px' paddingSize='s' scrollable>
-              <EuiPanel hasBorder hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
+              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
                 {renderEditorPanel()}
               </EuiPanel>
             </EuiResizablePanel>
 
             <EuiResizableButton />
 
+            {/* Test panel */}
             <EuiResizablePanel initialSize={50} minSize='300px' paddingSize='s' scrollable>
-              <EuiPanel hasBorder hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
+              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
                 {renderTestPanel()}
               </EuiPanel>
             </EuiResizablePanel>
@@ -311,13 +488,6 @@ const StrategiesEdit = () => {
     } buttons={[renderButtonHelp()]}>
       {showHelp && <FlyoutHelp onClose={() => setShowHelp(false)} />}
       {renderSplitPanels()}
-      {/*
-      <EuiFlexGroup alignItems='flexStart' style={{ height: 'calc(100vh - 135px)' }}>
-        <EuiFlexItem grow={5}>
-          {renderEditorPanel()}
-        </EuiFlexItem>
-      </EuiFlexGroup>
-      */}
     </Page>
   )
 }

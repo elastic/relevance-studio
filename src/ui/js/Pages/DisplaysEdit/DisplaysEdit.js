@@ -310,7 +310,7 @@ const DisplaysEdit = () => {
               <EuiForm>
 
                 {/* Buttons */}
-                <EuiFlexGroup gutterSize='s'>
+                <EuiFlexGroup gutterSize='m'>
                   <EuiFlexItem grow={false}>
                     <EuiButton
                       color='primary'
@@ -338,7 +338,7 @@ const DisplaysEdit = () => {
                 <EuiFormRow fullWidth label='Markdown editor'>
                   <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
                     <EuiSkeletonText lines={21} isLoading={!isProjectReady}>
-                      <div style={{ height: 'calc(100vh - 316px)' }}>
+                      <div style={{ height: 'calc(100vh - 314px)' }}>
                         <EuiPanel
                           hasBorder
                           paddingSize='none'
