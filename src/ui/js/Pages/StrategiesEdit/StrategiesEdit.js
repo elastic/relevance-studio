@@ -148,6 +148,52 @@ const StrategiesEdit = () => {
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
+  const renderTestPanel = () => (
+    <EuiPanel
+      hasBorder={false}
+      hasShadow={false}
+      paddingSize='none'
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <EuiPanel color='transparent' grow={false} paddingSize='none'>
+        <EuiPanel color='transparent'>
+          <EuiFlexGroup gutterSize='m'>
+            <EuiFlexItem grow={false}>
+              <EuiButton
+                color='primary'
+                disabled={isProcessing || doesDraftDiffer()}
+                fill
+                onClick={onSaveStrategy}
+                type='submit'
+              >
+                Save
+              </EuiButton>
+            </EuiFlexItem>
+            <EuiFlexItem grow={false}>
+              <EuiButton
+                color="text"
+                disabled={isProcessing || doesDraftDiffer()}
+                onClick={() => {
+                  setStrategyDraft(JSON.stringify(strategy.template.source, null, 2));
+                }}
+              >
+                Reset
+              </EuiButton>
+            </EuiFlexItem>
+          </EuiFlexGroup>
+        </EuiPanel>
+        <EuiHorizontalRule margin='none' />
+      </EuiPanel>
+      <div style={{ flex: 1, display: 'flex' }}>
+        test
+      </div>
+    </EuiPanel>
+  )
+
   const renderEditor = () => {
     return (
       <Editor
@@ -236,10 +282,8 @@ const StrategiesEdit = () => {
             <EuiResizableButton />
 
             <EuiResizablePanel initialSize={50} minSize='300px' paddingSize='s' scrollable>
-              <EuiPanel hasBorder hasShadow={false} paddingSize='m' style={{ height: '100%' }}>
-                <div style={{ height: '100%', overflow: 'auto' }}>
-                  {/* TODO */}
-                </div>
+              <EuiPanel hasBorder hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
+                {renderTestPanel()}
               </EuiPanel>
             </EuiResizablePanel>
           </>

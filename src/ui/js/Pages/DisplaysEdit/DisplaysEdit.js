@@ -23,8 +23,7 @@ import {
 } from '@tabler/icons-react'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import { Page } from '../../Layout'
-import DocCard from '../Displays/DocCard'
+import { DocCard, Page } from '../../Layout'
 import api from '../../api'
 import utils from '../../utils'
 

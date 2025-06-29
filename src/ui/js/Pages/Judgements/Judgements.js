@@ -23,8 +23,7 @@ import {
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
-import { Page, SearchCount } from '../../Layout'
-import JudgementsCard from './JudgementsCard'
+import { JudgementCard, Page, SearchCount } from '../../Layout'
 import api from '../../api'
 
 const Judgements = () => {
@@ -401,7 +400,7 @@ const Judgements = () => {
     const cards = []
     results.forEach((result) => {
       cards.push(
-        <JudgementsCard
+        <JudgementCard
           key={`${result.doc._id}~${result.doc._id}`}
           _id={result._id}
           doc={result.doc}

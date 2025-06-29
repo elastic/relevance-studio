@@ -11,13 +11,13 @@ import {
   EuiText,
   EuiToolTip,
 } from '@elastic/eui'
-import DocCard from '../Displays/DocCard'
-import { useAppContext } from '../../Contexts/AppContext'
-import { useProjectContext } from '../../Contexts/ProjectContext'
-import api from '../../api'
-import utils from '../../utils'
+import { useAppContext } from '../Contexts/AppContext'
+import { useProjectContext } from '../Contexts/ProjectContext'
+import { DocCard } from '../Layout'
+import api from '../api'
+import utils from '../utils'
 
-const JudgementsCard = ({ _id, doc, scenario, template, ...props }) => {
+const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -270,4 +270,4 @@ const JudgementsCard = ({ _id, doc, scenario, template, ...props }) => {
   )
 }
 
-export default JudgementsCard
+export default JudgementCard
