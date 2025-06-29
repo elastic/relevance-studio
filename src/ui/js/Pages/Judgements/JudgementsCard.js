@@ -109,7 +109,7 @@ const JudgementsCard = ({ _id, doc, scenario, template, ...props }) => {
   }
 
   return (
-    <EuiPanel hasBorder paddingSize='none'>
+    <EuiPanel paddingSize='none'>
       <EuiForm>
         <EuiFlexGroup alignItems='center' gutterSize='none'>
           <EuiFlexItem grow>
@@ -165,13 +165,15 @@ const JudgementsCard = ({ _id, doc, scenario, template, ...props }) => {
                   </EuiPanel>
                 }
               </EuiFlexItem>
-              <EuiFlexItem grow>
+              <EuiFlexItem grow style={{ overflow: 'hidden' }}>
                 <EuiPanel
+                  className='judgement-card-range-slider'
                   hasBorder
                   paddingSize='none'
                   style={{
                     borderTopLeftRadius: 0,
                     borderTopRightRadius: 0,
+                    marginTop: '-1px',
                   }}
                 >
                   <div
@@ -253,6 +255,7 @@ const JudgementsCard = ({ _id, doc, scenario, template, ...props }) => {
           doc={doc}
           panelProps={{
             hasBorder: false,
+            hasShadow: false,
             style: {
               borderTopLeftRadius: 0,
               borderTopRightRadius: 0

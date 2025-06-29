@@ -290,7 +290,7 @@ const DisplaysEdit = () => {
   }
 
   return (
-    <Page title={
+    <Page panelled={true} title={
       <EuiSkeletonTitle isLoading={!isProjectReady || isLoadingDisplay} size='l'>
         {!display &&
           <>Not found</>
@@ -300,81 +300,82 @@ const DisplaysEdit = () => {
         }
       </EuiSkeletonTitle>
     }>
-      <EuiFlexGroup alignItems='flexStart' style={{ height: 'calc(100vh - 135px)' }}>
+      <EuiFlexGroup>
 
         {/* Editor */}
         <EuiFlexItem grow={5}>
+          <EuiPanel paddingSize='m'>
 
-          {/* Editor controls */}
-          <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-            <EuiForm>
+            {/* Editor controls */}
+            <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
+              <EuiForm>
 
-              {/* Buttons */}
-              <EuiFlexGroup gutterSize='s'>
-                <EuiFlexItem grow={false}>
-                  <EuiButton
-                    color='primary'
-                    disabled={isProcessing || !doesDraftDiffer()}
-                    fill
-                    onClick={onSaveDisplay}
-                    type='submit'
-                  >
-                    Save
-                  </EuiButton>
-                </EuiFlexItem>
-                <EuiFlexItem grow={false}>
-                  <EuiButton
-                    color='text'
-                    disabled={isProcessing || !doesDraftDiffer()}
-                    onClick={() => { setTemplateBodyDraft(display.template.body) }}
-                  >
-                    Reset
-                  </EuiButton>
-                </EuiFlexItem>
-              </EuiFlexGroup>
-              <EuiSpacer size='m' />
+                {/* Buttons */}
+                <EuiFlexGroup gutterSize='s'>
+                  <EuiFlexItem grow={false}>
+                    <EuiButton
+                      color='primary'
+                      disabled={isProcessing || !doesDraftDiffer()}
+                      fill
+                      onClick={onSaveDisplay}
+                      type='submit'
+                    >
+                      Save
+                    </EuiButton>
+                  </EuiFlexItem>
+                  <EuiFlexItem grow={false}>
+                    <EuiButton
+                      color='text'
+                      disabled={isProcessing || !doesDraftDiffer()}
+                      onClick={() => { setTemplateBodyDraft(display.template.body) }}
+                    >
+                      Reset
+                    </EuiButton>
+                  </EuiFlexItem>
+                </EuiFlexGroup>
+                <EuiSpacer size='m' />
 
-              {/* Editor */}
-              <EuiFormRow fullWidth label='Markdown editor'>
-                <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-                  <EuiSkeletonText lines={21} isLoading={!isProjectReady}>
-                    <div style={{ height: 'calc(100vh - 300px)' }}>
-                      <EuiPanel
-                        hasBorder
-                        paddingSize='none'
-                        style={{
-                          position: 'absolute',
-                          top: '0',
-                          bottom: '0',
-                          left: '0',
-                          right: '0'
-                        }}
-                      >
-                        {renderEditor()}
-                      </EuiPanel>
-                    </div>
-                  </EuiSkeletonText>
-                </EuiPanel>
-              </EuiFormRow>
+                {/* Editor */}
+                <EuiFormRow fullWidth label='Markdown editor'>
+                  <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
+                    <EuiSkeletonText lines={21} isLoading={!isProjectReady}>
+                      <div style={{ height: 'calc(100vh - 316px)' }}>
+                        <EuiPanel
+                          hasBorder
+                          paddingSize='none'
+                          style={{
+                            position: 'absolute',
+                            top: '0',
+                            bottom: '0',
+                            left: '0',
+                            right: '0'
+                          }}
+                        >
+                          {renderEditor()}
+                        </EuiPanel>
+                      </div>
+                    </EuiSkeletonText>
+                  </EuiPanel>
+                </EuiFormRow>
 
-              {/* Image settings */}
-              <EuiFormRow fullWidth>
-                <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
+                {/* Image settings */}
+                <EuiFormRow fullWidth>
+                  <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
 
-                  {/* Image URL */}
-                  <EuiFieldText
-                    aria-label='Image URL'
-                    compressed
-                    fullWidth
-                    onChange={(e) => setTemplateImageUrl(e.target.value)}
-                    placeholder='http://my-image-server/{{ image.path }}'
-                    prepend='Image URL'
-                    value={templateImageUrl}
-                  />
-                  <EuiSpacer size='xs' />
+                    {/* Image URL */}
+                    <EuiFieldText
+                      aria-label='Image URL'
+                      compressed
+                      fullWidth
+                      onChange={(e) => setTemplateImageUrl(e.target.value)}
+                      placeholder='http://my-image-server/{{ image.path }}'
+                      prepend='Image URL'
+                      value={templateImageUrl}
+                    />
+                    <EuiSpacer size='xs' />
 
-                  {/* Image position */}
-                  {/*<EuiToolTip content='Align left'>
+                    {/* Image position */}
+                    {/*<EuiToolTip content='Align left'>
                     <EuiButton
                       color='text'
                       fill={imagePosition == 'left' ? true : false}
@@ -385,29 +386,29 @@ const DisplaysEdit = () => {
                       <IconBoxAlignLeftFilled stroke={1.5} size={16} />
                     </EuiButton>
                   </EuiToolTip>*/}
-                  <EuiToolTip content='Align top left'>
-                    <EuiButton
-                      color='text'
-                      fill={templateImagePosition == 'top-left' ? true : false}
-                      onClick={() => setTemplateImagePosition('top-left')}
-                      size='s'
-                      style={{ minWidth: '16px', padding: '8px', /*borderLeft: '0', borderRadius: '0'*/ borderBottomRightRadius: '0', borderTopRightRadius: '0' }}
-                    >
-                      <IconBoxAlignTopLeftFilled stroke={1.5} size={16} />
-                    </EuiButton>
-                  </EuiToolTip>
-                  <EuiToolTip content='Align top right'>
-                    <EuiButton
-                      color='text'
-                      fill={templateImagePosition == 'top-right' ? true : false}
-                      onClick={() => setTemplateImagePosition('top-right')}
-                      size='s'
-                      style={{ minWidth: '16px', padding: '8px', borderLeft: '0', /*borderRadius: '0'*/ borderBottomLeftRadius: '0', borderTopLeftRadius: '0' }}
-                    >
-                      <IconBoxAlignTopRightFilled stroke={1.5} size={16} />
-                    </EuiButton>
-                  </EuiToolTip>
-                  {/*<EuiToolTip content='Align right'>
+                    <EuiToolTip content='Align top left'>
+                      <EuiButton
+                        color='text'
+                        fill={templateImagePosition == 'top-left' ? true : false}
+                        onClick={() => setTemplateImagePosition('top-left')}
+                        size='s'
+                        style={{ minWidth: '16px', padding: '8px', /*borderLeft: '0', borderRadius: '0'*/ borderBottomRightRadius: '0', borderTopRightRadius: '0' }}
+                      >
+                        <IconBoxAlignTopLeftFilled stroke={1.5} size={16} />
+                      </EuiButton>
+                    </EuiToolTip>
+                    <EuiToolTip content='Align top right'>
+                      <EuiButton
+                        color='text'
+                        fill={templateImagePosition == 'top-right' ? true : false}
+                        onClick={() => setTemplateImagePosition('top-right')}
+                        size='s'
+                        style={{ minWidth: '16px', padding: '8px', borderLeft: '0', /*borderRadius: '0'*/ borderBottomLeftRadius: '0', borderTopLeftRadius: '0' }}
+                      >
+                        <IconBoxAlignTopRightFilled stroke={1.5} size={16} />
+                      </EuiButton>
+                    </EuiToolTip>
+                    {/*<EuiToolTip content='Align right'>
                     <EuiButton
                       color='text'
                       fill={imagePosition == 'right' ? true : false}
@@ -418,10 +419,11 @@ const DisplaysEdit = () => {
                       <IconBoxAlignRightFilled stroke={1.5} size={16} />
                     </EuiButton>
                   </EuiToolTip>*/}
-                </EuiPanel>
-              </EuiFormRow>
+                  </EuiPanel>
+                </EuiFormRow>
 
-            </EuiForm>
+              </EuiForm>
+            </EuiPanel>
           </EuiPanel>
         </EuiFlexItem>
 

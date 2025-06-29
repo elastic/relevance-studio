@@ -311,7 +311,7 @@ const EvaluationsView = () => {
   )
 
   return (
-    <Page title={
+    <Page panelled={true} title={
       <EuiSkeletonTitle isLoading={isLoadingEvaluation} size='l'>
         {!evaluation.results &&
           <>Not found</>
@@ -329,10 +329,9 @@ const EvaluationsView = () => {
           onClose={() => setIsFlyoutRuntimeOpen(false)}
         />
       }
-      <EuiSpacer size='m' />
 
       {/* Metrics */}
-      <EuiPanel hasBorder paddingSize='none'>
+      <EuiPanel paddingSize='none'>
         <EuiPanel color='transparent'>
           <EuiTitle size='s'>
             <h2>Summary</h2>
@@ -351,8 +350,10 @@ const EvaluationsView = () => {
 
                 {/* Scatterplot */}
                 <EuiFlexItem grow={false}>
-                  <EuiPanel color='subdued'>
-                    <ChartMetricsScatterplot evaluation={evaluation} strategyInFocus={strategyInFocus} />
+                  <EuiPanel hasBorder paddingSize='none'>
+                    <EuiPanel color='subdued'>
+                      <ChartMetricsScatterplot evaluation={evaluation} strategyInFocus={strategyInFocus} />
+                    </EuiPanel>
                   </EuiPanel>
                 </EuiFlexItem>
               </EuiFlexGroup>
@@ -363,7 +364,7 @@ const EvaluationsView = () => {
       <EuiSpacer size='m' />
 
       {/* Heatmap */}
-      <EuiPanel hasBorder paddingSize='none'>
+      <EuiPanel paddingSize='none'>
         <EuiPanel color='transparent'>
           <EuiTitle size='s'>
             <h2>Strategies by scenario</h2>

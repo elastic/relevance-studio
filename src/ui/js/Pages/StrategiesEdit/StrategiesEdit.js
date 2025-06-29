@@ -7,7 +7,11 @@ import {
   EuiFlexItem,
   EuiForm,
   EuiFormRow,
+  EuiHorizontalRule,
   EuiPanel,
+  EuiResizableButton,
+  EuiResizableContainer,
+  EuiResizablePanel,
   EuiSkeletonText,
   EuiSkeletonTitle,
   EuiSpacer,
@@ -147,10 +151,11 @@ const StrategiesEdit = () => {
   const renderEditor = () => {
     return (
       <Editor
-        defaultLanguage='json'
         height='100%'
+        language='json'
         onChange={(value, event) => setStrategyDraft(value)}
         options={{
+          folding: true,
           fontSize: 12,
           insertSpaces: true,
           lineNumbers: 'on',
@@ -171,6 +176,78 @@ const StrategiesEdit = () => {
     )
   }
 
+  const renderEditorPanel = () => (
+    <EuiPanel
+      hasBorder={false}
+      hasShadow={false}
+      paddingSize='none'
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <EuiPanel color='transparent' grow={false} paddingSize='none'>
+        <EuiPanel color='transparent'>
+          <EuiFlexGroup gutterSize='m'>
+            <EuiFlexItem grow={false}>
+              <EuiButton
+                color='primary'
+                disabled={isProcessing || doesDraftDiffer()}
+                fill
+                onClick={onSaveStrategy}
+                type='submit'
+              >
+                Save
+              </EuiButton>
+            </EuiFlexItem>
+            <EuiFlexItem grow={false}>
+              <EuiButton
+                color="text"
+                disabled={isProcessing || doesDraftDiffer()}
+                onClick={() => {
+                  setStrategyDraft(JSON.stringify(strategy.template.source, null, 2));
+                }}
+              >
+                Reset
+              </EuiButton>
+            </EuiFlexItem>
+          </EuiFlexGroup>
+        </EuiPanel>
+        <EuiHorizontalRule margin='none' />
+      </EuiPanel>
+      <div style={{ flex: 1, display: 'flex' }}>
+        {renderEditor()}
+      </div>
+    </EuiPanel>
+  )
+
+  const renderSplitPanels = () => (
+    <EuiPanel paddingSize='s' style={{ height: '100%' }}>
+      <EuiResizableContainer direction='horizontal' style={{ height: '100%' }}>
+        {(EuiResizablePanel, EuiResizableButton) => (
+          <>
+            <EuiResizablePanel initialSize={50} minSize='300px' paddingSize='s' scrollable>
+              <EuiPanel hasBorder hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
+                {renderEditorPanel()}
+              </EuiPanel>
+            </EuiResizablePanel>
+
+            <EuiResizableButton />
+
+            <EuiResizablePanel initialSize={50} minSize='300px' paddingSize='s' scrollable>
+              <EuiPanel hasBorder hasShadow={false} paddingSize='m' style={{ height: '100%' }}>
+                <div style={{ height: '100%', overflow: 'auto' }}>
+                  {/* TODO */}
+                </div>
+              </EuiPanel>
+            </EuiResizablePanel>
+          </>
+        )}
+      </EuiResizableContainer>
+    </EuiPanel>
+  )
+
   const renderButtonHelp = () => (
     <EuiButton color='text' iconType='help' onClick={() => setShowHelp(!showHelp)}>
       Help
@@ -178,7 +255,7 @@ const StrategiesEdit = () => {
   )
 
   return (
-    <Page title={
+    <Page panelled={true} title={
       <EuiSkeletonTitle isLoading={!isProjectReady || isLoadingStrategy} size='l'>
         {!strategy &&
           <>Not found</>
@@ -189,69 +266,15 @@ const StrategiesEdit = () => {
       </EuiSkeletonTitle>
     } buttons={[renderButtonHelp()]}>
       {showHelp && <FlyoutHelp onClose={() => setShowHelp(false)} />}
+      {renderSplitPanels()}
+      {/*
       <EuiFlexGroup alignItems='flexStart' style={{ height: 'calc(100vh - 135px)' }}>
-
-        {/* Editor */}
         <EuiFlexItem grow={5}>
-
-          {/* Editor controls */}
-          <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-            <EuiForm>
-
-              {/* Buttons */}
-              <EuiFlexGroup gutterSize='s'>
-                <EuiFlexItem grow={false}>
-                  <EuiButton
-                    color='primary'
-                    disabled={isProcessing || doesDraftDiffer()}
-                    fill
-                    onClick={onSaveStrategy}
-                    type='submit'
-                  >
-                    Save
-                  </EuiButton>
-                </EuiFlexItem>
-                <EuiFlexItem grow={false}>
-                  <EuiButton
-                    color='text'
-                    disabled={isProcessing || doesDraftDiffer()}
-                    onClick={() => { setStrategyDraft(JSON.stringify(strategy.template.source, null, 2)) }}
-                  >
-                    Reset
-                  </EuiButton>
-                </EuiFlexItem>
-              </EuiFlexGroup>
-              <EuiSpacer size='m' />
-
-              {/* Editor */}
-              <EuiFormRow fullWidth label='Query DSL editor'>
-                <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-                  <EuiSkeletonText lines={21} isLoading={isLoadingStrategy}>
-                    <div style={{ height: 'calc(100vh - 200px)' }}>
-                      <EuiPanel
-                        hasBorder
-                        paddingSize='none'
-                        style={{
-                          position: 'absolute',
-                          top: '0',
-                          bottom: '14px',
-                          left: '0',
-                          right: '0'
-                        }}
-                      >
-                        {renderEditor()}
-                      </EuiPanel>
-                    </div>
-                  </EuiSkeletonText>
-                </EuiPanel>
-              </EuiFormRow>
-
-            </EuiForm>
-          </EuiPanel>
+          {renderEditorPanel()}
         </EuiFlexItem>
-
       </EuiFlexGroup>
-    </Page >
+      */}
+    </Page>
   )
 }
 

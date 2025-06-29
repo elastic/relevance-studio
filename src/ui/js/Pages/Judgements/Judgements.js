@@ -415,7 +415,7 @@ const Judgements = () => {
       )
     })
     const grid = <>
-      <EuiFlexGrid columns={parseInt(resultsPerRow)} direction='row'>
+      <EuiFlexGrid columns={parseInt(resultsPerRow)} direction='row' gutterSize='m'>
         {cards.map((card, i) => {
           return (
             <EuiFlexItem key={i}>
@@ -429,27 +429,30 @@ const Judgements = () => {
   }
 
   return (
-    <Page title='Judgements'>
+    <Page title='Judgements' color='subdued' panelled={true}>
       <EuiFlexGroup gutterSize='m' alignItems='flexStart'>
         <EuiFlexItem grow>
 
           {/* Top bar */}
-          <EuiForm component='form' onSubmit={onSearch}>
-            <EuiFlexItem style={{
-              boxShadow: darkMode ? '0 10px 10px -10px rgba(0, 0, 0, 1)' : '0 10px 10px -10px rgba(0, 0, 0, 0.25)',
-              margin: '0 -20px 10px -20px',
-              padding: '0 20px',
+          <EuiForm
+            component='form'
+            onSubmit={onSearch}
+            style={{
+              margin: '-16px -20px 10px -20px',
               position: 'sticky',
               top: 0,
-              zIndex: 999
+              zIndex: 9
+            }}
+          >
+            <EuiFlexItem style={{
+              boxShadow: darkMode ? '0 10px 10px -10px rgba(0, 0, 0, 1)' : '0 10px 10px -10px rgba(0, 0, 0, 0.25)',
             }}>
               <EuiPanel
                 hasBorder={false}
                 hasShadow={false}
                 paddingSize='none'
-                style={{ borderRadius: 0 }}
+                style={{ borderRadius: 0, padding: '24px 24px 10px 24px' }}
               >
-                <EuiSpacer size='s' />
                 <EuiFlexGroup gutterSize='s'>
 
                   {/* Select scenario */}
@@ -535,53 +538,50 @@ const Judgements = () => {
                     }
                   </EuiFlexItem>
                 </EuiFlexGroup>
-                <EuiSpacer size='s' />
 
                 {/* Show number of results and change grid size */}
-                <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-                  {!!results.length &&
-                    <EuiFlexGroup alignItems='center' gutterSize='s'>
-
-                      {/* Show number of results */}
-                      <EuiFlexItem grow={5}>
-                        <SearchCount showing={results.length} total={numResults} />
-                      </EuiFlexItem>
-
-                      {/* Change grid size */}
-                      <EuiFlexItem grow={5}>
-                        <EuiText color='subdued' size='xs' style={{ textAlign: 'right' }}>
-                          <EuiIcon
-                            color='subdued'
-                            type='grid'
-                            size='xs'
-                            style={{ marginRight: '6px' }}
-                          />
-                          <EuiToolTip content='Change grid size' position='bottom'>
-                            <EuiButtonGroup
-                              buttonSize='compressed'
-                              prepend='Grid size'
-                              idSelected={`grid-size-${resultsPerRow}`}
-                              legend='Grid size'
-                              onChange={(id) => setResultsPerRow(id.slice(-1))}
-                              options={[
-                                { id: 'grid-size-1', label: <EuiText size='xs'><small>1</small></EuiText> },
-                                { id: 'grid-size-2', label: <EuiText size='xs'><small>2</small></EuiText> },
-                                { id: 'grid-size-3', label: <EuiText size='xs'><small>3</small></EuiText> },
-                                { id: 'grid-size-4', label: <EuiText size='xs'><small>4</small></EuiText> }
-                              ]}
-                            />
-                          </EuiToolTip>
-                        </EuiText>
-                      </EuiFlexItem>
-                    </EuiFlexGroup>
-                  }
-                </EuiPanel>
                 <EuiSpacer size='s' />
+                {!!results.length &&
+                  <EuiFlexGroup alignItems='center' gutterSize='s'>
+
+                    {/* Show number of results */}
+                    <EuiFlexItem grow={5}>
+                      <SearchCount showing={results.length} total={numResults} />
+                    </EuiFlexItem>
+
+                    {/* Change grid size */}
+                    <EuiFlexItem grow={5}>
+                      <EuiText color='subdued' size='xs' style={{ textAlign: 'right' }}>
+                        <EuiIcon
+                          color='subdued'
+                          type='grid'
+                          size='xs'
+                          style={{ marginRight: '6px' }}
+                        />
+                        <EuiToolTip content='Change grid size' position='bottom'>
+                          <EuiButtonGroup
+                            buttonSize='compressed'
+                            prepend='Grid size'
+                            idSelected={`grid-size-${resultsPerRow}`}
+                            legend='Grid size'
+                            onChange={(id) => setResultsPerRow(id.slice(-1))}
+                            options={[
+                              { id: 'grid-size-1', label: <EuiText size='xs'><small>1</small></EuiText> },
+                              { id: 'grid-size-2', label: <EuiText size='xs'><small>2</small></EuiText> },
+                              { id: 'grid-size-3', label: <EuiText size='xs'><small>3</small></EuiText> },
+                              { id: 'grid-size-4', label: <EuiText size='xs'><small>4</small></EuiText> }
+                            ]}
+                          />
+                        </EuiToolTip>
+                      </EuiText>
+                    </EuiFlexItem>
+                  </EuiFlexGroup>
+                }
               </EuiPanel>
             </EuiFlexItem>
           </EuiForm>
 
-          <EuiSpacer size='m' />
+          <EuiSpacer size='s' />
 
           {/* Display results */}
           <EuiFlexItem>

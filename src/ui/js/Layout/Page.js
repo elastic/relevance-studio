@@ -1,8 +1,12 @@
-import { EuiPageTemplate, EuiProvider } from '@elastic/eui'
+import {
+  EuiPageTemplate,
+  EuiPanel,
+  EuiProvider,
+} from '@elastic/eui'
 import { useAppContext } from '../Contexts/AppContext'
 import SideNav from './SideNav'
 
-const Page = ({ title, buttons, children }) => {
+const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -19,21 +23,40 @@ const Page = ({ title, buttons, children }) => {
         panelled={false}
         restrictWidth={false}
       >
-        <EuiPageTemplate.Sidebar paddingSize='m'>
+
+        {/* Sidebar (separately scrollable from main content) */}
+        <EuiPageTemplate.Sidebar paddingSize='none' style={{ height: '100vh' }}>
           <SideNav />
         </EuiPageTemplate.Sidebar>
-        <EuiPageTemplate.Header
-          pageTitle={title}
-          rightSideItems={buttons || []}
-          style={{ minHeight: '90px' }}
-        />
-        <EuiPageTemplate.Section
-          bottomBorder={false}
-          color='plain'
-          grow={true}
-        >
-          {children}
-        </EuiPageTemplate.Section>
+
+        {/* Main (separately scrollable from sidebar) */}
+        <div style={{ height: '100vh', overflow: 'scroll' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+
+            {/* Header */}
+            <EuiPageTemplate.Header
+              pageTitle={title}
+              rightSideItems={buttons || []}
+              style={{ minHeight: '90px' }}
+            />
+
+            {/* Body */}
+            <section style={{ flex: 1 }}>
+              <EuiPanel
+                color={panelled ? 'subdued' : 'plain'}
+                hasBorder={false}
+                hasShadow={!panelled}
+                paddingSize={panelled ? 'm' : paddingSize}
+                style={{
+                  borderRadius: 0,
+                  height: '100%',
+                }}
+              >
+                {children}
+              </EuiPanel>
+            </section>
+          </div>
+        </div>
       </EuiPageTemplate>
     </EuiProvider>
   )

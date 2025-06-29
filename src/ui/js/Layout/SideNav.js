@@ -2,6 +2,7 @@ import { useRouteMatch } from 'react-router-dom'
 import {
   EuiButtonIcon,
   EuiIcon,
+  EuiPanel,
   EuiSideNav,
   EuiText,
   EuiToolTip
@@ -99,21 +100,23 @@ const SideNav = () => {
     },
   ]
 
-  return (<>
-    <EuiSideNav
-      style={{ width: '100%' }}
-      items={items()}
-    />
-    <div style={{ position: 'fixed', bottom: '10px', left: '10px', right: '10px' }}>
-      <EuiToolTip content={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
-        <EuiButtonIcon
-          aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-          iconType={darkMode ? 'sun' : 'moon'}
-          onClick={() => setDarkMode(!darkMode)}
-        />
-      </EuiToolTip>
-    </div>
-  </>)
+  return (
+    <EuiPanel color='plain' style={{ borderRadius: 0, height: '100%', zIndex: 99 }}>
+      <EuiSideNav
+        style={{ width: '100%' }}
+        items={items()}
+      />
+      <div style={{ position: 'fixed', bottom: '10px', left: '10px', right: '10px' }}>
+        <EuiToolTip content={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
+          <EuiButtonIcon
+            aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            iconType={darkMode ? 'sun' : 'moon'}
+            onClick={() => setDarkMode(!darkMode)}
+          />
+        </EuiToolTip>
+      </div>
+    </EuiPanel>
+  )
 }
 
 export default SideNav

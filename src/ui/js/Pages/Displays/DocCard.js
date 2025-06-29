@@ -32,8 +32,6 @@ const DocCard = ({ body, doc, imagePosition, imageUrl, ...props }) => {
   ////  Render  ////////////////////////////////////////////////////////////////
 
   const panelProps = {
-    hasBorder: true,
-    hasShadow: false,
     paddingSize: 'none',
     ...props.panelProps
   }
