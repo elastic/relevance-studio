@@ -299,7 +299,7 @@ const DisplaysEdit = () => {
         }
       </EuiSkeletonTitle>
     }>
-      <EuiFlexGroup>
+      <EuiFlexGroup alignItems='flexStart'>
 
         {/* Editor */}
         <EuiFlexItem grow={5}>
