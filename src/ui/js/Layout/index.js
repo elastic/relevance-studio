@@ -1,3 +1,4 @@
+import Breadcrumbs from './Breadcrumbs'
 import DocCard from './DocCard'
 import JudgementCard from './JudgementCard'
 import ModalDelete from './ModalDelete'
@@ -9,6 +10,7 @@ import SearchTable from './SearchTable'
 import SelectScenario from './SelectScenario'
 import SideNav from './SideNav'
 export {
+  Breadcrumbs,
   DocCard,
   JudgementCard,
   ModalDelete,

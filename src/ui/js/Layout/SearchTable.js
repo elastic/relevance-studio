@@ -80,7 +80,7 @@ const SearchTable = ({
                     Auto-refresh
                   </EuiText>
                 }
-                onClick={() => setAutoRefresh(!autoRefresh)}
+                onChange={() => setAutoRefresh(!autoRefresh)}
                 style={{ align: 'right' }}
               />
             </EuiFlexItem>

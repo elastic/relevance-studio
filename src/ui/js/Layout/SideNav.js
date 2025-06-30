@@ -1,6 +1,5 @@
 import { useRouteMatch } from 'react-router-dom'
 import {
-  EuiCallOut,
   EuiIcon,
   EuiPanel,
   EuiSideNav,
@@ -115,7 +114,6 @@ const SideNav = () => {
         zIndex: 99
       }}
     >
-      {console.warn(sidebarOpen)}
       {sidebarOpen &&
         <>
           <EuiSideNav

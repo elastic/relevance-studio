@@ -12,6 +12,7 @@ import {
   IconBrandGithub,
 } from '@tabler/icons-react'
 import { useAppContext } from '../Contexts/AppContext'
+import Breadcrumbs from './Breadcrumbs'
 import SideNav from './SideNav'
 
 const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' }) => {
@@ -36,6 +37,7 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
           width: '48px',
         }}>
           <EuiButtonIcon
+            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
             color='text'
             iconType={sidebarOpen ? 'menuLeft' : 'menuRight'}
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -45,12 +47,14 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
         <div style={{ textAlign: 'center', width: '56px' }}>
           <EuiHeaderLogo />
         </div>,
+        <Breadcrumbs />
       ],
     },
     {
       items: [
         <EuiToolTip content={'View on Github'}>
           <EuiButton
+            aria-label='View on Github'
             color='text'
             style={{
               border: 0,
