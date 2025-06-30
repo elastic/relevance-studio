@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import {
+  EuiBadge,
   EuiButton,
   EuiCode,
   EuiCodeBlock,
@@ -12,6 +13,7 @@ import {
   EuiResizableContainer,
   EuiSkeletonTitle,
   EuiSpacer,
+  EuiSwitch,
   EuiText,
   EuiTitle,
 } from '@elastic/eui'
@@ -53,8 +55,10 @@ const StrategiesEdit = () => {
   const [isLoadingDisplays, setIsLoadingDisplays] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
+  const [isRankEvalEnabled, setIsRankEvalEnabled] = useState(false)
   const [isScenariosOpen, setIsScenariosOpen] = useState(false)
   const [results, setResults] = useState([])
+  const [resultsRankEval, setResultsRankEval] = useState({})
   const [scenario, setScenario] = useState(null)
   const [scenarioOptions, setScenarioOptions] = useState([])
   const [scenarioSearchString, setScenarioSearchString] = useState('')
@@ -248,10 +252,10 @@ const StrategiesEdit = () => {
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => onSaveStrategy()
     )
     const testCommand = editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onSubmitTest()
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onTestStrategy()
     )
     return () => { }
-  }, [onSaveStrategy, onSubmitTest])
+  }, [onSaveStrategy, onTestStrategy])
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
@@ -290,15 +294,16 @@ const StrategiesEdit = () => {
   }
 
   /**
-   * Handle search bar submission
+   * Handle testing strategy
    */
-  const onSubmitTest = (e) => {
+  const onTestStrategy = (e) => {
     // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
-    let rendered
-    let scenarios
+
+    // Verify that a scenario has been chosen
+    let scenarioValues
     try {
-      scenarios = scenario.values
+      scenarioValues = scenario.values
     } catch (e) {
       return addToast({
         title: `Can't test strategy`,
@@ -317,8 +322,11 @@ const StrategiesEdit = () => {
         )
       })
     }
+
+    // Verify that the strategy can be populated with values from the scenario
+    let strategyPopulated
     try {
-      rendered = applyParams(strategyDraft, scenarios)
+      strategyPopulated = applyParams(strategyDraft, scenarioValues)
     } catch (e) {
       return addToast({
         title: `Can't test strategy`,
@@ -337,44 +345,96 @@ const StrategiesEdit = () => {
         )
       })
     }
-    if (!rendered) {
+    if (!strategyPopulated) {
       return addToast({
         title: `Can't test strategy`,
         color: 'warning',
         text: (
           <EuiText size='xs'>
-            Failed to render strategy
+            Failed to apply scenario values to strategy params
           </EuiText>
         )
       })
     }
+
+    // Submit API request(s)
     (async () => {
 
-      // Submit API request
+      // Prepare request body for search
       const body = {
         index_pattern: project.index_pattern,
-        query: rendered
+        query: strategyPopulated
       }
       if (sourceFilters)
         body._source = { includes: sourceFilters }
-      let response
+
+      // Prepare request body for rank evaluation (if enabled)
+      let evaluation
+      if (isRankEvalEnabled) {
+        evaluation = {
+          "@meta": {
+            "status": "pending",
+            "created_at": new Date().toISOString(),
+            "started_at": null,
+            "stopped_at": null
+          },
+          "project_id": project._id,
+          "task": {
+            "metrics": ["ndcg", "precision", "recall"],
+            "k": 10,
+            "strategies": {
+              "docs": [
+                {
+                  _id: strategyId,
+                  name: strategy.name,
+                  tags: strategy.tags,
+                  params: extractParams(strategyDraft),
+                  template: {
+                    source: JSON.parse(strategyDraft)
+                  },
+                }
+              ]
+            },
+            "scenarios": {
+              "_ids": [scenario._id]
+            }
+          }
+        }
+      }
+
+      // Submit API request(s)
+      let responseSearch
+      let responseRankEval
       try {
         setIsLoadingResults(true)
-        response = await api.judgements_search(project._id, scenario._id, body)
+        const promises = [
+          api.judgements_search(project._id, scenario._id, body),
+          isRankEvalEnabled
+            ? api.evaluations_run(project._id, evaluation)
+            : Promise.resolve(null),
+        ]
+        const [response_search, response_rank_eval] = await Promise.all(promises)
+        responseSearch = response_search
+        responseRankEval = response_rank_eval
+
+        // Handle API response
+        setErrorContent(null)
+        setHasSearched(true)
+        setResults(responseSearch.data.hits.hits)
+        setResultsRankEval(responseRankEval?.data || {})
       } catch (e) {
-        if (e.response.data?.error?.reason) {
+        if (responseSearch?.data?.error?.reason || responseRankEval?.data?.error?.reason) {
           setHasSearched(true)
-          return setErrorContent(e.response.data)
+          if (responseSearch?.data?.error?.reason)
+            setErrorContent(responseSearch.data)
+          if (responseRankEval?.data?.error?.reason)
+            setErrorContent(responseRankEval.data)
+        } else {
+          return addToast(api.errorToast(e, { title: 'Failed to test strategy' }))
         }
-        return addToast(api.errorToast(e, { title: 'Failed to test strategy' }))
       } finally {
         setIsLoadingResults(false)
       }
-
-      // Handle API response
-      setErrorContent(null)
-      setHasSearched(true)
-      setResults(response.data.hits.hits)
     })()
   }
 
@@ -426,7 +486,6 @@ const StrategiesEdit = () => {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
       }}
     >
       <EuiPanel color='transparent' grow={false} paddingSize='none'>
@@ -438,8 +497,8 @@ const StrategiesEdit = () => {
             <EuiButton
               color='primary'
               disabled={isProcessing || !scenario}
-              iconType='play'
-              onClick={onSubmitTest}
+              iconType='search'
+              onClick={onTestStrategy}
               type='submit'
             >
               Test
@@ -455,8 +514,8 @@ const StrategiesEdit = () => {
         style={{
           display: 'flex',
           flex: 1,
-          height: '100%',
-          overflow: 'hidden'
+          minHeight: 0,
+          overflow: 'visible',
         }}>
         <EuiPanel
           color='subdued'
@@ -472,7 +531,43 @@ const StrategiesEdit = () => {
 
       {/* Placeholder */}
       <div style={{ flexShrink: 0, height: '24px', margin: '5px 0 -10px 0' }}>
-        {/* TODO */}
+        <EuiPanel color='transparent' grow={false} hasBorder={false} hasShadow={false} paddingSize='xs'>
+          <EuiFlexGroup gutterSize='m'>
+            <EuiFlexItem grow={false}>
+              <div onClick={() => setIsRankEvalEnabled(!isRankEvalEnabled)} style={{ cursor: 'pointer' }}>
+                <EuiSwitch
+                  checked={isRankEvalEnabled}
+                  mini
+                  onChange={() => setIsRankEvalEnabled(!isRankEvalEnabled)}
+                />
+                <EuiText size='xs' style={{ display: 'inline', fontSize: '11px' }}>
+                  Rank Eval
+                </EuiText>
+              </div>
+            </EuiFlexItem>
+            {resultsRankEval?.summary &&
+              <EuiFlexItem grow={false}>
+                <div style={{ marginTop: '-2px' }}>
+                  <EuiBadge color='hollow' size='s' style={{ display: 'inline-block' }}>
+                    <small>
+                      NDCG: <b>{resultsRankEval.summary.strategy_id[strategyId]._total.metrics.ndcg.avg.toFixed(4)}</b>
+                    </small>
+                  </EuiBadge>
+                  <EuiBadge color='hollow' size='s' style={{ display: 'inline-block' }}>
+                    <small>
+                      Precision: <b>{resultsRankEval.summary.strategy_id[strategyId]._total.metrics.precision.avg.toFixed(4)}</b>
+                    </small>
+                  </EuiBadge>
+                  <EuiBadge color='hollow' size='s' style={{ display: 'inline-block' }}>
+                    <small>
+                      Recall: <b>{resultsRankEval.summary.strategy_id[strategyId]._total.metrics.recall.avg.toFixed(4)}</b>
+                    </small>
+                  </EuiBadge>
+                </div>
+              </EuiFlexItem>
+            }
+          </EuiFlexGroup>
+        </EuiPanel>
       </div>
     </EuiPanel>
   )
@@ -590,7 +685,7 @@ const StrategiesEdit = () => {
         {(EuiResizablePanel, EuiResizableButton) => (
           <>
             {/* Editor panel */}
-            <EuiResizablePanel initialSize={50} minSize='300px' paddingSize='s'>
+            <EuiResizablePanel initialSize={40} minSize='300px' paddingSize='s' style={{ overflow: 'visible' }}>
               <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
                 {renderEditorPanel()}
               </EuiPanel>
@@ -599,7 +694,7 @@ const StrategiesEdit = () => {
             <EuiResizableButton />
 
             {/* Test panel */}
-            <EuiResizablePanel initialSize={50} minSize='300px' paddingSize='s'>
+            <EuiResizablePanel initialSize={60} minSize='300px' paddingSize='s' style={{ overflow: 'visible' }}>
               <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
                 {renderTestPanel()}
               </EuiPanel>

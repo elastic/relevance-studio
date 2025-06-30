@@ -43,6 +43,10 @@
         "strategy_id": {
           "type": "keyword"
         },
+        "summary": {
+          "type": "object",
+          "enabled": false
+        },
         "task": {
           "properties": {
             "metrics": {

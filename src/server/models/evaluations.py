@@ -75,5 +75,6 @@ class EvaluationModel(BaseModel):
     task: TaskModel
     results: Optional[ResultsModel]
     runtime: Optional[RuntimeModel]
+    summary: Any
     unrated_docs: Optional[UnratedDocsModel]
     took: Optional[int]

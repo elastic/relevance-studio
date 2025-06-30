@@ -19,7 +19,6 @@ class StrategyModel(BaseModel):
         """
         Extract params from the template if params was not given.
         """
-        print(self)
         if self.params or not self.template:
             return     
         template_source = self.template.get("source")

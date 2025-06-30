@@ -338,7 +338,7 @@ const DisplaysEdit = () => {
                 <EuiFormRow fullWidth label='Markdown editor'>
                   <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
                     <EuiSkeletonText lines={21} isLoading={!isProjectReady}>
-                      <div style={{ height: 'calc(100vh - 314px)' }}>
+                      <div style={{ height: 'calc(100vh - 362px)' }}>
                         <EuiPanel
                           hasBorder
                           paddingSize='none'

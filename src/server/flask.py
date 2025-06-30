@@ -303,7 +303,7 @@ def evaluations_search(project_id, benchmark_id):
     body = request.get_json() or {}
     return api.evaluations.search(project_id, benchmark_id, **body)
 
-@api_route("/api/projects/<string:project_id>//benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["GET"])
+@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["GET"])
 def evaluations_get(project_id, benchmark_id, _id):
     return api.evaluations.get(_id)
 
@@ -311,6 +311,13 @@ def evaluations_get(project_id, benchmark_id, _id):
 def evaluations_create(project_id, benchmark_id):
     task = request.get_json()
     return api.evaluations.create(project_id, benchmark_id, task)
+
+@api_route("/api/projects/<string:project_id>/evaluations/_run", methods=["POST"])
+def evaluations_run(project_id):
+    body = request.get_json()
+    validate_project_id_match(body, project_id)
+    body["project_id"] = project_id # ensure project_id from path is in doc
+    return api.evaluations.run(body)
 
 @api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["DELETE"])
 def evaluations_delete(project_id, benchmark_id, _id):

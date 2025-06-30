@@ -12,6 +12,222 @@ INDEX_NAME = "esrs-evaluations"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("evaluations")
 VALID_METRICS = set([ "ndcg", "precision", "recall" ])
 
+def generate_summary(evaluation, candidates):
+    """
+    Generate summary statistics from evaluation results using candidates data for tag lookups.
+    
+    Args:
+        evaluation: Dictionary containing evaluation results from evaluation.json
+        candidates: Dictionary containing strategy and scenario tag mappings
+        
+    Returns:
+        Dictionary with summary statistics organized by strategy_id and strategy_tag
+    """
+    
+    def calculate_metrics(searches_list):
+        """Calculate aggregated metrics from a list of search results"""
+        metrics = {}
+        unrated_count = 0
+        total_hits = 0
+        
+        # Group metrics by metric name
+        metric_values = {}
+        
+        for search in searches_list:
+            # Count unrated documents from hits
+            if 'hits' in search:
+                for hit_data in search['hits']:
+                    total_hits += 1
+                    if hit_data.get('rating') is None:
+                        unrated_count += 1
+            
+            # Collect metric values
+            if 'metrics' in search:
+                for metric_name, value in search['metrics'].items():
+                    if metric_name not in metric_values:
+                        metric_values[metric_name] = []
+                    metric_values[metric_name].append(value)
+        
+        # Calculate aggregated metrics
+        for metric_name, values in metric_values.items():
+            if values:
+                metrics[metric_name] = {
+                    'avg': sum(values) / len(values),
+                    'max': max(values),
+                    'min': min(values)
+                }
+        
+        # Calculate unrated docs stats
+        unrated_docs = {
+            'count': unrated_count,
+            'percent': (unrated_count / total_hits * 100) if total_hits > 0 else 0.0
+        }
+        
+        return {
+            'metrics': metrics,
+            'unrated_docs': unrated_docs
+        }
+    
+    def get_strategy_tags(strategy_id):
+        """Get tags for a strategy ID"""
+        try:
+            # Try candidates dict structure first
+            if candidates and 'strategies' in candidates and isinstance(candidates['strategies'], dict):
+                return candidates['strategies'].get(strategy_id, {}).get('tags', [])
+        except (AttributeError, TypeError):
+            pass
+        
+        # Fall back to evaluation data structure
+        try:
+            if 'strategies' in evaluation and strategy_id in evaluation['strategies']:
+                return evaluation['strategies'][strategy_id].get('tags', [])
+        except (AttributeError, TypeError):
+            pass
+        
+        # Also try runtime section if it exists
+        try:
+            if 'runtime' in evaluation and 'strategies' in evaluation['runtime'] and strategy_id in evaluation['runtime']['strategies']:
+                return evaluation['runtime']['strategies'][strategy_id].get('tags', [])
+        except (AttributeError, TypeError):
+            pass
+        
+        return []
+    
+    def get_scenario_tags(scenario_id):
+        """Get tags for a scenario ID"""
+        try:
+            # Try candidates dict structure first
+            if candidates and 'scenarios' in candidates and isinstance(candidates['scenarios'], dict):
+                return candidates['scenarios'].get(scenario_id, {}).get('tags', [])
+        except (AttributeError, TypeError):
+            pass
+        
+        # Fall back to evaluation data structure
+        try:
+            if 'scenarios' in evaluation and scenario_id in evaluation['scenarios']:
+                return evaluation['scenarios'][scenario_id].get('tags', [])
+        except (AttributeError, TypeError):
+            pass
+        
+        # Also try runtime section if it exists
+        try:
+            if 'runtime' in evaluation and 'scenarios' in evaluation['runtime'] and scenario_id in evaluation['runtime']['scenarios']:
+                return evaluation['runtime']['scenarios'][scenario_id].get('tags', [])
+        except (AttributeError, TypeError):
+            pass
+        
+        return []
+    
+    # Initialize summary structure
+    summary = {
+        'strategy_id': {},
+        'strategy_tag': {}
+    }
+    
+    # Get all unique strategy IDs and scenario IDs from results
+    all_strategy_ids = set()
+    all_scenario_ids = set()
+    
+    for result in evaluation['results']:
+        strategy_id = result['strategy_id']
+        all_strategy_ids.add(strategy_id)
+        
+        for search in result['searches']:
+            scenario_id = search['scenario_id']
+            all_scenario_ids.add(scenario_id)
+    
+    # Process by strategy ID
+    for strategy_id in all_strategy_ids:
+        strategy_results = [r for r in evaluation['results'] if r['strategy_id'] == strategy_id]
+        
+        if not strategy_results:
+            continue
+            
+        all_searches = []
+        for result in strategy_results:
+            all_searches.extend(result['searches'])
+        
+        # Calculate _total metrics
+        total_metrics = calculate_metrics(all_searches)
+        
+        # Calculate by_scenario_id metrics
+        by_scenario_id = {}
+        for scenario_id in all_scenario_ids:
+            scenario_searches = [s for s in all_searches if s['scenario_id'] == scenario_id]
+            if scenario_searches:
+                by_scenario_id[scenario_id] = calculate_metrics(scenario_searches)
+        
+        # Calculate by_scenario_tag metrics
+        by_scenario_tag = {}
+        for scenario_id in all_scenario_ids:
+            scenario_tags = get_scenario_tags(scenario_id)
+            scenario_searches = [s for s in all_searches if s['scenario_id'] == scenario_id]
+            
+            for tag in scenario_tags:
+                if tag not in by_scenario_tag:
+                    by_scenario_tag[tag] = []
+                by_scenario_tag[tag].extend(scenario_searches)
+        
+        # Calculate aggregated metrics for each scenario tag
+        for tag in by_scenario_tag:
+            by_scenario_tag[tag] = calculate_metrics(by_scenario_tag[tag])
+        
+        summary['strategy_id'][strategy_id] = {
+            '_total': total_metrics,
+            'by_scenario_id': by_scenario_id,
+            'by_scenario_tag': by_scenario_tag
+        }
+    
+    # Process by strategy tag
+    strategy_tag_searches = {}
+    
+    for strategy_id in all_strategy_ids:
+        strategy_tags = get_strategy_tags(strategy_id)
+        strategy_results = [r for r in evaluation['results'] if r['strategy_id'] == strategy_id]
+        
+        for result in strategy_results:
+            searches = result['searches']
+            
+            for tag in strategy_tags:
+                if tag not in strategy_tag_searches:
+                    strategy_tag_searches[tag] = []
+                strategy_tag_searches[tag].extend(searches)
+    
+    # Calculate metrics for each strategy tag
+    for strategy_tag, all_searches in strategy_tag_searches.items():
+        # Calculate _total metrics
+        total_metrics = calculate_metrics(all_searches)
+        
+        # Calculate by_scenario_id metrics
+        by_scenario_id = {}
+        for scenario_id in all_scenario_ids:
+            scenario_searches = [s for s in all_searches if s['scenario_id'] == scenario_id]
+            if scenario_searches:
+                by_scenario_id[scenario_id] = calculate_metrics(scenario_searches)
+        
+        # Calculate by_scenario_tag metrics
+        by_scenario_tag = {}
+        for scenario_id in all_scenario_ids:
+            scenario_tags = get_scenario_tags(scenario_id)
+            scenario_searches = [s for s in all_searches if s['scenario_id'] == scenario_id]
+            
+            for tag in scenario_tags:
+                if tag not in by_scenario_tag:
+                    by_scenario_tag[tag] = []
+                by_scenario_tag[tag].extend(scenario_searches)
+        
+        # Calculate aggregated metrics for each scenario tag
+        for tag in by_scenario_tag:
+            by_scenario_tag[tag] = calculate_metrics(by_scenario_tag[tag])
+        
+        summary['strategy_tag'][strategy_tag] = {
+            '_total': total_metrics,
+            'by_scenario_id': by_scenario_id,
+            'by_scenario_tag': by_scenario_tag
+        }
+    
+    return summary
+
 def validate_k(value):
     if not (isinstance(value, int) and not isinstance(value, bool)):
         raise Exception("\"k\" must be an integer")
@@ -36,12 +252,11 @@ def run(
     # Start timer
     started_at = time.time()
     evaluation["@meta"]["started_at"] = utils.timestamp(started_at)
-    evaluation_id = evaluation.pop("_id")
+    evaluation_id = evaluation.pop("_id", None)
     try:
     
         # Parse and validate request
         project_id = evaluation["project_id"]
-        benchmark_id = evaluation["benchmark_id"]
         validate_k(evaluation["task"].get("k"))
         validate_metrics(evaluation["task"].get("metrics"))
         
@@ -51,24 +266,24 @@ def run(
         # If there are no strategies or scenarios that meet the criteria of the
         # benchmark task definition, mark the evaluation as "skipped" and exit.
         if not candidates["strategies"] or not candidates["scenarios"]:
-            doc_updates = {
-                "@meta": {
-                    "status": "skipped",
-                    "stopped_at": utils.timestamp()
+            if store_results:
+                doc_updates = {
+                    "@meta": {
+                        "status": "skipped",
+                        "stopped_at": utils.timestamp()
+                    }
                 }
-            }
-            es_response = es("studio").update(
-                index=INDEX_NAME,
-                id=evaluation_id,
-                doc=doc_updates,
-                refresh=True
-            )
-            return es_response
+                es_response = es("studio").update(
+                    index=INDEX_NAME,
+                    id=evaluation_id,
+                    doc=doc_updates,
+                    refresh=True
+                )
+                return es_response
         
         # Track the strategies and scenarios that were selected for this evaluation
-        evaluation["strategy_id"] = candidates["strategies"]
-        evaluation["scenario_id"] = candidates["scenarios"]
-        del candidates
+        evaluation["strategy_id"] = sorted(list(candidates["strategies"].keys()))
+        evaluation["scenario_id"] = sorted(list(candidates["scenarios"].keys()))
         
         # Prepare _rank_eval request
         _rank_eval = {
@@ -328,6 +543,7 @@ def run(
                     "scenarios": scenarios
                 })
         evaluation["unrated_docs"] = sorted(unrated_docs, key=lambda doc: doc["count"], reverse=True)
+        evaluation["summary"] = generate_summary(evaluation, candidates)
         
         # Create final response
         stopped_at = time.time()
@@ -347,11 +563,11 @@ def run(
     
     # Mark evaluation as "failed" on exception
     except Exception as e:
+        stopped_at = time.time()
+        evaluation["@meta"]["status"] = "failed"
+        evaluation["@meta"]["stopped_at"] = utils.timestamp(time.time())
+        evaluation["took"] = int(( stopped_at - started_at) * 1000)
         if store_results:
-            stopped_at = time.time()
-            evaluation["@meta"]["status"] = "failed"
-            evaluation["@meta"]["stopped_at"] = utils.timestamp(time.time())
-            evaluation["took"] = int(( stopped_at - started_at) * 1000)
             es("studio").update(
                 index="esrs-evaluations",
                 id=evaluation_id,
@@ -393,7 +609,7 @@ def get(_id: str) -> Dict[str, Any]:
 def create(
         project_id: str,
         benchmark_id: str,
-        task: Dict[str, Any]
+        task: Dict[str, Any],
     ) -> Dict[str, Any]:
     """
     Create a pending evaluation in Elasticsearch.

@@ -117,17 +117,17 @@ def delete(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def make_candidate_pool(project_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    match_mode = payload.get("match_mode", "subset")
-    sample_size = min(int(payload.get("scenarios_sample_size", 1000)), 1000)
+def make_candidate_pool(project_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
+    match_mode = task.get("match_mode", "subset")
+    sample_size = min(int(task.get("scenarios_sample_size", 1000)), 1000)
     assert match_mode in {"exact", "subset"}
 
     def fetch_strategies() -> Dict[str, Set[str]]:
         """
         Strategies can be optionally filtered by _ids or strategy tags.
         """
-        _ids = payload.get("strategies", {}).get("_ids", [])
-        tags = payload.get("strategies", {}).get("tags", [])
+        _ids = task.get("strategies", {}).get("_ids", [])
+        tags = task.get("strategies", {}).get("tags", [])
         body = {
             "query": {
                 "bool": {
@@ -151,13 +151,12 @@ def make_candidate_pool(project_id: str, payload: Dict[str, Any]) -> Dict[str, A
         strategies = {}
         for hit in response["hits"]["hits"]:
             hit_id = hit["_id"]
-            params = set(hit["_source"]["params"])
-            strategies[hit_id] = params
+            strategies[hit_id] = hit["_source"]
         return strategies
 
     def fetch_runnable_scenarios() -> Dict[str, Tuple[Set[str], List[str], float]]:
-        _ids = payload.get("scenarios", {}).get("_ids", [])
-        tags = payload.get("scenarios", {}).get("tags", [])
+        _ids = task.get("scenarios", {}).get("_ids", [])
+        tags = task.get("scenarios", {}).get("tags", [])
         body = {
             "query": {
                 "bool": {
@@ -184,7 +183,7 @@ def make_candidate_pool(project_id: str, payload: Dict[str, Any]) -> Dict[str, A
             hit_id = hit["_id"]
             params = set(hit["_source"]["params"])
             tags = hit["_source"].get("tags", [])
-            scenarios[hit_id] = (params, tags)
+            scenarios[hit_id] = hit["_source"]
 
         # Fetch average rating per scenario
         body = {
@@ -223,9 +222,9 @@ def make_candidate_pool(project_id: str, payload: Dict[str, Any]) -> Dict[str, A
 
         # Filter runnable only
         scenarios_runnable = {}
-        for _id, (params, tags) in scenarios.items():
+        for _id, doc in scenarios.items():
             if _id in ratings:
-                scenarios_runnable[_id] = ( params, tags, ratings[_id] )
+                scenarios_runnable[_id] = doc
         return sample_scenarios(scenarios_runnable, sample_size)
 
     def sample_scenarios(scenarios: Dict[str, Tuple[Set[str], List[str], float]], n: int):
@@ -243,7 +242,7 @@ def make_candidate_pool(project_id: str, payload: Dict[str, Any]) -> Dict[str, A
         selected = {}
         bucket_keys = list(buckets.keys())
         while len(selected) < n and bucket_keys:
-            seed = payload.get("seed", random.randrange(1 << 30)) # deterministic if seed is given, else random every time
+            seed = task.get("seed", random.randrange(1 << 30)) # deterministic if seed is given, else random every time
             random.Random(seed).shuffle(bucket_keys)
             for key in bucket_keys:
                 if buckets[key]:
@@ -255,25 +254,32 @@ def make_candidate_pool(project_id: str, payload: Dict[str, Any]) -> Dict[str, A
         return selected
     
     # Fetch strategies and runnable scenarios
-    strategies = fetch_strategies()
+    strategies = {}
+    if "docs" in task.get("strategies", {}):
+        for doc in task["strategies"]["docs"]:
+            strategies[doc["_id"]] = doc
+    else:
+        strategies = fetch_strategies()
     scenarios = fetch_runnable_scenarios()
 
     # Filter strategies and scenarios by their compatibility
+    candidates = {
+        "strategies": {},
+        "scenarios": {}
+    }
     if match_mode == "exact":
         # Strategy params and scenario params must match exactly
-        compatible = []
-        for strategy_id, strategy_params in strategies.items():
-            for scenario_id, ( scenario_params, _, _ ) in scenarios.items():
-                if strategy_params == scenario_params:
-                    compatible.append(( strategy_id, scenario_id ))
+        for strategy_id, strategy_doc in strategies.items():
+            strategy_params = strategy_params
+            for scenario_id, scenario_doc in scenarios.items():
+                if strategy_doc.get("params", []) == scenario_doc.get("params", []):
+                    candidates["strategies"][strategy_id] = sorted(strategy_doc.get("tags") or [])
+                    candidates["scenarios"][scenario_id] = sorted(scenario_doc.get("tags") or [])
     else:
         # Strategy params must all be present in scenario params
-        compatible = []
-        for strategy_id, strategy_params in strategies.items():
-            for scenario_id, ( scenario_params, _, _ ) in scenarios.items():
-                if strategy_params.issubset(scenario_params):
-                    compatible.append(( strategy_id, scenario_id ))
-    return {
-        "strategies": sorted({ scenariod_id for scenariod_id, _ in compatible }),
-        "scenarios": sorted({ strategy_id for _, strategy_id in compatible })
-    }
+        for strategy_id, strategy_doc in strategies.items():
+            for scenario_id, scenario_doc in scenarios.items():
+                if set(strategy_doc.get("params", [])).issubset(set(scenario_doc.get("params", []))):
+                    candidates["strategies"][strategy_id] = sorted(strategy_doc.get("tags") or [])
+                    candidates["scenarios"][scenario_id] = sorted(scenario_doc.get("tags") or [])
+    return candidates
