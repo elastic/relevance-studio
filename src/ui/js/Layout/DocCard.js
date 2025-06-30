@@ -7,9 +7,10 @@ import {
   EuiPanel,
   EuiSpacer,
   EuiText,
+  EuiToolTip,
 } from '@elastic/eui'
 
-const DocCard = ({ body, doc, imagePosition, imageUrl, ...props }) => {
+const DocCard = ({ body, doc, imagePosition, imageUrl, showScore = false, ...props }) => {
 
   /**
    * Replace mustache variables in the markdown template with values from the doc.
@@ -172,12 +173,30 @@ const DocCard = ({ body, doc, imagePosition, imageUrl, ...props }) => {
       <EuiSpacer size='xs' />
       <EuiHorizontalRule margin='none' />
       <EuiPanel hasBorder={false} hasShadow={false} paddingSize='s'>
-        <EuiFlexGroup alignItems='center' gutterSize='none'>
-          <EuiFlexItem grow>
+        <EuiFlexGroup alignItems='center' gutterSize='s'>
+          <EuiFlexItem grow={false}>
             <EuiText color='subdued' size='xs' style={{ paddingLeft: '8px' }}>
-              <small>{doc._index}:{doc._id}</small>
+              <EuiToolTip content='Index'>
+                <small>{doc._index}</small>
+              </EuiToolTip>
             </EuiText>
           </EuiFlexItem>
+          <EuiFlexItem grow={false}>
+            <EuiText color='subdued' size='xs' style={{ paddingRight: '8px', textAlign: 'right' }}>
+              <EuiToolTip content='_id'>
+                <small>{doc._id}</small>
+              </EuiToolTip>
+            </EuiText>
+          </EuiFlexItem>
+          {showScore &&
+            <EuiFlexItem grow={5}>
+              <EuiText color='subdued' size='xs' style={{ paddingRight: '8px', textAlign: 'right' }}>
+                <EuiToolTip content='Score'>
+                  <small>{doc._score}</small>
+                </EuiToolTip>
+              </EuiText>
+            </EuiFlexItem>
+          }
         </EuiFlexGroup>
       </EuiPanel>
     </EuiPanel>

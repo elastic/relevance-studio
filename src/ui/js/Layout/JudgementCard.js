@@ -264,6 +264,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
           body={template?.body}
           imagePosition={template?.image?.position}
           imageUrl={template?.image?.url}
+          showScore={props.showScore}
         />
       </EuiForm>
     </EuiPanel>

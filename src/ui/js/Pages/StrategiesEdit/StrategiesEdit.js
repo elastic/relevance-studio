@@ -409,6 +409,7 @@ const StrategiesEdit = () => {
         scenario={scenario}
         results={results}
         resultsPerRow={2}
+        showScore={true}
       />
     }
     {hasSearched && results.length == 0 &&
@@ -425,6 +426,7 @@ const StrategiesEdit = () => {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
       <EuiPanel color='transparent' grow={false} paddingSize='none'>

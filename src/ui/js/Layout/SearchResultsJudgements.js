@@ -12,7 +12,8 @@ const SearchResultsJudgements = ({
   project,
   scenario,
   results,
-  resultsPerRow
+  resultsPerRow,
+  showScore,
 }) => {
 
   /**
@@ -45,6 +46,7 @@ const SearchResultsJudgements = ({
         author={result['@author']}
         timestamp={result['@timestamp']}
         template={resolveIndexToDisplay(result.doc._index)?.template}
+        showScore={showScore}
       />
     )
   })
