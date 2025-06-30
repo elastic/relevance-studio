@@ -20,9 +20,14 @@ export const AppProvider = ({ children }) => {
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true' // defaults to false
   })
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const val = localStorage.getItem('sidebarOpen')
+    return val === null ? true : val === 'true' // defaults to true
+  })
   const [toasts, setToasts] = useState([])
   useEffect(() => localStorage.setItem('autoRefresh', autoRefresh), [autoRefresh])
   useEffect(() => localStorage.setItem('darkMode', darkMode), [darkMode])
+  useEffect(() => localStorage.setItem('sidebarOpen', sidebarOpen), [sidebarOpen])
 
   // Toasts
   const addToast = (toast) => {
@@ -43,9 +48,11 @@ export const AppProvider = ({ children }) => {
     addToast,
     autoRefresh,
     darkMode,
+    sidebarOpen,
     setAutoRefresh,
     setDarkMode,
-  }), [toasts, darkMode, autoRefresh])
+    setSidebarOpen,
+  }), [toasts, darkMode, autoRefresh, sidebarOpen])
 
   return (
     <AppContext.Provider value={value}>

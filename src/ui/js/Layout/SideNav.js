@@ -1,15 +1,14 @@
 import { useRouteMatch } from 'react-router-dom'
 import {
-  EuiButtonIcon,
+  EuiCallOut,
   EuiIcon,
   EuiPanel,
   EuiSideNav,
   EuiText,
-  EuiToolTip
 } from '@elastic/eui'
 import {
   IconCodeDots,
-  IconScale
+  IconScale,
 } from '@tabler/icons-react'
 import { useAppContext } from '../Contexts/AppContext'
 import { useProjectContext } from '../Contexts/ProjectContext'
@@ -20,7 +19,7 @@ const SideNav = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { darkMode, setDarkMode } = useAppContext()
+  const { sidebarOpen } = useAppContext()
 
   let project
   try {
@@ -84,7 +83,14 @@ const SideNav = () => {
   const items = () => [
     {
       name: 'Relevance Studio',
-      icon: <EuiIcon type='logoElasticsearch' />,
+      icon: <EuiIcon
+        type='logoElasticsearch'
+        style={{
+          marginLeft: '-2px',
+          marginRight: '4px',
+          height: '20px',
+          width: '20px'
+        }} />,
       id: 'sidenav',
       href: '#/',
       isSelected: path.hash == '#/',
@@ -101,20 +107,41 @@ const SideNav = () => {
   ]
 
   return (
-    <EuiPanel color='plain' style={{ borderRadius: 0, height: '100%', zIndex: 99 }}>
-      <EuiSideNav
-        style={{ width: '100%' }}
-        items={items()}
-      />
-      <div style={{ position: 'fixed', bottom: '10px', left: '10px', right: '10px' }}>
-        <EuiToolTip content={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
-          <EuiButtonIcon
-            aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            iconType={darkMode ? 'sun' : 'moon'}
-            onClick={() => setDarkMode(!darkMode)}
+    <EuiPanel
+      color='plain'
+      style={{
+        borderRadius: 0,
+        height: '100%',
+        zIndex: 99
+      }}
+    >
+      {console.warn(sidebarOpen)}
+      {sidebarOpen &&
+        <>
+          <EuiSideNav
+            style={{ marginTop: '-3px', width: '100%' }}
+            items={items()}
           />
-        </EuiToolTip>
-      </div>
+          <EuiPanel
+            color='subdued'
+            paddingSize='s'
+            style={{
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              right: '8px'
+            }}>
+            <EuiText color='subdued' size='xs'>
+              <p style={{ fontWeight: 400, fontSize: '11px', lineHeight: '14px' }}>
+                Elasticsearch Relevance Studio is a community project maintained by the Search AI Solutions Architects at Elastic. It's not covered by Elastic Support.
+              </p>
+            </EuiText>
+          </EuiPanel>
+        </>
+      }
+      {!sidebarOpen &&
+        <EuiIcon type='logoElasticsearch' />
+      }
     </EuiPanel>
   )
 }
