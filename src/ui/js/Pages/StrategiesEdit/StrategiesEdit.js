@@ -1,16 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import {
   EuiButton,
+  EuiCode,
   EuiCodeBlock,
   EuiFlexGroup,
   EuiFlexItem,
+  EuiIcon,
   EuiPanel,
   EuiResizableContainer,
   EuiSkeletonTitle,
   EuiSpacer,
   EuiText,
+  EuiTitle,
 } from '@elastic/eui'
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
@@ -56,6 +59,7 @@ const StrategiesEdit = () => {
   const [scenarioOptions, setScenarioOptions] = useState([])
   const [scenarioSearchString, setScenarioSearchString] = useState('')
   const [sourceFilters, setSourceFilters] = useState([])
+  const editorRef = useRef(null)
 
   ///  Strategy editing  ///////////////////////////////////////////////////////
 
@@ -235,7 +239,26 @@ const StrategiesEdit = () => {
     }
   }, [scenarioOptions])
 
+  // Add keyboard shortcuts to monaco editor
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor)
+      return
+    const saveCommand = editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => onSaveStrategy()
+    )
+    const testCommand = editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onSubmitTest()
+    )
+    return () => { }
+  }, [onSaveStrategy, onSubmitTest])
+
   ////  Event handlers  ////////////////////////////////////////////////////////
+
+  // Add keyboard shortcuts to monaco editor
+  const handleEditorMount = (editor) => {
+    editorRef.current = editor
+  }
 
   /**
    * Search for scenarios
@@ -273,15 +296,43 @@ const StrategiesEdit = () => {
     // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
     let rendered
+    let scenarios
     try {
-      rendered = applyParams(strategyDraft, scenario.values)
+      scenarios = scenario.values
     } catch (e) {
       return addToast({
         title: `Can't test strategy`,
         color: 'warning',
         text: (
           <EuiText size='xs'>
-            Invalid JSON
+            <p>
+              <EuiTitle size='xxs'>
+                <EuiText style={{ fontWeight: 500, marginBottom: '2px' }}>
+                  No scenario chosen
+                </EuiText>
+              </EuiTitle>
+              You must pick a scenario to test your strategy on. Choose a scenario from the search bar at the top of the right panel.
+            </p>
+          </EuiText>
+        )
+      })
+    }
+    try {
+      rendered = applyParams(strategyDraft, scenarios)
+    } catch (e) {
+      return addToast({
+        title: `Can't test strategy`,
+        color: 'warning',
+        text: (
+          <EuiText size='xs'>
+            <p>
+              <EuiTitle size='xxs'>
+                <EuiText style={{ fontWeight: 500, marginBottom: '2px' }}>
+                  Invalid JSON
+                </EuiText>
+              </EuiTitle>
+              Your strategy isn't a valid JSON object.
+            </p>
           </EuiText>
         )
       })
@@ -416,6 +467,11 @@ const StrategiesEdit = () => {
           {errorContent ? renderError() : renderResults()}
         </EuiPanel>
       </EuiPanel>
+
+      {/* Placeholder */}
+      <div style={{ flexShrink: 0, height: '24px', margin: '5px 0 -10px 0' }}>
+        {/* TODO */}
+      </div>
     </EuiPanel>
   )
 
@@ -425,6 +481,7 @@ const StrategiesEdit = () => {
         height='100%'
         language='json'
         onChange={(value, event) => setStrategyDraft(value)}
+        onMount={handleEditorMount}
         options={{
           folding: true,
           fontSize: 12,
@@ -459,6 +516,8 @@ const StrategiesEdit = () => {
       }}
     >
       <EuiPanel color='transparent' grow={false} paddingSize='none'>
+
+        {/* Buttons */}
         <EuiFlexGroup gutterSize='m'>
           <EuiFlexItem grow={false}>
             <EuiButton
@@ -485,17 +544,41 @@ const StrategiesEdit = () => {
         </EuiFlexGroup>
       </EuiPanel>
       <EuiSpacer size='m' />
+
+      {/* Editor */}
       <EuiPanel
         hasBorder
         paddingSize='none'
         style={{
           display: 'flex',
           flex: 1,
+          minHeight: 0,
           opacity: isLoadingResults ? 0.5 : 1.0,
         }}
       >
         {renderEditor()}
       </EuiPanel>
+
+      {/* Display keyboard shortcuts */}
+      <div style={{ flexShrink: 0, height: '24px', margin: '5px 0 -10px 0' }}>
+        <EuiPanel color='transparent' grow={false} hasBorder={false} hasShadow={false} paddingSize='xs'>
+          <EuiFlexGroup gutterSize='m'>
+            <EuiFlexItem grow={false}>
+              <EuiIcon color='subdued' type='keyboard' style={{ margin: '-1px 10px 0 0' }} />
+            </EuiFlexItem>
+            <EuiFlexItem grow={false}>
+              <EuiText size='xs'>
+                <small>Save:<EuiCode transparentBackground>Ctrl/Cmd</EuiCode>+<EuiCode transparentBackground>S</EuiCode></small>
+              </EuiText>
+            </EuiFlexItem>
+            <EuiFlexItem grow={false}>
+              <EuiText size='xs'>
+                <small>Test:<EuiCode transparentBackground>Ctrl/Cmd</EuiCode>+<EuiCode transparentBackground>Enter</EuiCode></small>
+              </EuiText>
+            </EuiFlexItem>
+          </EuiFlexGroup>
+        </EuiPanel>
+      </div>
     </EuiPanel>
   )
 
