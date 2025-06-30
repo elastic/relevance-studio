@@ -12,14 +12,14 @@ const api = {}
 /**
  * Template for toasts for error messages.
  */
-api.errorToast = (err, props) => {
-  console.error(err)
+api.errorToast = (e, props) => {
+  console.error(e)
   return {
-    title: props?.title || err.response?.statusText || err.statusText,
+    title: props?.title || e.response?.statusText || e.statusText,
     color: props?.color || 'danger',
     text: (
       <EuiText size='xs' color='subdued'>
-        {props?.text || err.message || JSON.stringify(err, null, 2)}
+        {props?.text || e.error?.reason || e.message || JSON.stringify(e, null, 2)}
       </EuiText>
     )
   }

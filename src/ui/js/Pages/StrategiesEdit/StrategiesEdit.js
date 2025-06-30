@@ -3,12 +3,14 @@ import { useParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import {
   EuiButton,
+  EuiCodeBlock,
   EuiFlexGroup,
   EuiFlexItem,
   EuiPanel,
   EuiResizableContainer,
   EuiSkeletonTitle,
   EuiSpacer,
+  EuiText,
 } from '@elastic/eui'
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
@@ -42,6 +44,8 @@ const StrategiesEdit = () => {
 
   // Strategy testing
   const [displays, setDisplays] = useState({})
+  const [errorContent, setErrorContent] = useState(null)
+  const [hasSearched, setHasSearched] = useState(false)
   const [indexPatternRegexes, setIndexPatternRegexes] = useState({})
   const [isLoadingDisplays, setIsLoadingDisplays] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
@@ -255,7 +259,7 @@ const StrategiesEdit = () => {
     }
   }
 
-  const renderStrategy = (template, scenarioValues) => {
+  const applyParams = (template, scenarioValues) => {
     const rendered = template.replace(/{{\s*([\w.]+)\s*}}/g, (_, key) => {
       return scenarioValues[key]
     })
@@ -268,15 +272,27 @@ const StrategiesEdit = () => {
   const onSubmitTest = (e) => {
     // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
-    const rendered = renderStrategy(strategyDraft, scenario.values)
-    if (!rendered) {
+    let rendered
+    try {
+      rendered = applyParams(strategyDraft, scenario.values)
+    } catch (e) {
       return addToast({
-        title: title,
+        title: `Can't test strategy`,
         color: 'warning',
-        iconType: 'warning',
         text: (
           <EuiText size='xs'>
-            Can't render strategy.
+            Invalid JSON
+          </EuiText>
+        )
+      })
+    }
+    if (!rendered) {
+      return addToast({
+        title: `Can't test strategy`,
+        color: 'warning',
+        text: (
+          <EuiText size='xs'>
+            Failed to render strategy
           </EuiText>
         )
       })
@@ -291,22 +307,33 @@ const StrategiesEdit = () => {
       if (sourceFilters)
         body._source = { includes: sourceFilters }
       let response
-      console.warn(body)
       try {
         setIsLoadingResults(true)
         response = await api.judgements_search(project._id, scenario._id, body)
       } catch (e) {
-        return addToast(api.errorToast(e, { title: 'Failed to search docs' }))
+        if (e.response.data?.error?.reason) {
+          setHasSearched(true)
+          return setErrorContent(e.response.data)
+        }
+        return addToast(api.errorToast(e, { title: 'Failed to test strategy' }))
       } finally {
         setIsLoadingResults(false)
       }
 
       // Handle API response
+      setErrorContent(null)
+      setHasSearched(true)
       setResults(response.data.hits.hits)
     })()
   }
 
   ////  Render  ////////////////////////////////////////////////////////////////
+
+  const renderError = () => (
+    <EuiCodeBlock isCopyable language='json' paddingSize='s'>
+      {JSON.stringify(errorContent, null, 2)}
+    </EuiCodeBlock>
+  )
 
   const renderSelectScenarios = () => (
     <SelectScenario
@@ -322,16 +349,21 @@ const StrategiesEdit = () => {
     />
   )
 
-  const renderResults = () => (
-    <SearchResultsJudgements
-      displays={displays}
-      indexPatternRegexes={indexPatternRegexes}
-      project={project}
-      scenario={scenario}
-      results={results}
-      resultsPerRow={48}
-    />
-  )
+  const renderResults = () => (<>
+    {results.length > 0 &&
+      <SearchResultsJudgements
+        displays={displays}
+        indexPatternRegexes={indexPatternRegexes}
+        project={project}
+        scenario={scenario}
+        results={results}
+        resultsPerRow={2}
+      />
+    }
+    {hasSearched && results.length == 0 &&
+      <p>No results.</p>
+    }
+  </>)
 
   const renderTestPanel = () => (
     <EuiPanel
@@ -352,7 +384,7 @@ const StrategiesEdit = () => {
           <EuiFlexItem grow={false}>
             <EuiButton
               color='primary'
-              disabled={isProcessing}
+              disabled={isProcessing || !scenario}
               iconType='play'
               onClick={onSubmitTest}
               type='submit'
@@ -364,8 +396,15 @@ const StrategiesEdit = () => {
       </EuiPanel>
       <EuiSpacer size='m' />
       <EuiPanel color='transparent' hasBorder paddingSize='none' style={{ flex: 1, display: 'flex' }}>
-        <EuiPanel color='subdued' paddingSize='m'>
-          {renderResults()}
+        <EuiPanel
+          color='subdued'
+          paddingSize='m'
+          style={{
+            opacity: isLoadingResults ? 0.5 : 1.0,
+            overflow: 'scroll'
+          }}
+        >
+          {errorContent ? renderError() : renderResults()}
         </EuiPanel>
       </EuiPanel>
     </EuiPanel>
@@ -437,7 +476,15 @@ const StrategiesEdit = () => {
         </EuiFlexGroup>
       </EuiPanel>
       <EuiSpacer size='m' />
-      <EuiPanel hasBorder paddingSize='none' style={{ flex: 1, display: 'flex' }}>
+      <EuiPanel
+        hasBorder
+        paddingSize='none'
+        style={{
+          display: 'flex',
+          flex: 1,
+          opacity: isLoadingResults ? 0.5 : 1.0,
+        }}
+      >
         {renderEditor()}
       </EuiPanel>
     </EuiPanel>

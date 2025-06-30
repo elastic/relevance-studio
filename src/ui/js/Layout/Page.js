@@ -41,7 +41,7 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
             />
 
             {/* Body */}
-            <section style={{ flex: 1 }}>
+            <section style={{ display: 'flex', flex: 1, minHeight: 0 }}>
               <EuiPanel
                 color={panelled ? 'subdued' : 'plain'}
                 hasBorder={false}
@@ -50,9 +50,12 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
                 style={{
                   borderRadius: 0,
                   height: '100%',
+                  display: 'flex'
                 }}
               >
+                <div style={{ flex: 1 }}>
                 {children}
+                </div>
               </EuiPanel>
             </section>
           </div>
