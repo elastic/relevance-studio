@@ -7,7 +7,8 @@ dist/
 build/
 
 # Environment variables
-.env
+.env*
+!.env-reference
 
 # Python and conda
 __pycache__/
