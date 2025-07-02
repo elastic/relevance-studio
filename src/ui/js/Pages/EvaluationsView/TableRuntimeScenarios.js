@@ -14,57 +14,57 @@ import {
 const TableRuntimeScenarios = ({ items }) => {
 
   const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
-  
-    const toggleDetails = (item) => {
-      setItemIdToExpandedRowMap(prev => {
-        const next = { ...prev }
-        next[item._id] ? delete next[item._id] : (next[item._id] = renderDetails(item))
-        return next
-      })
-    }
-  
-    const renderDetails = (item) => {
-      return (
-        <EuiPanel color='transparent' paddingSize='none'>
-          <EuiCodeBlock
-            isCopyable
-            language='json'
-            paddingSize='m'
-            overflowHeight={300}
-            style={{ width: '100%' }}
-          >
-            {JSON.stringify(item, null, 2)}
-          </EuiCodeBlock>
-        </EuiPanel>
-      )
-    }
+
+  const toggleDetails = (item) => {
+    setItemIdToExpandedRowMap(prev => {
+      const next = { ...prev }
+      next[item._id] ? delete next[item._id] : (next[item._id] = renderDetails(item))
+      return next
+    })
+  }
+
+  const renderDetails = (item) => {
+    return (
+      <EuiPanel color='transparent' paddingSize='none'>
+        <EuiCodeBlock
+          isCopyable
+          language='json'
+          paddingSize='m'
+          overflowHeight={300}
+          style={{ width: '100%' }}
+        >
+          {JSON.stringify(item, null, 2)}
+        </EuiCodeBlock>
+      </EuiPanel>
+    )
+  }
 
   const columns = [
-      {
-        align: 'left',
-        width: '40px',
-        isExpander: true,
-        name: (
-          <EuiScreenReaderOnly>
-            <span>Expand row</span>
-          </EuiScreenReaderOnly>
-        ),
-        mobileOptions: { header: false },
-        render: (item) => {
-          const _itemsToExpandedRows = { ...itemsToExpandedRows }
-          return (
-            <EuiButtonIcon
-              onClick={() => toggleDetails(item)}
-              aria-label={
-                _itemsToExpandedRows[item._id] ? 'Collapse' : 'Expand'
-              }
-              iconType={
-                _itemsToExpandedRows[item._id] ? 'arrowDown' : 'arrowRight'
-              }
-            />
-          )
-        },
+    {
+      align: 'left',
+      width: '40px',
+      isExpander: true,
+      name: (
+        <EuiScreenReaderOnly>
+          <span>Expand row</span>
+        </EuiScreenReaderOnly>
+      ),
+      mobileOptions: { header: false },
+      render: (item) => {
+        const _itemsToExpandedRows = { ...itemsToExpandedRows }
+        return (
+          <EuiButtonIcon
+            onClick={() => toggleDetails(item)}
+            aria-label={
+              _itemsToExpandedRows[item._id] ? 'Collapse' : 'Expand'
+            }
+            iconType={
+              _itemsToExpandedRows[item._id] ? 'arrowDown' : 'arrowRight'
+            }
+          />
+        )
       },
+    },
     {
       field: 'name',
       name: 'Scenario',
@@ -96,13 +96,11 @@ const TableRuntimeScenarios = ({ items }) => {
       name: 'Tags',
       width: '100px',
       render: (name, item) => {
-        const tags = []
-        for (var i in item.tags)
-          tags.push(
-            <EuiBadge color='hollow' key={item.tags[i]}>
-              {item.tags[i]}
-            </EuiBadge>
-          )
+        const tags = (item.tags ?? []).map(tag => (
+          <EuiBadge color='hollow' key={tag}>
+            {tag}
+          </EuiBadge>
+        ))
         return tags
       },
     },
@@ -143,7 +141,7 @@ const TableRuntimeScenarios = ({ items }) => {
             field: 'tags',
             multiSelect: 'or',
             name: 'Tags',
-            options: Array.from(new Set(items.flatMap(({ tags }) => tags))).map(tag => ({
+            options: Array.from(new Set(items.flatMap(({ tags }) => tags ?? []))).map(tag => ({
               value: tag
             })),
             type: 'field_value_selection',

@@ -77,13 +77,11 @@ const TableRuntimeStrategies = ({ items }) => {
       name: 'Tags',
       width: '100px',
       render: (name, item) => {
-        const tags = []
-        for (var i in item.tags)
-          tags.push(
-            <EuiBadge color='hollow' key={item.tags[i]}>
-              {item.tags[i]}
-            </EuiBadge>
-          )
+        const tags = (item.tags ?? []).map(tag => (
+          <EuiBadge color='hollow' key={tag}>
+            {tag}
+          </EuiBadge>
+        ))
         return tags
       },
     },
@@ -124,7 +122,7 @@ const TableRuntimeStrategies = ({ items }) => {
             field: 'tags',
             multiSelect: 'or',
             name: 'Tags',
-            options: Array.from(new Set(items.flatMap(({ tags }) => tags))).map(tag => ({
+            options: Array.from(new Set(items.flatMap(({ tags }) => tags ?? []))).map(tag => ({
               value: tag
             })),
             type: 'field_value_selection',
