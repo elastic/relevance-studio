@@ -375,7 +375,7 @@ const StrategiesEdit = () => {
                   tags: strategy.tags,
                   params: extractParams(strategyDraft),
                   template: {
-                    source: json
+                    source: JSON.parse(strategyDraft)
                   },
                 }
               ]
