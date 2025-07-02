@@ -73,8 +73,6 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
   const onClearRating = () => {
     (async () => {
       let response
-      console.warn(judgementId)
-      console.warn(doc)
       try {
         setLoadingRating(true)
         response = await api.judgements_unset(project._id, judgementId)

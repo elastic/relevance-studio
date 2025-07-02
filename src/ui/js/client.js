@@ -39,6 +39,7 @@ const request = async (path, opts) => {
     params: opts.params,
     headers: opts.headers || {},
     data: opts.data,
+    validateStatus: (status) => (status >= 200 && status < 400) || status == 404,
     timeout: opts.timeout || 60000,
   })
 }

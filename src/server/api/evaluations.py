@@ -692,7 +692,7 @@ def cleanup(time_ago: str = "2h") -> Dict[str, Any]:
             }
         }
     }
-    es_response = es("studio").options(ignore_status=404).delete_by_query(
+    es_response = es("studio").delete_by_query(
         index=INDEX_NAME,
         body=body,
         refresh=True,

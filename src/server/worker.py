@@ -49,7 +49,7 @@ def claim_next_evaluation():
         "query": { "term": { "@meta.status": "pending" }},
         "sort": [{ "@meta.created_at": "asc" }]
     }
-    response = es("studio").options(ignore_status=404).search(
+    response = es("studio").search(
         index="esrs-evaluations",
         body=body
     )
@@ -89,7 +89,7 @@ def claim_next_evaluation():
             }
         }
     }
-    response = es("studio").options(ignore_status=404).update(
+    response = es("studio").update(
         index="esrs-evaluations",
         id=evaluation['_id'],
         body=body

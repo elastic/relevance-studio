@@ -30,6 +30,7 @@ from server.models import *
 load_dotenv()
 
 CWD = os.path.dirname(os.path.abspath(__file__))
+CHUNK_SIZE = 10
 SAMPLE_DATA_DIRECTORY = os.path.join(CWD, "sample-data")
 SAMPLE_DATA_INDEX_PREFIX = "esrs-sample-data-"
 SAMPLE_DATASETS = [
@@ -37,16 +38,18 @@ SAMPLE_DATASETS = [
         "id": "arguana",
         "name": "ArguAna",
         "params": [ "text" ],
+        "fields": [ "text", "title" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "climate-fever",
         "name": "Climate-FEVER",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{text.text}}" }},
         "source": "beir"
     },
     # TODO: cqadupstack has a different folder structure than the rest
@@ -61,97 +64,109 @@ SAMPLE_DATASETS = [
     {
         "id": "dbpedia-entity",
         "name": "DBPedia",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 2 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "fever",
         "name": "FEVER",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{tex.text}}" }},
         "source": "beir"
     },
     {
         "id": "fiqa",
         "name": "FiQA-2018",
+        "fields": [ "text" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "{{text}}" }},
+        "display": { "template": { "body": "{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "hotpotqa",
         "name": "HotpotQA",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "msmarco",
         "name": "MSMARCO",
+        "fields": [ "text" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "{{text}}" }},
+        "display": { "template": { "body": "{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "nfcorpus",
         "name": "NFCorpus",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 2 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "nq",
         "name": "NQ",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "quora",
         "name": "Quora",
+        "fields": [ "text" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "{{text}}" }},
+        "display": { "template": { "body": "{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "scidocs",
         "name": "SCIDOCS",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "scifact",
         "name": "SciFact",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 1 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "trec-covid",
         "name": "TREC-COVID",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 2 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{text.text}}" }},
         "source": "beir"
     },
     {
         "id": "webis-touche2020",
         "name": "Touche-2020",
+        "fields": [ "text", "title" ],
         "params": [ "text" ],
         "rating_scale": { "min": 0, "max": 2 },
-        "display": { "template": { "body": "### {{title}}\n{{text}}" }},
+        "display": { "template": { "body": "### {{title.text}}\n{{tex.textt}}" }},
         "source": "beir"
     },
 ]
@@ -227,13 +242,13 @@ def format_for_bulk(docs_with_ids, index):
         action["_source"] = doc
         yield action
         
-def bulk_index_worker(docs_with_ids, index):
+def bulk_index_worker(docs_with_ids, index, deployment):
     """
     Perform bulk indexing for a batch of documents.
     """
     actions = format_for_bulk(docs_with_ids, index)
     try:
-        success, errors = helpers.bulk(es("studio"), actions, raise_on_error=False)
+        success, errors = helpers.bulk(es(deployment), actions, raise_on_error=False)
         sys.stdout.write("e" if errors else ".")
         sys.stdout.flush()
         return success, errors
@@ -243,7 +258,7 @@ def bulk_index_worker(docs_with_ids, index):
             logger.error(json.dumps(error, indent=2))
         raise
 
-def chunked_iterable(iterable, size=500):
+def chunked_iterable(iterable, size=CHUNK_SIZE):
     """
     Split iterable into chunks of given size.
     """
@@ -256,7 +271,7 @@ def chunked_iterable(iterable, size=500):
     if chunk:
         yield chunk
         
-def parallel_bulk_import(filepath, index, transformer=None, chunk_size=500):
+def parallel_bulk_import(deployment, filepath, index, transformer=None, chunk_size=CHUNK_SIZE):
     """
     Load and index documents from file in parallel using threads.
     """
@@ -270,7 +285,7 @@ def parallel_bulk_import(filepath, index, transformer=None, chunk_size=500):
         for chunk in chunked_iterable(read_jsonl_lines(filepath, transformer), size=chunk_size):
             num_docs += len(chunk)
             ids = [doc_id for _, doc_id in chunk]
-            futures.append(executor.submit(bulk_index_worker, chunk, index))
+            futures.append(executor.submit(bulk_index_worker, chunk, index, deployment))
         for future in futures:
             successes, errors = future.result()
             num_successes += successes
@@ -447,7 +462,7 @@ def load_strategies(dataset):
         doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
         doc_dict = utils.copy_fields_to_search(doc_dict, api.strategies.SEARCH_FIELDS)
         return doc_dict
-    parallel_bulk_import(filepath, "esrs-strategies", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-strategies", transformer)
 
 def load_judgements(dataset):
     """
@@ -460,7 +475,7 @@ def load_judgements(dataset):
         doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
         doc_dict = utils.copy_fields_to_search(doc_dict, api.judgements.SEARCH_FIELDS)
         return doc_dict
-    parallel_bulk_import(filepath, "esrs-judgements", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-judgements", transformer)
 
 def load_scenarios(dataset):
     """
@@ -473,7 +488,7 @@ def load_scenarios(dataset):
         doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
         doc_dict = utils.copy_fields_to_search(doc_dict, api.scenarios.SEARCH_FIELDS)
         return doc_dict
-    parallel_bulk_import(filepath, "esrs-scenarios", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-scenarios", transformer)
 
 def load_displays(dataset):
     """
@@ -486,22 +501,22 @@ def load_displays(dataset):
         doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
         doc_dict = utils.copy_fields_to_search(doc_dict, api.displays.SEARCH_FIELDS)
         return doc_dict
-    parallel_bulk_import(filepath, "esrs-displays", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-displays", transformer)
     
 def load_project(dataset):
     """
     Load project into Elasticsearch for a given dataset.
     """
     logger.debug(f"Loading project for: {dataset['id']}")
-    logger.debug(f"Deleting old project if it exist for: {make_index_name(dataset)}")
-    api.projects.delete(make_project_id(dataset))
+    #logger.debug(f"Deleting old project if it exist for: {make_index_name(dataset)}")
+    #api.projects.delete(make_project_id(dataset))
     filepath = os.path.join(staging_directory(dataset), "projects.jsonl")
     def transformer(doc):
         doc = ProjectModel(**doc)
         doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
         doc_dict = utils.copy_fields_to_search(doc_dict, api.projects.SEARCH_FIELDS)
         return doc_dict
-    parallel_bulk_import(filepath, "esrs-projects", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-projects", transformer)
 
 def load_dataset_assets(dataset):
     """
@@ -677,26 +692,53 @@ def stage_datasets_assets(datasets):
         
 ####  Load datasets  ###########################################################
 
-def load_dataset(dataset):
+def load_dataset(dataset, vectors=False):
     """
     Load a single dataset into Elasticsearch.
     """
     logger.info(f"Loading \"{dataset['id']}\" dataset into index: {make_index_name(dataset)}")
     logger.debug(f"Wiping old index if it exists: {make_index_name(dataset)}")
+    # (Re)create index
     es("content").options(ignore_status=404).indices.delete(index=make_index_name(dataset))
+    mapping = { "properties": {}}
+    for field in dataset["fields"]:
+        mapping["properties"][field] = {
+            "properties": {
+                "text": {
+                    "type": "text"
+                }
+            }
+        }
+        if vectors:
+            mapping["properties"][field]["properties"]["elser"] = {
+                "type": "semantic_text",
+                "inference_id": "elser"
+            }
+            mapping["properties"][field]["properties"]["e5"] = {
+                "type": "semantic_text",
+                "inference_id": "elser"
+            }
+    es("content").indices.create(index=make_index_name(dataset), mappings=mapping)
     filepath = os.path.join(dataset_directory(dataset), "corpus.jsonl")
     def transformer(doc):
-        doc.pop("metadata", None)
-        return doc
+        _doc = {}
+        for field in dataset["fields"]:
+            _doc[field] = {
+                "text": doc[field]
+            }
+            if vectors:
+                _doc[field]["elser"] = doc[field]
+                _doc[field]["e5"] = doc[field]
+        return _doc
     logger.debug(f"Bulk loading data into index: {make_index_name(dataset)}")
-    parallel_bulk_import(filepath, make_index_name(dataset), transformer)
+    parallel_bulk_import("content", filepath, make_index_name(dataset), transformer)
 
-def load_datasets(datasets):
+def load_datasets(datasets, vectors=False):
     """
     Load all given datasets into Elasticsearch.
     """
     for dataset in datasets:
-        load_dataset(dataset)
+        load_dataset(dataset, vectors)
     
     
 ####  Download datasets  #######################################################
@@ -739,7 +781,7 @@ def list():
     for dataset in SAMPLE_DATASETS:
         click.echo(f"  - {dataset['id']}")
 
-def handle_run(run_download, run_load, run_stage, run_import, run_all, datasets):
+def handle_run(run_download, run_load, run_stage, run_import, run_all, datasets, vectors=False):
     datasets = datasets.split(",") if datasets else []
     datasets = [ d.strip() for d in datasets ]
     valid_datasets = {}
@@ -759,7 +801,7 @@ def handle_run(run_download, run_load, run_stage, run_import, run_all, datasets)
     if run_download:
         download_datasets(_datasets)
     if run_load:
-        load_datasets(_datasets)
+        load_datasets(_datasets, vectors)
     if run_stage:
         stage_datasets_assets(_datasets)
     if run_import:
@@ -771,14 +813,15 @@ def handle_run(run_download, run_load, run_stage, run_import, run_all, datasets)
 @click.option("-s", "--stage", "run_stage", is_flag=True, help="Stage project assets for datasets")
 @click.option("-i", "--import", "run_import", is_flag=True, help="Import staged project assets into Elasticsearch")
 @click.option("-a", "--all", "run_all", is_flag=True, help="Run all steps (default)")
+@click.option("-v", "--vectors", is_flag=True, help="Include ELSER and E5 vectorization")
 @click.option("--datasets", "-D", multiple=False, help="Datasets to run (comma separated). Defaults to all.")
-def run(run_download, run_load, run_stage, run_import, run_all, datasets):
+def run(run_download, run_load, run_stage, run_import, run_all, datasets, vectors=False):
     """
     Download and ingest sample datasets.
     """
     if not any([run_download, run_load, run_stage, run_import]):
         run_all = True
-    handle_run(run_download, run_load, run_stage, run_import, run_all, datasets)
+    handle_run(run_download, run_load, run_stage, run_import, run_all, datasets, vectors)
  
 if __name__ == "__main__":
     cli()

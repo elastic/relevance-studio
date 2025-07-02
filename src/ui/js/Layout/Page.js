@@ -72,9 +72,9 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
             </a>
           </EuiButton>
         </EuiToolTip>,
-        <EuiToolTip content={`Switch to ${darkMode ? 'dark' : 'light'} mode`}>
+        <EuiToolTip content={`Switch to ${darkMode ? 'light' : 'dark'} mode`}>
           <EuiButtonIcon
-            aria-label={`Switch to ${darkMode ? 'dark' : 'light'} mode`}
+            aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
             iconType={darkMode ? 'sun' : 'moon'}
             onClick={() => setDarkMode(!darkMode)}
             style={{ height: '38px', marginLeft: '6px', width: '38px' }}

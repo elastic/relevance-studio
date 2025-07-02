@@ -16,7 +16,7 @@ export const ProjectProvider = ({ children }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { addToast } = useAppContext()
+  const { addToast, isSetup } = useAppContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -73,6 +73,12 @@ export const ProjectProvider = ({ children }) => {
    * to a URL starting with /projects/:project_id
    */
   const loadProject = useCallback(async () => {
+    if (isSetup === null)
+      return
+    if (isSetup === false) {
+      window.location.href = '/#/'
+      throw new Error(`Setup isn't complete`)
+    }
     console.debug(`Loading project: ${projectId}`)
     setIsLoadingProject(true)
     try {
@@ -89,7 +95,7 @@ export const ProjectProvider = ({ children }) => {
     } finally {
       setIsLoadingProject(false)
     }
-  }, [projectId])
+  }, [projectId, isSetup])
 
   /**
    * Automatically load the project data when the ProjectProvider mounts

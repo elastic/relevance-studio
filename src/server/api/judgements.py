@@ -58,7 +58,7 @@ def search(
         body["sort"] = [{
             "@timestamp": "asc"
         }]
-    es_response = es("studio").options(ignore_status=404).search(index="esrs-judgements", body=body)
+    es_response = es("studio").search(index="esrs-judgements", body=body)
     for hit in es_response.body.get("hits", {}).get("hits") or []:
         _index = hit["_source"]["index"]
         _id = hit["_source"]["doc_id"]

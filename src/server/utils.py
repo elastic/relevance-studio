@@ -174,8 +174,7 @@ def search_tags(asset_type: str, project_id: str = None) -> Dict[str, Any]:
     # Submit search
     es_response = es("studio").search(
         index=f"esrs-{asset_type}",
-        body=body,
-        ignore_unavailable=True
+        body=body
     )
     return es_response
     
@@ -253,8 +252,7 @@ def search_assets(
     # Submit search
     es_response = es("studio").search(
         index=f"esrs-{asset_type}",
-        body=body,
-        ignore_unavailable=True
+        body=body
     )
     if not counts:
         return es_response
@@ -282,8 +280,7 @@ def search_assets(
         indices.append(f"esrs-{relational_asset_type}")
     aggs_response = es("studio").search(
         index=",".join(indices),
-        body=body,
-        ignore_unavailable=True
+        body=body
     )
     
     # Merge aggs with _search response if there were any aggregations found

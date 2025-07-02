@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useHistory } from 'react-router-dom'
 import {
   EuiBadge,
   EuiButton,
@@ -14,10 +13,11 @@ import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
 import api from '../../api'
+import { getHistory } from '../../history'
 
 const Scenarios = () => {
 
-  const history = useHistory()
+  const history = getHistory()
 
   ////  Context  ///////////////////////////////////////////////////////////////
 

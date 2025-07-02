@@ -181,10 +181,10 @@ const FlyoutForm = ({
         // Get full strategies and scenarios by _ids 
         const [strategiesRes, scenariosRes] = await Promise.all([
           api.strategies_search(project._id, {
-            filters: [{ "ids": { "values": strategyIds } }]
+            filters: [{ "ids": { "values": Object.keys(strategyIds) } }]
           }),
           api.scenarios_search(project._id, {
-            filters: [{ "ids": { "values": scenarioIds } }]
+            filters: [{ "ids": { "values": Object.keys(scenarioIds) } }]
           }),
         ])
         setStrategiesCandidates(utils.hitsToDocs(strategiesRes))

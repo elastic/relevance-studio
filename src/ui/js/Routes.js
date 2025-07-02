@@ -1,6 +1,7 @@
-import { HashRouter as Router, Redirect, Route, Switch } from 'react-router-dom'
+import { HashRouter as Router, Route, Switch } from 'react-router-dom'
 import { ProjectProvider } from './Contexts/ProjectContext'
 import { Pages } from './Pages'
+import history from './history'
 
 const ProjectContextRoute = ({ children }) => {
   return <ProjectProvider>{children}</ProjectProvider>
@@ -11,11 +12,11 @@ const Routes = () => {
   const title = 'Elasticsearch Relevance Studio'
 
   return (
-    <Router>
+    <Router history={history}>
       <Switch>
         <Route path='/' exact render={(e) => {
           document.title = title
-          return <Redirect to='/projects' /> // TODO: Implement <Pages.Home />
+          return <Pages.Home />
         }} />
         <Route path='/projects' exact render={(r) => {
           document.title = `Projects - ${title}`

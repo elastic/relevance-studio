@@ -14,3 +14,8 @@ services:
     command: ["python", "-m", "server.worker"]
     env_file:
       - .env
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+          condition: on-failure

@@ -112,8 +112,7 @@ def delete(_id: str) -> Dict[str, Any]:
         index="esrs-benchmarks,esrs-evaluations",
         body=body,
         refresh=True,
-        conflicts="proceed",
-        ignore_unavailable=True,
+        conflicts="proceed"
     )
     return es_response
 
@@ -144,7 +143,7 @@ def make_candidate_pool(project_id: str, task: Dict[str, Any]) -> Dict[str, Any]
             body["query"]["bool"]["filter"].append({ "terms": { "_id": _ids }})
         elif tags:
             body["query"]["bool"]["filter"].append({ "terms": { "tags": tags }})
-        response = es("studio").options(ignore_status=404).search(
+        response = es("studio").search(
             index="esrs-strategies",
             body=body
         )
@@ -174,7 +173,7 @@ def make_candidate_pool(project_id: str, task: Dict[str, Any]) -> Dict[str, Any]
         elif tags:
             body["query"]["bool"]["filter"].append({ "terms": { "tags": tags }})
 
-        response = es("studio").options(ignore_status=404).search(
+        response = es("studio").search(
             index="esrs-scenarios",
             body=body
         )

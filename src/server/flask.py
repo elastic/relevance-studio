@@ -338,8 +338,12 @@ def content_mappings_browse(index_patterns):
     
 ####  API: Setup  ##############################################################
 
+@api_route("/api/setup", methods=["GET"])
+def setup_check():
+    return api.setup.check()
+
 @api_route("/api/setup", methods=["POST"])
-def setup():
+def setup_run():
     return api.setup.run()
 
 

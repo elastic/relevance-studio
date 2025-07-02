@@ -119,6 +119,5 @@ def delete(_id: str) -> Dict[str, Any]:
         body=body,
         refresh=True,
         conflicts="proceed",
-        ignore_unavailable=True,
     )
     return es_response
