@@ -272,10 +272,11 @@ const Strategies = () => {
                 return setModalUpdate(prev => ({ ...prev, ['tags']: tags }))
               }}
               onCreateOption={(tag) => {
-                const tags = (modalCreate || modalUpdate).tags?.concat(tag)
+                const currentTags = (modalCreate || modalUpdate).tags || []
+                const tags = [...currentTags, tag]
                 if (modalCreate)
-                  return setModalCreate(prev => ({ ...prev, ['tags']: tags }))
-                return setModalUpdate(prev => ({ ...prev, ['tags']: tags }))
+                  return setModalCreate(prev => ({ ...prev, tags }))
+                return setModalUpdate(prev => ({ ...prev, tags }))
               }}
               selectedOptions={(modalCreate || modalUpdate).tags?.map((tag) => ({ key: tag, label: tag }))}
             />

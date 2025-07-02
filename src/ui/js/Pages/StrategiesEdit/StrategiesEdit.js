@@ -127,12 +127,23 @@ const StrategiesEdit = () => {
     // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
 
+    let json
+    try {
+      json = JSON.parse(strategyDraft)
+    } catch (e) {
+      return addToast({
+        color: 'danger',
+        title: 'Failed to update strategy',
+        text: `Your strategy isn't a valid JSON object.`
+      })
+    }
+
     // Prepare doc field updates
     const doc = {
       name: strategy.name,
       tags: strategy.tags,
       template: {
-        source: JSON.parse(strategyDraft)
+        source: json
       },
     }
 
@@ -306,20 +317,9 @@ const StrategiesEdit = () => {
       scenarioValues = scenario.values
     } catch (e) {
       return addToast({
-        title: `Can't test strategy`,
+        title: 'Failed to test strategy',
         color: 'warning',
-        text: (
-          <EuiText size='xs'>
-            <p>
-              <EuiTitle size='xxs'>
-                <EuiText style={{ fontWeight: 500, marginBottom: '2px' }}>
-                  No scenario chosen
-                </EuiText>
-              </EuiTitle>
-              You must pick a scenario to test your strategy on. Choose a scenario from the search bar at the top of the right panel.
-            </p>
-          </EuiText>
-        )
+        text: 'You must pick a scenario to test your strategy on. Choose a scenario from the search bar at the top of the right panel.'
       })
     }
 
@@ -331,29 +331,14 @@ const StrategiesEdit = () => {
       return addToast({
         title: `Can't test strategy`,
         color: 'warning',
-        text: (
-          <EuiText size='xs'>
-            <p>
-              <EuiTitle size='xxs'>
-                <EuiText style={{ fontWeight: 500, marginBottom: '2px' }}>
-                  Invalid JSON
-                </EuiText>
-              </EuiTitle>
-              Your strategy isn't a valid JSON object.
-            </p>
-          </EuiText>
-        )
+        text: `Your strategy isn't a valid JSON object.`
       })
     }
     if (!strategyPopulated) {
       return addToast({
         title: `Can't test strategy`,
         color: 'warning',
-        text: (
-          <EuiText size='xs'>
-            Failed to apply scenario values to strategy params
-          </EuiText>
-        )
+        text: 'Failed to apply scenario values to strategy params.'
       })
     }
 
@@ -390,7 +375,7 @@ const StrategiesEdit = () => {
                   tags: strategy.tags,
                   params: extractParams(strategyDraft),
                   template: {
-                    source: JSON.parse(strategyDraft)
+                    source: json
                   },
                 }
               ]

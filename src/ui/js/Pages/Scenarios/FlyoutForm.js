@@ -63,7 +63,7 @@ const FlyoutForm = ({
         name: param,
         value: value
       })),
-      tags: doc.tags
+      tags: doc.tags || []
     })
   }, [doc])
 
@@ -166,12 +166,11 @@ const FlyoutForm = ({
         noSuggestions
         placeholder='Tags'
         onChange={(options) => {
-          const tags = []
-          options.forEach((option) => tags.push(option.key))
-          setForm(prev => ({ ...prev, ['tags']: tags }))
+          const tags = options.map((option) => option.key)
+          setForm(prev => ({ ...prev, tags: [...tags] }))
         }}
         onCreateOption={(tag) => {
-          const tags = form.tags?.concat(tag)
+          const tags = [...(form.tags || []), tag]
           setForm(prev => ({ ...prev, ['tags']: tags }))
         }}
         selectedOptions={form.tags?.map((tag) => ({ key: tag, label: tag }))}

@@ -114,28 +114,34 @@ def get_search_fields_from_mapping(template_name: str) -> List[str]:
         .keys()
     )
     
-def remove_empty_values(obj):
+def remove_empty_values(obj, keep_fields=None, path=""):
     """
     Recursively remove all fields from a nested object whose values are
-    None, "", [], or {}. Use this before creating or updating docs in
+    None, "", [], or {} — unless they are listed in ignored_fields
+    (supports dot notation). Use this before creating or updating docs in
     Elasticsearch.
     """
+    if keep_fields is None:
+        keep_fields = set()
+    else:
+        keep_fields = set(keep_fields)
+    def current_path(key):
+        return key if path == "" else f"{path}.{key}"
     if isinstance(obj, dict):
         cleaned = {}
         for k, v in obj.items():
-            cleaned_value = remove_empty_values(v)
-            if cleaned_value not in (None, "", [], {}):
+            full_path = current_path(k)
+            cleaned_value = remove_empty_values(v, keep_fields, full_path)
+            if full_path in keep_fields:
+                cleaned[k] = v
+            elif cleaned_value not in (None, ""):# (None, "", [], {}):
                 cleaned[k] = cleaned_value
         return cleaned
-
     elif isinstance(obj, list):
-        cleaned = []
-        for item in obj:
-            cleaned_item = remove_empty_values(item)
-            if cleaned_item not in (None, "", [], {}):
-                cleaned.append(cleaned_item)
-        return cleaned
-
+        return [
+            remove_empty_values(item, keep_fields, path)
+            for item in obj
+        ]
     else:
         return obj
     

@@ -17,8 +17,8 @@ class TaskScenariosModel(BaseModel):
 class TaskModel(BaseModel):
     metrics: List[str]
     k: int
-    strategies: Optional[TaskStrategiesModel]
-    scenarios: Optional[TaskScenariosModel]
+    strategies: TaskStrategiesModel = Field(default_factory=TaskStrategiesModel)
+    scenarios: TaskScenariosModel = Field(default_factory=TaskScenariosModel)
 
 class BenchmarkModel(BaseModel):
     project_id: str
