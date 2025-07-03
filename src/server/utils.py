@@ -70,7 +70,7 @@ def extract_params(obj: Dict[str, Any]):
     """
     Extract Mustache variable params from an object serialized as json.
     """
-    return list(set(re.findall(RE_PARAMS, json.dumps(obj))))
+    return sorted(list(set(re.findall(RE_PARAMS, json.dumps(obj)))))
 
 def copy_fields_to_search(doc: Dict[str, Any], fields: List[str]):
     """
@@ -104,7 +104,7 @@ def get_search_fields_from_mapping(template_name: str) -> List[str]:
     path_index_template = os.path.join(path_base, f"{template_name}.json")
     with open(path_index_template, 'r') as f:
         data = json.load(f)
-    return list(
+    return sorted(list(
         data
         .get("template", {})
         .get("mappings", {})
@@ -112,7 +112,7 @@ def get_search_fields_from_mapping(template_name: str) -> List[str]:
         .get("_search", {})
         .get("properties", {})
         .keys()
-    )
+    ))
     
 def remove_empty_values(obj, keep_fields=None, path=""):
     """

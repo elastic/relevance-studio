@@ -1,8 +1,22 @@
 # Standard packages
+from __future__ import annotations
 from typing import List, Optional, Any
 
 # Third-party packages
 from pydantic import BaseModel, Field
+
+class EvaluationModel(BaseModel):
+    meta: MetaModel = Field(alias='@meta')
+    project_id: str
+    benchmark_id: str
+    scenario_id: str
+    strategy_id: str
+    task: TaskModel
+    results: Optional[ResultsModel]
+    runtime: Optional[RuntimeModel]
+    summary: Any
+    unrated_docs: Optional[UnratedDocsModel]
+    took: Optional[int]
 
 class MetaModel(BaseModel):
     status: str
@@ -10,9 +24,11 @@ class MetaModel(BaseModel):
     started_at: Optional[str]
     stopped_at: Optional[str]
 
-class TaskStrategiesModel(BaseModel):
-    ids_: List[str] = Field(alias='_ids')
-    tags: List[str]
+class TaskModel(BaseModel):
+    metrics: List[str]
+    k: int
+    strategies: TaskStrategiesModel
+    scenarios: TaskScenariosModel
 
 class TaskScenariosModel(BaseModel):
     ids_: List[str] = Field(alias='_ids')
@@ -20,11 +36,22 @@ class TaskScenariosModel(BaseModel):
     sample_size: Optional[int]
     sample_seed: Optional[str]
 
-class TaskModel(BaseModel):
-    metrics: List[str]
-    k: int
-    strategies: TaskStrategiesModel
-    scenarios: TaskScenariosModel
+class TaskStrategiesModel(BaseModel):
+    ids_: List[str] = Field(alias='_ids')
+    tags: List[str]
+
+class ResultsModel(BaseModel):
+    strategy_id: str
+    searches: List[SearchResultModel]
+
+class SearchResultModel(BaseModel):
+    scenario_id: str
+    metrics: MetricsModel
+    hits: HitsModel
+
+class HitsModel(BaseModel):
+    hit: HitModel
+    rating: Optional[int]
 
 class MetricsModel(BaseModel):
     dcg: Optional[float]
@@ -40,19 +67,6 @@ class HitModel(BaseModel):
     score_: Optional[float] = Field(alias='_score')
     ignored_: Optional[str] = Field(alias='_ignored')
 
-class HitsModel(BaseModel):
-    hit: HitModel
-    rating: Optional[int]
-
-class SearchResultModel(BaseModel):
-    scenario_id: str
-    metrics: MetricsModel
-    hits: HitsModel
-
-class ResultsModel(BaseModel):
-    strategy_id: str
-    searches: List[SearchResultModel]
-
 class RuntimeModel(BaseModel):
     indices: Any
     scenarios: Any
@@ -65,16 +79,3 @@ class UnratedDocsModel(BaseModel):
     count: int
     strategies: str
     scenarios: str
-
-class EvaluationModel(BaseModel):
-    meta: MetaModel = Field(alias='@meta')
-    project_id: str
-    benchmark_id: str
-    scenario_id: str
-    strategy_id: str
-    task: TaskModel
-    results: Optional[ResultsModel]
-    runtime: Optional[RuntimeModel]
-    summary: Any
-    unrated_docs: Optional[UnratedDocsModel]
-    took: Optional[int]

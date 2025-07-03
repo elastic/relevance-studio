@@ -225,9 +225,9 @@ const FlyoutForm = ({
       scenarios_sample_seed: doc.task?.scenarios_sample_seed || '',
     })
     // Open the toggle switches for strategy tags and scenario tags if used
-    if (doc.task?.strategies?.tags)
+    if (doc.task?.strategies?.tags?.length)
       setLimitStrategiesByTags(true)
-    if (doc.task?.scenarios?.tags)
+    if (doc.task?.scenarios?.tags?.length)
       setLimitScenariosByTags(true)
   }, [doc])
 
@@ -242,30 +242,23 @@ const FlyoutForm = ({
     if (_description != '')
       newDoc.description = _description
     const _tags = form.tags.map(t => t.trim()).filter(t => t != '').sort()
-    if (_tags.length)
-      newDoc.tags = _tags
+    newDoc.tags = _tags
     newDoc.task = {
       metrics: form.metrics,
       k: form.k
     }
     const _strategies = {}
-    if (form.strategies_ids.length)
-      _strategies._ids = form.strategies_ids
-    if (form.strategies_tags.length)
-      _strategies.tags = form.strategies_tags
-    if (Object.keys(_strategies).length)
-      newDoc.task.strategies = _strategies
+    _strategies._ids = form.strategies_ids
+    _strategies.tags = form.strategies_tags
+    newDoc.task.strategies = _strategies
     const _scenarios = {}
-    if (form.scenarios_ids.length)
-      _scenarios._ids = form.scenarios_ids
-    if (form.scenarios_tags.length)
-      _scenarios.tags = form.scenarios_tags
+    _scenarios._ids = form.scenarios_ids
+    _scenarios.tags = form.scenarios_tags
     if (form.scenarios_sample_size)
       _scenarios.sample_size = form.scenarios_sample_size
     if (form.scenarios_sample_seed !== '')
       _scenarios.sample_seed = form.scenarios_sample_seed
-    if (Object.keys(_scenarios).length)
-      newDoc.task.scenarios = _scenarios
+    newDoc.task.scenarios = _scenarios
     let response
     try {
       setIsProcessing(true)

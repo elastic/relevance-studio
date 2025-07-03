@@ -75,7 +75,9 @@ def update(_id: str, doc: ScenarioModel) -> Dict[str, Any]:
     # Copy searchable fields to _search
     doc_dict = doc.model_dump(by_alias=True)
     doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
-    doc_dict = utils.remove_empty_values(doc_dict)
+    # Don't update immutable values
+    doc_dict.pop("params", None)
+    doc_dict.pop("values", None)
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,

@@ -1,8 +1,9 @@
 # Standard packages
+from __future__ import annotations
 from typing import Any, List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # App packages
 from .. import utils
@@ -19,6 +20,8 @@ class DisplayModel(BaseModel):
         Exclude params that don't exist in mappings, such as _id.
         """
         if self.fields:
+            return
+        if not self.template:
             return
         self.fields = []
         template_body = self.template.get("body")

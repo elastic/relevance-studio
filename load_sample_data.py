@@ -219,6 +219,8 @@ def read_jsonl_lines(filepath, transformer):
     """
     with open(filepath) as file:
         for i, line in enumerate(file, start=1):
+            if (i<124000):
+                continue
             line = line.strip()
             if not line:
                 continue
@@ -697,9 +699,9 @@ def load_dataset(dataset, vectors=False):
     Load a single dataset into Elasticsearch.
     """
     logger.info(f"Loading \"{dataset['id']}\" dataset into index: {make_index_name(dataset)}")
-    logger.debug(f"Wiping old index if it exists: {make_index_name(dataset)}")
+    #logger.debug(f"Wiping old index if it exists: {make_index_name(dataset)}")
     # (Re)create index
-    es("content").options(ignore_status=404).indices.delete(index=make_index_name(dataset))
+    #es("content").options(ignore_status=404).indices.delete(index=make_index_name(dataset))
     mapping = { "properties": {}}
     for field in dataset["fields"]:
         mapping["properties"][field] = {
@@ -718,7 +720,7 @@ def load_dataset(dataset, vectors=False):
                 "type": "semantic_text",
                 "inference_id": "elser"
             }
-    es("content").indices.create(index=make_index_name(dataset), mappings=mapping)
+    #es("content").indices.create(index=make_index_name(dataset), mappings=mapping)
     filepath = os.path.join(dataset_directory(dataset), "corpus.jsonl")
     def transformer(doc):
         _doc = {}

@@ -15,7 +15,17 @@ class ScenarioModel(BaseModel):
     def model_post_init(self, __context):
         """
         Extract params from the values if params was not given.
+        Ensure the params match the keys of values.
         """
-        if self.params or not self.values:
+        if self.values is None:
+            if self.params:
+                raise ValueError("If `values` is None, then `params` must also be empty or None")
             return
-        self.params = list(self.values.keys())
+
+        expected_params = sorted(list(self.values.keys()))
+        if not self.params:
+            self.params = expected_params
+        elif sorted(self.params) != expected_params:
+            raise ValueError(
+                f"`params` ({self.params}) does not match keys of `values` ({expected_params})"
+            )

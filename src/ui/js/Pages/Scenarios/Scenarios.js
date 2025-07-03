@@ -130,6 +130,21 @@ const Scenarios = () => {
       },
     },
     {
+      field: 'params',
+      name: 'Params',
+      width: '100px',
+      render: (name, doc) => {
+        const params = []
+        for (var i in doc.params)
+          params.push(
+            <EuiBadge color='hollow' key={doc.params[i]}>
+              {doc.params[i]}
+            </EuiBadge>
+          )
+        return params
+      },
+    },
+    {
       field: 'tags',
       name: 'Tags',
       width: '100px',
