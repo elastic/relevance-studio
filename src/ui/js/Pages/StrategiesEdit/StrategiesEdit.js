@@ -107,7 +107,7 @@ const StrategiesEdit = () => {
   /**
    * Extract params (formatted as Mustache variables) from a JSON string.
    */
-  const RE_PARAMS = /{{\s*([\w.]+)\s*}}/g
+  const RE_PARAMS = /{{\s*([\w.-]+)\s*}}/g
   const extractParams = (jsonString) => {
     const matches = new Set()
     let match
@@ -298,7 +298,7 @@ const StrategiesEdit = () => {
   }
 
   const applyParams = (template, scenarioValues) => {
-    const rendered = template.replace(/{{\s*([\w.]+)\s*}}/g, (_, key) => {
+    const rendered = template.replace(/{{\s*([\w.-]+)\s*}}/g, (_, key) => {
       return scenarioValues[key]
     })
     return JSON.parse(rendered)

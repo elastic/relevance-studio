@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 from .client import es
 
 # Pre-compiled regular expressions
-RE_PARAMS = re.compile(r"{{\s*([\w.]+)\s*}}")
+RE_PARAMS = re.compile(r"{{\s*([\w.-]+)\s*}}")
 
 ASSET_TYPES = set([
     "projects",
