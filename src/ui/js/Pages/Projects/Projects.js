@@ -35,6 +35,11 @@ const Projects = () => {
   const [isProcessing, setIsProcessing] = useState(false)
 
   /**
+   * Mode detection
+   */
+  const [mode, setMode] = useState(null)
+
+  /**
    * Search state
    */
   const [hasEverSearched, setHasEverSearched] = useState(false)
@@ -50,6 +55,22 @@ const Projects = () => {
   const [searchTotal, setSearchTotal] = useState(null)
 
   ////  Effects  ///////////////////////////////////////////////////////////////
+
+  /**
+   * Load mode information on component mount
+   */
+  useEffect(() => {
+    const loadMode = async () => {
+      try {
+        const response = await api.mode_get()
+        setMode(response.data.mode)
+      } catch (error) {
+        console.error('Failed to load mode:', error)
+        setMode('unknown')
+      }
+    }
+    loadMode()
+  }, [])
 
   /**
    * Automatically submit the search and return to page one either when the
@@ -254,8 +275,25 @@ const Projects = () => {
     </EuiButton>
   )
 
+  const renderModeIndicator = () => {
+    if (mode === 'serverless') {
+      return (
+        <EuiBadge color="warning" iconType="cloud">
+          Mode: Serverless
+        </EuiBadge>
+      )
+    }
+    return null
+  }
+
   return (
-    <Page title='Projects' buttons={[renderButtonCreate()]}>
+    <Page 
+      title='Projects' 
+      buttons={[
+        renderModeIndicator(),
+        renderButtonCreate()
+      ].filter(Boolean)}
+    >
       {modalDelete && renderModalDelete()}
       {flyout && renderFlyout()}
       {hasEverSearched &&

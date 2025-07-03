@@ -14,6 +14,7 @@ from elasticsearch.exceptions import ApiError
 # App packages
 from . import api
 from .models import *
+from .client import es
 
 ####  Configuration  ###########################################################
 
@@ -355,6 +356,26 @@ def healthz():
     Test if application is running.
     """
     return { "acknowledged": True }
+
+@api_route("/api/mode", methods=["GET"])
+def get_mode():
+    """
+    Get the current mode (serverless or standard) by checking Elasticsearch cluster info.
+    """
+    try:
+        # Get cluster info from Elasticsearch
+        cluster_info = es("studio").info()
+        
+        # Check if it's serverless based on build_flavor
+        is_serverless = cluster_info.body.get("version", {}).get("build_flavor") == "serverless"
+        
+        return {
+            "mode": "serverless" if is_serverless else "standard",
+            "cluster_info": cluster_info.body
+        }
+    except Exception as e:
+        current_app.logger.exception(e)
+        return jsonify({"error": "Failed to determine mode", "message": str(e)}), 500
 
 
 ####  Static routes  ###########################################################
