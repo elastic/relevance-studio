@@ -130,7 +130,7 @@ const DisplaysEdit = () => {
         const textUntilPosition = lineContent.slice(0, position.column - 1)
 
         // Match `{{`, optional whitespace, and a partial variable name
-        const mustacheMatch = textUntilPosition.match(/{{\s*([\w.]*)$/)
+        const mustacheMatch = textUntilPosition.match(/{{\s*([\w.-]*)$/)
         if (!mustacheMatch)
           return { suggestions: [] }
 

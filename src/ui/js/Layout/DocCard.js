@@ -15,7 +15,7 @@ const DocCard = ({ body, doc, imagePosition, imageUrl, showScore = false, ...pro
   /**
    * Replace mustache variables in the markdown template with values from the doc.
    */
-  const RE_MUSTACHE_VARIABLES = /{{\s*([\w.]+)\s*}}/g
+  const RE_MUSTACHE_VARIABLES = /{{\s*([\w.-]+)\s*}}/g
   const replaceMustacheVariables = (template, doc) => {
     const values = { _id: doc._id, _index: doc._index, ...doc._source }
     const rendered = template.replace(RE_MUSTACHE_VARIABLES, (_, path) => {
