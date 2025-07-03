@@ -430,6 +430,22 @@ def run(
         # Store any unrated docs found in the evaluation
         _unrated_docs = {}
         
+        # Check if we have any scenarios with ratings
+        scenarios_with_ratings = [scenario_id for scenario_id in evaluation["scenario_id"] if scenario_id in ratings and ratings[scenario_id]]
+        if not scenarios_with_ratings:
+            # If no scenarios have ratings, mark evaluation as skipped
+            evaluation["@meta"]["status"] = "skipped"
+            evaluation["@meta"]["stopped_at"] = utils.timestamp()
+            evaluation["took"] = int((time.time() - started_at) * 1000)
+            if store_results:
+                es("studio").update(
+                    index=INDEX_NAME,
+                    id=evaluation_id,
+                    doc=evaluation,
+                    refresh=True
+                )
+            return evaluation
+        
         # Create a set of requests for each evaluation metric
         for m in evaluation["task"]["metrics"]:
             
@@ -444,6 +460,10 @@ def run(
             # Define requests for each combination of strategies and scenarios
             grid = list(itertools.product(evaluation["strategy_id"], evaluation["scenario_id"]))
             for strategy_id, scenario_id in grid:
+                # Skip scenarios that have no ratings/judgements
+                if scenario_id not in ratings or not ratings[scenario_id]:
+                    continue
+                    
                 _rank_eval["requests"].append({
                     "id": f"{strategy_id}~{scenario_id}",
                     "template_id": strategy_id,
@@ -451,12 +471,23 @@ def run(
                     "ratings": ratings[scenario_id]
                 })
                 
+            # Skip if no valid requests (all scenarios have no ratings)
+            if not _rank_eval["requests"]:
+                continue
+                
             # Run _rank_eval on the content deployment and accumulate the results
             body = {
                 "metric": _rank_eval["metric"],
                 "requests": _rank_eval["requests"],
                 "templates": _rank_eval["templates"]
             }
+            
+            # Debug: Print request structure
+            print(f"Rank eval request for metric {m}:")
+            print(f"  Templates: {len(_rank_eval['templates'])}")
+            print(f"  Requests: {len(_rank_eval['requests'])}")
+            print(f"  Metric: {_rank_eval['metric']}")
+            
             es_response = es("content").rank_eval(
                 index=index_pattern,
                 body=body
