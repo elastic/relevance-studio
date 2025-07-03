@@ -323,4 +323,10 @@ api.setup_run = async () => {
   return await client.post(`/api/setup`)
 }
 
+////  API: Mode  //////////////////////////////////////////////////////////////
+
+api.mode_get = async () => {
+  return await client.get(`/api/mode`)
+}
+
 export default api
