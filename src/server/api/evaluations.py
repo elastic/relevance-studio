@@ -376,8 +376,12 @@ def run(
                 runtime_scenario[field] = value
             evaluation["runtime"]["scenarios"][hit["_id"]] = runtime_scenario
             
-        # Store index relevance fingerprints
-        evaluation["runtime"]["indices"] = content.make_index_relevance_fingerprints(index_pattern)
+        # Store index relevance fingerprints (optional in serverless mode)
+        try:
+            evaluation["runtime"]["indices"] = content.make_index_relevance_fingerprints(index_pattern)
+        except Exception:
+            # Fallback for serverless mode where indices.stats API is not available
+            evaluation["runtime"]["indices"] = {}
         
         # Configure the metrics for _rank_eval
         metrics_config = {
