@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   EuiButton,
+  EuiCallOut,
   EuiCode,
-  EuiEmptyPrompt,
   EuiPanel,
   EuiProgress,
+  EuiSpacer,
+  EuiTitle,
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
@@ -24,15 +26,6 @@ const Home = () => {
 
   const [isProcessing, setIsProcessing] = useState(false)
 
-  ////  Effects  ///////////////////////////////////////////////////////////////
-
-  // Redirect if setup is complete
-  useEffect(() => {
-    if (isSetup === true) {
-      history.push('/projects')
-    }
-  }, [isSetup])
-
   ////  Handlers  //////////////////////////////////////////////////////////////
 
   const onSetup = async () => {
@@ -43,7 +36,6 @@ const Home = () => {
       if ((response?.data?.failures ?? 0) === 0) {
         setIsSetup(true)
         addToast({ color: 'success', title: 'Setup complete!' })
-        history.push('/projects')
       } else {
         setIsSetup(false)
         addToast({
@@ -69,31 +61,75 @@ const Home = () => {
   if (isSetup === null)
     return <EuiProgress color='accent' position='fixed' size='s' />
 
+  const renderSetupPrompt = () => (
+    <EuiPanel grow={false} paddingSize='xs' style={{ margin: '0 auto', width: 600 }}>
+      <EuiCallOut color='primary'>
+        <EuiText>
+          <p>
+            You're almost ready! Just click setup to finish.
+          </p>
+        </EuiText>
+        <EuiSpacer />
+        <EuiButton
+          color='primary'
+          disabled={isProcessing}
+          fill
+          isLoading={isProcessing}
+          onClick={onSetup}
+        >
+          Setup
+        </EuiButton>
+        <EuiSpacer />
+        <EuiText size='xs'>
+          <p>
+            This will create the <EuiCode style={{ padding: '0 2px' }} transparentBackground>esrs-*</EuiCode> index templates and indices.
+          </p>
+        </EuiText>
+      </EuiCallOut>
+    </EuiPanel>
+  )
+
+  const renderHomePrompt = () => (
+    <EuiPanel grow={false} paddingSize='xs' style={{ margin: '0 auto', width: 600 }}>
+      <EuiCallOut color='primary'>
+        <EuiText>
+          <p>
+            Get started by creating a project.
+          </p>
+        </EuiText>
+        <EuiSpacer />
+        <EuiButton
+          color='primary'
+          fill
+          onClick={() => history.push('/projects')}
+        >
+          Go to projects
+        </EuiButton>
+      </EuiCallOut>
+    </EuiPanel>
+  )
+
   return (
-    <Page panelled title='Elasticsearch Relevance Studio'>
+    <Page panelled>
       <EuiPanel color='transparent'>
-        <EuiEmptyPrompt
-          color='plain'
-          iconType='logoElasticsearch'
-          title={<h2>Welcome!</h2>}
-          body={<p>You're almost ready. Just click setup to finish.</p>}
-          actions={
-            <EuiButton
-              color='primary'
-              disabled={isProcessing}
-              fill
-              isLoading={isProcessing}
-              onClick={onSetup}
-            >
-              Setup
-            </EuiButton>
-          }
-          footer={
-            <EuiText size='s'>
-              This will create the <EuiCode style={{ padding: 0 }} transparentBackground>esrs-*</EuiCode> index templates and indices.
-            </EuiText>
-          }
-        />
+        <div style={{ textAlign: 'center' }}>
+          <EuiSpacer />
+          <EuiTitle size='l'>
+            <h1><big>Welcome!</big></h1>
+          </EuiTitle>
+          <EuiSpacer />
+          <EuiText>
+            <p>
+              Elasticsearch Relevance Studio helps you create amazing search experiences.
+            </p>
+          </EuiText>
+          <EuiSpacer size='l' />
+          <EuiPanel color='transparent' paddingSize='xl'>
+            <img src='/img/process.png' width={600} />
+          </EuiPanel>
+          <EuiSpacer size='l' />
+          {isSetup ? renderHomePrompt() : renderSetupPrompt()}
+        </div>
       </EuiPanel>
     </Page>
   )

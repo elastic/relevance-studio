@@ -115,11 +115,13 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
             {/* Header */}
-            <EuiPageTemplate.Header
-              pageTitle={title}
-              rightSideItems={buttons || []}
-              style={{ minHeight: '90px' }}
-            />
+            {title &&
+              <EuiPageTemplate.Header
+                pageTitle={title}
+                rightSideItems={buttons || []}
+                style={{ minHeight: '90px' }}
+              />
+            }
 
             {/* Body */}
             <section style={{ display: 'flex', flex: 1, minHeight: 0 }}>

@@ -44,6 +44,10 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         {
+          from: path.resolve(__dirname, 'src/ui/img'),
+          to: path.resolve(__dirname, 'dist/img')
+        },
+        {
           from: path.resolve(__dirname, 'node_modules/monaco-editor/min'),
           to: path.resolve(__dirname, 'dist/monaco-editor/min')
         }

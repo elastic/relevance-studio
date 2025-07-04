@@ -381,6 +381,10 @@ def get_mode():
 
 ####  Static routes  ###########################################################
 
+@app.route("/<path:filepath>.png")
+def send_png(filepath):
+    return app.send_static_file(f"{filepath}.png")
+
 @app.route("/<path:filepath>.css")
 def send_css(filepath):
     return app.send_static_file(f"{filepath}.css")
