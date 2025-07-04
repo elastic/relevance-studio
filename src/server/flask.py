@@ -269,7 +269,8 @@ def benchmarks_tags(project_id):
 
 @api_route("/api/projects/<string:project_id>/benchmarks/_candidates", methods=["POST"])
 def benchmarks_make_candidate_pool(project_id):
-    return api.benchmarks.make_candidate_pool(project_id, request.get_json())
+    body = request.get_json() or {}
+    return api.benchmarks.make_candidate_pool(project_id, body)
 
 @api_route("/api/projects/<string:project_id>/benchmarks/<string:_id>", methods=["GET"])
 def benchmarks_get(project_id, _id):

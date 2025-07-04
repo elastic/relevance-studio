@@ -167,24 +167,29 @@ const FlyoutForm = ({
           scenarios: {
             _ids: form.scenarios_ids,
             tags: form.scenarios_tags,
-          },
-          scenarios_sample_size: form.scenarios_sample_size
+          }
         }
+        if (form.scenarios_sample_size)
+          body.scenarios.sample_size = form.scenarios_sample_size
         if (form.scenarios_sample_seed != '')
-          body.scenarios_sample_seed = form.scenarios_sample_seed
+          body.scenarios.sample_seed = form.scenarios_sample_seed
 
         // Get _ids of candidate strategies and scenarios
         const response = await api.benchmarks_make_candidate_pool(project._id, body)
-        const strategyIds = response.data?.strategies || []
-        const scenarioIds = response.data?.scenarios || []
+        const strategyIds = []
+        const scenarioIds = []
+        for (const i in response.data?.strategies || [])
+          strategyIds.push(response.data.strategies[i]._id)
+        for (const i in response.data?.scenarios || [])
+          scenarioIds.push(response.data.scenarios[i]._id)
 
         // Get full strategies and scenarios by _ids 
         const [strategiesRes, scenariosRes] = await Promise.all([
           api.strategies_search(project._id, {
-            filters: [{ "ids": { "values": Object.keys(strategyIds) } }]
+            filters: [{ "ids": { "values": strategyIds }}]
           }),
           api.scenarios_search(project._id, {
-            filters: [{ "ids": { "values": Object.keys(scenarioIds) } }]
+            filters: [{ "ids": { "values": scenarioIds }}]
           }),
         ])
         setStrategiesCandidates(utils.hitsToDocs(strategiesRes))

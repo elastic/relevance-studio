@@ -371,12 +371,14 @@ const StrategiesEdit = () => {
               "docs": [
                 {
                   _id: strategyId,
-                  name: strategy.name,
-                  tags: strategy.tags,
-                  params: extractParams(strategyDraft),
-                  template: {
-                    source: JSON.parse(strategyDraft)
-                  },
+                  _source: {
+                    name: strategy.name,
+                    tags: strategy.tags,
+                    params: extractParams(strategyDraft),
+                    template: {
+                      source: JSON.parse(strategyDraft)
+                    }
+                  }
                 }
               ]
             },
