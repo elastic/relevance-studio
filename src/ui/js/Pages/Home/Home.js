@@ -20,7 +20,7 @@ const Home = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { addToast, isSetup, setIsSetup } = useAppContext()
+  const { addToast, darkMode, isSetup, setIsSetup } = useAppContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -125,7 +125,7 @@ const Home = () => {
           </EuiText>
           <EuiSpacer size='l' />
           <EuiPanel color='transparent' paddingSize='xl'>
-            <img src='/img/process.png' width={600} />
+            <img src={darkMode ? '/img/process-white.png' : '/img/process.png'} width={600} />
           </EuiPanel>
           <EuiSpacer size='l' />
           {isSetup ? renderHomePrompt() : renderSetupPrompt()}
