@@ -7,7 +7,7 @@ import {
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
-import { useProjectContext } from '../../Contexts/ProjectContext'
+import { usePageResources } from '../../Contexts/ResourceContext'
 import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
@@ -17,10 +17,7 @@ import api from '../../api'
 const Benchmarks = () => {
 
   const history = getHistory()
-
-  ////  Context  ///////////////////////////////////////////////////////////////
-
-  const { project, isProjectReady } = useProjectContext()
+  const { project } = usePageResources()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -64,7 +61,7 @@ const Benchmarks = () => {
    * project is ready or when the user changes pagination settings.
    */
   useEffect(() => {
-    if (isProjectReady) {
+    if (project?._id) {
       onSubmitSearch()
       setSearchPage(1)
     }
@@ -75,7 +72,7 @@ const Benchmarks = () => {
    * the search results.
    */
   useEffect(() => {
-    if (isProjectReady)
+    if (project?._id)
       onSubmitSearch()
   }, [searchPage])
 

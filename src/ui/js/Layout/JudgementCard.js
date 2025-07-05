@@ -12,7 +12,7 @@ import {
   EuiToolTip,
 } from '@elastic/eui'
 import { useAppContext } from '../Contexts/AppContext'
-import { useProjectContext } from '../Contexts/ProjectContext'
+import { usePageResources } from '../Contexts/ResourceContext'
 import { DocCard } from '../Layout'
 import api from '../api'
 import utils from '../utils'
@@ -22,7 +22,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const { project } = useProjectContext()
+  const { project } = usePageResources()
 
   ////  State  /////////////////////////////////////////////////////////////////
 

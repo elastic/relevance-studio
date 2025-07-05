@@ -11,7 +11,7 @@ import {
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
-import { useProjectContext } from '../../Contexts/ProjectContext'
+import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
 import api from '../../api'
@@ -19,10 +19,16 @@ import utils from '../../utils'
 
 const BenchmarksView = () => {
 
+  // Get all resources automatically based on URL params
+  const { project, benchmark } = usePageResources()
+  
+  // Get loading state for evaluation specifically
+  const { isLoading } = useResources()
+  const isLoadingBenchmark = isLoading('benchmark')
+
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, autoRefresh } = useAppContext()
-  const { project, isProjectReady } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -42,9 +48,6 @@ const BenchmarksView = () => {
    */
   const [hasEverSearched, setHasEverSearched] = useState(false)
   const [isIndexEmpty, setIsIndexEmpty] = useState(null)
-  const [benchmark, setBenchmark] = useState({})
-  const [benchmarkId, setBenchmarkId] = useState(null)
-  const [isLoadingBenchmark, setIsLoadingBenchmark] = useState(false)
   const [isSearchLoading, setIsSearchLoading] = useState(false)
   const [searchDocs, setSearchDocs] = useState([])
   const [searchPage, setSearchPage] = useState(1)
@@ -58,52 +61,24 @@ const BenchmarksView = () => {
   ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
-   * Parse benchmarkId from URL path
-   */
-  const { benchmark_id } = useParams()
-  useEffect(() => setBenchmarkId(benchmark_id), [benchmark_id])
-
-  /**
-   * Get benchmark on page load
-   */
-  useEffect(() => {
-    if (!project?._id || !benchmarkId)
-      return
-    (async () => {
-      // Submit API request
-      let response
-      try {
-        setIsLoadingBenchmark(true)
-        response = await api.benchmarks_get(project._id, benchmarkId)
-      } catch (e) {
-        return addToast(api.errorToast(e, { title: 'Failed to get benchmark' }))
-      } finally {
-        setIsLoadingBenchmark(false)
-      }
-      // Handle API response
-      setBenchmark(response.data._source)
-    })()
-  }, [project, benchmarkId])
-
-  /**
    * Automatically submit the search and return to page one either when the
    * project is ready or when the user changes pagination settings.
    */
   useEffect(() => {
-    if (isProjectReady && benchmarkId) {
+    if (project?._id && benchmark?._id) {
       onSubmitSearch()
       setSearchPage(1)
     }
-  }, [project?._id, benchmarkId, searchSize, searchSortField, searchSortOrder])
+  }, [project?._id, benchmark?._id, searchSize, searchSortField, searchSortOrder])
 
   /**
    * Automatically submit the search when the user selects a different page in
    * the search results.
    */
   useEffect(() => {
-    if (isProjectReady && benchmarkId)
+    if (project?._id && benchmark?._id)
       onSubmitSearch()
-  }, [searchPage, project?._id, benchmarkId])
+  }, [searchPage, project?._id, benchmark?._id])
 
   /**
    * Search handler
@@ -111,7 +86,7 @@ const BenchmarksView = () => {
   const onSubmitSearch = useSearchHandler({
     searchFn: api.evaluations_search, // search evaluations
     projectId: project?._id,
-    resourceId: benchmarkId,
+    resourceId: benchmark?._id,
     searchText,
     searchPage,
     searchSize,
@@ -144,14 +119,14 @@ const BenchmarksView = () => {
    * Enable or disable auto-refresh.
    */
   useEffect(() => {
-    if (!isProjectReady || !benchmarkId || !autoRefresh)
+    if (!project?._id || !benchmark?._id || !autoRefresh)
       return
     const interval = setInterval(() => {
       onSubmitSearch()
       setSearchPage(1) // TODO: Try to remove this so we don't always return to page 1 on auto-refresh
     }, 5000)
     return () => clearInterval(interval)
-  }, [project?._id, benchmarkId, autoRefresh])
+  }, [project?._id, benchmark?._id, autoRefresh])
 
   const onRunEvaluationSubmit = async (e) => {
     // prevent browser from reloading page if called from a form submission
@@ -161,7 +136,7 @@ const BenchmarksView = () => {
       setIsProcessing(true)
       response = await api.evaluations_create(
         project._id,
-        benchmarkId,
+        benchmark?._id,
         benchmark.task
       )
     } catch (e) {
@@ -189,7 +164,7 @@ const BenchmarksView = () => {
       sortable: true,
       style: { width: '300px' },
       render: (name, doc) => (
-        <EuiLink href={`#/projects/${project._id}/benchmarks/${benchmarkId}/evaluations/${doc._id}`}>
+        <EuiLink href={`#/projects/${project._id}/benchmarks/${benchmark._id}/evaluations/${doc._id}`}>
           <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
             {doc._id}
           </EuiCode>
@@ -295,7 +270,7 @@ const BenchmarksView = () => {
       docType='evaluation'
       isProcessing={isProcessing}
       onClose={() => setModalDelete(null)}
-      onDelete={async () => await api.evaluations_delete(project._id, benchmarkId, modalDelete._id)}
+      onDelete={async () => await api.evaluations_delete(project._id, benchmark._id, modalDelete._id)}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
     />

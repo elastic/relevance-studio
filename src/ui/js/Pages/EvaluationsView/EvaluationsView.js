@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useState } from 'react'
 import {
   EuiButton,
   EuiFilterButton,
@@ -16,10 +15,8 @@ import {
   EuiSpacer,
   EuiTitle,
 } from '@elastic/eui'
-import api from '../../api'
 import { Page } from '../../Layout'
-import { useAppContext } from '../../Contexts/AppContext'
-import { useProjectContext } from '../../Contexts/ProjectContext'
+import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import FlyoutRuntime from './FlyoutRuntime'
 import ChartMetricsScatterplot from './ChartMetricsScatterplot'
 import ChartMetricsHeatmap from './ChartMetricsHeatmap'
@@ -27,23 +24,17 @@ import TableMetrics from './TableMetrics'
 
 const EvaluationsView = () => {
 
-  /**
-   * benchmarkId comes from the URL path: /projects/:project_id/benchmarks/:benchmark_id
-   */
-  const { benchmark_id: benchmarkId } = useParams()
-
-  ////  Context  ///////////////////////////////////////////////////////////////
-
-  const { addToast } = useAppContext()
-  const { project } = useProjectContext()
+  // Get all resources automatically based on URL params
+  const { project, benchmark, evaluation } = usePageResources()
+  
+  // Get loading state for evaluation specifically
+  const { isLoading } = useResources()
+  const isLoadingEvaluation = isLoading('evaluation')
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [evaluation, setEvaluation] = useState({})
-  const [evaluationId, setEvaluationId] = useState(null)
   const [strategyInFocus, setStrategyInFocus] = useState(null)
   const [isFlyoutRuntimeOpen, setIsFlyoutRuntimeOpen] = useState(false)
-  const [isLoadingEvaluation, setIsLoadingEvaluation] = useState(true)
   const [metricOpen, setMetricOpen] = useState(false)
   const [metricOptions, setMetricOptions] = useState([
     { _id: 'ndcg', label: 'NDCG', checked: 'on' },
@@ -80,34 +71,6 @@ const EvaluationsView = () => {
   const [ySortBySelected, setYSortBySelected] = useState({
     _id: { by: 'value', order: 'asc' }, label: 'Metric', checked: 'on'
   })
-
-  /**
-   * Parse evaluationId from URL path
-   */
-  const { evaluation_id } = useParams()
-  useEffect(() => setEvaluationId(evaluation_id), [evaluation_id])
-
-  /**
-   * Get evaluation on load
-   */
-  useEffect(() => {
-    if (!project?._id || evaluationId == null)
-      return
-    (async () => {
-      // Submit API request
-      let response
-      try {
-        setIsLoadingEvaluation(true)
-        response = await api.evaluations_get(project._id, benchmarkId, evaluationId)
-      } catch (e) {
-        return addToast(api.errorToast(e, { title: 'Failed to get evaluation' }))
-      } finally {
-        setIsLoadingEvaluation(false)
-      }
-      // Handle API response
-      setEvaluation(response.data._source)
-    })()
-  }, [project, evaluationId])
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
@@ -313,11 +276,11 @@ const EvaluationsView = () => {
   return (
     <Page panelled={true} title={
       <EuiSkeletonTitle isLoading={isLoadingEvaluation} size='l'>
-        {!evaluation.results &&
+        {!evaluation?.results &&
           <>Not found</>
         }
-        {!!evaluation.results &&
-          <>{evaluationId}</>
+        {!!evaluation?.results &&
+          <>{evaluation._id}</>
         }
       </EuiSkeletonTitle>
     }
@@ -325,7 +288,7 @@ const EvaluationsView = () => {
     >
       {isFlyoutRuntimeOpen &&
         <FlyoutRuntime
-          runtime={evaluation.runtime}
+          runtime={evaluation?.runtime}
           onClose={() => setIsFlyoutRuntimeOpen(false)}
         />
       }
@@ -340,7 +303,7 @@ const EvaluationsView = () => {
         <EuiHorizontalRule margin='none' />
         <EuiPanel color='transparent'>
           <EuiSkeletonText lines={16} isLoading={isLoadingEvaluation}>
-            {evaluation.results &&
+            {evaluation?.results &&
               <EuiFlexGroup>
 
                 {/* Table */}
@@ -373,7 +336,7 @@ const EvaluationsView = () => {
         <EuiHorizontalRule margin='none' />
         <EuiPanel color='transparent'>
           <EuiSkeletonText lines={16} isLoading={isLoadingEvaluation}>
-            {evaluation.results &&
+            {evaluation?.results &&
               <>
                 {renderHeatmapControls()}
                 <EuiSpacer size='m' />

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import {
   EuiBadge,
@@ -15,11 +14,10 @@ import {
   EuiSpacer,
   EuiSwitch,
   EuiText,
-  EuiTitle,
 } from '@elastic/eui'
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
-import { useProjectContext } from '../../Contexts/ProjectContext'
+import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import {
   Page,
   SelectScenario,
@@ -31,21 +29,24 @@ import utils from '../../utils'
 
 const StrategiesEdit = () => {
 
+  // Get all resources automatically based on URL params
+  const { project, strategy } = usePageResources()
+
+  // Get loading state for evaluation specifically
+  const { isLoading } = useResources()
+  const isLoadingStrategy = isLoading('strategy')
+
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
-  const { project, isProjectReady } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
   // Strategy editing
-  const [isLoadingStrategy, setIsLoadingStrategy] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const [params, setParams] = useState([])
   const [showHelp, setShowHelp] = useState(false)
-  const [strategy, setStrategy] = useState({})
   const [strategyDraft, setStrategyDraft] = useState('')
-  const [strategyId, setStrategyId] = useState(null)
 
   // Strategy testing
   const [displays, setDisplays] = useState({})
@@ -66,34 +67,6 @@ const StrategiesEdit = () => {
   const editorRef = useRef(null)
 
   ///  Strategy editing  ///////////////////////////////////////////////////////
-
-  /**
-   * Parse strategyId from URL path
-   */
-  const { strategy_id } = useParams()
-  useEffect(() => setStrategyId(strategy_id), [strategy_id])
-
-  /**
-   * Get strategy on load
-   */
-  useEffect(() => {
-    if (!project?._id || strategyId == null)
-      return
-    (async () => {
-      // Submit API request
-      let response
-      try {
-        setIsLoadingStrategy(true)
-        response = await api.strategies_get(project._id, strategyId)
-      } catch (e) {
-        return addToast(api.errorToast(e, { title: 'Failed to get strategy' }))
-      } finally {
-        setIsLoadingStrategy(false)
-      }
-      // Handle API response
-      setStrategy(response.data._source)
-    })()
-  }, [project, strategyId])
 
   /**
    * Initialize strategy once loaded
@@ -151,7 +124,7 @@ const StrategiesEdit = () => {
     let response
     try {
       setIsProcessing(true)
-      response = await api.strategies_update(project._id, strategyId, doc)
+      response = await api.strategies_update(project._id, strategy._id, doc)
     } catch (e) {
       return addToast(api.errorToast(e, { title: 'Failed to update strategy' }))
     } finally {
@@ -159,7 +132,7 @@ const StrategiesEdit = () => {
     }
     if (response.status > 299)
       return addToast(utils.toastClientResponse(response))
-    addToast(utils.toastDocCreateUpdateDelete('update', 'strategy', strategyId))
+    addToast(utils.toastDocCreateUpdateDelete('update', 'strategy', strategy._id))
 
     // Update doc in editor
     setStrategy(prev => ({
@@ -370,7 +343,7 @@ const StrategiesEdit = () => {
             "strategies": {
               "docs": [
                 {
-                  _id: strategyId,
+                  _id: strategy._id,
                   _source: {
                     name: strategy.name,
                     tags: strategy.tags,
@@ -537,17 +510,17 @@ const StrategiesEdit = () => {
                 <div style={{ marginTop: '-2px' }}>
                   <EuiBadge color='hollow' size='s' style={{ display: 'inline-block' }}>
                     <small>
-                      NDCG: <b>{resultsRankEval.summary.strategy_id[strategyId]._total.metrics.ndcg.avg.toFixed(4)}</b>
+                      NDCG: <b>{resultsRankEval.summary.strategy_id[strategy._id]._total.metrics.ndcg.avg.toFixed(4)}</b>
                     </small>
                   </EuiBadge>
                   <EuiBadge color='hollow' size='s' style={{ display: 'inline-block' }}>
                     <small>
-                      Precision: <b>{resultsRankEval.summary.strategy_id[strategyId]._total.metrics.precision.avg.toFixed(4)}</b>
+                      Precision: <b>{resultsRankEval.summary.strategy_id[strategy._id]._total.metrics.precision.avg.toFixed(4)}</b>
                     </small>
                   </EuiBadge>
                   <EuiBadge color='hollow' size='s' style={{ display: 'inline-block' }}>
                     <small>
-                      Recall: <b>{resultsRankEval.summary.strategy_id[strategyId]._total.metrics.recall.avg.toFixed(4)}</b>
+                      Recall: <b>{resultsRankEval.summary.strategy_id[strategy._id]._total.metrics.recall.avg.toFixed(4)}</b>
                     </small>
                   </EuiBadge>
                 </div>
@@ -700,7 +673,7 @@ const StrategiesEdit = () => {
 
   return (
     <Page panelled={true} title={
-      <EuiSkeletonTitle isLoading={!isProjectReady || isLoadingStrategy} size='l'>
+      <EuiSkeletonTitle isLoading={!project?._id || isLoadingStrategy} size='l'>
         {!strategy &&
           <>Not found</>
         }

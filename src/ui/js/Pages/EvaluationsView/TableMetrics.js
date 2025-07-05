@@ -194,7 +194,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   }
 
   return (
-    <div class='evaluations-table-metrics' style={{ height: '390px', overflow: 'auto' }}>
+    <div className='evaluations-table-metrics' style={{ height: '390px', overflow: 'auto' }}>
       <EuiInMemoryTable
         columns={columns}
         itemId='strategy_id'

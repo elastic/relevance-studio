@@ -20,7 +20,7 @@ import {
 } from '@elastic/eui'
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
-import { useProjectContext } from '../../Contexts/ProjectContext'
+import { usePageResources } from '../../Contexts/ResourceContext'
 import {
   Page,
   SearchCount,
@@ -36,7 +36,7 @@ const Judgements = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
-  const { project } = useProjectContext()
+  const { project } = usePageResources()
 
   ////  Defaults  //////////////////////////////////////////////////////////////
 

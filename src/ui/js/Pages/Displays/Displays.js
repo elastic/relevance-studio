@@ -17,7 +17,7 @@ import {
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
-import { useProjectContext } from '../../Contexts/ProjectContext'
+import { usePageResources } from '../../Contexts/ResourceContext'
 import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
 import { getHistory } from '../../history'
@@ -31,7 +31,7 @@ const Displays = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const { project, isProjectReady } = useProjectContext()
+  const { project } = usePageResources()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -78,7 +78,7 @@ const Displays = () => {
    * project is ready or when the user changes pagination settings.
    */
   useEffect(() => {
-    if (isProjectReady) {
+    if (project?._id) {
       onSubmitSearch()
       setSearchPage(1)
     }
@@ -89,7 +89,7 @@ const Displays = () => {
    * the search results.
    */
   useEffect(() => {
-    if (isProjectReady)
+    if (project?._id)
       onSubmitSearch()
   }, [searchPage])
 

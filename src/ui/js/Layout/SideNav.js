@@ -10,7 +10,7 @@ import {
   IconScale,
 } from '@tabler/icons-react'
 import { useAppContext } from '../Contexts/AppContext'
-import { useProjectContext } from '../Contexts/ProjectContext'
+import { usePageResources } from '../Contexts/ResourceContext'
 
 const SideNav = () => {
 
@@ -20,12 +20,15 @@ const SideNav = () => {
 
   const { sidebarOpen } = useAppContext()
 
-  let project
-  try {
-    project = useProjectContext().project
-  } catch {
-    project = null
+  // Do this in case the sidebar is on a page that isn't in ResourceProvider
+  const useSafePageResources = () => {
+    try {
+      return usePageResources()
+    } catch (error) {
+      return {}
+    }
   }
+  const { project } = useSafePageResources()
 
   ////  Render  ////////////////////////////////////////////////////////////////
 

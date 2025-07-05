@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
 import {
   EuiButton,
   EuiFieldSearch,
@@ -22,24 +21,27 @@ import {
   IconBoxAlignRightFilled,
 } from '@tabler/icons-react'
 import { useAppContext } from '../../Contexts/AppContext'
-import { useProjectContext } from '../../Contexts/ProjectContext'
+import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import { DocCard, Page } from '../../Layout'
 import api from '../../api'
 import utils from '../../utils'
 
 const DisplaysEdit = () => {
 
+  // Get all resources automatically based on URL params
+  const { project, display } = usePageResources()
+  
+  // Get loading state for evaluation specifically
+  const { isLoading } = useResources()
+  const isLoadingDisplay = isLoading('display')
+
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
-  const { project, isProjectReady } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [display, setDisplay] = useState(null)
-  const [displayId, setDisplayId] = useState(null)
   const [indices, setIndices] = useState([])
-  const [isLoadingDisplay, setIsLoadingDisplay] = useState(true)
   const [isLoadingIndices, setIsLoadingIndices] = useState(true)
   const [isLoadingDocById, setIsLoadingDocById] = useState(false)
   const [isLoadingDocRandom, setIsLoadingDocRandom] = useState(false)
@@ -54,32 +56,6 @@ const DisplaysEdit = () => {
 
 
   ////  Effects  ///////////////////////////////////////////////////////////////
-
-  /**
-   * Parse displayId from URL path
-   */
-  const { display_id } = useParams()
-  useEffect(() => setDisplayId(display_id), [display_id])
-
-  /**
-   * Get display when project is ready
-   */
-  useEffect(() => {
-    if (!project?._id || displayId == null)
-      return
-    (async () => {
-      let response
-      try {
-        setIsLoadingDisplay(true)
-        response = await api.displays_get(project._id, displayId)
-      } catch (e) {
-        return addToast(api.errorToast(e, { title: 'Failed to get display' }))
-      } finally {
-        setIsLoadingDisplay(false)
-      }
-      setDisplay(response.data._source)
-    })()
-  }, [project, displayId])
 
   /**
    * Get indices when project is ready
@@ -187,7 +163,7 @@ const DisplaysEdit = () => {
     let response
     try {
       setIsProcessing(true)
-      response = await api.displays_update(project._id, displayId, doc)
+      response = await api.displays_update(project._id, display?._id, doc)
     } catch (e) {
       return addToast(api.errorToast(e, { title: `Failed to update display` }))
     } finally {
@@ -300,7 +276,7 @@ const DisplaysEdit = () => {
 
   return (
     <Page panelled={true} title={
-      <EuiSkeletonTitle isLoading={!isProjectReady || isLoadingDisplay} size='l'>
+      <EuiSkeletonTitle isLoading={!project?._id || isLoadingDisplay} size='l'>
         {!display &&
           <>Not found</>
         }
@@ -347,7 +323,7 @@ const DisplaysEdit = () => {
                 {/* Editor */}
                 <EuiFormRow fullWidth label='Markdown editor'>
                   <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-                    <EuiSkeletonText lines={21} isLoading={!isProjectReady}>
+                    <EuiSkeletonText lines={21} isLoading={!project?._id}>
                       <div style={{ height: 'calc(100vh - 362px)' }}>
                         <EuiPanel
                           hasBorder
