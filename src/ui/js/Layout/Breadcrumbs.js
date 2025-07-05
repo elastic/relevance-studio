@@ -28,9 +28,12 @@ const Breadcrumbs = () => {
       return
     }
     // Breadcrumbs for all other routes
-    const _breadcrumbs = [{ text: 'Home', href: '#/' }]
     const parts = path.split('/').filter(Boolean)
     const urlParts = url.split('/').filter(Boolean)
+    const homeCrumb = { text: 'Home' }
+    if (parts.length > 0)
+      homeCrumb.href = '#/'
+    const crumbs = [ homeCrumb ]
     let accumulated = '#'
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]
@@ -43,15 +46,23 @@ const Breadcrumbs = () => {
             return // return to prevent flicker
           label = project?.name || value
         }
-        accumulated += `/${value}`
-        _breadcrumbs.push({ text: label, href: accumulated })
+        const crumb = { text: label }
+        if (i + 1 < parts.length) {
+          accumulated += `/${value}`
+          crumb.href = accumulated
+        }
+        crumbs.push(crumb)
       } else {
-        accumulated += `/${part}`
         const label = part.charAt(0).toUpperCase() + part.slice(1)
-        _breadcrumbs.push({ text: label, href: accumulated })
+        const crumb = { text: label }
+        if (i + 1 < parts.length) {
+          accumulated += `/${part}`
+          crumb.href = accumulated
+        }
+        crumbs.push(crumb)
       }
     }
-    setBreadcrumbs(_breadcrumbs)
+    setBreadcrumbs(crumbs)
   }, [path, url, project])
 
   return (
