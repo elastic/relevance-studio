@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useMemo } from 'react'
 import { EuiGlobalToastList } from '@elastic/eui'
+import { getHistory } from '../history'
 import api from '../api'
 
 let _appContext = null
@@ -10,6 +11,8 @@ export const AppContext = createContext()
 export const useAppContext = () => useContext(AppContext)
 
 export const AppProvider = ({ children }) => {
+
+  const history = getHistory()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -52,7 +55,7 @@ export const AppProvider = ({ children }) => {
       try {
         const response = await api.setup_check()
         if ((response?.data?.failures ?? 0) > 0) {
-          setIsSetup(false) // just update state
+          setIsSetup(false)
         } else {
           setIsSetup(true)
         }

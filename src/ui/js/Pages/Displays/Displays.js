@@ -20,10 +20,13 @@ import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
 import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
+import { getHistory } from '../../history'
 import api from '../../api'
 import utils from '../../utils'
 
 const Displays = () => {
+
+  const history = getHistory()
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -133,7 +136,7 @@ const Displays = () => {
     if (modalCreate) {
 
       // Redirect to display editor
-      window.location.href = `/#/projects/${project._id}/displays/${response.data._id}`
+      history.push({ pathname: `/projects/${project._id}/displays/${response.data._id}` })
       return setModalCreate(null)
     } else {
 

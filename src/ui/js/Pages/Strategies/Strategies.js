@@ -20,10 +20,13 @@ import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
 import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
+import { getHistory } from '../../history'
 import api from '../../api'
 import utils from '../../utils'
 
 const Strategies = () => {
+
+  const history = getHistory()
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -134,7 +137,7 @@ const Strategies = () => {
     if (modalCreate) {
 
       // Redirect to strategy editor
-      window.location.href = `/#/projects/${project._id}/strategies/${response.data._id}`
+      history.push({ pathname: `/projects/${project._id}/strategies/${response.data._id}` })
       return setModalCreate(null)
     } else {
 

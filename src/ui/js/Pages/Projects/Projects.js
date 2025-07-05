@@ -10,9 +10,12 @@ import {
 import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
+import { getHistory } from '../../history'
 import api from '../../api'
 
 const Projects = () => {
+
+  const history = getHistory()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -190,7 +193,7 @@ const Projects = () => {
           isPrimary: true,
           name: 'Displays',
           onClick: (doc) => {
-            window.location.href = `/#/projects/${doc._id}/displays`
+            history.push({ pathname: `/projects/${doc._id}/displays` })
           },
           type: 'icon'
         },
@@ -226,7 +229,7 @@ const Projects = () => {
       onClose={() => setFlyout(null)}
       onCreated={(newDoc) => {
         // Redirect to displays
-        window.location.href = `/#/projects/${newDoc._id}/displays`
+        history.push({ pathname: `/projects/${newDoc._id}/displays` })
       }}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}

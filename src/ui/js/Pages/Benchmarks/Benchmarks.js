@@ -11,8 +11,8 @@ import { useProjectContext } from '../../Contexts/ProjectContext'
 import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
-import api from '../../api'
 import { getHistory } from '../../history'
+import api from '../../api'
 
 const Benchmarks = () => {
 

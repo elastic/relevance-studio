@@ -1,12 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAppContext } from './AppContext'
+import { getHistory } from '../history'
 import api from '../api'
 
 export const ProjectContext = createContext()
 export const useProjectContext = () => useContext(ProjectContext)
 
 export const ProjectProvider = ({ children }) => {
+
+  const history = getHistory()
 
   /**
    * projectId comes from the URL path: /projects/:project_id
@@ -15,7 +18,7 @@ export const ProjectProvider = ({ children }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { addToast, isSetup } = useAppContext()
+  const { addToast } = useAppContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -30,15 +33,10 @@ export const ProjectProvider = ({ children }) => {
    * to a URL starting with /projects/:project_id
    */
   const loadProject = useCallback(async () => {
-    if (isSetup === null)
-      return
-    if (isSetup === false) {
-      window.location.href = '/#/'
-      throw new Error(`Setup isn't complete`)
-    }
     setIsLoadingProject(true)
+    let response
     try {
-      const response = await api.projects_get(projectId)
+      response = await api.projects_get(projectId)
       const _project = response.data._source
       _project._id = response.data._id
       setProject(_project)
@@ -47,7 +45,7 @@ export const ProjectProvider = ({ children }) => {
     } finally {
       setIsLoadingProject(false)
     }
-  }, [projectId, isSetup])
+  }, [projectId])
 
   /**
    * Automatically load the project data when the ProjectProvider mounts
