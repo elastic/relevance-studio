@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRouteMatch } from 'react-router-dom'
-import {
-  EuiBreadcrumbs
-} from '@elastic/eui'
+import { EuiBreadcrumbs } from '@elastic/eui'
 import { useProjectContext } from '../Contexts/ProjectContext'
 
 const Breadcrumbs = () => {
@@ -21,6 +19,15 @@ const Breadcrumbs = () => {
   ////  Render  ////////////////////////////////////////////////////////////////
 
   useEffect(() => {
+    // Breadcrumbs for the NotFound route
+    if (path === '*') {
+      setBreadcrumbs([
+        { text: 'Home', href: '#/' },
+        { text: 'Not Found' }
+      ])
+      return
+    }
+    // Breadcrumbs for all other routes
     const _breadcrumbs = [{ text: 'Home', href: '#/' }]
     const parts = path.split('/').filter(Boolean)
     const urlParts = url.split('/').filter(Boolean)

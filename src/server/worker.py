@@ -6,6 +6,9 @@ import time
 # Third-party packages
 from dotenv import load_dotenv
 
+# Elastic packages
+from elasticsearch import NotFoundError
+
 # App packages
 from . import api, utils
 from .client import es
@@ -49,7 +52,7 @@ def claim_next_evaluation():
         "query": { "term": { "@meta.status": "pending" }},
         "sort": [{ "@meta.created_at": "asc" }]
     }
-    response = es("studio").search(
+    response = es("studio").options(ignore_status=404).search(
         index="esrs-evaluations",
         body=body
     )
@@ -128,9 +131,12 @@ def run_loop():
             
         # Periodically clean up stale evaluations
         if not time_last_cleanup or time.time() - time_last_cleanup > CLEANUP_INTERVAL:
-            logger.info("Cleaning up any stale evaluations...")
-            api.evaluations.cleanup(CLEANUP_TIME_RANGE)
-            time_last_cleanup = time.time()
+            try:
+                logger.info("Cleaning up any stale evaluations...")
+                api.evaluations.cleanup(CLEANUP_TIME_RANGE)
+                time_last_cleanup = time.time()
+            except NotFoundError as e:
+                logger.debug(f"{e.meta.status} {e.body['error']['reason']}")
 
 if __name__ == "__main__":
     run_loop()
