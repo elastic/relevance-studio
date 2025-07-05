@@ -32,13 +32,15 @@ const DisplaysEdit = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
-  const { project, isProjectReady, loadAssets, indices } = useProjectContext()
+  const { project, isProjectReady } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [display, setDisplay] = useState(null)
   const [displayId, setDisplayId] = useState(null)
+  const [indices, setIndices] = useState([])
   const [isLoadingDisplay, setIsLoadingDisplay] = useState(true)
+  const [isLoadingIndices, setIsLoadingIndices] = useState(true)
   const [isLoadingDocById, setIsLoadingDocById] = useState(false)
   const [isLoadingDocRandom, setIsLoadingDocRandom] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -54,27 +56,18 @@ const DisplaysEdit = () => {
   ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
-   * Load (or reload) any needed assets when project is ready.
-   */
-  useEffect(() => {
-    if (isProjectReady)
-      loadAssets({ indices: true })
-  }, [project?._id])
-
-  /**
    * Parse displayId from URL path
    */
   const { display_id } = useParams()
   useEffect(() => setDisplayId(display_id), [display_id])
 
   /**
-   * Get display on load
+   * Get display when project is ready
    */
   useEffect(() => {
     if (!project?._id || displayId == null)
       return
     (async () => {
-      // Submit API request
       let response
       try {
         setIsLoadingDisplay(true)
@@ -84,10 +77,29 @@ const DisplaysEdit = () => {
       } finally {
         setIsLoadingDisplay(false)
       }
-      // Handle API response
       setDisplay(response.data._source)
     })()
   }, [project, displayId])
+
+  /**
+   * Get indices when project is ready
+   */
+  useEffect(() => {
+    if (!project?.index_pattern)
+      return
+    (async () => {
+      let response
+      try {
+        setIsLoadingIndices(true)
+        response = await api.content_mappings_browse(project.index_pattern)
+      } catch (e) {
+        return addToast(api.errorToast(e, { title: 'Failed to get indices' }))
+      } finally {
+        setIsLoadingIndices(false)
+      }
+      setIndices(response.data)
+    })()
+  }, [project])
 
   /**
    * Initialize display once loaded
@@ -133,9 +145,7 @@ const DisplaysEdit = () => {
         const mustacheMatch = textUntilPosition.match(/{{\s*([\w.-]*)$/)
         if (!mustacheMatch)
           return { suggestions: [] }
-
         const currentPrefix = mustacheMatch[1]
-
         const suggestions = mustacheVariablesRef.current
           .filter((name) => name.startsWith(currentPrefix))
           .map((name) => ({
@@ -178,8 +188,8 @@ const DisplaysEdit = () => {
     try {
       setIsProcessing(true)
       response = await api.displays_update(project._id, displayId, doc)
-    } catch (err) {
-      return addToast(api.errorToast(err, { title: `Failed to update display` }))
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: `Failed to update display` }))
     } finally {
       setIsProcessing(false)
     }
@@ -210,8 +220,8 @@ const DisplaysEdit = () => {
     try {
       setIsLoadingDocRandom(true)
       response = await api.content_search(display.index_pattern, body)
-    } catch (error) {
-      return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: 'Failed to get doc' }))
     } finally {
       setIsLoadingDocRandom(false)
     }
@@ -232,8 +242,8 @@ const DisplaysEdit = () => {
     try {
       setIsLoadingDocById(true)
       response = await api.content_search(display.index_pattern, body)
-    } catch (error) {
-      return addToast(api.errorToast(error, { title: 'Failed to get doc' }))
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: 'Failed to get doc' }))
     } finally {
       setIsLoadingDocById(false)
     }

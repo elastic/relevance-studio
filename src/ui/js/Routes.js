@@ -3,9 +3,9 @@ import { ProjectProvider } from './Contexts/ProjectContext'
 import { Pages } from './Pages'
 import history from './history'
 
-const ProjectContextRoute = ({ children }) => {
-  return <ProjectProvider>{children}</ProjectProvider>
-}
+const ProjectContextRoute = ({ children }) => (
+  <ProjectProvider>{children}</ProjectProvider>
+)
 
 const Routes = () => {
 

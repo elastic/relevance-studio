@@ -15,7 +15,10 @@ import {
   EuiInlineEditTitle,
   EuiSpacer,
 } from '@elastic/eui'
+import { useAppContext } from '../../Contexts/AppContext'
 import { useProjectContext } from '../../Contexts/ProjectContext'
+import api from '../../api'
+import utils from '../../utils'
 
 const FlyoutForm = ({
   action,
@@ -28,7 +31,8 @@ const FlyoutForm = ({
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { project, createScenario, updateScenario } = useProjectContext()
+  const { addToast } = useAppContext()
+  const { project } = useProjectContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -72,6 +76,7 @@ const FlyoutForm = ({
   const onSubmit = async (e) => {
     // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
+    let response
     try {
       setIsProcessing(true)
       const newDoc = {
@@ -84,14 +89,19 @@ const FlyoutForm = ({
             .map(({ name, value }) => [name, String(value).trim()])
             .filter(([, trimmed]) => trimmed !== "")
         )
-        await createScenario(newDoc)
+        response = await api.scenarios_create(project._id, newDoc)
       } else if (action == 'update') {
-        await updateScenario(doc._id, newDoc)
+        response = await api.scenarios_update(project._id, doc._id, newDoc)
       }
+      if (response.status > 299)
+        return addToast(utils.toastClientResponse(response))
+      addToast(utils.toastDocCreateUpdateDelete(action, 'scenario', doc._id || response.data._id))
       if (onSuccess)
         onSuccess()
       if (onClose)
         onClose()
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: `Failed to ${action} scenario` }))
     } finally {
       setIsProcessing(false)
     }

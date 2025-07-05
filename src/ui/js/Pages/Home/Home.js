@@ -120,7 +120,7 @@ const Home = () => {
           <EuiSpacer />
           <EuiText>
             <p>
-              Elasticsearch Relevance Studio helps you create amazing search experiences.
+              Let's create amazing search experiences.
             </p>
           </EuiText>
           <EuiSpacer size='l' />

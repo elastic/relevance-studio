@@ -122,8 +122,8 @@ const Strategies = () => {
         response = await api.strategies_update(project._id, _id, doc)
       else if (action == 'delete')
         response = await api.strategies_delete(project._id, _id)
-    } catch (err) {
-      return addToast(api.errorToast(err, { title: `Failed to ${action} strategy` }))
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: `Failed to ${action} strategy` }))
     } finally {
       setIsProcessing(false)
     }

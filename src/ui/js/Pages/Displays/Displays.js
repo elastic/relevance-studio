@@ -121,8 +121,8 @@ const Displays = () => {
         response = await api.displays_update(project._id, _id, doc)
       else if (action == 'delete')
         response = await api.displays_delete(project._id, _id)
-    } catch (err) {
-      return addToast(api.errorToast(err, { title: `Failed to ${action} display` }))
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: `Failed to ${action} display` }))
     } finally {
       setIsProcessing(false)
     }

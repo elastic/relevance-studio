@@ -64,8 +64,8 @@ const Projects = () => {
       try {
         const response = await api.mode_get()
         setMode(response.data.mode)
-      } catch (error) {
-        console.error('Failed to load mode:', error)
+      } catch (e) {
+        console.error('Failed to load mode:', e)
         setMode('unknown')
       }
     }
@@ -262,7 +262,7 @@ const Projects = () => {
       docType='project'
       isLoading={isProcessing}
       onClose={() => setModalDelete(null)}
-      //onError={(err) => addToast(api.errorToast(err, { title: `Failed to delete project` }))}
+      //onError={(e) => addToast(api.errorToast(e, { title: `Failed to delete project` }))}
       onDelete={async () => await api.projects_delete(modalDelete._id)}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
