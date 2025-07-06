@@ -146,6 +146,8 @@ def run_loop():
                 time_last_cleanup = time.time()
             except NotFoundError as e:
                 logger.debug(f"{e.meta.status} {e.body['error']['reason']}")
+            except Exception as e:
+                logger.exception(e)
 
 if __name__ == "__main__":
     run_loop()
