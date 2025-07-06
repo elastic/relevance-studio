@@ -9,6 +9,7 @@ import {
   EuiFlexItem,
   EuiIcon,
   EuiPanel,
+  EuiProgress,
   EuiResizableContainer,
   EuiSkeletonTitle,
   EuiSpacer,
@@ -467,9 +468,11 @@ const StrategiesEdit = () => {
           paddingSize='m'
           style={{
             opacity: isLoadingResults ? 0.5 : 1.0,
-            overflow: 'scroll'
+            overflow: 'scroll',
+            position: 'relative'
           }}
         >
+          {isLoadingResults && <EuiProgress color='accent' size='s' style={{ position: 'absolute', top: 0, left: 0, right: 0 }} />}
           {errorContent ? renderError() : renderResults()}
         </EuiPanel>
       </EuiPanel>
