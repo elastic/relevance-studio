@@ -52,6 +52,7 @@ const StrategiesEdit = () => {
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [isRankEvalEnabled, setIsRankEvalEnabled] = useState(false)
   const [isScenariosOpen, setIsScenariosOpen] = useState(false)
+  const [lastSavedStrategy, setLastSavedStrategy] = useState({})
   const [results, setResults] = useState([])
   const [resultsRankEval, setResultsRankEval] = useState({})
   const [scenario, setScenario] = useState(null)
@@ -63,13 +64,15 @@ const StrategiesEdit = () => {
   ///  Strategy editing  ///////////////////////////////////////////////////////
 
   /**
-   * Initialize strategy once loaded
+   * Initialize form once loaded
    */
   useEffect(() => {
-    if (!isReady)
+    if (!strategy)
       return
-    setStrategyDraft(JSON.stringify(strategy.template.source, null, 2))
-  }, [isReady])
+    setLastSavedStrategy(strategy)
+    if (strategy.template?.source)
+      setStrategyDraft(JSON.stringify(JSON.parse(strategy.template.source), null, 2))
+  }, [strategy])
 
   /**
    * Extract params (formatted as Mustache variables) from a JSON string.
@@ -107,8 +110,8 @@ const StrategiesEdit = () => {
 
     // Prepare doc field updates
     const doc = {
-      name: strategy.name,
-      tags: strategy.tags,
+      name: lastSavedStrategy.name,
+      tags: lastSavedStrategy.tags,
       template: {
         source: json
       },
@@ -129,7 +132,7 @@ const StrategiesEdit = () => {
     addToast(utils.toastDocCreateUpdateDelete('update', 'strategy', strategy._id))
 
     // Update doc in editor
-    setStrategy(prev => ({
+    setLastSavedStrategy(prev => ({
       ...prev,
       ...doc,
       template: {
@@ -144,7 +147,7 @@ const StrategiesEdit = () => {
    */
   const doesDraftDiffer = () => {
     try {
-      return JSON.stringify(strategy.template?.source || '{}') == JSON.stringify(JSON.parse(strategyDraft || '{}'))
+      return JSON.stringify(lastSavedStrategy.template?.source || '{}') == JSON.stringify(JSON.parse(strategyDraft || '{}'))
     } catch (e) {
       return undefined
     }
@@ -321,8 +324,8 @@ const StrategiesEdit = () => {
                 {
                   _id: strategy._id,
                   _source: {
-                    name: strategy.name,
-                    tags: strategy.tags,
+                    name: lastSavedStrategy.name,
+                    tags: lastSavedStrategy.tags,
                     params: extractParams(strategyDraft),
                     template: {
                       source: JSON.parse(strategyDraft)
@@ -372,6 +375,13 @@ const StrategiesEdit = () => {
         setIsLoadingResults(false)
       }
     })()
+  }
+
+  /**
+   * Reset the form to the last saved strategy.
+   */
+  const resetForm = () => {
+    setStrategyDraft(JSON.stringify(lastSavedStrategy.template.source, null, 2))
   }
 
   ////  Render  ////////////////////////////////////////////////////////////////
@@ -566,9 +576,7 @@ const StrategiesEdit = () => {
             <EuiButton
               color="text"
               disabled={isProcessing || doesDraftDiffer()}
-              onClick={() => {
-                setStrategyDraft(JSON.stringify(strategy.template.source, null, 2));
-              }}
+              onClick={resetForm}
             >
               Reset
             </EuiButton>

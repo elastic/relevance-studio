@@ -9,8 +9,21 @@
     "mappings": {
       "dynamic": "strict",
       "properties": {
-        "@timestamp": {
-          "type": "keyword"
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            }
+          }
         },
         "project_id": {
           "type": "keyword"

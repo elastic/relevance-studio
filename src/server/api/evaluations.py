@@ -1,5 +1,6 @@
 # Standard packages
 import itertools
+import json
 import time
 from typing import Any, Dict, List, Optional
 
@@ -7,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from . import benchmarks, content
 from .. import utils
 from ..client import es
+from ..models import MetaModel
 
 INDEX_NAME = "esrs-evaluations"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("evaluations")
@@ -191,7 +193,8 @@ def validate_metrics(value):
 
 def run(
         evaluation: Dict[str, Any],
-        store_results: Optional[bool] = False
+        store_results: Optional[bool] = False,
+        started_by = "unknown",
     ) -> Dict[str, Any]:
     """
     Executes an evaluation for a benchmark.
@@ -200,6 +203,7 @@ def run(
     # Start timer
     started_at = time.time()
     evaluation["@meta"]["started_at"] = utils.timestamp(started_at)
+    evaluation["@meta"]["started_by"] = started_by
     evaluation_id = evaluation.pop("_id", None)
     try:
     
@@ -218,7 +222,7 @@ def run(
                 doc_updates = {
                     "@meta": {
                         "status": "skipped",
-                        "stopped_at": utils.timestamp()
+                        "stopped_at": utils.timestamp(),
                     }
                 }
                 es_response = es("studio").update(
@@ -295,12 +299,15 @@ def run(
                     "_source": hit["_source"]
                 })
         for hit in hits:
+            template = json.loads(hit["_source"]["template"]["source"])
             _rank_eval["templates"].append({
                 "id": hit["_id"],
-                "template": hit["_source"]["template"]
+                "template": {
+                    "source": template
+                }
             })
             runtime_strategy = {
-                "_fingerprint": utils.fingerprint([ hit["_source"]["template"] ])
+                "_fingerprint": utils.fingerprint([ template ])
             }
             for field, value in hit["_source"].items():
                 if field == "project_id":
@@ -642,12 +649,6 @@ def create(
         
     # Create evaluation
     doc = {
-        "@meta": {
-            "status": "pending",
-            "created_at": utils.timestamp(),
-            "started_at": None,
-            "stopped_at": None
-        },
         "project_id": project_id,
         "benchmark_id": benchmark_id,
         "task": {
@@ -657,6 +658,13 @@ def create(
             "scenarios": {}
         }
     }
+    doc = MetaModel.apply_meta_create(doc)
+    doc["@meta"].pop("updated_at", None) # not used to evaluations
+    doc["@meta"].pop("updated_by", None) # not used to evaluations
+    doc["@meta"]["status"] = "pending"
+    doc["@meta"]["started_at"] = None
+    doc["@meta"]["started_by"] = None
+    doc["@meta"]["stopped_at"] = None
     if strategies_ids:
         doc["task"]["strategies"]["_ids"] = strategies_ids
     if strategies_tags:

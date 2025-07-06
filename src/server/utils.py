@@ -72,31 +72,52 @@ def extract_params(obj: Dict[str, Any]):
     """
     return sorted(list(set(re.findall(RE_PARAMS, json.dumps(obj)))))
 
-def copy_fields_to_search(doc: Dict[str, Any], fields: List[str]):
+def copy_fields_to_search(template_name: str, doc: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Given a doc and a list of field names, if any of those fields exist in the
-    doc, copy the value to a field with the same name under "_search" and
-    serialize the value as a string. The purpose is to provide a consistent
-    way of storing fields in a format suitable for full text search, regardless
-    of whether the original value was a string, object, or list. Those field
-    types have inconsistent support for copy_to or multifields in Elasticsearch.
+    Copy values from the doc into the _search field, based on the _search fields defined
+    in the specified index template. Automatically infers which fields need stringification.
     """
-    for field in fields:
-        value = doc.get(field)
-        if not value and value != 0: # skip {}, [], "", True, False
-            continue
-        if "_search" not in doc:
-            doc["_search"] = {}
-        if isinstance(value, (dict, list)):
-            doc["_search"][field] = json.dumps(value)
-        else:
-            doc["_search"][field] = str(value)
+    field_types = get_search_field_types_from_mapping(template_name)
+
+    def is_empty(val: Any) -> bool:
+        return val is None or val == "" or val == {} or val == []
+
+    def serialize_leaf(val: Any) -> str:
+        if is_empty(val):
+            return ""
+        if isinstance(val, str):
+            return val
+        return json.dumps(val)
+
+    def serialize_array(vals: List[Any]) -> List[str]:
+        return [serialize_leaf(v) for v in vals]
+
+    def set_nested_value(obj: Dict[str, Any], path: List[str], value: Any):
+        for key in path[:-1]:
+            obj = obj.setdefault(key, {})
+        obj[path[-1]] = value
+
+    def copy_recursively(value: Any, types: Any, path: List[str]):
+        if isinstance(types, str):  # leaf field like "text"
+            if isinstance(value, list):
+                set_nested_value(doc["_search"], path, serialize_array(value))
+            else:
+                set_nested_value(doc["_search"], path, serialize_leaf(value))
+        elif isinstance(types, dict) and isinstance(value, dict):
+            for k, v in value.items():
+                if k in types:
+                    copy_recursively(v, types[k], path + [k])
+
+    doc.setdefault("_search", {})
+    for field, type_info in field_types.items():
+        if field in doc:
+            copy_recursively(doc[field], type_info, [field])
     return doc
 
 def get_search_fields_from_mapping(template_name: str) -> List[str]:
     """
-    Return all field names defined under the "_search" field of the mapping of
-    an index template. This helps automate the use of copy_fields_to_search().
+    Return a list of top-level field names defined under the "_search" section
+    of an index template. These are the names passed to copy_fields_to_search().
     """
     path_base = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "elastic", "index_templates"
@@ -104,15 +125,47 @@ def get_search_fields_from_mapping(template_name: str) -> List[str]:
     path_index_template = os.path.join(path_base, f"{template_name}.json")
     with open(path_index_template, 'r') as f:
         data = json.load(f)
-    return sorted(list(
+    props = (
         data
         .get("template", {})
         .get("mappings", {})
         .get("properties", {})
         .get("_search", {})
         .get("properties", {})
-        .keys()
-    ))
+    )
+    return sorted(props.keys())
+
+def get_search_field_types_from_mapping(template_name: str) -> Dict[str, Any]:
+    """
+    Return a nested dict of _search field types based on the mapping, preserving structure.
+    For example:
+      { "template": { "source": "text" }, "tags": "text" }
+    """
+    path_base = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "elastic", "index_templates"
+    )
+    path_index_template = os.path.join(path_base, f"{template_name}.json")
+    with open(path_index_template, 'r') as f:
+        data = json.load(f)
+    props = (
+        data
+        .get("template", {})
+        .get("mappings", {})
+        .get("properties", {})
+        .get("_search", {})
+        .get("properties", {})
+    )
+    def walk(p):
+        result = {}
+        for k, v in p.items():
+            if "type" in v and v["type"] != "object":
+                result[k] = v["type"]
+            elif "properties" in v:
+                result[k] = walk(v["properties"])
+            else:
+                result[k] = "object"
+        return result
+    return walk(props)
     
 def remove_empty_values(obj, keep_fields=None, path=""):
     """

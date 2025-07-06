@@ -23,8 +23,14 @@
             "created_at": {
               "type": "date"
             },
+            "created_by": {
+              "type": "keyword"
+            },
             "started_at": {
               "type": "date"
+            },
+            "started_by": {
+              "type": "keyword"
             },
             "stopped_at": {
               "type": "date"

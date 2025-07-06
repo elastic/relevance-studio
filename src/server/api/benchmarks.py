@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Set, Tuple
 # App packages
 from .. import utils
 from ..client import es
-from ..models import BenchmarkModel
+from ..models import BenchmarkModel, MetaModel
 
 INDEX_NAME = "esrs-benchmarks"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmarks")
@@ -50,31 +50,53 @@ def create(doc: BenchmarkModel, _id: str = None) -> Dict[str, Any]:
     """
     Create a benchmark in Elasticsearch. Allow a predetermined _id.
     """
+
+    # Add @meta.created_* fields
+    doc = MetaModel.apply_meta_create(doc)
+    
+    # Create, validate, and dump model
+    doc = (
+        BenchmarkModel
+        .model_validate(doc)
+        .model_dump(by_alias=True, exclude_unset=True)
+    )
+
     # Copy searchable fields to _search
-    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
-    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
-    doc_dict = utils.remove_empty_values(doc_dict)
+    doc = utils.copy_fields_to_search("benchmarks", doc)
+    
+    # Submit
     es_response = es("studio").index(
-        index="esrs-benchmarks",
+        index=INDEX_NAME,
         id=_id or utils.unique_id(),
-        document=doc_dict,
+        document=doc,
         refresh=True,
     )
     return es_response
 
-def update(_id: str, doc: BenchmarkModel) -> Dict[str, Any]:
+def update(_id: str, doc_partial: BenchmarkModel) -> Dict[str, Any]:
     """
     Update a benchmark in Elasticsearch.
     """
+    
+    # Add @meta.updated_* fields
+    doc_partial = MetaModel.apply_meta_update(doc_partial)
+    
+    # Create, validate, and dump model
+    doc_partial = (
+        BenchmarkModel
+        .model_validate(doc_partial, context={"is_partial": True})
+        .model_dump(by_alias=True, exclude_unset=True)
+    )
+    
     # Copy searchable fields to _search
-    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
-    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
-    doc_dict = utils.remove_empty_values(doc_dict)
+    doc_partial = utils.copy_fields_to_search("benchmarks", doc_partial)
+    
+    # Submit
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
-        doc=doc_dict,
-        refresh=True,
+        doc=doc_partial,
+        refresh=True
     )
     return es_response
 

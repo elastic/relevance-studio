@@ -5,8 +5,11 @@ from typing import List, Optional, Any
 # Third-party packages
 from pydantic import BaseModel, Field
 
+# App packages
+from . import MetaModel
+
 class EvaluationModel(BaseModel):
-    meta: MetaModel = Field(alias='@meta')
+    meta: EvaluationMetaModel = Field(alias='@meta')
     project_id: str
     benchmark_id: str
     scenario_id: str
@@ -18,11 +21,12 @@ class EvaluationModel(BaseModel):
     unrated_docs: Optional[UnratedDocsModel]
     took: Optional[int]
 
-class MetaModel(BaseModel):
+class EvaluationMetaModel(MetaModel):
     status: str
-    created_at: str
     started_at: Optional[str]
+    started_by: Optional[str]
     stopped_at: Optional[str]
+    stopped_by: Optional[str]
 
 class TaskModel(BaseModel):
     metrics: List[str]

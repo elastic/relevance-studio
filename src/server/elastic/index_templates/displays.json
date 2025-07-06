@@ -9,6 +9,22 @@
     "mappings": {
       "dynamic": "strict",
       "properties": {
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            }
+          }
+        },
         "project_id": {
           "type": "keyword"
         },
@@ -19,8 +35,22 @@
           "type": "keyword"
         },
         "template": {
-          "type": "object",
-          "enabled": false
+          "properties": {
+            "body": {
+              "type": "text",
+              "index": false
+            },
+            "image": {
+              "properties": {
+                "position": {
+                  "type": "keyword"
+                },
+                "url": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
         },
         "_search": {
           "properties": {
@@ -31,7 +61,21 @@
               "type": "text"
             },
             "template": {
-              "type": "text"
+              "properties": {
+                "body": {
+                  "type": "text"
+                },
+                "image": {
+                  "properties": {
+                    "position": {
+                      "type": "text"
+                    },
+                    "url": {
+                      "type": "text"
+                    }
+                  }
+                }
+              }
             }
           }
         }

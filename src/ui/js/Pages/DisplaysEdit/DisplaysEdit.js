@@ -41,6 +41,7 @@ const DisplaysEdit = () => {
   const [isLoadingDocById, setIsLoadingDocById] = useState(false)
   const [isLoadingDocRandom, setIsLoadingDocRandom] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [lastSavedDisplay, setLastSavedDisplay] = useState({})
   const [mustacheVariables, setMustacheVariables] = useState(false)
   const [queryString, setQueryString] = useState('')
   const [sampleDoc, setSampleDoc] = useState()
@@ -73,11 +74,12 @@ const DisplaysEdit = () => {
   }, [isReady])
 
   /**
-   * Initialize display once loaded
+   * Initialize form once loaded
    */
   useEffect(() => {
     if (!display)
       return
+    setLastSavedDisplay(display)
     if (display.template?.body)
       setTemplateBodyDraft(display.template.body)
     if (display.template?.image?.position)
@@ -142,23 +144,21 @@ const DisplaysEdit = () => {
 
     // Prepare doc field updates
     const doc = {
-      index_pattern: display.index_pattern,
+      index_pattern: lastSavedDisplay.index_pattern,
       template: {
-        body: templateBodyDraft
+        body: templateBodyDraft,
+        image: {
+          position: templateImagePosition,
+          url: templateImageUrl,
+        }
       }
     }
-    if (templateImagePosition || templateImageUrl)
-      doc.template.image = {}
-    if (templateImagePosition)
-      doc.template.image.position = templateImagePosition
-    if (templateImageUrl)
-      doc.template.image.url = templateImageUrl
 
     // Update doc
     let response
     try {
       setIsProcessing(true)
-      response = await api.displays_update(project._id, display?._id, doc)
+      response = await api.displays_update(project._id, display._id, doc)
     } catch (e) {
       return addToast(api.errorToast(e, { title: `Failed to update display` }))
     } finally {
@@ -166,10 +166,10 @@ const DisplaysEdit = () => {
     }
     if (response.status > 299)
       return addToast(utils.toastClientResponse(response))
-    addToast(utils.toastDocCreateUpdateDelete('update', 'display', displayId))
+    addToast(utils.toastDocCreateUpdateDelete('update', 'display', display._id))
 
     // Update doc in editor
-    setDisplay(prev => ({
+    setLastSavedDisplay(prev => ({
       ...prev,
       ...doc,
       template: {
@@ -226,13 +226,22 @@ const DisplaysEdit = () => {
    * Check if the draft template differs from the saved template.
    */
   const doesDraftDiffer = () => {
-    if (display?.template?.image?.position != templateImagePosition)
+    if (lastSavedDisplay?.template?.image?.position != templateImagePosition)
       return true
-    if (display?.template?.image?.url != templateImageUrl)
+    if (lastSavedDisplay?.template?.image?.url != templateImageUrl)
       return true
-    if (display?.template?.body != templateBodyDraft)
+    if (lastSavedDisplay?.template?.body != templateBodyDraft)
       return true
     return false
+  }
+
+  /**
+   * Reset the form to the last saved display.
+   */
+  const resetForm = () => {
+    setTemplateBodyDraft(lastSavedDisplay.template.body)
+    setTemplateImagePosition(lastSavedDisplay.template.image.position)
+    setTemplateImageUrl(lastSavedDisplay.template.image.url)
   }
 
 
@@ -307,7 +316,7 @@ const DisplaysEdit = () => {
                     <EuiButton
                       color='text'
                       disabled={isProcessing || !doesDraftDiffer()}
-                      onClick={() => { setTemplateBodyDraft(display.template.body) }}
+                      onClick={resetForm}
                     >
                       Reset
                     </EuiButton>

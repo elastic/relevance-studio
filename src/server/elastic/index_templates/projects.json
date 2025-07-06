@@ -9,6 +9,22 @@
     "mappings": {
       "dynamic": "strict",
       "properties": {
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            }
+          }
+        },
         "name": {
           "type": "keyword"
         },

@@ -4,10 +4,9 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import ScenarioModel
+from ..models import ScenarioModel, MetaModel
 
 INDEX_NAME = "esrs-scenarios"
-SEARCH_FIELDS = utils.get_search_fields_from_mapping("scenarios")
 
 def search(
         project_id: str,
@@ -52,37 +51,53 @@ def create(doc: ScenarioModel) -> Dict[str, Any]:
     Use a deterministic _id for UX efficiency, and to prevent the creation of
     duplicate scenarios for the same values.
     """
-    # Always use the latest timestamp
-    doc = doc.model_copy(update={"timestamp_": utils.timestamp()})
+
+    # Add @meta.created_* fields
+    doc = MetaModel.apply_meta_create(doc)
+    
+    # Create, validate, and dump model
+    doc = (
+        ScenarioModel
+        .model_validate(doc)
+        .model_dump(by_alias=True, exclude_unset=True)
+    )
+
     # Copy searchable fields to _search
-    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
-    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
-    doc_dict = utils.remove_empty_values(doc_dict)
+    doc = utils.copy_fields_to_search("scenarios", doc)
+    
+    # Submit
     es_response = es("studio").index(
         index=INDEX_NAME,
-        id=utils.unique_id([ doc.project_id, doc.values ]),
-        document=doc_dict,
+        id=utils.unique_id([ doc["project_id"], doc["values"] ]),
+        document=doc,
         refresh=True,
     )
     return es_response
 
-def update(_id: str, doc: ScenarioModel) -> Dict[str, Any]:
+def update(_id: str, doc_partial: ScenarioModel) -> Dict[str, Any]:
     """
     Update a scenario in Elasticsearch.
     """
-    # Always use the latest timestamp
-    doc = doc.model_copy(update={"timestamp_": utils.timestamp()})
+    
+    # Add @meta.updated_* fields
+    doc_partial = MetaModel.apply_meta_update(doc_partial)
+    
+    # Create, validate, and dump model
+    doc_partial = (
+        ScenarioModel
+        .model_validate(doc_partial, context={"is_partial": True})
+        .model_dump(by_alias=True, exclude_unset=True)
+    )
+    
     # Copy searchable fields to _search
-    doc_dict = doc.model_dump(by_alias=True)
-    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
-    # Don't update immutable values
-    doc_dict.pop("params", None)
-    doc_dict.pop("values", None)
+    doc_partial = utils.copy_fields_to_search("scenarios", doc_partial)
+    
+    # Submit
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
-        doc=doc_dict,
-        refresh=True,
+        doc=doc_partial,
+        refresh=True
     )
     return es_response
 

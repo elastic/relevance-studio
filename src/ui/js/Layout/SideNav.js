@@ -39,7 +39,7 @@ const SideNav = () => {
       {
         name: (<>{project.name}</>),
         id: 'project',
-        /*href: `#/projects/${project._id}`,*/
+        href: `#/projects/${project._id}`,
         forceOpen: true,
         items: [
           {

@@ -62,6 +62,81 @@ export const ResourceProvider = ({ children }) => {
     })
   }, [])
 
+  // Method to update a specific resource
+  const setResource = useCallback((resourceType, resourceData) => {
+    setState(prevState => ({
+      ...prevState,
+      resources: {
+        ...prevState.resources,
+        [resourceType]: resourceData
+      }
+    }))
+  }, [])
+
+  // Method to update a specific resource in a collection (for arrays like displays)
+  const updateResourceInCollection = useCallback((resourceType, resourceId, updatedData) => {
+    setState(prevState => {
+      const currentCollection = prevState.resources[resourceType]
+      if (!Array.isArray(currentCollection)) {
+        console.warn(`Resource ${resourceType} is not a collection`)
+        return prevState
+      }
+
+      const updatedCollection = currentCollection.map(item => 
+        item._id === resourceId ? { ...item, ...updatedData } : item
+      )
+
+      return {
+        ...prevState,
+        resources: {
+          ...prevState.resources,
+          [resourceType]: updatedCollection
+        }
+      }
+    })
+  }, [])
+
+  // Method to add a resource to a collection
+  const addResourceToCollection = useCallback((resourceType, resourceData) => {
+    setState(prevState => {
+      const currentCollection = prevState.resources[resourceType]
+      if (!Array.isArray(currentCollection)) {
+        console.warn(`Resource ${resourceType} is not a collection`)
+        return prevState
+      }
+
+      return {
+        ...prevState,
+        resources: {
+          ...prevState.resources,
+          [resourceType]: [...currentCollection, resourceData]
+        }
+      }
+    })
+  }, [])
+
+  // Method to remove a resource from a collection
+  const removeResourceFromCollection = useCallback((resourceType, resourceId) => {
+    setState(prevState => {
+      const currentCollection = prevState.resources[resourceType]
+      if (!Array.isArray(currentCollection)) {
+        console.warn(`Resource ${resourceType} is not a collection`)
+        return prevState
+      }
+
+      const filteredCollection = currentCollection.filter(item => item._id !== resourceId)
+
+      return {
+        ...prevState,
+        resources: {
+          ...prevState.resources,
+          [resourceType]: filteredCollection
+        }
+      }
+    })
+  }, [])
+
+  // Load resources when params change
   useEffect(() => {
     const loadResources = async () => {
       console.debug('🚀 Params changed:', params)
@@ -179,6 +254,10 @@ export const ResourceProvider = ({ children }) => {
   const value = {
     ...state,
     requestAdditionalResources,
+    setResource,
+    updateResourceInCollection,
+    addResourceToCollection,
+    removeResourceFromCollection,
 
     // Dynamic accessors
     isLoading: (type) => state.loading[type] || false,

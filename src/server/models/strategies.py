@@ -1,11 +1,14 @@
 # Standard packages
+from __future__ import annotations
+import json
 import re
 from typing import Any, Dict, List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ValidationInfo
 
 # App packages
+from . import MetaModel
 from .. import utils
 
 RE_ISO_8601_TIMESTAMP = re.compile(
@@ -13,19 +16,43 @@ RE_ISO_8601_TIMESTAMP = re.compile(
 )
 
 class StrategyModel(BaseModel):
-    timestamp_: Optional[str] = Field(alias='@timestamp', default=None)
-    project_id: str
-    name: str
-    params: Optional[List[str]] = Field(default=None)
-    tags: Optional[List[str]] = Field(default=None)
-    template: Optional[Dict[str, Any]] = Field(default=None)
+    meta: MetaModel = Field(alias='@meta', default=None)
+    project_id: Optional[str] = None
+    name: Optional[str] = None
+    params: Optional[List[str]] = Field(default_factory=list)
+    tags: Optional[List[str]] = Field(default_factory=list)
+    template: Optional[Dict[str, Any]] = Field(default=dict)
+    
+    @model_validator(mode="after")
+    def validate_params(self, info: ValidationInfo) -> StrategyModel:
+        """
+        Check for required fields differently in creates and updates.
+        """
+        context = info.context or {}
+        is_partial = context.get("is_partial", False)
+        if not is_partial:
+            if not self.project_id:
+                raise ValueError("project_id is required")
+            if not all(isinstance(p, str) and p.strip() for p in self.params):
+                raise ValueError("params must have non-empty strings")
+            if not all(isinstance(t, str) and t.strip() for t in self.tags):
+                raise ValueError("tags must have non-empty strings")
+        return self
     
     @model_validator(mode='before')
     @classmethod
     def validate_params_template_consistency(cls, data):
-        """Validate that params and template are consistent"""
+        """
+        Ensure template.source is serialized as a JSON sttring.
+        Ensure that params and template are consistent.
+        """
         if isinstance(data, dict):
-            # If template key exists and is None, but params is provided, that's invalid
+            # Serialize template.source if it's a dict
+            template = data.get("template")
+            if isinstance(template, dict) and isinstance(template.get("source"), dict):
+                template["source"] = json.dumps(template["source"])
+            
+            # Reject case where template is explicitly None and params is given
             if 'template' in data and data['template'] is None and data.get('params') is not None:
                 raise ValueError("Cannot specify `params` when `template` is explicitly None")
         return data
@@ -39,31 +66,9 @@ class StrategyModel(BaseModel):
             return
         template_source = self.template.get("source")
         if not template_source:
-            return    
+            return
         expected = utils.extract_params(template_source)
-        if self.params is None:
+        if self.params == []:
             self.params = expected
         elif self.params != expected:
             raise ValueError(f"`params` must match mustache variables in `template`. Expected {expected}, got {self.params}")
-    
-    @model_validator(mode="before")
-    @classmethod
-    def validate_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if "@timestamp" in data and data["@timestamp"] is None:
-            raise ValueError("@timestamp must not be None")
-        if "@timestamp" in data and not isinstance(data["@timestamp"], str):
-            raise ValueError("@timestamp must be a string if present")
-        return data
-
-    @model_validator(mode="before")
-    @classmethod
-    def validate_fields_not_bool_and_timestamp(cls, data):
-        if isinstance(data.get("rating"), bool):
-            raise ValueError("rating must not be a boolean")
-        if "@timestamp" in data:
-            ts = data["@timestamp"]
-            if not isinstance(ts, str):
-                raise ValueError("@timestamp must be a string")
-            if not RE_ISO_8601_TIMESTAMP.match(ts):
-                raise ValueError("@timestamp must match ISO 8601 format: YYYY-MM-DDTHH:MM:SS(.ffffff)?Z")
-        return data

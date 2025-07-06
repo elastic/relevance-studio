@@ -9,6 +9,22 @@
     "mappings": {
       "dynamic": "strict",
       "properties": {
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            }
+          }
+        },
         "project_id": {
           "type": "keyword"
         },
@@ -58,6 +74,40 @@
                 },
                 "sample_seed": {
                   "type": "keyword"
+                }
+              }
+            }
+          }
+        },
+        "_search": {
+          "properties": {
+            "name": {
+              "type": "text"
+            },
+            "description": {
+              "type": "text"
+            },
+            "tags": {
+              "type": "text"
+            },
+            "task": {
+              "properties": {
+                "metrics": {
+                  "type": "text"
+                },
+                "strategies": {
+                  "properties": {
+                    "tags": {
+                      "type": "text"
+                    }
+                  }
+                },
+                "scenarios": {
+                  "properties": {
+                    "tags": {
+                      "type": "text"
+                    }
+                  }
                 }
               }
             }

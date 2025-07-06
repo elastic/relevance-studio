@@ -88,7 +88,7 @@ def validate_project_id_match(body, project_id_from_url):
     When updating documents, if a project_id is given in the request body,
     it must match the project_id from the URL.
     """
-    if body.get("project_id") and body["project_id"] != project_id_from_url:
+    if "project_id" in body and body["project_id"] != project_id_from_url:
         raise BadRequest("The project_id in the URL must match project_id in request body if given.")
 
 def validate_id_match(body, _id_from_url):
@@ -117,15 +117,15 @@ def projects_get(_id):
 
 @api_route("/api/projects", methods=["POST"])
 def projects_create():
-    body = request.get_json()
-    _id = body.pop("_id", None) # accept an optional _id if given
-    return api.projects.create(ProjectModel(**body), _id)
+    doc = request.get_json()
+    _id = doc.pop("_id", None) # accept an optional _id if given
+    return api.projects.create(doc, _id)
 
 @api_route("/api/projects/<string:_id>", methods=["PUT"])
 def projects_update(_id):
-    body = request.get_json()
-    validate_id_match(body, _id)
-    return api.projects.update(_id, ProjectModel(**body))
+    doc_partial = request.get_json()
+    validate_id_match(doc_partial, _id)
+    return api.projects.update(_id, doc_partial)
 
 @api_route("/api/projects/<string:_id>", methods=["DELETE"])
 def projects_delete(_id):
@@ -145,19 +145,19 @@ def displays_get(project_id, _id):
 
 @api_route("/api/projects/<string:project_id>/displays", methods=["POST"])
 def displays_create(project_id):
-    body = request.get_json()
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
-    _id = body.pop("_id", None) # accept an optional _id if given
-    return api.displays.create(DisplayModel(**body), _id)
+    doc = request.get_json()
+    validate_project_id_match(doc, project_id)
+    doc["project_id"] = project_id # ensure project_id from path is in doc
+    _id = doc.pop("_id", None) # accept an optional _id if given
+    return api.displays.create(doc, _id)
 
 @api_route("/api/projects/<string:project_id>/displays/<string:_id>", methods=["PUT"])
 def displays_update(project_id, _id):
-    body = request.get_json()
-    validate_id_match(body, _id)
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
-    return api.displays.update(_id, DisplayModel(**body))
+    doc_partial = request.get_json()
+    validate_id_match(doc_partial, _id)
+    validate_project_id_match(doc_partial, project_id)
+    doc_partial["project_id"] = project_id # ensure project_id from path is in doc_partial
+    return api.displays.update(_id, doc_partial)
 
 @api_route("/api/projects/<string:project_id>/displays/<string:_id>", methods=["DELETE"])
 def displays_delete(project_id, _id):
@@ -181,19 +181,18 @@ def scenarios_get(project_id, _id):
 
 @api_route("/api/projects/<string:project_id>/scenarios", methods=["POST"])
 def scenarios_create(project_id):
-    body = request.get_json()
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
-    body.pop("_id", None) # _id is always generated from body
-    return api.scenarios.create(ScenarioModel(**body))
+    doc = request.get_json()
+    validate_project_id_match(doc, project_id)
+    doc["project_id"] = project_id # ensure project_id from path is in doc
+    return api.scenarios.create(doc)
 
 @api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["PUT"])
 def scenarios_update(project_id, _id):
-    body = request.get_json()
-    validate_id_match(body, _id)
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
-    return api.scenarios.update(_id, ScenarioModel(**body))
+    doc_partial = request.get_json()
+    validate_id_match(doc_partial, _id)
+    validate_project_id_match(doc_partial, project_id)
+    doc_partial["project_id"] = project_id # ensure project_id from path is in doc_partial
+    return api.scenarios.update(_id, doc_partial)
 
 @api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["DELETE"])
 def scenarios_delete(project_id, _id):
@@ -210,11 +209,11 @@ def judgements_search(project_id):
 
 @api_route("/api/projects/<string:project_id>/judgements", methods=["PUT"])
 def judgements_set(project_id):
-    body = request.get_json()
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
-    body.pop("_id", None) # _id is always generated from body
-    return api.judgements.set(JudgementModel(**body))
+    doc = request.get_json()
+    validate_project_id_match(doc, project_id)
+    doc["project_id"] = project_id # ensure project_id from path is in doc
+    doc.pop("_id", None) # _id is always generated from body
+    return api.judgements.set(doc)
 
 @api_route("/api/projects/<string:project_id>/judgements/<string:_id>", methods=["DELETE"])
 def judgements_unset(project_id, _id):
@@ -238,19 +237,19 @@ def strategies_get(project_id, _id):
 
 @api_route("/api/projects/<string:project_id>/strategies", methods=["POST"])
 def strategies_create(project_id):
-    body = request.get_json()
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
-    _id = body.pop("_id", None) # accept an optional _id if given
-    return api.strategies.create(StrategyModel(**body), _id)
+    doc = request.get_json()
+    validate_project_id_match(doc, project_id)
+    doc["project_id"] = project_id # ensure project_id from path is in doc
+    _id = doc.pop("_id", None) # accept an optional _id if given
+    return api.strategies.create(doc, _id)
 
 @api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["PUT"])
 def strategies_update(project_id, _id):
-    body = request.get_json()
-    validate_id_match(body, _id)
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
-    return api.strategies.update(_id, StrategyModel(**body))
+    doc_partial = request.get_json()
+    validate_id_match(doc_partial, _id)
+    validate_project_id_match(doc_partial, project_id)
+    doc_partial["project_id"] = project_id # ensure project_id from path is in doc
+    return api.strategies.update(_id, doc_partial)
 
 @api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["DELETE"])
 def strategies_delete(project_id, _id):
@@ -279,19 +278,19 @@ def benchmarks_get(project_id, _id):
 
 @api_route("/api/projects/<string:project_id>/benchmarks", methods=["POST"])
 def benchmarks_create(project_id):
-    body = request.get_json()
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
-    _id = body.pop("_id", None) # accept an optional _id if given
-    return api.benchmarks.create(BenchmarkModel(**body), _id)
+    doc = request.get_json()
+    validate_project_id_match(doc, project_id)
+    doc["project_id"] = project_id # ensure project_id from path is in doc
+    _id = doc.pop("_id", None) # accept an optional _id if given
+    return api.benchmarks.create(doc, _id)
 
 @api_route("/api/projects/<string:project_id>/benchmarks/<string:_id>", methods=["PUT"])
 def benchmarks_update(project_id, _id):
-    body = request.get_json()
-    validate_id_match(body, _id)
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
-    return api.benchmarks.update(_id, BenchmarkModel(**body))
+    doc_partial = request.get_json()
+    validate_id_match(doc_partial, _id)
+    validate_project_id_match(doc_partial, project_id)
+    doc_partial["project_id"] = project_id # ensure project_id from path is in doc_partial
+    return api.benchmarks.update(_id, doc_partial)
 
 @api_route("/api/projects/<string:project_id>/benchmarks/<string:_id>", methods=["DELETE"])
 def benchmarks_delete(project_id, _id):

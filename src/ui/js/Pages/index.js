@@ -7,6 +7,7 @@ import { Home } from './Home'
 import { Judgements } from './Judgements'
 import { NotFound } from './NotFound'
 import { Projects } from './Projects'
+import { ProjectsView } from './ProjectsView'
 import { Scenarios } from './Scenarios'
 import { Strategies } from './Strategies'
 import { StrategiesEdit } from './StrategiesEdit'
@@ -22,6 +23,7 @@ Pages.Home = Home
 Pages.Judgements = Judgements
 Pages.NotFound = NotFound
 Pages.Projects = Projects
+Pages.ProjectsView = ProjectsView
 Pages.Scenarios = Scenarios
 Pages.Strategies = Strategies
 Pages.StrategiesEdit = StrategiesEdit

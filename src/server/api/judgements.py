@@ -4,7 +4,7 @@ from typing import Any, Dict
 # App packages
 from .. import utils
 from ..client import es
-from ..models import JudgementModel
+from ..models import JudgementModel, MetaModel
 
 INDEX_NAME = "esrs-judgements"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("judgements")
@@ -153,21 +153,58 @@ def set(doc: JudgementModel) -> Dict[str, Any]:
     Use a deterministic _id for UX efficiency, and to prevent the creation of
     duplicate judgements for the same scenario, index, and doc.
     """
-    # Always use the latest timestamp
-    doc = doc.model_copy(update={"timestamp_": utils.timestamp()})
+
+    # Add @meta.created_* fields
+    doc = MetaModel.apply_meta_create(doc)
+    
+    # Create, validate, and dump model
+    doc = (
+        JudgementModel
+        .model_validate(doc)
+        .model_dump(by_alias=True, exclude_unset=True)
+    )
+
     # Copy searchable fields to _search
-    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
-    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
-    doc_dict = utils.remove_empty_values(doc_dict)
-    es_response = es("studio").index(
+    doc = utils.copy_fields_to_search("judgements", doc)
+    
+    # Submit
+    script = {
+        "scripted_upsert": True,
+        "script": {
+            "source": """
+                if (ctx.op == 'create') {
+                    ctx._source.rating = params.rating;
+                    ctx._source['@meta'] = [
+                        'created_at': params.now,
+                        'created_by': params.username,
+                        'updated_at': null,
+                        'updated_by': null
+                    ];
+                } else {
+                    ctx._source.rating = params.rating;
+                    ctx._source['@meta'].updated_at = params.now;
+                    ctx._source['@meta'].updated_by = params.username;
+                }
+            """,
+            "lang": "painless",
+            "params": {
+                "rating": doc["rating"],
+                "now": doc["@meta"]["created_at"],
+                "username": doc["@meta"]["created_by"]
+            }
+        },
+        "upsert": doc
+    }
+
+    es_response = es("studio").update(
         index=INDEX_NAME,
         id=utils.unique_id([
-            doc.project_id,
-            doc.scenario_id,
-            doc.index,
-            doc.doc_id
+            doc["project_id"],
+            doc["scenario_id"],
+            doc["index"],
+            doc["doc_id"],
         ]),
-        document=doc_dict,
+        body=script,
         refresh=True
     )
     return es_response

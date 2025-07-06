@@ -9,8 +9,21 @@
     "mappings": {
       "dynamic": "strict",
       "properties": {
-        "@timestamp": {
-          "type": "keyword"
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            }
+          }
         },
         "project_id": {
           "type": "keyword"
@@ -25,8 +38,15 @@
           "type": "keyword"
         },
         "template": {
-          "type": "object",
-          "enabled": false
+          "properties": {
+            "lang": {
+              "type": "keyword"
+            },
+            "source": {
+              "type": "text",
+              "index": false
+            }
+          }
         },
         "_search": {
           "properties": {
@@ -40,7 +60,11 @@
               "type": "text"
             },
             "template": {
-              "type": "text"
+              "properties": {
+                "source": {
+                  "type": "text"
+                }
+              }
             }
           }
         }

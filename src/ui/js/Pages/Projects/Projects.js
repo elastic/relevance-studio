@@ -119,7 +119,13 @@ const Projects = () => {
       name: 'Name',
       sortable: true,
       truncateText: true,
-      render: (name, doc) => (<>{doc.name}</>),
+      render: (name, doc) => (
+        <EuiLink href={`#/projects/${doc._id}`}>
+          <EuiButton fill iconSize='s' iconType='folderOpen' size='s'>
+            <small>{doc.name}</small>
+          </EuiButton>
+        </EuiLink>
+      ),
     },
     {
       field: 'scenarios',
@@ -290,8 +296,8 @@ const Projects = () => {
   }
 
   return (
-    <Page 
-      title='Projects' 
+    <Page
+      title='Projects'
       buttons={[
         renderModeIndicator(),
         renderButtonCreate()

@@ -1,3 +1,5 @@
+
+from .meta import MetaModel
 from .projects import ProjectModel
 from .displays import DisplayModel
 from .scenarios import ScenarioModel

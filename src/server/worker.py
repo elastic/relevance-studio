@@ -1,7 +1,10 @@
 # Standard packages
 import logging
+import os
 import random
 import time
+from socket import gethostname
+from uuid import uuid4
 
 # Third-party packages
 from dotenv import load_dotenv
@@ -18,11 +21,12 @@ from .client import es
 # Parse environment variables
 load_dotenv()
 
-CLEANUP_INTERVAL = 60
-CLEANUP_TIME_RANGE = "2h"
-EVALUATIONS_INTERVAL = 5
+WORKER_CLEANUP_INTERVAL = os.getenv("WORKER_CLEANUP_INTERVAL") or 60
+WORKER_CLEANUP_TIME_RANGE = os.getenv("WORKER_CLEANUP_TIME_RANGE") or "2h"
+WORKER_POLLING_INTERVAL = os.getenv("WORKER_POLLING_INTERVAL") or 5
+WORKER_ID = f"{gethostname()}-{uuid4().hex[:8]}"
 
-logger = logging.getLogger('esrs.worker')
+logger = logging.getLogger("esrs.worker")
 formatter = logging.Formatter(
     "%(asctime)s.%(msecs)03d [%(process)-6d] %(levelname)-8s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
@@ -36,10 +40,10 @@ def run_evaluation(evaluation):
     """
     Execute api.evaluations.run()
     """
-    _id = evaluation['_id']
+    _id = evaluation["_id"]
     logger.info(f"Running evaluation: {_id}")
     try:
-        api.evaluations.run(evaluation, store_results=True)
+        api.evaluations.run(evaluation, store_results=True, started_by=WORKER_ID)
     finally:
         logger.info(f"Finished evaluation: {_id}")
 
@@ -83,12 +87,14 @@ def claim_next_evaluation():
                 if (ctx._source['@meta']?.status == 'pending' || ctx._source['@meta']?.status == 'pending') {
                     ctx._source['@meta'].status = 'running';
                     ctx._source['@meta'].started_at = params.now;
+                    ctx._source['@meta'].started_by = params.started_by;
                 } else {
                     ctx.op = 'none';
                 }
             """,
             "params": {
-                "now": utils.timestamp()
+                "now": utils.timestamp(),
+                "started_by": WORKER_ID
             }
         }
     }
@@ -111,10 +117,10 @@ def claim_next_evaluation():
 ####  Main  ####################################################################
 
 def run_loop():
-    logger.info("Running worker...")
+    logger.info(f"Running worker: {WORKER_ID}")
     
     # Jitter delay to prevent many workers from polling at the same time
-    time.sleep(random.uniform(0, EVALUATIONS_INTERVAL))
+    time.sleep(random.uniform(0, WORKER_POLLING_INTERVAL))
     
     # Track when the worker last cleaned up stale evaluations
     time_last_cleanup = None
@@ -127,13 +133,13 @@ def run_loop():
         if evaluation:
             run_evaluation(evaluation)
         else:
-            time.sleep(EVALUATIONS_INTERVAL)
+            time.sleep(WORKER_POLLING_INTERVAL)
             
         # Periodically clean up stale evaluations
-        if not time_last_cleanup or time.time() - time_last_cleanup > CLEANUP_INTERVAL:
+        if not time_last_cleanup or time.time() - time_last_cleanup > WORKER_CLEANUP_INTERVAL:
             try:
                 logger.info("Cleaning up any stale evaluations...")
-                api.evaluations.cleanup(CLEANUP_TIME_RANGE)
+                api.evaluations.cleanup(WORKER_CLEANUP_TIME_RANGE)
                 time_last_cleanup = time.time()
             except NotFoundError as e:
                 logger.debug(f"{e.meta.status} {e.body['error']['reason']}")

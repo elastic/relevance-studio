@@ -3,26 +3,40 @@ from __future__ import annotations
 from typing import Any, List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ValidationInfo
 
 # App packages
+from . import MetaModel
 from .. import utils
 
 class DisplayModel(BaseModel):
-    project_id: str
-    index_pattern: str
+    meta: MetaModel = Field(alias='@meta', default=None)
+    project_id: Optional[str] = None
+    index_pattern: Optional[str] = None
     fields: Optional[List[str]] = Field(default_factory=list)
-    template: Optional[Any] = Field(default=None)
+    template: Optional[Any] = Field(default_factory=dict)
+    
+    @model_validator(mode="after")
+    def validate_params(self, info: ValidationInfo) -> DisplayModel:
+        """
+        Check for required fields differently in creates and updates.
+        """
+        context = info.context or {}
+        is_partial = context.get("is_partial", False)
+        if not is_partial:
+            if not self.project_id:
+                raise ValueError("project_id is required")
+            if not self.index_pattern:
+                raise ValueError("index_pattern is required")
+            if not all(isinstance(f, str) and f.strip() for f in self.fields):
+                raise ValueError("fields must have non-empty strings")
+        return self
     
     def model_post_init(self, __context):
         """
         Extract params from the template body if params was not given.
         Exclude params that don't exist in mappings, such as _id.
         """
-        if self.fields:
-            return
-        if not self.template:
-            return
         self.fields = []
         template_body = self.template.get("body")
         if template_body:

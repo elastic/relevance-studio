@@ -1,13 +1,13 @@
 # Standard packages
+from copy import deepcopy
 from typing import Any, Dict, List
 
 # App packages
 from .. import utils
 from ..client import es
-from ..models import *
+from ..models import ProjectModel, MetaModel
 
 INDEX_NAME = "esrs-projects"
-SEARCH_FIELDS = utils.get_search_fields_from_mapping("projects")
 
 def search(
         text: str = "",
@@ -44,34 +44,56 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: ProjectModel, _id: str = None) -> Dict[str, Any]:
+def create(doc: dict, _id: str = None) -> Dict[str, Any]:
     """
     Create a project in Elasticsearch. Allow a predetermined _id.
     """
+
+    # Add @meta.created_* fields
+    doc = MetaModel.apply_meta_create(doc)
+    
+    # Create, validate, and dump model
+    doc = (
+        ProjectModel
+        .model_validate(doc)
+        .model_dump(by_alias=True, exclude_unset=True)
+    )
+
     # Copy searchable fields to _search
-    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
-    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
-    doc_dict = utils.remove_empty_values(doc_dict)
+    doc = utils.copy_fields_to_search("projects", doc)
+    
+    # Submit 
     es_response = es("studio").index(
         index=INDEX_NAME,
         id=_id or utils.unique_id(),
-        document=doc_dict,
-        refresh=True
+        document=doc,
+        refresh=True,
     )
     return es_response
 
-def update(_id: str, doc: ProjectModel) -> Dict[str, Any]:
+def update(_id: str, doc_partial: dict) -> Dict[str, Any]:
     """
     Update a project in Elasticsearch.
     """
+    
+    # Add @meta.updated_* fields
+    doc_partial = MetaModel.apply_meta_update(doc_partial)
+    
+    # Create, validate, and dump model
+    doc_partial = (
+        ProjectModel
+        .model_validate(doc_partial, context={"is_partial": True})
+        .model_dump(by_alias=True, exclude_unset=True)
+    )
+    
     # Copy searchable fields to _search
-    doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
-    doc_dict = utils.copy_fields_to_search(doc_dict, SEARCH_FIELDS)
-    doc_dict = utils.remove_empty_values(doc_dict)
+    doc_partial = utils.copy_fields_to_search("projects", doc_partial)
+    
+    # Submit
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
-        doc=doc_dict,
+        doc=doc_partial,
         refresh=True
     )
     return es_response
