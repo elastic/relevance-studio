@@ -462,17 +462,30 @@ const StrategiesEdit = () => {
           flex: 1,
           minHeight: 0,
           overflow: 'visible',
+          position: 'relative',
         }}>
+        {isLoadingResults &&
+          <EuiProgress
+            color='accent'
+            size='s'
+            style={{
+              borderTopLeftRadius: '4px',
+              borderTopRightRadius: '4px',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0
+            }}
+          />
+        }
         <EuiPanel
           color='subdued'
           paddingSize='m'
           style={{
             opacity: isLoadingResults ? 0.5 : 1.0,
             overflow: 'scroll',
-            position: 'relative'
           }}
         >
-          {isLoadingResults && <EuiProgress color='accent' size='s' style={{ position: 'absolute', top: 0, left: 0, right: 0 }} />}
           {errorContent ? renderError() : renderResults()}
         </EuiPanel>
       </EuiPanel>
