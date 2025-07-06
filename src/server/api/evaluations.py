@@ -299,7 +299,9 @@ def run(
                     "_source": hit["_source"]
                 })
         for hit in hits:
-            template = json.loads(hit["_source"]["template"]["source"])
+            template = hit["_source"]["template"]["source"]
+            if isinstance(template, str):
+                template = json.loads(template)
             _rank_eval["templates"].append({
                 "id": hit["_id"],
                 "template": {

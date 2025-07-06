@@ -131,7 +131,10 @@ def run_loop():
         # Attempt to claim and run a pending evaluation
         evaluation = claim_next_evaluation()
         if evaluation:
-            run_evaluation(evaluation)
+            try:
+                run_evaluation(evaluation)
+            except Exception as e:
+                logger.exception(e)
         else:
             time.sleep(WORKER_POLLING_INTERVAL)
             
