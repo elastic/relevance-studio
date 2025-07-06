@@ -20,7 +20,7 @@ import {
 } from '@elastic/eui'
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
-import { usePageResources } from '../../Contexts/ResourceContext'
+import { usePageResources, useResources, useAdditionalResources } from '../../Contexts/ResourceContext'
 import {
   Page,
   SearchCount,
@@ -31,12 +31,13 @@ import api from '../../api'
 
 const Judgements = () => {
 
-  const location = useLocation()
-
   ////  Context  ///////////////////////////////////////////////////////////////
 
+  const location = useLocation()
   const { addToast, darkMode } = useAppContext()
-  const { project } = usePageResources()
+  const { project, displays } = usePageResources()  
+  useAdditionalResources(['displays'])
+  const isReady = useResources().hasResources(['project', 'displays'])
 
   ////  Defaults  //////////////////////////////////////////////////////////////
 
@@ -55,12 +56,10 @@ const Judgements = () => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [displays, setDisplays] = useState({})
   const [filterSelected, setFilterSelected] = useState({ label: 'All docs', value: 'all', checked: 'on' })
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filtersOptions, setFiltersOptions] = useState(defaultFilterOptions.map(o => ({ ...o })))
-  const [indexPatternRegexes, setIndexPatternRegexes] = useState({})
-  const [isLoadingDisplays, setIsLoadingDisplays] = useState(false)
+  const [indexPatternMap, setIndexPatternMap] = useState({})
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
   const [isScenariosOpen, setIsScenariosOpen] = useState(false)
@@ -77,43 +76,25 @@ const Judgements = () => {
   const [sourceFilters, setSourceFilters] = useState([])
 
   /**
-   * Get displays for project
+   * Get index patterns and source filters from displays
    */
   useEffect(() => {
-    if (!project?._id)
+    if (!displays)
       return
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setIsLoadingDisplays(true)
-        response = await api.displays_search(project._id, { text: '*' })
-      } catch (e) {
-        return addToast(api.errorToast(e, { title: 'Failed to get displays' }))
-      } finally {
-        setIsLoadingDisplays(false)
+    const _indexPatternMap = {}
+    const _sourceFilters = {}
+    displays.forEach((display) => {
+      _indexPatternMap[display.index_pattern] = {
+        display: display,
+        regex: new RegExp(`^${display.index_pattern.replace(/\*/g, '.*')}$`)
       }
-
-      // Handle API response
-      const _displays = {}
-      const _fields = {}
-      const _indexPatternsRegexes = {}
-      response.data.hits.hits?.forEach((doc) => {
-        _displays[doc._source.index_pattern] = doc._source
-        doc._source.fields?.forEach((field) => {
-          _fields[field] = true
-        })
+      display.fields?.forEach((field) => {
+        _sourceFilters[field] = true
       })
-      for (var index_pattern in _displays) {
-        const re = new RegExp(`^${index_pattern.replace(/\*/g, '.*')}$`)
-        _indexPatternsRegexes[index_pattern] = re
-      }
-      setDisplays(_displays)
-      setIndexPatternRegexes(_indexPatternsRegexes)
-      setSourceFilters(Object.keys(_fields))
-    })()
-  }, [project])
+    })
+    setIndexPatternMap(_indexPatternMap)
+    setSourceFilters(Object.keys(_sourceFilters))
+  }, [displays])
 
   // Fetch scenarios immediately when opening the dropdown
   useEffect(() => {
@@ -339,7 +320,7 @@ const Judgements = () => {
   const renderResults = () => (
     <SearchResultsJudgements
       displays={displays}
-      indexPatternRegexes={indexPatternRegexes}
+      indexPatternMap={indexPatternMap}
       project={project}
       scenario={scenario}
       results={results}

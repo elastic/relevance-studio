@@ -24,12 +24,10 @@ import TableMetrics from './TableMetrics'
 
 const EvaluationsView = () => {
 
-  // Get all resources automatically based on URL params
-  const { project, benchmark, evaluation } = usePageResources()
-  
-  // Get loading state for evaluation specifically
-  const { isLoading } = useResources()
-  const isLoadingEvaluation = isLoading('evaluation')
+  ////  Context  ///////////////////////////////////////////////////////////////
+
+  const { benchmark, evaluation } = usePageResources()
+  const isReady = useResources().hasResources(['project', 'benchmark', 'evaluation'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -275,12 +273,12 @@ const EvaluationsView = () => {
 
   return (
     <Page panelled={true} title={
-      <EuiSkeletonTitle isLoading={isLoadingEvaluation} size='l'>
-        {!evaluation?.results &&
+      <EuiSkeletonTitle isLoading={!isReady} size='l'>
+        {!benchmark?.name &&
           <>Not found</>
         }
-        {!!evaluation?.results &&
-          <>{evaluation._id}</>
+        {!!benchmark?.name &&
+          <>{benchmark.name}</>
         }
       </EuiSkeletonTitle>
     }
@@ -302,7 +300,7 @@ const EvaluationsView = () => {
         </EuiPanel>
         <EuiHorizontalRule margin='none' />
         <EuiPanel color='transparent'>
-          <EuiSkeletonText lines={16} isLoading={isLoadingEvaluation}>
+          <EuiSkeletonText lines={16} isLoading={!isReady}>
             {evaluation?.results &&
               <EuiFlexGroup>
 
@@ -335,7 +333,7 @@ const EvaluationsView = () => {
         </EuiPanel>
         <EuiHorizontalRule margin='none' />
         <EuiPanel color='transparent'>
-          <EuiSkeletonText lines={16} isLoading={isLoadingEvaluation}>
+          <EuiSkeletonText lines={16} isLoading={!isReady}>
             {evaluation?.results &&
               <>
                 {renderHeatmapControls()}

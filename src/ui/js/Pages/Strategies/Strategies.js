@@ -17,7 +17,7 @@ import {
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
-import { usePageResources } from '../../Contexts/ResourceContext'
+import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
 import { getHistory } from '../../history'
@@ -26,12 +26,12 @@ import utils from '../../utils'
 
 const Strategies = () => {
 
-  const history = getHistory()
-
   ////  Context  ///////////////////////////////////////////////////////////////
 
+  const history = getHistory()
   const { addToast } = useAppContext()
   const { project } = usePageResources()
+  const isReady = useResources().hasResources(['project'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -79,19 +79,20 @@ const Strategies = () => {
    * project is ready or when the user changes pagination settings.
    */
   useEffect(() => {
-    if (project?._id) {
-      onSubmitSearch()
-      setSearchPage(1)
-    }
-  }, [project?._id, searchSize, searchSortField, searchSortOrder])
+    if (!isReady)
+      return
+    onSubmitSearch()
+    setSearchPage(1)
+  }, [isReady, searchSize, searchSortField, searchSortOrder])
 
   /**
    * Automatically submit the search when the user selects a different page in
    * the search results.
    */
   useEffect(() => {
-    if (project?._id)
-      onSubmitSearch()
+    if (!isReady)
+      return
+    onSubmitSearch()
   }, [searchPage])
 
   /**

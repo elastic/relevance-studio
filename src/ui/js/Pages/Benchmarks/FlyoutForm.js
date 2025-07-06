@@ -28,7 +28,7 @@ import {
   EuiTitle,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
-import { useProjectContext } from '../../Contexts/ProjectContext'
+import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import api from '../../api'
 import utils from '../../utils'
 
@@ -42,9 +42,10 @@ const FlyoutForm = ({
 }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
-
+  
   const { addToast, darkMode } = useAppContext()
-  const { project } = useProjectContext()
+  const { project } = usePageResources()
+  const isReady = useResources().hasResources(['project'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -84,7 +85,7 @@ const FlyoutForm = ({
    * Load strategies tags
    */
   useEffect(() => {
-    if (!project._id || strategiesTagsOptions.length)
+    if (!isReady || strategiesTagsOptions.length)
       return;
     (async () => {
       // Submit API request
@@ -114,13 +115,13 @@ const FlyoutForm = ({
       options.sort((a, b) => a.label.localeCompare(b.label))
       setStrategiesTagsOptions(options)
     })()
-  }, [project._id])
+  }, [isReady])
 
   /**
    * Load scenarios tags
    */
   useEffect(() => {
-    if (!project._id || scenariosTagsOptions.length)
+    if (!isReady || scenariosTagsOptions.length)
       return;
     (async () => {
       // Submit API request
@@ -150,7 +151,7 @@ const FlyoutForm = ({
       options.sort((a, b) => a.label.localeCompare(b.label))
       setScenariosTagsOptions(options)
     })()
-  }, [project._id])
+  }, [isReady])
 
   /**
    * Preview candidate pool

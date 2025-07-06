@@ -17,7 +17,7 @@ import {
 } from '@elastic/eui'
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
-import { usePageResources, useResources } from '../../Contexts/ResourceContext'
+import { usePageResources, useResources, useAdditionalResources } from '../../Contexts/ResourceContext'
 import {
   Page,
   SelectScenario,
@@ -29,16 +29,12 @@ import utils from '../../utils'
 
 const StrategiesEdit = () => {
 
-  // Get all resources automatically based on URL params
-  const { project, strategy } = usePageResources()
-
-  // Get loading state for evaluation specifically
-  const { isLoading } = useResources()
-  const isLoadingStrategy = isLoading('strategy')
-
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
+  const { project, strategy, displays } = usePageResources()
+  useAdditionalResources(['displays'])
+  const isReady = useResources().hasResources(['project', 'strategy', 'displays'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -49,11 +45,9 @@ const StrategiesEdit = () => {
   const [strategyDraft, setStrategyDraft] = useState('')
 
   // Strategy testing
-  const [displays, setDisplays] = useState({})
   const [errorContent, setErrorContent] = useState(null)
   const [hasSearched, setHasSearched] = useState(false)
-  const [indexPatternRegexes, setIndexPatternRegexes] = useState({})
-  const [isLoadingDisplays, setIsLoadingDisplays] = useState(false)
+  const [indexPatternMap, setIndexPatternMap] = useState({})
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [isRankEvalEnabled, setIsRankEvalEnabled] = useState(false)
@@ -72,10 +66,10 @@ const StrategiesEdit = () => {
    * Initialize strategy once loaded
    */
   useEffect(() => {
-    if (!strategy?.template)
+    if (!isReady)
       return
     setStrategyDraft(JSON.stringify(strategy.template.source, null, 2))
-  }, [strategy])
+  }, [isReady])
 
   /**
    * Extract params (formatted as Mustache variables) from a JSON string.
@@ -159,43 +153,25 @@ const StrategiesEdit = () => {
   ////  Strategy testing  //////////////////////////////////////////////////////
 
   /**
-   * Get displays for project
+   * Get index patterns and source filters from displays
    */
   useEffect(() => {
-    if (!project?._id)
+    if (!displays)
       return
-    (async () => {
-
-      // Submit API request
-      let response
-      try {
-        setIsLoadingDisplays(true)
-        response = await api.displays_search(project._id, { text: '*' })
-      } catch (e) {
-        return addToast(api.errorToast(e, { title: 'Failed to get displays' }))
-      } finally {
-        setIsLoadingDisplays(false)
+    const _indexPatternMap = {}
+    const _sourceFilters = {}
+    displays.forEach((display) => {
+      _indexPatternMap[display.index_pattern] = {
+        display: display,
+        regex: new RegExp(`^${display.index_pattern.replace(/\*/g, '.*')}$`)
       }
-
-      // Handle API response
-      const _displays = {}
-      const _fields = {}
-      const _indexPatternsRegexes = {}
-      response.data.hits.hits?.forEach((doc) => {
-        _displays[doc._source.index_pattern] = doc._source
-        doc._source.fields?.forEach((field) => {
-          _fields[field] = true
-        })
+      display.fields?.forEach((field) => {
+        _sourceFilters[field] = true
       })
-      for (var index_pattern in _displays) {
-        const re = new RegExp(`^${index_pattern.replace(/\*/g, '.*')}$`)
-        _indexPatternsRegexes[index_pattern] = re
-      }
-      setDisplays(_displays)
-      setIndexPatternRegexes(_indexPatternsRegexes)
-      setSourceFilters(Object.keys(_fields))
-    })()
-  }, [project])
+    })
+    setIndexPatternMap(_indexPatternMap)
+    setSourceFilters(Object.keys(_sourceFilters))
+  }, [displays])
 
   // Fetch scenarios immediately when opening the dropdown
   useEffect(() => {
@@ -423,8 +399,7 @@ const StrategiesEdit = () => {
   const renderResults = () => (<>
     {results.length > 0 &&
       <SearchResultsJudgements
-        displays={displays}
-        indexPatternRegexes={indexPatternRegexes}
+        indexPatternMap={indexPatternMap}
         project={project}
         scenario={scenario}
         results={results}
@@ -673,7 +648,7 @@ const StrategiesEdit = () => {
 
   return (
     <Page panelled={true} title={
-      <EuiSkeletonTitle isLoading={!project?._id || isLoadingStrategy} size='l'>
+      <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!strategy &&
           <>Not found</>
         }

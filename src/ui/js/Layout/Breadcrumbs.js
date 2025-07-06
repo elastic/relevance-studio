@@ -132,10 +132,7 @@ const Breadcrumbs = () => {
     return null
 
   return (
-    <EuiBreadcrumbs
-      breadcrumbs={breadcrumbs}
-      truncate={false}
-    />
+    <EuiBreadcrumbs breadcrumbs={breadcrumbs} max={0} truncate={false} />
   )
 }
 

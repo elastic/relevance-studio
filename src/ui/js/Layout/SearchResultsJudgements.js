@@ -7,8 +7,7 @@ import {
 } from '.'
 
 const SearchResultsJudgements = ({
-  displays,
-  indexPatternRegexes,
+  indexPatternMap,
   project,
   scenario,
   results,
@@ -22,15 +21,15 @@ const SearchResultsJudgements = ({
    */
   const resolveIndexToDisplay = (index) => {
     const matches = []
-    for (const indexPattern in indexPatternRegexes)
-      if (indexPatternRegexes[indexPattern].test(index))
+    for (const indexPattern in indexPatternMap)
+      if (indexPatternMap[indexPattern].regex.test(index))
         matches.push(indexPattern)
     if (matches.length === 0)
       return null
     const bestMatch = matches.reduce((mostSpecific, current) =>
       current.length > mostSpecific.length ? current : mostSpecific
     )
-    return displays[bestMatch]
+    return indexPatternMap[bestMatch].display
   }
 
   const cards = []

@@ -1,18 +1,38 @@
-// ResourceContext.js
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useCallback, useContext, useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import api from '../api'
+import utils from '../utils'
 
 const ResourceContext = createContext()
 
-// Define resource loaders
+// Define how to request resources
 const RESOURCE_LOADERS = {
+
+  // Individual resources (by _id)
   project: (params) => api.projects_get(params.project_id),
   benchmark: (params) => api.benchmarks_get(params.project_id, params.benchmark_id),
   evaluation: (params) => api.evaluations_get(params.project_id, params.benchmark_id, params.evaluation_id),
   display: (params) => api.displays_get(params.project_id, params.display_id),
   strategy: (params) => api.strategies_get(params.project_id, params.strategy_id),
   scenario: (params) => api.scenarios_get(params.project_id, params.scenario_id),
+
+  // Collection resources (e.g. search results)
+  displays: (params) => api.displays_search(params.project_id, { text: '*' }),
+}
+
+// Define how to extract resources from the responses
+const RESOURCE_DATA_EXTRACTORS = {
+
+  // Individual resources (by _id)
+  project: (response) => ({ ...response.data._source, _id: response.data._id }),
+  benchmark: (response) => ({ ...response.data._source, _id: response.data._id }),
+  evaluation: (response) => ({ ...response.data._source, _id: response.data._id }),
+  display: (response) => ({ ...response.data._source, _id: response.data._id }),
+  strategy: (response) => ({ ...response.data._source, _id: response.data._id }),
+  scenario: (response) => ({ ...response.data._source, _id: response.data._id }),
+  
+  // Collection resources (e.g. search results)
+  displays: (response) => utils.hitsToDocs(response)
 }
 
 // Map param names to resource types
@@ -32,23 +52,37 @@ export const ResourceProvider = ({ children }) => {
     loading: {},
     errors: {}
   })
+  const [additionalResources, setAdditionalResources] = useState([])
+
+  // Method for components to request additional resources
+  const requestAdditionalResources = useCallback((resources) => {
+    setAdditionalResources(prev => {
+      const newResources = [...new Set([...prev, ...resources])]
+      return newResources
+    })
+  }, [])
 
   useEffect(() => {
     const loadResources = async () => {
+      console.debug('🚀 Params changed:', params)
+      console.debug('📎 Additional resources requested:', additionalResources)
 
-      // Determine which resources to load
-      const resourcesToLoad = []
+      // Combine URL-based and additional resources
+      const urlResources = []
       Object.keys(params).forEach(paramName => {
         const resourceType = PARAM_TO_RESOURCE[paramName]
         if (resourceType && RESOURCE_LOADERS[resourceType]) {
-          resourcesToLoad.push(resourceType)
+          urlResources.push(resourceType)
         }
       })
 
-      if (resourcesToLoad.length === 0) {
+      const allResourcesToLoad = [...new Set([...urlResources, ...additionalResources])]
+
+      if (allResourcesToLoad.length === 0) {
         setState({ resources: {}, loading: {}, errors: {} })
         return
       }
+      console.debug('📋 Resources to load:', allResourcesToLoad)
 
       // Keep resources that are still relevant
       const currentResources = { ...state.resources }
@@ -57,7 +91,8 @@ export const ResourceProvider = ({ children }) => {
 
       // Remove resources that are no longer needed
       Object.keys(currentResources).forEach(resourceType => {
-        if (!resourcesToLoad.includes(resourceType)) {
+        if (!allResourcesToLoad.includes(resourceType)) {
+          console.debug(`🗑️ Removing ${resourceType} (no longer needed)`)
           delete currentResources[resourceType]
           delete currentLoading[resourceType]
           delete currentErrors[resourceType]
@@ -65,11 +100,12 @@ export const ResourceProvider = ({ children }) => {
       })
 
       // Determine which resources actually need to be loaded (not already available)
-      const resourcesToFetch = resourcesToLoad.filter(resourceType => {
+      const resourcesToFetch = allResourcesToLoad.filter(resourceType => {
         return !currentResources[resourceType]
       })
 
       if (resourcesToFetch.length === 0) {
+        console.debug('✅ All required resources already loaded')
         setState({
           resources: currentResources,
           loading: currentLoading,
@@ -77,6 +113,8 @@ export const ResourceProvider = ({ children }) => {
         })
         return
       }
+
+      console.debug('🔄 Resources to fetch:', resourcesToFetch)
 
       // Set loading state for new resources only
       resourcesToFetch.forEach(resourceType => {
@@ -94,10 +132,19 @@ export const ResourceProvider = ({ children }) => {
       const results = await Promise.allSettled(
         resourcesToFetch.map(async (type) => {
           try {
+            console.debug(`🚨 Loading ${type}`, params)
             const response = await RESOURCE_LOADERS[type](params)
-            const data = { ...response.data._source, _id: response.data._id }
+
+            // Use the appropriate data extractor for this resource type
+            const dataExtractor = RESOURCE_DATA_EXTRACTORS[type]
+            if (!dataExtractor)
+              throw new Error(`No data extractor defined for resource type: ${type}`)
+
+            const data = dataExtractor(response)
+            console.debug(`✅ Loaded ${type}`, data)
             return { type, data, success: true }
           } catch (error) {
+            console.error(`❌ Error loading ${type}:`, error)
             return { type, error, success: false }
           }
         })
@@ -127,14 +174,25 @@ export const ResourceProvider = ({ children }) => {
     }
 
     loadResources()
-  }, [JSON.stringify(params)])
+  }, [JSON.stringify(params), JSON.stringify(additionalResources)])
 
   const value = {
     ...state,
+    requestAdditionalResources,
+
     // Dynamic accessors
     isLoading: (type) => state.loading[type] || false,
     hasError: (type) => !!state.errors[type],
     getError: (type) => state.errors[type] || null,
+
+    // Resource combination helpers
+    hasResources: (resourceTypes) => {
+      return resourceTypes.every(type => state.resources[type])
+    },
+    getResources: (resourceTypes) => {
+      return resourceTypes.map(type => state.resources[type]).filter(Boolean)
+    },
+
     // Convenience flags
     isAnyLoading: Object.values(state.loading).some(Boolean),
     hasAnyError: Object.keys(state.errors).length > 0
@@ -150,10 +208,17 @@ export const ResourceProvider = ({ children }) => {
 // Main hook to use resources
 export const useResources = () => {
   const context = useContext(ResourceContext)
-  if (!context) {
+  if (!context)
     throw new Error('useResources must be used within a ResourceProvider')
-  }
   return context
+}
+
+export const useAdditionalResources = (resources) => {
+  const { requestAdditionalResources } = useResources()
+  useEffect(() => {
+    if (resources && resources.length > 0)
+      requestAdditionalResources(resources)
+  }, [JSON.stringify(resources), requestAdditionalResources])
 }
 
 // Convenience hook that just returns the resources object

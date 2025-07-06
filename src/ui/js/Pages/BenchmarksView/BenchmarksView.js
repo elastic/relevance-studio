@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
 import {
   EuiBadge,
   EuiButton,
@@ -19,16 +18,11 @@ import utils from '../../utils'
 
 const BenchmarksView = () => {
 
-  // Get all resources automatically based on URL params
-  const { project, benchmark } = usePageResources()
-  
-  // Get loading state for evaluation specifically
-  const { isLoading } = useResources()
-  const isLoadingBenchmark = isLoading('benchmark')
-
   ////  Context  ///////////////////////////////////////////////////////////////
-
+  
   const { addToast, autoRefresh } = useAppContext()
+  const { project, benchmark } = usePageResources()
+  const isReady = useResources().hasResources(['project', 'benchmark'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -65,20 +59,21 @@ const BenchmarksView = () => {
    * project is ready or when the user changes pagination settings.
    */
   useEffect(() => {
-    if (project?._id && benchmark?._id) {
-      onSubmitSearch()
-      setSearchPage(1)
-    }
-  }, [project?._id, benchmark?._id, searchSize, searchSortField, searchSortOrder])
+    if (!isReady)
+      return
+    onSubmitSearch()
+    setSearchPage(1)
+  }, [isReady, searchSize, searchSortField, searchSortOrder])
 
   /**
    * Automatically submit the search when the user selects a different page in
    * the search results.
    */
   useEffect(() => {
-    if (project?._id && benchmark?._id)
-      onSubmitSearch()
-  }, [searchPage, project?._id, benchmark?._id])
+    if (!isReady)
+      return
+    onSubmitSearch()
+  }, [isReady, searchPage])
 
   /**
    * Search handler
@@ -119,14 +114,14 @@ const BenchmarksView = () => {
    * Enable or disable auto-refresh.
    */
   useEffect(() => {
-    if (!project?._id || !benchmark?._id || !autoRefresh)
+    if (!isReady || !autoRefresh)
       return
     const interval = setInterval(() => {
       onSubmitSearch()
       setSearchPage(1) // TODO: Try to remove this so we don't always return to page 1 on auto-refresh
     }, 5000)
     return () => clearInterval(interval)
-  }, [project?._id, benchmark?._id, autoRefresh])
+  }, [isReady, autoRefresh])
 
   const onRunEvaluationSubmit = async (e) => {
     // prevent browser from reloading page if called from a form submission
@@ -136,7 +131,7 @@ const BenchmarksView = () => {
       setIsProcessing(true)
       response = await api.evaluations_create(
         project._id,
-        benchmark?._id,
+        benchmark._id,
         benchmark.task
       )
     } catch (e) {
@@ -288,7 +283,7 @@ const BenchmarksView = () => {
 
   return (
     <Page title={
-      <EuiSkeletonTitle isLoading={isLoadingBenchmark} size='l'>
+      <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!benchmark?.name &&
           <>Not found</>
         }

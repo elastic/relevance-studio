@@ -16,7 +16,7 @@ import {
   EuiSpacer,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
-import { useProjectContext } from '../../Contexts/ProjectContext'
+import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import api from '../../api'
 import utils from '../../utils'
 
@@ -32,7 +32,8 @@ const FlyoutForm = ({
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const { project } = useProjectContext()
+  const { project } = usePageResources()
+  const isReady = useResources().hasResources(['project'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -50,12 +51,12 @@ const FlyoutForm = ({
 
   // Initialize params from project
   useEffect(() => {
-    if (!project?.params)
+    if (!isReady)
       return
     const _params = []
     project.params.forEach((param) => _params.push({ name: param, value: '' }))
     setForm(prev => ({ ...prev, values: _params }))
-  }, [project])
+  }, [isReady])
 
   // Populate form with doc if updating
   useEffect(() => {

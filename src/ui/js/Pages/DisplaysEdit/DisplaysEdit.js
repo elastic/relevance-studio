@@ -28,16 +28,11 @@ import utils from '../../utils'
 
 const DisplaysEdit = () => {
 
-  // Get all resources automatically based on URL params
-  const { project, display } = usePageResources()
-  
-  // Get loading state for evaluation specifically
-  const { isLoading } = useResources()
-  const isLoadingDisplay = isLoading('display')
-
   ////  Context  ///////////////////////////////////////////////////////////////
-
+  
   const { addToast, darkMode } = useAppContext()
+  const { project, display } = usePageResources()
+  const isReady = useResources().hasResources(['project', 'display'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -61,7 +56,7 @@ const DisplaysEdit = () => {
    * Get indices when project is ready
    */
   useEffect(() => {
-    if (!project?.index_pattern)
+    if (!isReady)
       return
     (async () => {
       let response
@@ -75,7 +70,7 @@ const DisplaysEdit = () => {
       }
       setIndices(response.data)
     })()
-  }, [project])
+  }, [isReady])
 
   /**
    * Initialize display once loaded
@@ -276,7 +271,7 @@ const DisplaysEdit = () => {
 
   return (
     <Page panelled={true} title={
-      <EuiSkeletonTitle isLoading={!project?._id || isLoadingDisplay} size='l'>
+      <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!display &&
           <>Not found</>
         }
@@ -323,7 +318,7 @@ const DisplaysEdit = () => {
                 {/* Editor */}
                 <EuiFormRow fullWidth label='Markdown editor'>
                   <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
-                    <EuiSkeletonText lines={21} isLoading={!project?._id}>
+                    <EuiSkeletonText lines={21} isLoading={!isReady}>
                       <div style={{ height: 'calc(100vh - 362px)' }}>
                         <EuiPanel
                           hasBorder
