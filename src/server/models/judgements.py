@@ -36,7 +36,7 @@ class JudgementModel(BaseModel):
             raise ValueError("index is required")
         if not self.doc_id:
             raise ValueError("doc_id is required")
-        if not self.rating:
+        if self.rating is None:
             raise ValueError("rating is required")
         return self
 
