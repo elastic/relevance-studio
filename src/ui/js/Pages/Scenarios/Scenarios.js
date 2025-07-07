@@ -168,15 +168,7 @@ const Scenarios = () => {
         const count = searchAggs?.[doc._id]?.judgements ?? 0
         return (
           <EuiLink onClick={(e) => {
-            history.push({
-              pathname: `/projects/${project._id}/judgements`,
-              state: {
-                query_on_load: {
-                  scenario: doc,
-                  filter: 'rated'
-                }
-              }
-            })
+            history.push(`/projects/${project._id}/judgements?scenario=${doc._id}&filter=rated`)
           }}>
             {count.toLocaleString()}
           </EuiLink>

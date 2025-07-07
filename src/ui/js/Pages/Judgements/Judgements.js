@@ -28,14 +28,16 @@ import {
   SearchResultsJudgements,
 } from '../../Layout'
 import api from '../../api'
+import { getHistory } from '../../history'
 
 const Judgements = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const location = useLocation()
+  const history = getHistory()
   const { addToast, darkMode } = useAppContext()
-  const { project, displays } = usePageResources()  
+  const { project, displays } = usePageResources()
   useAdditionalResources(['displays'])
   const isReady = useResources().hasResources(['project', 'displays'])
 
@@ -75,6 +77,58 @@ const Judgements = () => {
   const [sortSelected, setSortSelected] = useState({ label: 'By match', value: 'match', checked: 'on' })
   const [sourceFilters, setSourceFilters] = useState([])
 
+  // Helper to get URL params
+  const getUrlParams = () => {
+    const params = new URLSearchParams(location.search)
+    return {
+      scenario: params.get('scenario'),
+      filter: params.get('filter'),
+      sort: params.get('sort'),
+      query: params.get('query')
+    }
+  }
+
+  // Helper to update URL without adding to history
+  const updateUrl = (newParams) => {
+    const params = new URLSearchParams(location.search)
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value)
+      } else {
+        params.delete(key)
+      }
+    })
+    history.replace(`${location.pathname}?${params.toString()}`)
+  }
+
+  ////  Effects  ///////////////////////////////////////////////////////////////
+
+  // Initialize state from URL params
+  useEffect(() => {
+    const urlParams = getUrlParams()
+    if (urlParams.filter) {
+      const _filterOptions = defaultFilterOptions.map(obj => ({ ...obj }))
+      for (const option of _filterOptions)
+        option.checked = option.value === urlParams.filter ? 'on' : undefined
+      setFiltersOptions(_filterOptions)
+    }
+    if (urlParams.sort) {
+      const _sortOptions = defaultSortOptions.map(obj => ({ ...obj }))
+      for (const option of _sortOptions)
+        option.checked = option.value === urlParams.sort ? 'on' : undefined
+      setSortOptions(_sortOptions)
+    }
+    if (urlParams.query)
+      setQueryString(urlParams.query)
+  }, []) // Only run on mount
+
+  // Search on page load a scenario was given in the URL
+  useEffect(() => {
+    if (!isReady || !scenario)
+      return
+    onSearch()
+  }, [isReady, scenario])
+
   /**
    * Get index patterns and source filters from displays
    */
@@ -96,16 +150,20 @@ const Judgements = () => {
     setSourceFilters(Object.keys(_sourceFilters))
   }, [displays])
 
-  // Fetch scenarios immediately when opening the dropdown
+  // Fetch scenarios immediately when opening the dropdown OR when component mounts
   useEffect(() => {
-    if (!project?._id || !isScenariosOpen)
+    if (!isReady)
       return
-    onSearchScenarios(`*${scenarioSearchString}*`)
-  }, [project?._id, isScenariosOpen])
+
+    // Only fetch scenarios when dropdown is open, not when options are empty
+    if (isScenariosOpen) {
+      onSearchScenarios(`*${scenarioSearchString}*`)
+    }
+  }, [isReady, isScenariosOpen])
 
   // Fetch scenarios with debounce when typing
   useEffect(() => {
-    if (!project?._id || !isScenariosOpen)
+    if (!isReady)
       return
     const debounced = debounce(() => {
       onSearchScenarios(`*${scenarioSearchString}*`)
@@ -115,43 +173,54 @@ const Judgements = () => {
   }, [scenarioSearchString])
 
   useEffect(() => {
-    if (!project?._id || !scenarioOptions)
+    if (!isReady || !scenarioOptions)
       return
-    for (const i in scenarioOptions) {
-      if (scenarioOptions[i].checked) {
-        setScenario(scenarioOptions[i])
-        setScenarioSearchString(scenarioOptions[i].checked === 'on' ? scenarioOptions[i].label : '')
+    const urlParams = getUrlParams()
+
+    // Check if we have a scenario from URL params
+    if (urlParams.scenario) {
+      for (const option of scenarioOptions) {
+        if (option._id === urlParams.scenario) {
+          option.checked = 'on'
+          setScenario(option)
+          setScenarioSearchString(option.label)
+          return
+        }
+      }
+    }
+
+    // Otherwise, use the first checked option
+    for (const option of scenarioOptions) {
+      if (option.checked) {
+        setScenario(option)
+        setScenarioSearchString(option.checked === 'on' ? option.label : '')
         break
       }
     }
   }, [scenarioOptions])
 
+  // Automatically open the scenarios dropdown if no scenario is given in URL
   useEffect(() => {
-    setIsScenariosOpen(true) // will trigger the fetch useEffect above
+    const urlParams = getUrlParams()
+    if (!urlParams.scenario)
+      setIsScenariosOpen(true)
   }, [])
 
-  /**
-   * Search on page load
-   */
+  // Fetch scenarios on mount to populate options
   useEffect(() => {
-    if (!location.state?.query_on_load)
+    if (!isReady)
       return
-    const _filterOptions = defaultFilterOptions.map(obj => ({ ...obj }))
-    if (location.state?.query_on_load.filter) {
-      for (const i in _filterOptions) {
-        if (location.state?.query_on_load.filter == _filterOptions[i].value)
-          _filterOptions[i].checked = 'on'
-      }
-    }
-    setFiltersOptions(_filterOptions)
-  }, [location])
-
+    // If we have a scenario in URL but no options loaded yet, fetch scenarios
+    const urlParams = getUrlParams()
+    if (urlParams.scenario && scenarioOptions.length === 0)
+      onSearchScenarios(`*${scenarioSearchString}*`)
+  }, [isReady, scenarioOptions.length])
 
   /**
    * Search when filters or sorts change
    */
   useEffect(() => {
-    if (!project?._id || !scenario)
+    if (!isReady || !scenario)
       return
     onSearch()
   }, [filterSelected, sortSelected])
@@ -187,10 +256,11 @@ const Judgements = () => {
     try {
       setIsLoadingScenarios(true)
       const response = await api.scenarios_search(project._id, { text })
+      const urlParams = getUrlParams()
       const options = response.data.hits.hits.map((doc) => ({
         _id: doc._id,
         label: doc._source.name,
-        checked: location.state?.query_on_load?.scenario_id === doc._id ? 'on' : undefined
+        checked: (urlParams.scenario === doc._id) ? 'on' : undefined
       }))
       setScenarioOptions(options)
     } catch (e) {
@@ -239,7 +309,7 @@ const Judgements = () => {
 
   const renderSelectScenarios = () => (
     <SelectScenario
-      autoFocus={true}
+      autoFocus={!getUrlParams().scenario}
       isLoading={isLoadingScenarios}
       isOpen={isScenariosOpen}
       options={scenarioOptions}
@@ -256,6 +326,10 @@ const Judgements = () => {
       options={filtersOptions}
       onChange={(newOptions, event, changedOption) => {
         setFiltersOptions(newOptions)
+
+        // Update URL when user changes filter
+        updateUrl({ filter: changedOption.value !== 'all' ? changedOption.value : null })
+
         // Filtering by unrated docs requires sorting not by anything with ratings
         if (changedOption.value == 'unrated') {
           setSortOptions(prev => {
@@ -289,6 +363,10 @@ const Judgements = () => {
       options={sortOptions}
       onChange={(newOptions, event, changedOption) => {
         setSortOptions(newOptions)
+
+        // Update URL when user changes sort
+        updateUrl({ sort: changedOption.value !== 'match' ? changedOption.value : null })
+
         // Sorting by anything with ratings requires filtering by rated docs
         if (changedOption.value.startsWith('rating') && !filterSelected.value.startsWith('rated')) {
           setFiltersOptions(prev => {
