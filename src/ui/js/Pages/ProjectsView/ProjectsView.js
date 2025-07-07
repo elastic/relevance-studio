@@ -12,13 +12,13 @@ import {
 import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import { Page } from '../../Layout'
-import api from '../../api'
-import utils from '../../utils'
+import { getHistory } from '../../history'
 
 const ProjectsView = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
+  const history = getHistory()
   const { addToast } = useAppContext()
   const { project } = usePageResources()
   const isReady = useResources().hasResources(['project'])
@@ -39,7 +39,7 @@ const ProjectsView = () => {
     <>test</>
   )
 
-  const renderPanel = (title, children) => (
+  const renderPanel = (title, asset_type, children) => (
     <EuiPanel paddingSize='none'>
 
       {/* Header */}
@@ -56,7 +56,10 @@ const ProjectsView = () => {
               color='primary'
               display='base'
               iconSize='s'
-              iconType='gear'
+              iconType='doubleArrowRight'
+              onClick={() => {
+                history.push(`/projects/${project._id}/${asset_type}`)
+              }}
               size='xs'
             />
           </EuiFlexItem>
@@ -84,16 +87,16 @@ const ProjectsView = () => {
     }>
       <EuiFlexGrid columns={4} gutterSize='m'>
         <EuiFlexItem>
-          {renderPanel('Scenarios', renderScenarios())}
+          {renderPanel('Scenarios', 'scenarios', renderScenarios())}
         </EuiFlexItem>
         <EuiFlexItem>
-          {renderPanel('Judgements', renderJudgements())}
+          {renderPanel('Judgements', 'judgements', renderJudgements())}
         </EuiFlexItem>
         <EuiFlexItem>
-          {renderPanel('Strategies', renderStrategies())}
+          {renderPanel('Strategies', 'strategies', renderStrategies())}
         </EuiFlexItem>
         <EuiFlexItem>
-          {renderPanel('Benchmarks', renderBenchmarks())}
+          {renderPanel('Benchmarks', 'benchmarks', renderBenchmarks())}
         </EuiFlexItem>
       </EuiFlexGrid>
     </Page>
