@@ -86,6 +86,10 @@ const Routes = () => {
           document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
           return <ResourceProvider><Pages.BenchmarksView /></ResourceProvider>
         }} />
+        <RouteWithSetupCheck path='/projects/:project_id/benchmarks/:benchmark_id/evaluations' exact render={(r) => {
+          document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
+          return <ResourceProvider><Pages.BenchmarksView /></ResourceProvider>
+        }} />
         <RouteWithSetupCheck path='/projects/:project_id/benchmarks/:benchmark_id/evaluations/:evaluation_id' exact render={(r) => {
           document.title = `Evaluations - ${r.match.params.evaluation_id} - ${title}`
           return <ResourceProvider><Pages.EvaluationsView /></ResourceProvider>
