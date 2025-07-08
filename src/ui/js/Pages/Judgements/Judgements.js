@@ -46,8 +46,8 @@ const Judgements = () => {
   const defaultFilterOptions = [
     { label: 'All docs', value: 'all' },
     { label: 'Rated docs', value: 'rated' },
-    { label: 'Rated by human', value: 'rated-human' },
-    { label: 'Rated by AI', value: 'rated-ai' },
+    //{ label: 'Rated by human', value: 'rated-human' },
+    //{ label: 'Rated by AI', value: 'rated-ai' },
     { label: 'Unrated docs', value: 'unrated' }
   ]
   const defaultSortOptions = [

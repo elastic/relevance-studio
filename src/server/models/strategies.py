@@ -5,23 +5,22 @@ import re
 from typing import Any, Dict, List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field, model_validator, ValidationInfo
+from pydantic import Field, model_validator, ValidationInfo
 
 # App packages
-from . import MetaModel
+from .asset import AssetModel
 from .. import utils
 
 RE_ISO_8601_TIMESTAMP = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
 
-class StrategyModel(BaseModel):
-    meta: MetaModel = Field(alias='@meta', default=None)
+class StrategyModel(AssetModel):
     project_id: Optional[str] = None
     name: Optional[str] = None
     params: Optional[List[str]] = Field(default_factory=list)
     tags: Optional[List[str]] = Field(default_factory=list)
-    template: Optional[Dict[str, Any]] = Field(default=dict)
+    template: Optional[Dict[str, Any]] = Field(default_factory=dict)
     
     @model_validator(mode="after")
     def validate_params(self, info: ValidationInfo) -> StrategyModel:
@@ -33,9 +32,13 @@ class StrategyModel(BaseModel):
         if not is_partial:
             if not self.project_id:
                 raise ValueError("project_id is required")
-            if not all(isinstance(p, str) and p.strip() for p in self.params):
+            if not self.name:
+                raise ValueError("name is required")
+            if not self.template:
+                raise ValueError("template is required")
+            if self.params and not all(isinstance(p, str) and p.strip() for p in self.params):
                 raise ValueError("params must have non-empty strings")
-            if not all(isinstance(t, str) and t.strip() for t in self.tags):
+            if self.tags and not all(isinstance(t, str) and t.strip() for t in self.tags):
                 raise ValueError("tags must have non-empty strings")
         return self
     
@@ -64,6 +67,7 @@ class StrategyModel(BaseModel):
         """
         if not self.template:
             return
+        print(self.template)
         template_source = self.template.get("source")
         if not template_source:
             return

@@ -6,9 +6,10 @@ from typing import List, Optional, Any
 from pydantic import BaseModel, Field
 
 # App packages
+from .asset import AssetModel
 from . import MetaModel
 
-class EvaluationModel(BaseModel):
+class EvaluationModel(AssetModel):
     meta: EvaluationMetaModel = Field(alias='@meta')
     project_id: str
     benchmark_id: str

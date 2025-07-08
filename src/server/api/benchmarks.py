@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Set, Tuple
 # App packages
 from .. import utils
 from ..client import es
-from ..models import BenchmarkModel, MetaModel
+from ..models import BenchmarkModel
 
 INDEX_NAME = "esrs-benchmarks"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmarks")
@@ -50,9 +50,6 @@ def create(doc: BenchmarkModel, _id: str = None) -> Dict[str, Any]:
     """
     Create a benchmark in Elasticsearch. Allow a predetermined _id.
     """
-
-    # Add @meta.created_* fields
-    doc = MetaModel.apply_meta_create(doc)
     
     # Create, validate, and dump model
     doc = (
@@ -77,9 +74,6 @@ def update(_id: str, doc_partial: BenchmarkModel) -> Dict[str, Any]:
     """
     Update a benchmark in Elasticsearch.
     """
-    
-    # Add @meta.updated_* fields
-    doc_partial = MetaModel.apply_meta_update(doc_partial)
     
     # Create, validate, and dump model
     doc_partial = (

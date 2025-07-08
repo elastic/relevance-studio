@@ -1,4 +1,5 @@
 
+from .asset import AssetModel
 from .meta import MetaModel
 from .projects import ProjectModel
 from .displays import DisplayModel

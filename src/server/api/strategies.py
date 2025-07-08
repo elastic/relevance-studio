@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import StrategyModel, MetaModel
+from ..models import StrategyModel
 
 INDEX_NAME = "esrs-strategies"
 
@@ -47,9 +47,6 @@ def create(doc: StrategyModel, _id: str = None) -> Dict[str, Any]:
     """
     Create a strategy in Elasticsearch.
     """
-
-    # Add @meta.created_* fields
-    doc = MetaModel.apply_meta_create(doc)
     
     # Create, validate, and dump model
     doc = (
@@ -74,9 +71,6 @@ def update(_id: str, doc_partial: StrategyModel) -> Dict[str, Any]:
     """
     Update a strategy in Elasticsearch.
     """ 
-    
-    # Add @meta.updated_* fields
-    doc_partial = MetaModel.apply_meta_update(doc_partial)
     
     # Create, validate, and dump model
     doc_partial = (

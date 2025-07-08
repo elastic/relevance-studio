@@ -6,10 +6,9 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, model_validator, ValidationInfo
 
 # App packages
-from . import MetaModel
+from .asset import AssetModel
 
-class ProjectModel(BaseModel):
-    meta: MetaModel = Field(alias='@meta', default=None)
+class ProjectModel(AssetModel):
     name: Optional[str] = None
     index_pattern: Optional[str] = None
     params: Optional[List[str]] = None

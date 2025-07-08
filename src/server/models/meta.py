@@ -5,9 +5,6 @@ from typing import Optional
 # Third-party packages
 from pydantic import BaseModel, model_validator, ValidationInfo
 
-# App packages
-from .. import utils
-
 RE_ISO_8601_TIMESTAMP = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
@@ -46,29 +43,3 @@ class MetaModel(BaseModel):
             if updated_by is None:
                 raise ValueError("updated_by must not be None")
         return data
-    
-    @staticmethod
-    def apply_meta_create(doc, user: str = "unknown"):
-        """
-        Static function for applying @meta.created_* fields.
-        """
-        doc.pop("@meta", None)
-        doc["@meta"] = {
-            "created_at": utils.timestamp(),
-            "created_by": user, # TODO: Implement
-            "updated_at": None,
-            "updated_by": None,
-        }
-        return doc
-    
-    @staticmethod
-    def apply_meta_update(doc_partial, user: str = "unknown"):
-        """
-        Static function for applying @meta.updated_* fields.
-        """
-        doc_partial.pop("@meta", None)
-        doc_partial["@meta"] = {
-            "updated_at": utils.timestamp(),
-            "updated_by": user, # TODO: Implement
-        }
-        return doc_partial

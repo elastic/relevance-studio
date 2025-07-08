@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import ScenarioModel, MetaModel
+from ..models import ScenarioModel
 
 INDEX_NAME = "esrs-scenarios"
 
@@ -51,9 +51,6 @@ def create(doc: ScenarioModel) -> Dict[str, Any]:
     Use a deterministic _id for UX efficiency, and to prevent the creation of
     duplicate scenarios for the same values.
     """
-
-    # Add @meta.created_* fields
-    doc = MetaModel.apply_meta_create(doc)
     
     # Create, validate, and dump model
     doc = (
@@ -78,9 +75,6 @@ def update(_id: str, doc_partial: ScenarioModel) -> Dict[str, Any]:
     """
     Update a scenario in Elasticsearch.
     """
-    
-    # Add @meta.updated_* fields
-    doc_partial = MetaModel.apply_meta_update(doc_partial)
     
     # Create, validate, and dump model
     doc_partial = (

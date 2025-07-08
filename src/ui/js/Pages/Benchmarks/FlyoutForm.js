@@ -268,10 +268,14 @@ const FlyoutForm = ({
     let response
     try {
       setIsProcessing(true)
-      if (action == 'create')
+      if (action == 'create') {
         response = await api.benchmarks_create(project._id, newDoc)
-      else
-        response = await api.benchmarks_update(project._id, doc._id, newDoc)
+      } else {
+        // Exclude immutable fields
+        const updatedDoc = { ...newDoc }
+        delete updatedDoc.task.k
+        response = await api.benchmarks_update(project._id, doc._id, updatedDoc)
+      }
     } catch (e) {
       return addToast(api.errorToast(e, { title: `Failed to ${action} benchmark` }))
     } finally {

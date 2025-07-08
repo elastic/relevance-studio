@@ -3,14 +3,13 @@ from __future__ import annotations
 from typing import Any, List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field, model_validator, ValidationInfo
+from pydantic import Field, model_validator, ValidationInfo
 
 # App packages
-from . import MetaModel
+from .asset import AssetModel
 from .. import utils
 
-class DisplayModel(BaseModel):
-    meta: MetaModel = Field(alias='@meta', default=None)
+class DisplayModel(AssetModel):
     project_id: Optional[str] = None
     index_pattern: Optional[str] = None
     fields: Optional[List[str]] = Field(default_factory=list)

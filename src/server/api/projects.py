@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import ProjectModel, MetaModel
+from ..models import ProjectModel
 
 INDEX_NAME = "esrs-projects"
 
@@ -48,9 +48,6 @@ def create(doc: dict, _id: str = None) -> Dict[str, Any]:
     """
     Create a project in Elasticsearch. Allow a predetermined _id.
     """
-
-    # Add @meta.created_* fields
-    doc = MetaModel.apply_meta_create(doc)
     
     # Create, validate, and dump model
     doc = (
@@ -75,9 +72,6 @@ def update(_id: str, doc_partial: dict) -> Dict[str, Any]:
     """
     Update a project in Elasticsearch.
     """
-    
-    # Add @meta.updated_* fields
-    doc_partial = MetaModel.apply_meta_update(doc_partial)
     
     # Create, validate, and dump model
     doc_partial = (

@@ -4,7 +4,7 @@ from typing import Any, Dict
 # App packages
 from .. import utils
 from ..client import es
-from ..models import JudgementModel, MetaModel
+from ..models import JudgementModel
 
 INDEX_NAME = "esrs-judgements"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("judgements")
@@ -153,9 +153,6 @@ def set(doc: JudgementModel) -> Dict[str, Any]:
     Use a deterministic _id for UX efficiency, and to prevent the creation of
     duplicate judgements for the same scenario, index, and doc.
     """
-
-    # Add @meta.created_* fields
-    doc = MetaModel.apply_meta_create(doc)
     
     # Create, validate, and dump model
     doc = (

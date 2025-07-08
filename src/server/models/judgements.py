@@ -4,17 +4,16 @@ import re
 from typing import Any, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field, model_validator, ValidationInfo
+from pydantic import Field, model_validator
 
 # App packages
-from . import MetaModel
+from .asset import AssetModel
 
 RE_ISO_8601_TIMESTAMP = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
 
-class JudgementModel(BaseModel):
-    meta: MetaModel = Field(alias='@meta')
+class JudgementModel(AssetModel):
     project_id: Optional[str] = None
     scenario_id: Optional[str] = None
     index: Optional[str] = None

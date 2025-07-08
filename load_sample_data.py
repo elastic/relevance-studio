@@ -30,7 +30,7 @@ from server.models import *
 load_dotenv()
 
 CWD = os.path.dirname(os.path.abspath(__file__))
-CHUNK_SIZE = 10
+CHUNK_SIZE = 50
 SAMPLE_DATA_DIRECTORY = os.path.join(CWD, "sample-data")
 SAMPLE_DATA_INDEX_PREFIX = "esrs-sample-data-"
 SAMPLE_DATASETS = [
@@ -219,8 +219,6 @@ def read_jsonl_lines(filepath, transformer):
     """
     with open(filepath) as file:
         for i, line in enumerate(file, start=1):
-            if (i<124000):
-                continue
             line = line.strip()
             if not line:
                 continue
@@ -251,8 +249,6 @@ def bulk_index_worker(docs_with_ids, index, deployment):
     actions = format_for_bulk(docs_with_ids, index)
     try:
         success, errors = helpers.bulk(es(deployment), actions, raise_on_error=False)
-        sys.stdout.write("e" if errors else ".")
-        sys.stdout.flush()
         return success, errors
     except BulkIndexError as e:
         logger.error("\nBulk indexing errors:")
@@ -279,11 +275,12 @@ def parallel_bulk_import(deployment, filepath, index, transformer=None, chunk_si
     """
     num_lines = count_lines(filepath)
     logger.debug(f"Loading {num_lines:,} docs (in batches of {chunk_size:,}) into index: {index}")
-    with ThreadPoolExecutor(max_workers=os.cpu_count() - 1) as executor:
+    with ThreadPoolExecutor(max_workers=min(4, os.cpu_count()-1)) as executor:
         futures = []
         num_docs = 0
         num_successes = 0
         num_errors = 0
+        num_running_total = 0
         for chunk in chunked_iterable(read_jsonl_lines(filepath, transformer), size=chunk_size):
             num_docs += len(chunk)
             ids = [doc_id for _, doc_id in chunk]
@@ -292,9 +289,11 @@ def parallel_bulk_import(deployment, filepath, index, transformer=None, chunk_si
             successes, errors = future.result()
             num_successes += successes
             num_errors += len(errors)
-        sys.stdout.write(" done.\n")
-        sys.stdout.flush()
-        logger.debug(f"Indexed {num_successes:,} docs with {num_errors:,} errors.")
+            num_running_total += successes + len(errors)
+            logger.debug(f"Bulk loading into {index}: {len(errors):,} errors ({num_errors:,} total), {successes:,} successes ({num_running_total:,} total), {(num_running_total / num_docs * 100):.4f}% done")
+            for error in errors:
+                print(f"\n{error}")
+        logger.debug(f"Done. Indexed {num_successes:,} docs with {num_errors:,} errors.")
         
         
 ####  Document formatting functions  ###########################################
@@ -699,9 +698,9 @@ def load_dataset(dataset, vectors=False):
     Load a single dataset into Elasticsearch.
     """
     logger.info(f"Loading \"{dataset['id']}\" dataset into index: {make_index_name(dataset)}")
-    #logger.debug(f"Wiping old index if it exists: {make_index_name(dataset)}")
+    logger.debug(f"Wiping old index if it exists: {make_index_name(dataset)}")
     # (Re)create index
-    #es("content").options(ignore_status=404).indices.delete(index=make_index_name(dataset))
+    es("content").options(ignore_status=404).indices.delete(index=make_index_name(dataset))
     mapping = { "properties": {}}
     for field in dataset["fields"]:
         mapping["properties"][field] = {
@@ -720,7 +719,7 @@ def load_dataset(dataset, vectors=False):
                 "type": "semantic_text",
                 "inference_id": "elser"
             }
-    #es("content").indices.create(index=make_index_name(dataset), mappings=mapping)
+    es("content").indices.create(index=make_index_name(dataset), mappings=mapping)
     filepath = os.path.join(dataset_directory(dataset), "corpus.jsonl")
     def transformer(doc):
         _doc = {}

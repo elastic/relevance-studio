@@ -12,7 +12,7 @@ import re
 import uuid
 
 # App packages
-from .test_models_project import valid_doc
+from .test_models_project import valid_output
 from server import utils
 
 RE_ISO_8601_TIMESTAMP = re.compile(
@@ -136,12 +136,12 @@ class TestUtils:
         assert actual == expected
     
     def test_copy_fields_to_search(self):
-        given = valid_doc()
-        actual = utils.copy_fields_to_search(given, fields=[ "name", "index_pattern", "params" ])
-        expected = valid_doc()
+        given = valid_output()
+        actual = utils.copy_fields_to_search("projects", given)
+        expected = valid_output()
         expected["_search"] = {
             "name": expected["name"],
             "index_pattern": expected["index_pattern"],
-            "params": utils.serialize(expected["params"])
+            "params": expected["params"],
         }
         assert actual == expected

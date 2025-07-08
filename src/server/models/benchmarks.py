@@ -6,10 +6,9 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, model_validator, ValidationInfo
 
 # App packages
-from . import MetaModel
+from .asset import AssetModel
 
-class BenchmarkModel(BaseModel):
-    meta: MetaModel = Field(alias='@meta', default=None)
+class BenchmarkModel(AssetModel):
     project_id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = Field(default=None)
@@ -28,7 +27,7 @@ class BenchmarkModel(BaseModel):
                 raise ValueError("project_id is required")
             if not self.name:
                 raise ValueError("name is required")
-            if not all(isinstance(t, str) and t.strip() for t in self.tags):
+            if self.tags and not all(isinstance(t, str) and t.strip() for t in self.tags):
                 raise ValueError("tags must have non-empty strings")
         else:
             if self.task and 'k' in self.task.model_fields_set:

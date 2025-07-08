@@ -94,7 +94,7 @@ const FlyoutForm = ({
       else
         response = await api.projects_update(doc._id, newDoc)
     } catch (e) {
-      return addToast(api.errorToast(e, { title: `Failed to {action} project` }))
+      return addToast(api.errorToast(e, { title: `Failed to ${action} project` }))
     } finally {
       setIsProcessing(false)
     }

@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import DisplayModel, MetaModel
+from ..models import DisplayModel
 
 INDEX_NAME = "esrs-displays"
 
@@ -40,9 +40,6 @@ def create(doc: dict, _id: str = None) -> Dict[str, Any]:
     """
     Create a display in Elasticsearch. Allow a predetermined _id.
     """
-
-    # Add @meta.created_* fields
-    doc = MetaModel.apply_meta_create(doc)
     
     # Create, validate, and dump model
     doc = (
@@ -67,9 +64,6 @@ def update(_id: str, doc_partial: dict) -> Dict[str, Any]:
     """
     Update a display in Elasticsearch.
     """
-    
-    # Add @meta.updated_* fields
-    doc_partial = MetaModel.apply_meta_update(doc_partial)
     
     # Create, validate, and dump model
     doc_partial = (

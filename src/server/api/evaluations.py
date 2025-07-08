@@ -660,9 +660,9 @@ def create(
             "scenarios": {}
         }
     }
-    doc = MetaModel.apply_meta_create(doc)
-    doc["@meta"].pop("updated_at", None) # not used to evaluations
-    doc["@meta"].pop("updated_by", None) # not used to evaluations
+    doc["@meta"] = {}
+    doc["@meta"]["created_at"] = utils.timestamp()
+    doc["@meta"]["created_by"] = "unknown" # TODO: Implement
     doc["@meta"]["status"] = "pending"
     doc["@meta"]["started_at"] = None
     doc["@meta"]["started_by"] = None
