@@ -233,11 +233,15 @@ const Projects = () => {
       doc={flyout}
       isProcessing={isProcessing}
       onClose={() => setFlyout(null)}
-      onCreated={(newDoc) => {
-        // Redirect to displays
-        history.push({ pathname: `/projects/${newDoc._id}/displays` })
+      onSuccess={(_id) => {
+        if (flyout === true) {
+          // Redirect to project on create
+          history.push({ pathname: `/projects/${_id}` })
+        } else {
+          // Refresh table on update
+          onSubmitSearch()
+        }
       }}
-      onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
     />
   )

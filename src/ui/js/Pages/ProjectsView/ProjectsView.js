@@ -29,7 +29,7 @@ const ProjectsView = () => {
 
   const renderScenarios = () => (
     <>
-      <EuiButton size='s' onClick={() => {
+      <EuiButton onClick={() => {
         history.push(`/projects/${project._id}/scenarios`)
       }}>
         Manage scenarios
@@ -39,7 +39,7 @@ const ProjectsView = () => {
 
   const renderJudgements = () => (
     <>
-      <EuiButton size='s' onClick={() => {
+      <EuiButton onClick={() => {
         history.push(`/projects/${project._id}/judgements`)
       }}>
         Manage judgements
@@ -49,7 +49,7 @@ const ProjectsView = () => {
 
   const renderStrategies = () => (
     <>
-      <EuiButton size='s' onClick={() => {
+      <EuiButton onClick={() => {
         history.push(`/projects/${project._id}/strategies`)
       }}>
         Manage strategies
@@ -59,7 +59,7 @@ const ProjectsView = () => {
 
   const renderBenchmarks = () => (
     <>
-      <EuiButton size='s' onClick={() => {
+      <EuiButton onClick={() => {
         history.push(`/projects/${project._id}/benchmarks`)
       }}>
         Manage benchmarks
@@ -138,6 +138,14 @@ const ProjectsView = () => {
     </EuiPanel>
   )
 
+  const renderButtonDisplays = () => (
+    <EuiButton iconType='palette' onClick={() => {
+        history.push(`/projects/${project._id}/displays`)
+      }}>
+      Manage displays
+    </EuiButton>
+  )
+
   return (
     <Page panelled title={
       <EuiSkeletonTitle isLoading={!isReady} size='l'>
@@ -148,7 +156,7 @@ const ProjectsView = () => {
           <>{project.name}</>
         }
       </EuiSkeletonTitle>
-    }>
+    } buttons={[ renderButtonDisplays() ]}>
       <EuiFlexGrid columns={4} gutterSize='m'>
         <EuiFlexItem>
           {renderPanel('Scenarios', 'scenarios', renderScenarios())}

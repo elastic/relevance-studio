@@ -102,7 +102,7 @@ const FlyoutForm = ({
       return addToast(utils.toastClientResponse(response))
     addToast(utils.toastDocCreateUpdateDelete(action, 'project', response.data._id, newDoc))
     if (onSuccess)
-      onSuccess()
+      onSuccess(response.data?._id || newDoc._id)
     if (onClose)
       onClose()
   }
