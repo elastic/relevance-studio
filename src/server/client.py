@@ -65,6 +65,10 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
 
     # Setup client for deployment with Elasticsearch Relevance Studio
     es_studio_kwargs = {
+        "headers": {
+            "Accept": "application/vnd.elasticsearch+json; compatible-with=8",
+            "Content-Type": "application/vnd.elasticsearch+json; compatible-with=8"
+        },
         "request_timeout": ELASTICSEARCH_TIMEOUT,
         "max_retries": 4,
         "retry_on_timeout": True
@@ -87,6 +91,10 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
         es_clients["content"] = es_clients["studio"]
     else:
         es_content_kwargs = {
+            "headers": {
+                "Accept": "application/vnd.elasticsearch+json; compatible-with=8",
+                "Content-Type": "application/vnd.elasticsearch+json; compatible-with=8"
+            },
             "request_timeout": ELASTICSEARCH_TIMEOUT,
             "max_retries": 4,
             "retry_on_timeout": True
