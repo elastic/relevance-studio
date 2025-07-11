@@ -45,16 +45,7 @@ In a terminal, navigate to the root-level directory of this project and run:
 
 Repeat steps 2 and 4 anytime you need to start the server in a new terminal.
 
-**Step 3. Setup the index templates**
-
-With the server running from Step 2, run:
-
-`curl -XPOST http://localhost:4096/setup`
-
-It's important to setup the index templates before using the application so that
-it properly indexes the data.
-
-**Step 4. Run the UI in development mode**
+**Step 3. Run the UI in development mode**
 
 In a terminal, navigate to the root-level directory of this project and run:
 
@@ -65,7 +56,7 @@ In a terminal, navigate to the root-level directory of this project and run:
 
 Repeat steps 1, 3, and 4 anytime you need to start the UI in a new terminal.
 
-**Step 5. Run an evaluation worker process**
+**Step 4. Run an evaluation worker process**
 
 In a terminal, navigate to the root-level directory of this project and run:
 
@@ -74,6 +65,10 @@ In a terminal, navigate to the root-level directory of this project and run:
 3. Run `python -m src.server.worker` to run a worker process
 
 Repeat steps 2 and 3 anytime you need to start a worker in another terminal.
+
+**Step 5. Setup the index templates and indices**
+
+With the server and UI running from Steps 2 and 3, open [http://localhost:8080/](http://localhost:8080/) and click the button on the homepage to setup the index templates and indices.
 
 ### Testing
 
