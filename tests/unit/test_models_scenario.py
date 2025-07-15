@@ -3,121 +3,296 @@ import pytest
 from pydantic import ValidationError
 
 # App packages
-from server.models.scenarios import ScenarioModel
-from tests.utils import has_valid_meta_for_create, is_equal
+from server.models.scenarios import ScenarioCreate, ScenarioUpdate
+from tests.utils import (
+    assert_valid_meta_for_create,
+    assert_valid_meta_for_update,
+    mock_context,
+)
 
-def valid_output():
-    data = {
+def mock_input_create():
+    """
+    Returns a mock input with all required and optional fields for creates.
+    """
+    input = {
         "project_id": "58278355-f4f3-56d2-aa81-498250f27798",
         "name": "brown oxfords",
-        "params": [
-            "text"
-        ],
         "tags": [
-            "body"
+            "body",
         ],
         "values": {
-            "text": "brown oxfords"
+            "text": "brown oxfords",
         }
     }
-    return data
+    return input
 
-def valid_input():
-    data = valid_output()
-    data.pop("params")
-    return data
+def mock_input_update():
+    """
+    Returns a mock input with all required and optional fields for updates.
+    """
+    input = mock_input_create()
+    input.pop("values", None)
+    return input
 
-class TestScenarioModel:
-    def test_valid_output(self):
-        try:
-            obj = ScenarioModel(**valid_output())
-            assert has_valid_meta_for_create(obj)
-            actual = obj.model_dump(by_alias=True, mode="json")
-            actual.pop("@meta", None)
-            assert is_equal(actual, valid_output())
-        except Exception as e:
-            pytest.fail(f"Unexpected error during instantiation: {e}")
-            
-    ####  project_id  ##########################################################
-            
-    def test_output_project_id_invalid_missing(self):
-        data = valid_output()
-        data.pop("project_id")
-        with pytest.raises(ValidationError):
-            ScenarioModel(**data)
-            
-    @pytest.mark.parametrize("value", [0, None, True, False, [1], {} ])
-    def test_output_project_id_invalid_types(self, value):
-        data = valid_output()
-        data["project_id"] = value
-        with pytest.raises(ValidationError):
-            ScenarioModel(**data)
-            
-    ####  name  ################################################################
-            
-    def test_output_name_invalid_missing(self):
-        data = valid_output()
-        data.pop("name")
-        with pytest.raises(ValidationError):
-            ScenarioModel(**data)
-            
-    @pytest.mark.parametrize("value", [0, None, True, False, [1], {} ])
-    def test_output_name_invalid_types(self, value):
-        data = valid_output()
-        data["name"] = value
-        with pytest.raises(ValidationError):
-            ScenarioModel(**data)
-            
-    ####  params  ##############################################################
-            
-    def test_input_params_inferred_from_values(self):
-        data = valid_input()
-        obj = ScenarioModel(**data)
-        assert sorted(obj.params) == sorted(list(valid_output()["values"].keys()))
+####  Test Validation of Input Structure  ######################################
 
-    def test_output_params_must_match_values(self):
-        data = valid_output()
-        data["params"] = ["text", "wrong"]
-        with pytest.raises(ValueError):
-            ScenarioModel(**data)
-            
-    ####  tags  ################################################################
-            
-    def test_output_tags_valid_missing(self):
-        data = valid_output()
-        data.pop("tags")
-        ScenarioModel(**data)
-            
-    @pytest.mark.parametrize("value", [None, []])
-    def test_output_tags_valid_types(self, value):
-        data = valid_output()
-        data["tags"] = value
-        ScenarioModel(**data)
-            
-    @pytest.mark.parametrize("value", [0, "body", True, False, [1], [{}], {} ])
-    def test_output_tags_invalid_types(self, value):
-        data = valid_output()
-        data["tags"] = value
-        with pytest.raises(ValidationError):
-            ScenarioModel(**data)
-            
-    ####  values  ##############################################################
-            
-    def test_output_values_invalid_missing(self):
-        data = valid_output()
-        data.pop("values")
-        with pytest.raises(ValidationError):
-            ScenarioModel(**data)
-            
-    def test_output_values_invalid_empty(self):
-        data = valid_output()
-        data["values"] = {}
-        with pytest.raises(ValidationError):
-            ScenarioModel(**data)
-            
-    @pytest.mark.parametrize("value", [0, "one", None, True, False, [], [{}] ])
-    def test_output_values_invalid_types(self, value):
-        data = valid_output()
-        data["values"] = value
-        with pytest.raises(ValidationError):
-            ScenarioModel(**data)
+def test_create_is_invalid_without_required_inputs():
+    
+    # "project_id" is required in the input for creates
+    input = mock_input_create()
+    input.pop("project_id", None)
+    with pytest.raises(ValidationError):
+        ScenarioCreate.model_validate(input, context=mock_context())
+    
+    # "name" is required in the input for creates
+    input = mock_input_create()
+    input.pop("name", None)
+    with pytest.raises(ValidationError):
+        ScenarioCreate.model_validate(input, context=mock_context())
+    
+    # "values" is required in the input for creates
+    input = mock_input_create()
+    input.pop("values", None)
+    with pytest.raises(ValidationError):
+        ScenarioCreate.model_validate(input, context=mock_context())
+
+def test_update_is_invalid_without_required_inputs():
+    
+    # "project_id" is required in the input for updates
+    input = mock_input_create()
+    input.pop("project_id", None)
+    with pytest.raises(ValidationError):
+        ScenarioUpdate.model_validate(input, context=mock_context())
+
+def test_create_is_invalid_with_forbidden_inputs():
+    
+    # "@meta" is forbidden in the input for creates
+    input = mock_input_create()
+    input["@meta"] = {"created_at": "invalid", "created_by": "should-fail"}
+    with pytest.raises(ValidationError):
+        ScenarioCreate.model_validate(input, context=mock_context())
+    
+    # "values" is forbidden in the input for creates
+    input = mock_input_update()
+    input["values"] = { "should-not": "be-here" }
+    with pytest.raises(ValidationError):
+        ScenarioUpdate.model_validate(input, context=mock_context())
+    
+    # "params" is forbidden in the input for creates
+    input = mock_input_update()
+    input["params"] = ["should-not", "be-here"]
+    with pytest.raises(ValidationError):
+        ScenarioUpdate.model_validate(input, context=mock_context())
+
+def test_update_is_invalid_with_forbidden_inputs():
+    
+    # "@meta" is forbidden in the input for updates
+    input = mock_input_update()
+    input["@meta"] = {"updated_at": "invalid", "updated_by": "should-fail"}
+    with pytest.raises(ValidationError):
+        ScenarioUpdate.model_validate(input, context=mock_context())
+    
+    # "values" is forbidden in the input for updates
+    input = mock_input_update()
+    input["values"] = { "should-not": "be-here" }
+    with pytest.raises(ValidationError):
+        ScenarioUpdate.model_validate(input, context=mock_context())
+    
+    # "params" is forbidden in the input for updates
+    input = mock_input_update()
+    input["params"] = ["should-not", "be-here"]
+    with pytest.raises(ValidationError):
+        ScenarioUpdate.model_validate(input, context=mock_context())
+
+def test_create_is_valid_without_optional_inputs():
+    
+    # "tags" is optional in the input for creates
+    input = mock_input_create()
+    input.pop("tags", None)
+    model = ScenarioCreate.model_validate(input, context=mock_context())
+    
+    # creates must initialize optional fields that were omitted in the input
+    assert model.tags == []
+
+def test_update_is_valid_without_optional_inputs():
+    
+    # "name" is optional in the input for updates
+    input = mock_input_update()
+    input.pop("name", None)
+    model = ScenarioUpdate.model_validate(input, context=mock_context())
+    assert model.name is None
+    
+    # "tags" is optional in the input for updates
+    input = mock_input_update()
+    input.pop("tags", None)
+    model = ScenarioUpdate.model_validate(input, context=mock_context())
+    assert model.tags is None
+    
+def test_create_is_invalid_with_unexpected_fields():
+    input = mock_input_create()
+    input["foo"] = "bar"
+    with pytest.raises(ValidationError):
+        ScenarioCreate.model_validate(input, context=mock_context())
+        
+def test_update_is_invalid_with_unexpected_fields():
+    input = mock_input_update()
+    input["foo"] = "bar"
+    with pytest.raises(ValidationError):
+        ScenarioUpdate.model_validate(input, context=mock_context())
+    
+####  Test Validation of Input Values  #########################################
+
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+def test_create_handles_invalid_inputs_for_project_id(value):
+    input = mock_input_create()
+    input["project_id"] = value
+    with pytest.raises(ValidationError):
+        ScenarioCreate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+def test_update_handles_invalid_inputs_for_project_id(value):
+    input = mock_input_update()
+    input["project_id"] = value
+    with pytest.raises(ValidationError):
+        ScenarioUpdate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+def test_create_handles_invalid_inputs_for_name(value):
+    input = mock_input_create()
+    input["name"] = value
+    with pytest.raises(ValidationError):
+        ScenarioCreate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+def test_update_handles_invalid_inputs_for_name(value):
+    input = mock_input_update()
+    input["name"] = value
+    with pytest.raises(ValidationError):
+        ScenarioUpdate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+def test_create_handles_invalid_inputs_for_tags(value):
+    input = mock_input_create()
+    input["tags"] = value
+    with pytest.raises(ValidationError):
+        ScenarioCreate(**input)
+        
+@pytest.mark.parametrize("value", [[],["test"]])
+def test_create_handles_valid_inputs_for_tags(value):
+    input = mock_input_create()
+    input["tags"] = value
+    ScenarioCreate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+def test_update_handles_invalid_inputs_for_tags(value):
+    input = mock_input_update()
+    input["tags"] = value
+    with pytest.raises(ValidationError):
+        ScenarioUpdate(**input)
+        
+@pytest.mark.parametrize("value", [[],["test"]])
+def test_update_handles_valid_inputs_for_tags(value):
+    input = mock_input_update()
+    input["tags"] = value
+    ScenarioUpdate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", "test", None, True, False, [], [1], {} ])
+def test_create_handles_invalid_inputs_for_values(value):
+    input = mock_input_create()
+    input["values"] = value
+    with pytest.raises(ValidationError):
+        ScenarioCreate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", "test", None, True, False, [], [1], {} ])
+def test_update_handles_invalid_inputs_for_values(value):
+    input = mock_input_update()
+    input["values"] = value
+    with pytest.raises(ValidationError):
+        ScenarioUpdate(**input)
+    
+####  Test Creation of Computed Fields  ########################################
+
+def test_create_computes_meta():
+    model = ScenarioCreate.model_validate(mock_input_create(), context=mock_context())
+    assert_valid_meta_for_create(model.meta, mock_context()["user"])
+
+def test_update_computes_meta():
+    model = ScenarioUpdate.model_validate(mock_input_update(), context=mock_context())
+    assert_valid_meta_for_update(model.meta, mock_context()["user"])
+
+def test_create_computes_params_from_values():
+    
+    # "params" must have the keys extracted from "values"
+    input = mock_input_create()
+    model = ScenarioCreate.model_validate(input, context=mock_context())
+    assert sorted(model.params) == sorted([
+        "text",
+    ])
+    
+####  Test Serialization  ######################################################
+    
+def test_create_serialization_has_all_given_inputs():
+    
+    # Use mock input with required and optional fields
+    input = mock_input_create()
+    model = ScenarioCreate.model_validate(input, context=mock_context())
+    serialized = model.serialize()
+    
+    # Test that inputs are in serialized output
+    assert serialized["project_id"] == mock_input_create()["project_id"]
+    assert serialized["name"] == mock_input_create()["name"]
+    assert serialized["tags"] == mock_input_create()["tags"]
+    assert serialized["values"] == mock_input_create()["values"]
+    assert sorted(serialized["params"]) == sorted([
+        "text",
+    ])
+    
+    # Test that @meta fields were properly serialized
+    assert "@meta" in serialized and "meta" not in serialized
+    assert_valid_meta_for_create(serialized.get("@meta"), mock_context()["user"])
+    
+def test_create_serialization_initializes_omitted_optional_inputs():
+    
+    # Use mock input without optional fields
+    input = mock_input_create()
+    input.pop("tags", None)
+    model = ScenarioCreate.model_validate(input, context=mock_context())
+    serialized = model.serialize()
+    
+    # Test that omitted optional inputs were initialized in the serialized output
+    assert serialized["tags"] == []
+    
+def test_update_serialization_has_all_given_inputs():
+    
+    # Use mock input with required and optional fields
+    input = mock_input_update()
+    model = ScenarioUpdate.model_validate(input, context=mock_context())
+    serialized = model.serialize()
+    
+    # Test that inputs are in serialized output
+    assert serialized["project_id"] == mock_input_update()["project_id"]
+    assert serialized["name"] == mock_input_update()["name"]
+    assert serialized["tags"] == mock_input_update()["tags"]
+    assert "values" not in serialized
+    assert "params" not in serialized
+    
+    # Test that @meta fields were properly serialized
+    assert "@meta" in serialized and "meta" not in serialized
+    assert_valid_meta_for_update(serialized.get("@meta"), mock_context()["user"])
+
+def test_update_serialization_omits_omitted_optional_inputs():
+    
+    # Use mock input without optional fields
+    input = mock_input_update()
+    input.pop("name", None)
+    input.pop("tags", None)
+    model = ScenarioUpdate.model_validate(input, context=mock_context())
+    serialized = model.serialize()
+    
+    # Test that omitted optional inputs are not in serialized output
+    assert "name" not in serialized
+    assert "tags" not in serialized
+    
+    # Test that @meta fields were properly serialized
+    assert "@meta" in serialized and "meta" not in serialized
+    assert_valid_meta_for_update(serialized.get("@meta"), mock_context()["user"])

@@ -1,49 +1,93 @@
 # Standard packages
-from __future__ import annotations
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 # Third-party packages
-from pydantic import Field, model_validator, ValidationInfo
+from pydantic import computed_field, Field, field_validator
 
 # App packages
-from .asset import AssetModel
+from .asset import AssetCreate, AssetUpdate
 from .. import utils
 
-class DisplayModel(AssetModel):
-    project_id: Optional[str] = None
-    index_pattern: Optional[str] = None
-    fields: Optional[List[str]] = Field(default_factory=list)
-    template: Optional[Any] = Field(default_factory=dict)
+def extract_fields_from_template(template: Dict[str, Any]) -> List[str]:
+    """
+    Extract mustache variables from template.body and image.url,
+    excluding reserved fields like _id that start with an underscore.
+    """
+    fields = []
+    for key in ["body", "image.url"]:
+        value = template
+        for part in key.split("."):
+            value = value.get(part, {}) if isinstance(value, dict) else None
+        if isinstance(value, str):
+            for field in utils.extract_params(value):
+                field = field.strip()
+                if field and not field.startswith("_"):
+                    fields.append(field)
+    return sorted(set(fields))
+
+class DisplayCreate(AssetCreate):
     
-    @model_validator(mode="after")
-    def validate_params(self, info: ValidationInfo) -> DisplayModel:
-        """
-        Check for required fields differently in creates and updates.
-        """
-        context = info.context or {}
-        is_partial = context.get("is_partial", False)
-        if not is_partial:
-            if not self.project_id:
-                raise ValueError("project_id is required")
-            if not self.index_pattern:
-                raise ValueError("index_pattern is required")
-            if not all(isinstance(f, str) and f.strip() for f in self.fields):
-                raise ValueError("fields must have non-empty strings")
-        return self
+    # Required inputs
+    project_id: str
+    index_pattern: str
     
-    def model_post_init(self, __context):
-        """
-        Extract params from the template body if params was not given.
-        Exclude params that don't exist in mappings, such as _id.
-        """
-        self.fields = []
-        template_body = self.template.get("body")
-        if template_body:
-            params = utils.extract_params(template_body)
-            self.fields += [ p for p in params if not p.startswith("_") ]
-        template_image = self.template.get("image", {}).get("url")
-        if template_image:
-            params = utils.extract_params(template_image)
-            self.fields += [ p for p in params if not p.startswith("_") ]
-        # Dedupe and sort
-        self.fields = sorted(list(dict.fromkeys(self.fields)))
+    # Optional inputs
+    template: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("project_id")
+    @classmethod
+    def validate_project_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("project_id must be a non-empty string")
+        return value
+
+    @field_validator("index_pattern")
+    @classmethod
+    def validate_index_pattern(cls, value: Optional[str]):
+        if not value.strip():
+            raise ValueError("index_pattern must be a non-empty string")
+        return value
+
+    @computed_field
+    @property
+    def fields(self) -> List[str]:
+        return extract_fields_from_template(self.template or {})
+    
+class DisplayUpdate(AssetUpdate):
+    
+    # Required inputs
+    project_id: str
+    
+    # Optional inputs
+    index_pattern: str = Field(default=None)
+    template: Optional[Dict[str, Any]] = None
+
+    @field_validator("project_id")
+    @classmethod
+    def validate_project_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("project_id must be a non-empty string")
+        return value
+
+    @field_validator("index_pattern")
+    @classmethod
+    def validate_index_pattern(cls, value: Optional[str]):
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("index_pattern must be a non-empty string if given")
+        return value
+    
+    @field_validator("template")
+    @classmethod
+    def validate_template(cls, value: Dict[str, Any]):
+        if not isinstance(value, dict):
+            raise ValueError("template must be an object if given")
+        return value
+
+    @computed_field
+    @property
+    def fields(self) -> Optional[List[str]]:
+        if isinstance(self.template, dict):
+            return extract_fields_from_template(self.template)
+        return None

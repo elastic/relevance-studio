@@ -1,51 +1,242 @@
 # Standard packages
-from __future__ import annotations
 from typing import List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field, model_validator, ValidationInfo
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # App packages
-from .asset import AssetModel
+from .asset import AssetCreate, AssetUpdate
 
-class BenchmarkModel(AssetModel):
-    project_id: Optional[str] = None
-    name: Optional[str] = None
-    description: Optional[str] = Field(default=None)
-    tags: Optional[List[str]] = Field(default_factory=list)
-    task: Optional[TaskModel] = None
-    
-    @model_validator(mode="after")
-    def validate_params(self, info: ValidationInfo) -> BenchmarkModel:
-        """
-        Check for required fields differently in creates and updates.
-        """
-        context = info.context or {}
-        is_partial = context.get("is_partial", False)
-        if not is_partial:
-            if not self.project_id:
-                raise ValueError("project_id is required")
-            if not self.name:
-                raise ValueError("name is required")
-            if self.tags and not all(isinstance(t, str) and t.strip() for t in self.tags):
-                raise ValueError("tags must have non-empty strings")
-        else:
-            if self.task and 'k' in self.task.model_fields_set:
-                raise ValueError("task.k is immutable")
-        return self
 
-class TaskStrategiesModel(BaseModel):
-    ids_: Optional[List[str]] = Field(alias="_ids", default_factory=list)
-    tags: Optional[List[str]] = Field(default_factory=list)
+class TaskStrategiesCreate(BaseModel):
+    model_config = { "extra": "forbid" }
+    ids_: List[str] = Field(alias="_ids", default_factory=list)
+    tags: List[str] = Field(default_factory=list)
 
-class TaskScenariosModel(BaseModel):
-    ids_: Optional[List[str]] = Field(alias="_ids", default_factory=list)
-    tags: Optional[List[str]] = Field(default_factory=list)
-    sample_size: Optional[int] = Field(default=1000)
+    @field_validator("ids_")
+    @classmethod
+    def validate_ids(cls, value: List[str]):
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("_ids must be a list of non-empty strings if given")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value
+
+class TaskStrategiesUpdate(BaseModel):
+    model_config = { "extra": "forbid" }
+    ids_: List[str] = Field(alias="_ids", default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+
+    @field_validator("ids_")
+    @classmethod
+    def validate_ids(cls, value: List[str]):
+        if value is None:
+            return value
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("_ids must be a list of non-empty strings if given")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if value is None:
+            return value
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags ust be a list of non-empty strings if given")
+        return value
+
+class TaskScenariosCreate(BaseModel):
+    model_config = { "extra": "forbid" }
+    ids_: List[str] = Field(alias="_ids", default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    sample_size: Optional[int] = Field(default=1000, ge=1)
     sample_seed: Optional[str] = Field(default=None)
+
+    @field_validator("ids_")
+    @classmethod
+    def validate_ids(cls, value: List[str]):
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("_ids must be a list of non-empty strings if given")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value
     
-class TaskModel(BaseModel):
+    @field_validator("sample_size", mode="before")
+    @classmethod
+    def validate_sample_size(cls, value):
+        if value is None or isinstance(value, bool):
+            raise ValueError("sample_size must be an integer")
+        return value
+
+class TaskScenariosUpdate(BaseModel):
+    model_config = { "extra": "forbid" }
+    ids_: List[str] = Field(alias="_ids", default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    sample_size: Optional[int] = Field(default=1000, ge=1)
+    sample_seed: Optional[str] = Field(default=None)
+
+    @field_validator("ids_")
+    @classmethod
+    def validate_ids(cls, value: List[str]):
+        if value is None:
+            return value
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("_ids must be a list of non-empty strings if given")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if value is None:
+            return value
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value
+    
+    @field_validator("sample_size", mode="before")
+    @classmethod
+    def validate_sample_size(cls, value):
+        if value is None or isinstance(value, bool):
+            raise ValueError("sample_size must be an integer")
+        return value
+
+class TaskCreate(BaseModel):
+    model_config = { "extra": "forbid" }
     metrics: List[str] = Field(default_factory=lambda: ["ndcg", "precision", "recall"])
-    k: int = 10
-    strategies: TaskStrategiesModel = Field(default_factory=TaskStrategiesModel)
-    scenarios: TaskScenariosModel = Field(default_factory=TaskScenariosModel)
+    k: int = Field(default=10, ge=1)
+    strategies: TaskStrategiesCreate = Field(default_factory=TaskStrategiesCreate)
+    scenarios: TaskScenariosCreate = Field(default_factory=TaskScenariosCreate)
+
+    @field_validator("k", mode="before")
+    @classmethod
+    def validate_k(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("k must be an integer")
+        return value
+
+    @field_validator("metrics")
+    @classmethod
+    def validate_metrics(cls, value: List[str]):
+        if not value:
+            raise ValueError("metrics must have at least one value")
+        stripped = [m.strip() for m in value if isinstance(m, str)]
+        if len(stripped) != len(value) or not all(stripped):
+            raise ValueError("metrics must be a list of non-empty strings")
+        return stripped
+
+class TaskUpdate(BaseModel):
+    model_config = { "extra": "forbid" }
+    metrics: Optional[List[str]] = None
+    strategies: Optional[TaskStrategiesUpdate] = None
+    scenarios: Optional[TaskScenariosUpdate] = None
+
+    @field_validator("metrics")
+    @classmethod
+    def validate_metrics(cls, value: List[str]):
+        if not value:
+            raise ValueError("metrics must have at least one value")
+        stripped = [m.strip() for m in value if isinstance(m, str)]
+        if len(stripped) != len(value) or not all(stripped):
+            raise ValueError("metrics must be a list of non-empty strings")
+        return stripped
+
+    @model_validator(mode="before")
+    @classmethod
+    def forbid_k(cls, data):
+        if "k" in data:
+            raise ValueError("task.k is immutable and cannot be updated")
+        return data
+
+class BenchmarkCreate(AssetCreate):
+
+    # Required inputs
+    project_id: str
+    name: str
+    task: Optional[TaskCreate] = None
+
+    # Optional inputs
+    description: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+
+    @field_validator("project_id")
+    @classmethod
+    def validate_project_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("project_id must be a non-empty string")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str):
+        if not value.strip():
+            raise ValueError("name must be a non-empty string")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value
+    
+    @model_validator(mode="before")
+    @classmethod
+    def validate_task(cls, data):
+        if "task" not in data:
+            data["task"] = TaskCreate()
+        elif data["task"] is None:
+            raise ValueError("task must be an object if given")
+        return data
+
+class BenchmarkUpdate(AssetUpdate):
+
+    # Required inputs
+    project_id: str
+
+    # Optional inputs
+    name: str = None
+    description: str = None
+    tags: Optional[List[str]] = None
+    task: Optional[TaskUpdate] = None
+
+    @field_validator("project_id")
+    @classmethod
+    def validate_project_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("project_id must be a non-empty string")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]):
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("name must be a non-empty string if given")
+        return value
+    
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: Optional[str]):
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("description must be a non-empty string if given")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if value is None or not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value

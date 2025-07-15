@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import ProjectModel
+from ..models import ProjectCreate, ProjectUpdate
 
 INDEX_NAME = "esrs-projects"
 
@@ -44,17 +44,13 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: dict, _id: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
     """
     Create a project in Elasticsearch. Allow a predetermined _id.
     """
     
     # Create, validate, and dump model
-    doc = (
-        ProjectModel
-        .model_validate(doc)
-        .model_dump(by_alias=True, exclude_unset=True)
-    )
+    doc = ProjectCreate.model_validate(doc).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("projects", doc)
@@ -68,17 +64,13 @@ def create(doc: dict, _id: str = None) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: dict) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
     """
     Update a project in Elasticsearch.
     """
     
     # Create, validate, and dump model
-    doc_partial = (
-        ProjectModel
-        .model_validate(doc_partial, context={"is_partial": True})
-        .model_dump(by_alias=True, exclude_unset=True)
-    )
+    doc_partial = ProjectUpdate.model_validate(doc_partial).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("projects", doc_partial)

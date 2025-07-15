@@ -89,10 +89,14 @@ const FlyoutForm = ({
     let response
     try {
       setIsProcessing(true)
-      if (action == 'create')
+      if (action == 'create') {
         response = await api.projects_create(newDoc)
-      else
-        response = await api.projects_update(doc._id, newDoc)
+      } else {
+        // Remove fields forbidden in updates
+        const docPartial = { ...newDoc }
+        delete docPartial.rating_scale
+        response = await api.projects_update(doc._id, docPartial)
+      }
     } catch (e) {
       return addToast(api.errorToast(e, { title: `Failed to ${action} project` }))
     } finally {

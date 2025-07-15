@@ -1,61 +1,100 @@
 # Standard packages
-from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 # Third-party packages
-from pydantic import Field, model_validator, ValidationInfo
+from pydantic import computed_field, Field, field_validator
 
 # App packages
-from .asset import AssetModel
+from .asset import AssetCreate, AssetUpdate
+from .. import utils
 
-class ScenarioModel(AssetModel):
-    project_id: Optional[str] = None
-    name: Optional[str] = None
-    params: Optional[List[str]] = Field(default_factory=list)
-    tags: Optional[List[str]] = Field(default_factory=list)
-    values: Optional[Dict[str, Any]] = Field(default=None)
-    
-    @model_validator(mode="after")
-    def validate_params(self, info: ValidationInfo) -> ScenarioModel:
-        """
-        Check for required fields differently in creates and updates.
-        """
-        context = info.context or {}
-        is_partial = context.get("is_partial", False)
-        if not is_partial:
-            if not self.project_id:
-                raise ValueError("project_id is required")
-            if not self.name:
-                raise ValueError("name is required")
-            if not self.values:
-                raise ValueError("values is required")
-            if not self.params:
-                raise ValueError("params is required")
-            if self.params and not all(isinstance(p, str) and p.strip() for p in self.params):
-                raise ValueError("fields must have non-empty strings")
-            if self.tags and not all(isinstance(t, str) and t.strip() for t in self.tags):
-                raise ValueError("tags must have non-empty strings")
-        else:
-            if self.values:
-                raise ValueError("values cannot be updated")
-            if self.params:
-                raise ValueError("params cannot be updated")
-        return self
-    
-    def model_post_init(self, __context):
-        """
-        Extract params from the values if params was not given.
-        Ensure the params match the keys of values.
-        """
-        if self.values is None:
-            if self.params:
-                raise ValueError("If `values` is None, then `params` must also be empty or None")
-            return
+def extract_fields_from_template(template: Dict[str, Any]) -> List[str]:
+    """
+    Extract mustache variables from template.body and image.url,
+    excluding reserved fields like _id that start with an underscore.
+    """
+    fields = []
+    for key in ["body", "image.url"]:
+        value = template
+        for part in key.split("."):
+            value = value.get(part, {}) if isinstance(value, dict) else None
+        if isinstance(value, str):
+            for field in utils.extract_params(value):
+                field = field.strip()
+                if field and not field.startswith("_"):
+                    fields.append(field)
+    return sorted(set(fields))
 
-        expected_params = sorted(list(self.values.keys()))
-        if not self.params:
-            self.params = expected_params
-        elif sorted(self.params) != expected_params:
-            raise ValueError(
-                f"`params` ({self.params}) does not match keys of `values` ({expected_params})"
-            )
+class ScenarioCreate(AssetCreate):
+    
+    # Required inputs
+    project_id: str
+    name: str
+    values: Dict[str, Any]
+    
+    # Optional inputs
+    tags: List[str] = Field(default_factory=list)
+
+    @field_validator("project_id")
+    @classmethod
+    def validate_project_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("project_id must be a non-empty string")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]):
+        if not value.strip():
+            raise ValueError("name must be a non-empty string")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value
+
+    @field_validator("values")
+    @classmethod
+    def validate_values(cls, value: Dict[str, any]):
+        if value == {}:
+            raise ValueError("values must not be empty")
+        return value
+
+    @computed_field
+    @property
+    def params(self) -> Optional[List[str]]:
+        if isinstance(self.values, dict):
+            return sorted(list(self.values.keys()))
+    
+class ScenarioUpdate(AssetUpdate):
+    
+    # Required inputs
+    project_id: str
+    
+    # Optional inputs
+    name: str = Field(default=None)
+    tags: Optional[List[str]] = None
+
+    @field_validator("project_id")
+    @classmethod
+    def validate_project_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("project_id must be a non-empty string")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]):
+        if not value.strip():
+            raise ValueError("name must be a non-empty string if given")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if value is None or not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value

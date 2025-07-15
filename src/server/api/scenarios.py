@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import ScenarioModel
+from ..models import ScenarioCreate, ScenarioUpdate
 
 INDEX_NAME = "esrs-scenarios"
 
@@ -44,7 +44,7 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: ScenarioModel) -> Dict[str, Any]:
+def create(doc: Dict[str, Any]) -> Dict[str, Any]:
     """
     Create a scenario in Elasticsearch.
     
@@ -53,11 +53,7 @@ def create(doc: ScenarioModel) -> Dict[str, Any]:
     """
     
     # Create, validate, and dump model
-    doc = (
-        ScenarioModel
-        .model_validate(doc)
-        .model_dump(by_alias=True, exclude_unset=True)
-    )
+    doc = ScenarioCreate.model_validate(doc).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("scenarios", doc)
@@ -71,17 +67,13 @@ def create(doc: ScenarioModel) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: ScenarioModel) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
     """
     Update a scenario in Elasticsearch.
     """
     
     # Create, validate, and dump model
-    doc_partial = (
-        ScenarioModel
-        .model_validate(doc_partial, context={"is_partial": True})
-        .model_dump(by_alias=True, exclude_unset=True)
-    )
+    doc_partial = ScenarioUpdate.model_validate(doc_partial).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("scenarios", doc_partial)

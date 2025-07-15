@@ -28,6 +28,7 @@ import {
   SearchResultsJudgements,
 } from '../../Layout'
 import api from '../../api'
+import utils from '../../utils'
 import { getHistory } from '../../history'
 
 const Judgements = () => {
@@ -298,10 +299,14 @@ const Judgements = () => {
       } finally {
         setIsLoadingResults(false)
       }
+      if (response.status > 299)
+        return addToast(utils.toastClientResponse(response))
 
       // Handle API response
-      setResults(response.data.hits.hits)
-      setNumResults(response.data.hits.total.value)
+      if (response?.data?.hits?.hits) {
+        setResults(response.data.hits.hits)
+        setNumResults(response.data.hits.total.value)
+      }
     })()
   }
 

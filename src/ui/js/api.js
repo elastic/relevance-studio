@@ -36,11 +36,21 @@ const validateArgs = (fnName, requiredArgs) => {
 }
 
 /**
+ * Remove fields from a doc that shouldn't be included in creates or updates.
+ */
+const clean = (doc) => {
+  const sanitized = { ...doc }
+  delete sanitized['_id']
+  delete sanitized['@meta']
+  return sanitized
+}
+
+/**
  * Return a response, or redirect to home if the status is 404,
  * indicating that the index templates and indices aren't setup.
  */
 const responseOrFallbackSetup = (response) => {
-  if (response?.status === 404) {
+  if (response?.status === 404 && response?.data?.error?.index?.startsWith('esrs-')) {
     const ctx = getAppContext()
     ctx?.setIsSetup?.(false)
     getHistory().push('/')
@@ -69,13 +79,13 @@ api.projects_get = async (project_id) => {
 
 api.projects_create = async (doc) => {
   validateArgs('api.projects_create', { doc, })
-  const response = await client.post(`/api/projects`, { data: doc })
+  const response = await client.post(`/api/projects`, { data: clean(doc) })
   return responseOrFallbackSetup(response)
 }
 
-api.projects_update = async (project_id, doc) => {
-  validateArgs('api.projects_update', { project_id, doc, })
-  const response = await client.put(`/api/projects/${project_id}`, { data: doc })
+api.projects_update = async (project_id, doc_partial) => {
+  validateArgs('api.projects_update', { project_id, doc_partial, })
+  const response = await client.put(`/api/projects/${project_id}`, { data: clean(doc_partial) })
   return responseOrFallbackSetup(response)
 }
 
@@ -102,13 +112,13 @@ api.displays_get = async (project_id, display_id) => {
 
 api.displays_create = async (project_id, doc) => {
   validateArgs('api.displays_create', { project_id, doc, })
-  const response = await client.post(`/api/projects/${project_id}/displays`, { data: doc })
+  const response = await client.post(`/api/projects/${project_id}/displays`, { data: clean(doc) })
   return responseOrFallbackSetup(response)
 }
 
-api.displays_update = async (project_id, display_id, doc) => {
-  validateArgs('api.displays_update', { project_id, display_id, doc, })
-  const response = await client.put(`/api/projects/${project_id}/displays/${display_id}`, { data: doc })
+api.displays_update = async (project_id, display_id, doc_partial) => {
+  validateArgs('api.displays_update', { project_id, display_id, doc_partial, })
+  const response = await client.put(`/api/projects/${project_id}/displays/${display_id}`, { data: clean(doc_partial) })
   return responseOrFallbackSetup(response)
 }
 
@@ -141,13 +151,13 @@ api.scenarios_get = async (project_id, scenario_id) => {
 
 api.scenarios_create = async (project_id, doc) => {
   validateArgs('api.scenarios_create', { project_id, doc, })
-  const response = await client.post(`/api/projects/${project_id}/scenarios`, { data: doc })
+  const response = await client.post(`/api/projects/${project_id}/scenarios`, { data: clean(doc) })
   return responseOrFallbackSetup(response)
 }
 
-api.scenarios_update = async (project_id, scenario_id, doc) => {
-  validateArgs('api.scenarios_update', { project_id, scenario_id, doc, })
-  const response = await client.put(`/api/projects/${project_id}/scenarios/${scenario_id}`, { data: doc })
+api.scenarios_update = async (project_id, scenario_id, doc_partial) => {
+  validateArgs('api.scenarios_update', { project_id, scenario_id, doc_partial, })
+  const response = await client.put(`/api/projects/${project_id}/scenarios/${scenario_id}`, { data: clean(doc_partial) })
   return responseOrFallbackSetup(response)
 }
 
@@ -172,7 +182,7 @@ api.judgements_set = async (project_id, scenario_id, doc) => {
   validateArgs('api.judgements_set', { project_id, scenario_id, doc, })
   doc.project_id = project_id
   doc.scenario_id = scenario_id
-  const response = await client.put(`/api/projects/${project_id}/judgements`, { data: doc })
+  const response = await client.put(`/api/projects/${project_id}/judgements`, { data: clean(doc) })
   return responseOrFallbackSetup(response)
 }
 
@@ -205,13 +215,13 @@ api.strategies_get = async (project_id, strategy_id) => {
 
 api.strategies_create = async (project_id, doc) => {
   validateArgs('api.strategies_create', { project_id, doc, })
-  const response = await client.post(`/api/projects/${project_id}/strategies`, { data: doc })
+  const response = await client.post(`/api/projects/${project_id}/strategies`, { data: clean(doc) })
   return responseOrFallbackSetup(response)
 }
 
-api.strategies_update = async (project_id, strategy_id, doc) => {
-  validateArgs('api.strategies_update', { project_id, strategy_id, doc, })
-  const response = await client.put(`/api/projects/${project_id}/strategies/${strategy_id}`, { data: doc })
+api.strategies_update = async (project_id, strategy_id, doc_partial) => {
+  validateArgs('api.strategies_update', { project_id, strategy_id, doc_partial, })
+  const response = await client.put(`/api/projects/${project_id}/strategies/${strategy_id}`, { data: clean(doc_partial) })
   return responseOrFallbackSetup(response)
 }
 
@@ -244,13 +254,13 @@ api.benchmarks_get = async (project_id, benchmark_id) => {
 
 api.benchmarks_create = async (project_id, doc) => {
   validateArgs('api.benchmarks_create', { project_id, doc, })
-  const response = await client.post(`/api/projects/${project_id}/benchmarks`, { data: doc })
+  const response = await client.post(`/api/projects/${project_id}/benchmarks`, { data: clean(doc) })
   return responseOrFallbackSetup(response)
 }
 
-api.benchmarks_update = async (project_id, benchmark_id, doc) => {
-  validateArgs('api.benchmarks_update', { project_id, benchmark_id, doc, })
-  const response = await client.put(`/api/projects/${project_id}/benchmarks/${benchmark_id}`, { data: doc })
+api.benchmarks_update = async (project_id, benchmark_id, doc_partial) => {
+  validateArgs('api.benchmarks_update', { project_id, benchmark_id, doc_partial, })
+  const response = await client.put(`/api/projects/${project_id}/benchmarks/${benchmark_id}`, { data: clean(doc_partial) })
   return responseOrFallbackSetup(response)
 }
 
@@ -283,7 +293,7 @@ api.evaluations_get = async (project_id, benchmark_id, evaluation_id) => {
 
 api.evaluations_create = async (project_id, benchmark_id, body) => {
   validateArgs('api.evaluations_create', { project_id, benchmark_id, body, })
-  const response = await client.post(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations`, { data: body })
+  const response = await client.post(`/api/projects/${project_id}/benchmarks/${benchmark_id}/evaluations`, { data: clean(body) })
   return responseOrFallbackSetup(response)
 }
 
