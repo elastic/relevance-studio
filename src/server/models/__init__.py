@@ -1,10 +1,9 @@
 
-from .asset import AssetModel
-from .meta import MetaModel
-from .projects import ProjectModel
-from .displays import DisplayModel
-from .scenarios import ScenarioModel
-from .judgements import JudgementModel
-from .strategies import StrategyModel
-from .benchmarks import BenchmarkModel
-from .evaluations import EvaluationModel
+from .asset import AssetCreate, AssetUpdate
+from .benchmarks import BenchmarkCreate, BenchmarkUpdate
+from .displays import DisplayCreate, DisplayUpdate
+#from .evaluations import EvaluationCreate
+from .judgements import JudgementCreate
+from .projects import ProjectCreate, ProjectUpdate
+from .scenarios import ScenarioCreate, ScenarioUpdate
+from .strategies import StrategyCreate, StrategyUpdate

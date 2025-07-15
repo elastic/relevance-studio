@@ -90,14 +90,6 @@ def validate_project_id_match(body, project_id_from_url):
     """
     if "project_id" in body and body["project_id"] != project_id_from_url:
         raise BadRequest("The project_id in the URL must match project_id in request body if given.")
-
-def validate_id_match(body, _id_from_url):
-    """
-    When updating documents, if an _id is given in the request body, it must
-    match the _id from the URL.
-    """
-    if body.get("_id") and body["_id"] != _id_from_url:
-        raise BadRequest("The _id in the URL must match _id in request body if given.")
     
 
 ####  API: Projects  ###########################################################
@@ -124,7 +116,6 @@ def projects_create():
 @api_route("/api/projects/<string:_id>", methods=["PUT"])
 def projects_update(_id):
     doc_partial = request.get_json()
-    validate_id_match(doc_partial, _id)
     return api.projects.update(_id, doc_partial)
 
 @api_route("/api/projects/<string:_id>", methods=["DELETE"])
@@ -154,7 +145,6 @@ def displays_create(project_id):
 @api_route("/api/projects/<string:project_id>/displays/<string:_id>", methods=["PUT"])
 def displays_update(project_id, _id):
     doc_partial = request.get_json()
-    validate_id_match(doc_partial, _id)
     validate_project_id_match(doc_partial, project_id)
     doc_partial["project_id"] = project_id # ensure project_id from path is in doc_partial
     return api.displays.update(_id, doc_partial)
@@ -189,7 +179,6 @@ def scenarios_create(project_id):
 @api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["PUT"])
 def scenarios_update(project_id, _id):
     doc_partial = request.get_json()
-    validate_id_match(doc_partial, _id)
     validate_project_id_match(doc_partial, project_id)
     doc_partial["project_id"] = project_id # ensure project_id from path is in doc_partial
     return api.scenarios.update(_id, doc_partial)
@@ -246,7 +235,6 @@ def strategies_create(project_id):
 @api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["PUT"])
 def strategies_update(project_id, _id):
     doc_partial = request.get_json()
-    validate_id_match(doc_partial, _id)
     validate_project_id_match(doc_partial, project_id)
     doc_partial["project_id"] = project_id # ensure project_id from path is in doc
     return api.strategies.update(_id, doc_partial)
@@ -287,7 +275,6 @@ def benchmarks_create(project_id):
 @api_route("/api/projects/<string:project_id>/benchmarks/<string:_id>", methods=["PUT"])
 def benchmarks_update(project_id, _id):
     doc_partial = request.get_json()
-    validate_id_match(doc_partial, _id)
     validate_project_id_match(doc_partial, project_id)
     doc_partial["project_id"] = project_id # ensure project_id from path is in doc_partial
     return api.benchmarks.update(_id, doc_partial)

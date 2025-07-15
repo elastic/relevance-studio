@@ -12,7 +12,7 @@ import re
 import uuid
 
 # App packages
-from .test_models_project import valid_output
+from .test_models_project import mock_input_create
 from server import utils
 
 RE_ISO_8601_TIMESTAMP = re.compile(
@@ -136,9 +136,9 @@ class TestUtils:
         assert actual == expected
     
     def test_copy_fields_to_search(self):
-        given = valid_output()
+        given = mock_input_create()
         actual = utils.copy_fields_to_search("projects", given)
-        expected = valid_output()
+        expected = mock_input_create()
         expected["_search"] = {
             "name": expected["name"],
             "index_pattern": expected["index_pattern"],

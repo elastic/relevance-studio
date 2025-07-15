@@ -98,9 +98,8 @@ const StrategiesEdit = () => {
     // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
 
-    let json
     try {
-      json = JSON.parse(strategyDraft)
+      JSON.parse(strategyDraft)
     } catch (e) {
       return addToast({
         color: 'danger',
@@ -114,7 +113,8 @@ const StrategiesEdit = () => {
       name: lastSavedStrategy.name,
       tags: lastSavedStrategy.tags,
       template: {
-        source: json
+        lang: 'mustache',
+        source: strategyDraft
       },
     }
 

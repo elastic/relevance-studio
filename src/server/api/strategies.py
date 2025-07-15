@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import StrategyModel
+from ..models import StrategyCreate, StrategyUpdate
 
 INDEX_NAME = "esrs-strategies"
 
@@ -43,17 +43,13 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: StrategyModel, _id: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
     """
     Create a strategy in Elasticsearch.
     """
     
     # Create, validate, and dump model
-    doc = (
-        StrategyModel
-        .model_validate(doc)
-        .model_dump(by_alias=True, exclude_unset=True)
-    )
+    doc = StrategyCreate.model_validate(doc).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("strategies", doc)
@@ -67,17 +63,13 @@ def create(doc: StrategyModel, _id: str = None) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: StrategyModel) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
     """
     Update a strategy in Elasticsearch.
     """ 
     
     # Create, validate, and dump model
-    doc_partial = (
-        StrategyModel
-        .model_validate(doc_partial, context={"is_partial": True})
-        .model_dump(by_alias=True, exclude_unset=True)
-    )
+    doc_partial = StrategyUpdate.model_validate(doc_partial).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("strategies", doc_partial)

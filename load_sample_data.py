@@ -4,7 +4,6 @@ import logging
 import os
 import shutil
 import sys
-import uuid
 from datetime import datetime, timezone
 
 # Third-party packages
@@ -334,7 +333,8 @@ def make_strategy_docs(dataset):
             "tags": [ "bm25" ],
             "params": [ "text" ],
             "template": {
-                "source": {
+                "lang": "painless",
+                "source": """{
                     "retriever": {
                         "standard": {
                             "query": {
@@ -345,7 +345,7 @@ def make_strategy_docs(dataset):
                             }
                         }
                     }
-                }
+                }"""
             }
         },
         {
@@ -357,7 +357,8 @@ def make_strategy_docs(dataset):
             "tags": [ "bm25" ],
             "params": [ "text" ],
             "template": {
-                "source": {
+                "lang": "painless",
+                "source": """{
                     "retriever": {
                         "standard": {
                             "query": {
@@ -368,7 +369,7 @@ def make_strategy_docs(dataset):
                             }
                         }
                     }
-                }
+                }"""
             }
         }
     ]
@@ -459,8 +460,7 @@ def load_strategies(dataset):
     logger.debug(f"Loading strategies for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "strategies.jsonl")
     def transformer(doc):
-        doc = StrategyModel(**doc)
-        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = StrategyCreate.model_validate(doc).serialize()
         doc_dict = utils.copy_fields_to_search(doc_dict, api.strategies.SEARCH_FIELDS)
         return doc_dict
     parallel_bulk_import("studio", filepath, "esrs-strategies", transformer)
@@ -472,8 +472,7 @@ def load_judgements(dataset):
     logger.debug(f"Loading judgements for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "judgements.jsonl")
     def transformer(doc):
-        doc = JudgementModel(**doc)
-        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = JudgementCreate.model_validate(doc).serialize()
         doc_dict = utils.copy_fields_to_search(doc_dict, api.judgements.SEARCH_FIELDS)
         return doc_dict
     parallel_bulk_import("studio", filepath, "esrs-judgements", transformer)
@@ -485,8 +484,7 @@ def load_scenarios(dataset):
     logger.debug(f"Loading scenarios for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "scenarios.jsonl")
     def transformer(doc):
-        doc = ScenarioModel(**doc)
-        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = ScenarioCreate.model_validate(doc).serialize()
         doc_dict = utils.copy_fields_to_search(doc_dict, api.scenarios.SEARCH_FIELDS)
         return doc_dict
     parallel_bulk_import("studio", filepath, "esrs-scenarios", transformer)
@@ -498,8 +496,7 @@ def load_displays(dataset):
     logger.debug(f"Loading displays for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "displays.jsonl")
     def transformer(doc):
-        doc = DisplayModel(**doc)
-        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = DisplayCreate.model_validate(doc).serialize()
         doc_dict = utils.copy_fields_to_search(doc_dict, api.displays.SEARCH_FIELDS)
         return doc_dict
     parallel_bulk_import("studio", filepath, "esrs-displays", transformer)
@@ -513,8 +510,7 @@ def load_project(dataset):
     #api.projects.delete(make_project_id(dataset))
     filepath = os.path.join(staging_directory(dataset), "projects.jsonl")
     def transformer(doc):
-        doc = ProjectModel(**doc)
-        doc_dict = doc.model_dump(by_alias=True, exclude_unset=True)
+        doc_dict = ProjectCreate.model_validate(doc).serialize()
         doc_dict = utils.copy_fields_to_search(doc_dict, api.projects.SEARCH_FIELDS)
         return doc_dict
     parallel_bulk_import("studio", filepath, "esrs-projects", transformer)

@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 from . import benchmarks, content
 from .. import utils
 from ..client import es
-from ..models import MetaModel
 
 INDEX_NAME = "esrs-evaluations"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("evaluations")

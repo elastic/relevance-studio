@@ -196,8 +196,10 @@ const DisplaysEdit = () => {
     } finally {
       setIsLoadingDocRandom(false)
     }
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
     // Handle API response
-    setSampleDoc(response.data.hits.hits[0])
+    setSampleDoc((response?.data?.hits?.hits || [])[0])
     setQueryString('')
   }
 
@@ -218,8 +220,10 @@ const DisplaysEdit = () => {
     } finally {
       setIsLoadingDocById(false)
     }
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
     // Handle API response
-    setSampleDoc(response.data.hits.hits[0])
+    setSampleDoc((response?.data?.hits?.hits || [])[0])
   }
 
   /**

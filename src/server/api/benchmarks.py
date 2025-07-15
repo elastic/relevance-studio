@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Set, Tuple
 # App packages
 from .. import utils
 from ..client import es
-from ..models import BenchmarkModel
+from ..models import BenchmarkCreate, BenchmarkUpdate
 
 INDEX_NAME = "esrs-benchmarks"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmarks")
@@ -46,17 +46,13 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: BenchmarkModel, _id: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
     """
     Create a benchmark in Elasticsearch. Allow a predetermined _id.
     """
     
-    # Create, validate, and dump model
-    doc = (
-        BenchmarkModel
-        .model_validate(doc)
-        .model_dump(by_alias=True, exclude_unset=True)
-    )
+    # Create, validate, and serialize model
+    doc = BenchmarkCreate.model_validate(doc).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("benchmarks", doc)
@@ -70,17 +66,13 @@ def create(doc: BenchmarkModel, _id: str = None) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: BenchmarkModel) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
     """
     Update a benchmark in Elasticsearch.
     """
     
-    # Create, validate, and dump model
-    doc_partial = (
-        BenchmarkModel
-        .model_validate(doc_partial, context={"is_partial": True})
-        .model_dump(by_alias=True, exclude_unset=True)
-    )
+    # Create, validate, and serialize model
+    doc_partial = BenchmarkUpdate.model_validate(doc_partial).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("benchmarks", doc_partial)

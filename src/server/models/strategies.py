@@ -1,78 +1,98 @@
 # Standard packages
-from __future__ import annotations
-import json
-import re
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 # Third-party packages
-from pydantic import Field, model_validator, ValidationInfo
+from pydantic import BaseModel, computed_field, Field, field_validator
 
 # App packages
-from .asset import AssetModel
+from .asset import AssetCreate, AssetUpdate
 from .. import utils
 
-RE_ISO_8601_TIMESTAMP = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
-)
+class TemplateCreate(BaseModel):
+    model_config = { "extra": "forbid" }
+    lang: str = "mustache"
+    source: str = ""
 
-class StrategyModel(AssetModel):
-    project_id: Optional[str] = None
-    name: Optional[str] = None
-    params: Optional[List[str]] = Field(default_factory=list)
-    tags: Optional[List[str]] = Field(default_factory=list)
-    template: Optional[Dict[str, Any]] = Field(default_factory=dict)
+class TemplateUpdate(BaseModel):
+    model_config = { "extra": "forbid" }
+    lang: Optional[str] = None
+    source: Optional[str] = None
+
+class StrategyCreate(AssetCreate):
     
-    @model_validator(mode="after")
-    def validate_params(self, info: ValidationInfo) -> StrategyModel:
-        """
-        Check for required fields differently in creates and updates.
-        """
-        context = info.context or {}
-        is_partial = context.get("is_partial", False)
-        if not is_partial:
-            if not self.project_id:
-                raise ValueError("project_id is required")
-            if not self.name:
-                raise ValueError("name is required")
-            if not self.template:
-                raise ValueError("template is required")
-            if self.params and not all(isinstance(p, str) and p.strip() for p in self.params):
-                raise ValueError("params must have non-empty strings")
-            if self.tags and not all(isinstance(t, str) and t.strip() for t in self.tags):
-                raise ValueError("tags must have non-empty strings")
-        return self
+    # Required inputs
+    project_id: str
+    name: str
     
-    @model_validator(mode='before')
+    # Optional inputs
+    tags: List[str] = Field(default_factory=list)
+    template: TemplateCreate = Field(default_factory=TemplateCreate)
+
+    @field_validator("project_id")
     @classmethod
-    def validate_params_template_consistency(cls, data):
-        """
-        Ensure template.source is serialized as a JSON sttring.
-        Ensure that params and template are consistent.
-        """
-        if isinstance(data, dict):
-            # Serialize template.source if it's a dict
-            template = data.get("template")
-            if isinstance(template, dict) and isinstance(template.get("source"), dict):
-                template["source"] = json.dumps(template["source"])
-            
-            # Reject case where template is explicitly None and params is given
-            if 'template' in data and data['template'] is None and data.get('params') is not None:
-                raise ValueError("Cannot specify `params` when `template` is explicitly None")
-        return data
+    def validate_project_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("project_id must be a non-empty string")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]):
+        if not value.strip():
+            raise ValueError("name must be a non-empty string")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value
+
+    @computed_field
+    @property
+    def params(self) -> Optional[List[str]]:
+        return utils.extract_params(self.template.source or "") if self.template else []
     
-    def model_post_init(self, __context):
-        """
-        Extract params from the template if params was not given.
-        Ensure the params match the keys of values.
-        """
-        if not self.template:
-            return
-        print(self.template)
-        template_source = self.template.get("source")
-        if not template_source:
-            return
-        expected = utils.extract_params(template_source)
-        if self.params == []:
-            self.params = expected
-        elif self.params != expected:
-            raise ValueError(f"`params` must match mustache variables in `template`. Expected {expected}, got {self.params}")
+class StrategyUpdate(AssetUpdate):
+    
+    # Required inputs
+    project_id: str
+    
+    # Optional inputs
+    name: str = Field(default=None)
+    tags: Optional[List[str]] = None
+    template: Optional[TemplateUpdate] = None
+
+    @field_validator("project_id")
+    @classmethod
+    def validate_project_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("project_id must be a non-empty string")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]):
+        if not value.strip():
+            raise ValueError("name must be a non-empty string")
+        return value
+    
+    @field_validator("template", mode="before")
+    @classmethod
+    def validate_template(cls, value):
+        if value is None:
+            raise ValueError("template must be an object if given")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if value is None or not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value
+
+    @computed_field
+    @property
+    def params(self) -> Optional[List[str]]:
+        return utils.extract_params(self.template.source or "") if self.template and self.template.source else None

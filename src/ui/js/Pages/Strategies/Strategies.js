@@ -326,7 +326,8 @@ const Strategies = () => {
       name: '',
       tags: [],
       template: {
-        source: {}
+        lang: 'mustache',
+        source: '{}'
       }
     })}>
       Create a new strategy

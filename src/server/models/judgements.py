@@ -1,47 +1,59 @@
 # Standard packages
-from __future__ import annotations
-import re
-from typing import Any, Optional
+from typing import List
 
 # Third-party packages
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator
 
 # App packages
-from .asset import AssetModel
+from .asset import AssetCreate, AssetUpdate
 
-RE_ISO_8601_TIMESTAMP = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
-)
-
-class JudgementModel(AssetModel):
-    project_id: Optional[str] = None
-    scenario_id: Optional[str] = None
-    index: Optional[str] = None
-    doc_id: Optional[str] = None
-    rating: Optional[int] = Field(ge=0)
+class JudgementCreate(AssetCreate):
     
-    @model_validator(mode="after")
-    def validate_params(self) -> JudgementModel:
-        """
-        Check for required fields differently in creates and updates.
-        The Judgements API doesn't use partial updates, but we'll follow the
-        same pattern here as the other models for consistency.
-        """
-        if not self.project_id:
-            raise ValueError("project_id is required")
-        if not self.scenario_id:
-            raise ValueError("scenario_id is required")
-        if not self.index:
-            raise ValueError("index is required")
-        if not self.doc_id:
-            raise ValueError("doc_id is required")
-        if self.rating is None:
-            raise ValueError("rating is required")
-        return self
+    # Required inputs
+    project_id: str
+    scenario_id: str
+    index: str
+    doc_id: str
+    rating: int = Field(ge=0)
 
-    @model_validator(mode="before")
+    @field_validator("project_id")
     @classmethod
-    def validate_rating(cls, data: dict[str, Any]) -> dict[str, Any]:
-        if isinstance(data.get("rating"), bool):
-            raise ValueError("rating must not be a boolean")
-        return data
+    def validate_project_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("project_id must be a non-empty string")
+        return value
+
+    @field_validator("scenario_id")
+    @classmethod
+    def validate_scenario_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("scenario_id must be a non-empty string")
+        return value
+
+    @field_validator("index")
+    @classmethod
+    def validate_index(cls, value: str):
+        if not value.strip():
+            raise ValueError("index must be a non-empty string")
+        return value
+
+    @field_validator("doc_id")
+    @classmethod
+    def validate_doc_id(cls, value: str):
+        if not value.strip():
+            raise ValueError("doc_id must be a non-empty string")
+        return value
+
+    @field_validator("rating", mode="before")
+    @classmethod
+    def validate_rating(cls, value: int):
+        if isinstance(value, bool):
+            raise ValueError("rating must be an integer")
+        return value
+    
+class JudgementUpdate(AssetUpdate):
+    """
+    The Judgements API doesn't support partial updates.
+    """
+    def __init__(self, *args, **kwargs):
+        raise Exception("Not implemented.")

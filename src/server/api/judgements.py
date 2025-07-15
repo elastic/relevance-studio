@@ -4,7 +4,7 @@ from typing import Any, Dict
 # App packages
 from .. import utils
 from ..client import es
-from ..models import JudgementModel
+from ..models import JudgementCreate
 
 INDEX_NAME = "esrs-judgements"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("judgements")
@@ -146,7 +146,7 @@ def search(
         response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: hit.get("@timestamp") or fallback, reverse=reverse)
     return response
 
-def set(doc: JudgementModel) -> Dict[str, Any]:
+def set(doc: Dict[str, Any]) -> Dict[str, Any]:
     """
     Create or update a judgement in Elasticsearch.
     
@@ -155,11 +155,7 @@ def set(doc: JudgementModel) -> Dict[str, Any]:
     """
     
     # Create, validate, and dump model
-    doc = (
-        JudgementModel
-        .model_validate(doc)
-        .model_dump(by_alias=True, exclude_unset=True)
-    )
+    doc = JudgementCreate.model_validate(doc).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("judgements", doc)

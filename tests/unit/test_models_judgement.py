@@ -3,106 +3,137 @@ import pytest
 from pydantic import ValidationError
 
 # App packages
-from server.models.judgements import JudgementModel
-from tests.utils import has_valid_meta_for_create, is_equal
+from server.models.judgements import JudgementCreate
+from tests.utils import (
+    assert_valid_meta_for_create,
+    mock_context,
+)
 
-def valid_output():
-    data = {
+def mock_input_create():
+    """
+    Returns a mock input with all required and optional fields for creates.
+    """
+    input = {
         "project_id": "58278355-f4f3-56d2-aa81-498250f27798",
         "scenario_id": "5199e0ae-de59-5227-9647-c44f2c6617fc",
         "index": "products",
         "doc_id": "41476",
         "rating": 3
     }
-    return data
+    return input
 
-def valid_input():
-    data = valid_output()
-    data.pop("@timestamp")
-    return data
+####  Test Validation of Input Structure  ######################################
 
-class TestJudgementModel:
-    def test_valid_output(self):
-        try:
-            obj = JudgementModel(**valid_output())
-            assert has_valid_meta_for_create(obj)
-            actual = obj.model_dump(by_alias=True, mode="json")
-            actual.pop("@meta", None)
-            assert is_equal(actual, valid_output())
-        except Exception as e:
-            pytest.fail(f"Unexpected error during instantiation: {e}")
-            
-    ####  project_id  ##########################################################
-            
-    def test_output_project_id_invalid_missing(self):
-        data = valid_output()
-        data.pop("project_id")
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
-            
-    @pytest.mark.parametrize("value", [0, None, True, False, [1], {} ])
-    def test_output_project_id_invalid_types(self, value):
-        data = valid_output()
-        data["project_id"] = value
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
-            
-    ####  scenario_id  #########################################################
-            
-    def test_output_scenario_id_invalid_missing(self):
-        data = valid_output()
-        data.pop("scenario_id")
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
-            
-    @pytest.mark.parametrize("value", [0, None, True, False, [1], {} ])
-    def test_output_scenario_id_invalid_types(self, value):
-        data = valid_output()
-        data["scenario_id"] = value
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
-            
-    ####  doc_id  ##############################################################
-            
-    def test_output_doc_id_invalid_missing(self):
-        data = valid_output()
-        data.pop("doc_id")
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
-            
-    @pytest.mark.parametrize("value", [0, None, True, False, [1], {} ])
-    def test_output_doc_id_invalid_types(self, value):
-        data = valid_output()
-        data["doc_id"] = value
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
-            
-    ####  index  ###############################################################
-            
-    def test_output_index_invalid_missing(self):
-        data = valid_output()
-        data.pop("index")
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
-            
-    @pytest.mark.parametrize("value", [0, None, True, False, [1], {} ])
-    def test_output_index_invalid_types(self, value):
-        data = valid_output()
-        data["index"] = value
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
-            
-    ####  rating  ##############################################################
-            
-    def test_output_rating_invalid_missing(self):
-        data = valid_output()
-        data.pop("rating")
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
-            
-    @pytest.mark.parametrize("value", [-1, "one", None, True, False, [1], {} ])
-    def test_output_rating_invalid_types(self, value):
-        data = valid_output()
-        data["rating"] = value
-        with pytest.raises(ValidationError):
-            JudgementModel(**data)
+def test_create_is_invalid_without_required_inputs():
+    
+    # "project_id" is required in the input for creates
+    input = mock_input_create()
+    input.pop("project_id", None)
+    with pytest.raises(ValidationError):
+        JudgementCreate.model_validate(input, context=mock_context())
+    
+    # "scenario_id" is required in the input for creates
+    input = mock_input_create()
+    input.pop("scenario_id", None)
+    with pytest.raises(ValidationError):
+        JudgementCreate.model_validate(input, context=mock_context())
+    
+    # "index" is required in the input for creates
+    input = mock_input_create()
+    input.pop("index", None)
+    with pytest.raises(ValidationError):
+        JudgementCreate.model_validate(input, context=mock_context())
+    
+    # "doc_id" is required in the input for creates
+    input = mock_input_create()
+    input.pop("doc_id", None)
+    with pytest.raises(ValidationError):
+        JudgementCreate.model_validate(input, context=mock_context())
+    
+    # "rating" is required in the input for creates
+    input = mock_input_create()
+    input.pop("rating", None)
+    with pytest.raises(ValidationError):
+        JudgementCreate.model_validate(input, context=mock_context())
+
+def test_create_is_invalid_with_forbidden_inputs():
+    
+    # "@meta" is forbidden in the input for creates
+    input = mock_input_create()
+    input["@meta"] = {"created_at": "invalid", "created_by": "should-fail"}
+    with pytest.raises(ValidationError):
+        JudgementCreate.model_validate(input, context=mock_context())
+
+def test_create_is_valid_without_optional_inputs():
+    
+    # judgement creates have no optional inputs
+    pass
+    
+def test_create_is_invalid_with_unexpected_fields():
+    input = mock_input_create()
+    input["foo"] = "bar"
+    with pytest.raises(ValidationError):
+        JudgementCreate.model_validate(input, context=mock_context())
+    
+####  Test Validation of Input Values  #########################################
+        
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+def test_create_handles_invalid_inputs_for_project_id(value):
+    input = mock_input_create()
+    input["project_id"] = value
+    with pytest.raises(ValidationError):
+        JudgementCreate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+def test_create_handles_invalid_inputs_for_scenario_id(value):
+    input = mock_input_create()
+    input["scenario_id"] = value
+    with pytest.raises(ValidationError):
+        JudgementCreate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+def test_create_handles_invalid_inputs_for_index(value):
+    input = mock_input_create()
+    input["index"] = value
+    with pytest.raises(ValidationError):
+        JudgementCreate(**input)
+        
+@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+def test_create_handles_invalid_inputs_for_doc_id(value):
+    input = mock_input_create()
+    input["doc_id"] = value
+    with pytest.raises(ValidationError):
+        JudgementCreate(**input)
+        
+@pytest.mark.parametrize("value", [-1,  "", None, True, False, [], [1], ["test"], {}, {"a":"b"} ])
+def test_create_handles_invalid_inputs_for_rating(value):
+    input = mock_input_create()
+    input["rating"] = value
+    with pytest.raises(ValidationError):
+        JudgementCreate(**input)
+    
+####  Test Creation of Computed Fields  ########################################
+
+def test_create_computes_meta():
+    model = JudgementCreate.model_validate(mock_input_create(), context=mock_context())
+    assert_valid_meta_for_create(model.meta, mock_context()["user"])
+    
+####  Test Serialization  ######################################################
+    
+def test_create_serialization_has_all_given_inputs():
+    
+    # Use mock input with required and optional fields
+    input = mock_input_create()
+    model = JudgementCreate.model_validate(input, context=mock_context())
+    serialized = model.serialize()
+    
+    # Test that inputs are in serialized output
+    assert serialized["project_id"] == mock_input_create()["project_id"]
+    assert serialized["scenario_id"] == mock_input_create()["scenario_id"]
+    assert serialized["index"] == mock_input_create()["index"]
+    assert serialized["doc_id"] == mock_input_create()["doc_id"]
+    assert serialized["rating"] == mock_input_create()["rating"]
+    
+    # Test that @meta fields were properly serialized
+    assert "@meta" in serialized and "meta" not in serialized
+    assert_valid_meta_for_create(serialized.get("@meta"), mock_context()["user"])

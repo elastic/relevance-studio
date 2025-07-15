@@ -1,53 +1,95 @@
 # Standard packages
-from __future__ import annotations
 from typing import List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field, model_validator, ValidationInfo
+from pydantic import BaseModel, Field, field_validator
 
 # App packages
-from .asset import AssetModel
+from .asset import AssetCreate, AssetUpdate
 
-class ProjectModel(AssetModel):
-    name: Optional[str] = None
-    index_pattern: Optional[str] = None
-    params: Optional[List[str]] = None
-    rating_scale: Optional[RatingScaleModel] = None
-    
-    @model_validator(mode="after")
-    def validate_params(self, info: ValidationInfo) -> ProjectModel:
-        """
-        Check for required fields differently in creates and updates.
-        """
-        context = info.context or {}
-        is_partial = context.get("is_partial", False)
-        if not is_partial:
-            if not self.name:
-                raise ValueError("name is required")
-            if not self.index_pattern:
-                raise ValueError("index_pattern is required")
-            if not self.params or not all(isinstance(p, str) and p.strip() for p in self.params):
-                raise ValueError("params must be a non-empty list of non-empty strings")
-            if not self.rating_scale:
-                raise ValueError("rating_scale is required")
-        return self
-    
 class RatingScaleModel(BaseModel):
+    model_config = { "extra": "forbid" }
     min: int = Field(ge=0)
     max: int = Field(ge=1)
-    
-    @model_validator(mode="after")
-    def validate_min_max(self) -> RatingScaleModel:
-        if self.max <= self.min:
-            raise ValueError("rating_scale.max must be greater than rating_scale.min")
-        return self
 
-    @model_validator(mode="before")
+    @field_validator("min", mode="before")
     @classmethod
-    def invalidate_bools(cls, data):
-        if not isinstance(data, dict):
-            return data
-        for field in ("min", "max"):
-            if isinstance(data.get(field), bool):
-                raise ValueError(f"{field} must not be a boolean")
-        return data
+    def validate_min(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("rating_scale.min must be an integer")
+        return value
+    
+    @field_validator("max", mode="before")
+    @classmethod
+    def validate_max(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("rating_scale.max must be an integer")
+        return value
+
+    @field_validator("max")
+    @classmethod
+    def validate_max_is_greater_than_min(cls, max_value, info):
+        min_value = info.data.get("min")
+        if min_value is not None and max_value <= min_value:
+            raise ValueError("rating_scale.max must be greater than rating_scale.min")
+        return max_value
+
+class ProjectCreate(AssetCreate):
+    name: str
+    index_pattern: str
+    params: List[str]
+    rating_scale: RatingScaleModel
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str):
+        if not value.strip():
+            raise ValueError("name must be a non-empty string")
+        return value
+
+    @field_validator("index_pattern")
+    @classmethod
+    def validate_index_pattern(cls, value: str):
+        if not value.strip():
+            raise ValueError("index_pattern must be a non-empty string")
+        return value
+
+    @field_validator("params")
+    @classmethod
+    def validate_params(cls, value: List[str]):
+        if not value or not all(isinstance(p, str) and p.strip() for p in value):
+            raise ValueError("params must be a non-empty list of non-empty strings")
+        return value
+
+
+class ProjectUpdate(AssetUpdate):
+    name: str = None
+    index_pattern: str = None
+    params: Optional[List[str]] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]):
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("name must be a non-empty string if given")
+        return value
+
+    @field_validator("index_pattern")
+    @classmethod
+    def validate_index_pattern(cls, value: Optional[str]):
+        if value is None:
+            return value
+        if not value.strip():
+            raise ValueError("index_pattern must be a non-empty string if given")
+        return value
+
+    @field_validator("params")
+    @classmethod
+    def validate_params(cls, value: Optional[List[str]]):
+        if value is None:
+            return value
+        if not all(isinstance(p, str) and p.strip() for p in value):
+            raise ValueError("params must be a non-empty list of non-empty strings if given")
+        return value
