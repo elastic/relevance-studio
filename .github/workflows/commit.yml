@@ -46,7 +46,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install --cache-dir ~/.cache/pip -r requirements-dev.txt
 
       # Run unit tests.
       - name: Run unit tests
