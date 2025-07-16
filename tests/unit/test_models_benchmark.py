@@ -7,6 +7,7 @@ from server.models.benchmarks import BenchmarkCreate, BenchmarkUpdate
 from tests.utils import (
     assert_valid_meta_for_create,
     assert_valid_meta_for_update,
+    invalid_values_for,
     mock_context,
 )
 
@@ -131,13 +132,13 @@ def test_create_is_valid_without_optional_inputs():
         "ndcg", "precision", "recall"
     ])
     
-def test_create_is_invalid_with_unexpected_fields():
+def test_create_is_invalid_with_unexpected_inputs():
     input = mock_input_create()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
         BenchmarkCreate.model_validate(input, context=mock_context())
         
-def test_update_is_invalid_with_unexpected_fields():
+def test_update_is_invalid_with_unexpected_inputs():
     input = mock_input_update()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
@@ -159,42 +160,42 @@ def test_update_is_valid_without_optional_inputs():
     
 ####  Test Validation of Input Values  #########################################
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_project_id(value):
     input = mock_input_create()
     input["project_id"] = value
     with pytest.raises(ValidationError):
         BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_project_id(value):
     input = mock_input_update()
     input["project_id"] = value
     with pytest.raises(ValidationError):
         BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_name(value):
     input = mock_input_create()
     input["name"] = value
     with pytest.raises(ValidationError):
         BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_name(value):
     input = mock_input_update()
     input["name"] = value
     with pytest.raises(ValidationError):
         BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_description(value):
     input = mock_input_update()
     input["description"] = value
     with pytest.raises(ValidationError):
         BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_create_handles_invalid_inputs_for_tags(value):
     input = mock_input_create()
     input["tags"] = value
@@ -207,7 +208,7 @@ def test_create_handles_valid_inputs_for_tags(value):
     input["tags"] = value
     BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_tags(value):
     input = mock_input_update()
     input["tags"] = value
@@ -220,35 +221,35 @@ def test_update_handles_valid_inputs_for_tags(value):
     input["tags"] = value
     BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", "test", None, True, False, [], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_create_handles_invalid_inputs_for_task_metrics(value):
     input = mock_input_create()
     input["task"]["metrics"] = value
     with pytest.raises(ValidationError):
         BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", "test", None, True, False, {}, [], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_task_metrics(value):
     input = mock_input_update()
     input["task"]["metrics"] = value
     with pytest.raises(ValidationError):
         BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, "", None, True, False, [], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("int_ge_1"))
 def test_create_handles_invalid_inputs_for_task_k(value):
     input = mock_input_create()
     input["task"]["k"] = value
     with pytest.raises(ValidationError):
         BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [0, "", None, True, False, [], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("int_ge_1"))
 def test_update_handles_invalid_inputs_for_task_k(value):
     input = mock_input_update()
     input["task"]["k"] = value
     with pytest.raises(ValidationError):
         BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_create_handles_invalid_inputs_for_task_strategies_ids(value):
     input = mock_input_create()
     input["task"]["strategies"]["_ids"] = value
@@ -261,7 +262,7 @@ def test_create_handles_valid_inputs_for_task_strategies_ids(value):
     input["task"]["strategies"]["_ids"] = value
     BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_task_strategies_ids(value):
     input = mock_input_update()
     input["task"]["strategies"]["_ids"] = value
@@ -274,7 +275,7 @@ def test_update_handles_valid_inputs_for_task_strategies_ids(value):
     input["task"]["strategies"]["_ids"] = value
     BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_create_handles_invalid_inputs_for_task_strategies_tags(value):
     input = mock_input_create()
     input["task"]["strategies"]["tags"] = value
@@ -287,7 +288,7 @@ def test_create_handles_valid_inputs_for_task_strategies_tags(value):
     input["task"]["strategies"]["tags"] = value
     BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_task_strategies_tags(value):
     input = mock_input_update()
     input["task"]["strategies"]["tags"] = value
@@ -300,7 +301,7 @@ def test_update_handles_valid_inputs_for_task_strategies_tags(value):
     input["task"]["strategies"]["tags"] = value
     BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_create_handles_invalid_inputs_for_task_scenarios_ids(value):
     input = mock_input_create()
     input["task"]["scenarios"]["_ids"] = value
@@ -313,7 +314,7 @@ def test_create_handles_valid_inputs_for_task_scenarios_ids(value):
     input["task"]["scenarios"]["_ids"] = value
     BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_task_scenarios_ids(value):
     input = mock_input_update()
     input["task"]["scenarios"]["_ids"] = value
@@ -326,7 +327,7 @@ def test_update_handles_valid_inputs_for_task_scenarios_ids(value):
     input["task"]["scenarios"]["_ids"] = value
     BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_create_handles_invalid_inputs_for_task_scenarios_tags(value):
     input = mock_input_create()
     input["task"]["scenarios"]["tags"] = value
@@ -339,7 +340,7 @@ def test_create_handles_valid_inputs_for_task_scenarios_tags(value):
     input["task"]["scenarios"]["tags"] = value
     BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_task_scenarios_tags(value):
     input = mock_input_update()
     input["task"]["scenarios"]["tags"] = value
@@ -352,21 +353,21 @@ def test_update_handles_valid_inputs_for_task_scenarios_tags(value):
     input["task"]["scenarios"]["tags"] = value
     BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [-1, 0, "", None, True, False, [], [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("int_ge_0"))
 def test_create_handles_invalid_inputs_for_task_scenarios_sample_size(value):
     input = mock_input_create()
     input["task"]["scenarios"]["sample_size"] = value
     with pytest.raises(ValidationError):
         BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [-1, 0, "", None, True, False, [], [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("int_ge_0"))
 def test_update_handles_invalid_inputs_for_task_scenarios_sample_size(value):
     input = mock_input_update()
     input["task"]["scenarios"]["sample_size"] = value
     with pytest.raises(ValidationError):
         BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", [-1, 0, 1, True, False, [], [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string", allow_empty=True, allow_null=True))
 def test_create_handles_invalid_inputs_for_task_scenarios_sample_seed(value):
     input = mock_input_create()
     input["task"]["scenarios"]["sample_seed"] = value
@@ -379,7 +380,7 @@ def test_create_handles_valid_inputs_for_task_scenarios_sample_seed(value):
     input["task"]["scenarios"]["sample_seed"] = value
     BenchmarkCreate(**input)
         
-@pytest.mark.parametrize("value", [-1, 0, 1, True, False, [], [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string", allow_empty=True, allow_null=True))
 def test_update_handles_invalid_inputs_for_task_scenarios_sample_seed(value):
     input = mock_input_update()
     input["task"]["scenarios"]["sample_seed"] = value

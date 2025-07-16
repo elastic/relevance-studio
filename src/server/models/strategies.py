@@ -9,12 +9,16 @@ from .asset import AssetCreate, AssetUpdate
 from .. import utils
 
 class TemplateCreate(BaseModel):
-    model_config = { "extra": "forbid" }
+    model_config = { "extra": "forbid", "strict": True }
+    
+    # Optional inputs
     lang: str = "mustache"
     source: str = ""
 
 class TemplateUpdate(BaseModel):
-    model_config = { "extra": "forbid" }
+    model_config = { "extra": "forbid", "strict": True }
+    
+    # Optional inputs
     lang: Optional[str] = None
     source: Optional[str] = None
 

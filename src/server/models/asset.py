@@ -16,7 +16,7 @@ def is_valid_timestamp(ts):
     return RE_ISO_8601_TIMESTAMP.match(ts)
 
 class Asset(BaseModel):
-    model_config = { "extra": "forbid" }
+    model_config = { "extra": "forbid", "strict": True }
     meta: Dict[str, Optional[str]] = Field(alias='@meta')
 
 class AssetCreate(Asset):
