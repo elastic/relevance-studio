@@ -58,6 +58,10 @@
                 },
                 "tags": {
                   "type": "keyword"
+                },
+                "docs": {
+                  "type": "object",
+                  "enabled": false
                 }
               }
             },

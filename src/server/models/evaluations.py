@@ -207,50 +207,12 @@ class EvaluationCreate(Evaluation):
     def serialize(self) -> Dict[str, Any]:
         return self.model_dump(by_alias=True)
     
-class EvaluationSkip(Evaluation):
-    
-    @model_validator(mode="before")
-    @classmethod
-    def enrich_meta(cls, input, info):
-        input["@meta"] = {
-            "status": "skipped",
-            "stopped_at": utils.timestamp(),
-        }
-        return input
-
-    @model_validator(mode="after")
-    def validate_meta(self):
-        if self.meta.get("stopped_at") and not is_valid_timestamp(self.meta.get("stopped_at")):
-            raise ValueError("@meta.stopped_at at must be a valid ISO 8601 timestamp")
-        return self
-    
-    def serialize(self) -> Dict[str, Any]:
-        return self.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
-    
 class EvaluationStop(Evaluation):
     
-    @model_validator(mode="before")
-    @classmethod
-    def enrich_meta(cls, input, info):
-        if "@meta" in input:
-            raise ValueError("@meta is forbidden in input")
-        input["@meta"] = {
-            "stopped_at": utils.timestamp(),
-        }
-        return input
-
-    @model_validator(mode="after")
-    def validate_meta(self):
-        if self.meta.get("stopped_at") and not is_valid_timestamp(self.meta.get("stopped_at")):
-            raise ValueError("@meta.stopped_at at must be a valid ISO 8601 timestamp")
-        return self
-    
-    def serialize(self) -> Dict[str, Any]:
-        return self.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
-    
-class EvaluationFail(EvaluationStop):
-    
-    # Optional fields
+    # Required fields
+    project_id: Optional[str] = None
+    benchmark_id: Optional[str] = None
+    task: Optional[TaskCreate] = None
     scenario_id: Optional[List[str]] = None
     strategy_id: Optional[List[str]] = None
     results: Optional[List[Results]] = None
@@ -262,10 +224,23 @@ class EvaluationFail(EvaluationStop):
     @model_validator(mode="before")
     @classmethod
     def enrich_meta(cls, input, info):
-        input = super().enrich_meta(input, info)
-        input["@meta"]["status"] = "failed"
+        meta = input.get("@meta", {})
+        if not isinstance(meta, dict):
+            raise ValueError("@meta must be an object if provided")
+        allowed_keys = { "started_at", "started_by" }
+        unexpected_keys = set(meta.keys()) - allowed_keys
+        if unexpected_keys:
+            raise ValueError(f"@meta only accepts these fields as input: {allowed_keys}")
+        meta["stopped_at"] = utils.timestamp()
+        input["@meta"] = meta
         return input
 
+    @model_validator(mode="after")
+    def validate_meta(self):
+        if self.meta.get("stopped_at") and not is_valid_timestamp(self.meta.get("stopped_at")):
+            raise ValueError("@meta.stopped_at at must be a valid ISO 8601 timestamp")
+        return self
+    
     @field_validator("scenario_id")
     @classmethod
     def validate_scenario_id(cls, value: List[str]):
@@ -305,46 +280,7 @@ class EvaluationFail(EvaluationStop):
     @classmethod
     def validate_unrated_docs(cls, value):
         if value is None:
-            raise ValueError("unrated_docs must be a list of objects if given")
-        return value
-    
-    @field_validator("took", mode="before")
-    @classmethod
-    def validate_took(cls, value):
-        if value is None or isinstance(value, bool):
-            raise ValueError("took must be an integer if given")
-        return value
-
-class EvaluationComplete(EvaluationStop):
-    
-    # Required fields
-    scenario_id: List[str]
-    strategy_id: List[str]
-    results: List[Results]
-    runtime: Runtime
-    summary: Dict[str, Any]
-    unrated_docs: List[UnratedDocs]
-    took: StrictInt = Field(ge=0)
-    
-    @model_validator(mode="before")
-    @classmethod
-    def enrich_meta(cls, input, info):
-        input = super().enrich_meta(input, info)
-        input["@meta"]["status"] = "completed"
-        return input
-
-    @field_validator("scenario_id")
-    @classmethod
-    def validate_scenario_id(cls, value: List[str]):
-        if not all(isinstance(t, str) and t.strip() for t in value):
-            raise ValueError("scenario_id must be a list of non-empty strings")
-        return value
-
-    @field_validator("strategy_id")
-    @classmethod
-    def validate_strategy_id(cls, value: List[str]):
-        if not all(isinstance(t, str) and t.strip() for t in value):
-            raise ValueError("strategy_id must be a list of non-empty strings")
+            raise ValueError("unrated_docs must be a list of objects")
         return value
     
     @field_validator("took", mode="before")
@@ -353,3 +289,33 @@ class EvaluationComplete(EvaluationStop):
         if value is None or isinstance(value, bool):
             raise ValueError("took must be an integer")
         return value
+    
+    def serialize(self) -> Dict[str, Any]:
+        return self.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
+
+class EvaluationComplete(EvaluationStop):
+    
+    @model_validator(mode="before")
+    @classmethod
+    def enrich_meta(cls, input, info):
+        input = super().enrich_meta(input, info)
+        input["@meta"]["status"] = "completed"
+        return input
+    
+class EvaluationFail(EvaluationStop):
+    
+    @model_validator(mode="before")
+    @classmethod
+    def enrich_meta(cls, input, info):
+        input = super().enrich_meta(input, info)
+        input["@meta"]["status"] = "failed"
+        return input
+    
+class EvaluationSkip(EvaluationStop):
+    
+    @model_validator(mode="before")
+    @classmethod
+    def enrich_meta(cls, input, info):
+        input = super().enrich_meta(input, info)
+        input["@meta"]["status"] = "skipped"
+        return input

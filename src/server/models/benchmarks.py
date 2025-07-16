@@ -1,5 +1,5 @@
 # Standard packages
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 # Third-party packages
 from pydantic import BaseModel, Field, field_validator, model_validator, StrictInt
@@ -14,6 +14,7 @@ class TaskStrategiesCreate(BaseModel):
     # Optional inputs
     ids_: List[str] = Field(alias="_ids", default_factory=list)
     tags: List[str] = Field(default_factory=list)
+    docs: List[Dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("ids_")
     @classmethod
@@ -29,12 +30,20 @@ class TaskStrategiesCreate(BaseModel):
             raise ValueError("tags must be a list of non-empty strings if given")
         return value
 
+    @field_validator("docs")
+    @classmethod
+    def validate_docs(cls, value: List[Dict[str, Any]]):
+        if not isinstance(value, list) or not all(isinstance(d, dict) for d in value):
+            raise ValueError("docs must be a list of objects if given")
+        return value
+
 class TaskStrategiesUpdate(BaseModel):
     model_config = { "extra": "forbid", "strict": True }
     
     # Optional inputs
     ids_: List[str] = Field(alias="_ids", default_factory=list)
     tags: List[str] = Field(default_factory=list)
+    docs: List[Dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("ids_")
     @classmethod
@@ -52,6 +61,13 @@ class TaskStrategiesUpdate(BaseModel):
             return value
         if not all(isinstance(t, str) and t.strip() for t in value):
             raise ValueError("tags ust be a list of non-empty strings if given")
+        return value
+
+    @field_validator("docs")
+    @classmethod
+    def validate_docs(cls, value: List[Dict[str, Any]]):
+        if not isinstance(value, list) or not all(isinstance(d, dict) for d in value):
+            raise ValueError("docs must be a list of objects if given")
         return value
 
 class TaskScenariosCreate(BaseModel):

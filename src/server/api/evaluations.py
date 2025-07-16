@@ -8,6 +8,12 @@ from typing import Any, Dict, List, Optional
 from . import benchmarks, content
 from .. import utils
 from ..client import es
+from ..models import (
+    EvaluationComplete,
+    EvaluationCreate,
+    EvaluationFail,
+    EvaluationSkip,
+)
 
 INDEX_NAME = "esrs-evaluations"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("evaluations")
@@ -177,19 +183,6 @@ def generate_summary(evaluation, strategies: List, scenarios: List):
         }
     return summary
 
-def validate_k(value):
-    if not (isinstance(value, int) and not isinstance(value, bool)):
-        raise Exception("\"k\" must be an integer")
-    if value < 1:
-        raise Exception("\"k\" must be greater than 0")
-    
-def validate_metrics(value):
-    if not(isinstance(value, (list, tuple)) and all(isinstance(item, str) for item in value)):
-        raise Exception("\"metrics\" must be a list of strings")
-    for metric in value:
-        if metric not in VALID_METRICS:
-            raise Exception(f"\"metrics\" only supports these values: {', '.join(sorted(VALID_METRICS))}")
-
 def run(
         evaluation: Dict[str, Any],
         store_results: Optional[bool] = False,
@@ -201,15 +194,15 @@ def run(
     
     # Start timer
     started_at = time.time()
-    evaluation["@meta"]["started_at"] = utils.timestamp(started_at)
-    evaluation["@meta"]["started_by"] = started_by
+    evaluation["@meta"] = {
+        "started_at": utils.timestamp(started_at),
+        "started_by": started_by,
+    }
     evaluation_id = evaluation.pop("_id", None)
     try:
     
         # Parse and validate request
         project_id = evaluation["project_id"]
-        validate_k(evaluation["task"].get("k"))
-        validate_metrics(evaluation["task"].get("metrics"))
         
         # Select candidates for strategies and scenarios
         candidates = benchmarks.make_candidate_pool(project_id, evaluation["task"])
@@ -219,11 +212,9 @@ def run(
         if not candidates["strategies"] or not candidates["scenarios"]:
             if store_results:
                 doc_updates = {
-                    "@meta": {
-                        "status": "skipped",
-                        "stopped_at": utils.timestamp(),
-                    }
+                    "took": int((time.time() - started_at) * 1000)
                 }
+                doc_updates = EvaluationSkip.model_validate(doc_updates).serialize()
                 es_response = es("studio").update(
                     index=INDEX_NAME,
                     id=evaluation_id,
@@ -442,14 +433,12 @@ def run(
         scenarios_with_ratings = [scenario_id for scenario_id in evaluation["scenario_id"] if scenario_id in ratings and ratings[scenario_id]]
         if not scenarios_with_ratings:
             # If no scenarios have ratings, mark evaluation as skipped
-            evaluation["@meta"]["status"] = "skipped"
-            evaluation["@meta"]["stopped_at"] = utils.timestamp()
             evaluation["took"] = int((time.time() - started_at) * 1000)
             if store_results:
                 es("studio").update(
                     index=INDEX_NAME,
                     id=evaluation_id,
-                    doc=evaluation,
+                    doc=EvaluationSkip.model_validate(evaluation).serialize(),
                     refresh=True
                 )
             return evaluation
@@ -566,31 +555,30 @@ def run(
         
         # Create final response
         stopped_at = time.time()
-        evaluation["@meta"]["stopped_at"] = utils.timestamp(stopped_at)
-        evaluation["@meta"]["status"] = "completed"
         evaluation["took"] = int(( stopped_at - started_at) * 1000)
+        doc = EvaluationComplete.model_validate(evaluation).serialize()
         
         # Store results
         if store_results:
             es_response = es("studio").update(
                 index="esrs-evaluations",
                 id=evaluation_id,
-                doc=evaluation,
+                doc=doc,
                 refresh=True
             )
-        return evaluation
+        return doc
     
     # Mark evaluation as "failed" on exception
     except Exception as e:
+        print(e)
         stopped_at = time.time()
-        evaluation["@meta"]["status"] = "failed"
-        evaluation["@meta"]["stopped_at"] = utils.timestamp(time.time())
         evaluation["took"] = int(( stopped_at - started_at) * 1000)
+        doc = EvaluationFail.model_validate(evaluation).serialize()
         if store_results:
             es("studio").update(
                 index="esrs-evaluations",
                 id=evaluation_id,
-                doc=evaluation,
+                doc=doc,
                 refresh=True
             )
         raise e
@@ -634,50 +622,14 @@ def create(
     Create a pending evaluation in Elasticsearch.
     """
     
-    # Parse task
-    metrics = task.get("metrics") or [ "ndcg", "precision", "recall" ]
-    k = task.get("k")
-    strategies_ids = task.get("strategies", {}).get("_ids", [])
-    strategies_tags = task.get("strategies", {}).get("tags", [])
-    scenarios_ids = task.get("scenarios", {}).get("_ids", [])
-    scenarios_tags = task.get("scenarios", {}).get("tags", [])
-    scenarios_sample_size = task.get("scenarios", {}).get("sample_size") or 1000
-    scenarios_sample_seed = task.get("scenarios", {}).get("sample_seed")
-    
-    # Valdiate task
-    validate_metrics(metrics)
-    validate_k(k)
-        
-    # Create evaluation
+    # Create, validate, and dump model
     doc = {
         "project_id": project_id,
         "benchmark_id": benchmark_id,
-        "task": {
-            "metrics": metrics,
-            "k": k,
-            "strategies": {},
-            "scenarios": {}
-        }
+        "task": task
     }
-    doc["@meta"] = {}
-    doc["@meta"]["created_at"] = utils.timestamp()
-    doc["@meta"]["created_by"] = "unknown" # TODO: Implement
-    doc["@meta"]["status"] = "pending"
-    doc["@meta"]["started_at"] = None
-    doc["@meta"]["started_by"] = None
-    doc["@meta"]["stopped_at"] = None
-    if strategies_ids:
-        doc["task"]["strategies"]["_ids"] = strategies_ids
-    if strategies_tags:
-        doc["task"]["strategies"]["tags"] = strategies_tags
-    if scenarios_ids:
-        doc["task"]["scenarios"]["_ids"] = scenarios_ids
-    if scenarios_tags:
-        doc["task"]["scenarios"]["tags"] = scenarios_tags
-    if scenarios_sample_size:
-        doc["task"]["scenarios"]["sample_size"] = scenarios_sample_size
-    if scenarios_sample_seed:
-        doc["task"]["scenarios"]["sample_seed"] = scenarios_sample_seed
+    doc = EvaluationCreate.model_validate(doc).serialize()
+    
     es_response = es("studio").index(
         index=INDEX_NAME,
         id=utils.unique_id(),
