@@ -226,81 +226,32 @@ def test_create_is_invalid_with_forbidden_inputs():
     input["@meta"] = {"created_at": "invalid", "created_by": "should-fail"}
     with pytest.raises(ValidationError):
         EvaluationCreate.model_validate(input, context=mock_context())
-
-def test_skip_is_invalid_with_forbidden_inputs():
-    
-    # "@meta" is forbidden in the input for skips
-    input = mock_input_create()
-    input["@meta"] = {"created_at": "invalid", "created_by": "should-fail"}
-    with pytest.raises(ValidationError):
-        EvaluationSkip.model_validate(input, context=mock_context())
-
-def test_complete_is_invalid_with_forbidden_inputs():
-    
-    # "@meta" is forbidden in the input for updates
-    input = mock_input_create()
+        
+def test_update_is_invalid_with_forbidden_inputs():
+    input = mock_input_update()
     input["@meta"] = {"created_at": "invalid", "created_by": "should-fail"}
     with pytest.raises(ValidationError):
         EvaluationComplete.model_validate(input, context=mock_context())
-        
-def test_fail_is_invalid_with_forbidden_inputs():
-    input = mock_input_create()
-    input["@meta"] = {"created_at": "invalid", "created_by": "should-fail"}
     with pytest.raises(ValidationError):
         EvaluationFail.model_validate(input, context=mock_context())
+    with pytest.raises(ValidationError):
+        EvaluationSkip.model_validate(input, context=mock_context())
     
 def test_create_is_invalid_with_unexpected_inputs():
     input = mock_input_create()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
         EvaluationCreate.model_validate(input, context=mock_context())
-    
-def test_skip_is_invalid_with_inputs():
-    input = { "foo": "bar" }
-    with pytest.raises(ValidationError):
-        EvaluationSkip.model_validate(input, context=mock_context())
-    
-def test_complete_is_invalid_with_unexpected_inputs():
+        
+def test_update_is_invalid_with_unexpected_inputs():
     input = mock_input_update()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
         EvaluationComplete.model_validate(input, context=mock_context())
-        
-def test_fail_is_invalid_with_unexpected_inputs():
-    input = mock_input_update()
-    input["foo"] = "bar"
     with pytest.raises(ValidationError):
         EvaluationFail.model_validate(input, context=mock_context())
-    
-@pytest.mark.parametrize("field", [
-    "strategy_id",
-    "scenario_id",
-    "summary",
-    "results",
-    "runtime",
-    "unrated_docs",
-    "took",
-])
-def test_complete_is_invalid_without_required_inputs(field):
-    input = mock_input_update()
-    input.pop(field, None)
     with pytest.raises(ValidationError):
-        EvaluationComplete.model_validate(input, context=mock_context())
-
-@pytest.mark.parametrize("field", [
-    "strategy_id",
-    "scenario_id",
-    "summary",
-    "results",
-    "runtime",
-    "unrated_docs",
-    "took",
-])
-def test_fail_is_valid_without_optional_inputs(field):
-    input = mock_input_update()
-    input.pop(field, None)
-    model = EvaluationFail.model_validate(input, context=mock_context())
-    assert getattr(model, field) is None
+        EvaluationSkip.model_validate(input, context=mock_context())
     
 ####  Test Validation of Input Values  #########################################
         
@@ -412,6 +363,8 @@ def test_update_handles_invalid_inputs_for_scenario_id(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_strategy_id(value):
@@ -421,6 +374,8 @@ def test_update_handles_invalid_inputs_for_strategy_id(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_update_handles_invalid_inputs_for_summary(value):
@@ -430,6 +385,8 @@ def test_update_handles_invalid_inputs_for_summary(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_objects", allow_empty=True))
 def test_update_handles_invalid_inputs_for_results(value):
@@ -439,6 +396,8 @@ def test_update_handles_invalid_inputs_for_results(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_objects", allow_empty=True))
 def test_update_handles_invalid_inputs_for_results_searches(value):
@@ -448,6 +407,8 @@ def test_update_handles_invalid_inputs_for_results_searches(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_results_strategy_id(value):
@@ -457,6 +418,8 @@ def test_update_handles_invalid_inputs_for_results_strategy_id(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_objects", allow_empty=True))
 def test_update_handles_invalid_inputs_for_results_searches(value):
@@ -466,6 +429,8 @@ def test_update_handles_invalid_inputs_for_results_searches(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_objects", allow_empty=True))
 def test_update_handles_invalid_inputs_for_results_searches_hits(value):
@@ -475,6 +440,8 @@ def test_update_handles_invalid_inputs_for_results_searches_hits(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("object"))
 def test_update_handles_invalid_inputs_for_results_searches_hits_hit(value):
@@ -484,6 +451,8 @@ def test_update_handles_invalid_inputs_for_results_searches_hits_hit(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_results_searches_hits_hit_id(value):
@@ -493,6 +462,8 @@ def test_update_handles_invalid_inputs_for_results_searches_hits_hit_id(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_results_searches_hits_hit_index(value):
@@ -502,6 +473,8 @@ def test_update_handles_invalid_inputs_for_results_searches_hits_hit_index(value
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("number", allow_null=True))
 def test_update_handles_invalid_inputs_for_results_searches_hits_hit_score(value):
@@ -511,6 +484,8 @@ def test_update_handles_invalid_inputs_for_results_searches_hits_hit_score(value
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("int_ge_0", allow_null=True))
 def test_update_handles_invalid_inputs_for_results_searches_hits_hit_rating(value):
@@ -520,6 +495,8 @@ def test_update_handles_invalid_inputs_for_results_searches_hits_hit_rating(valu
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_update_handles_invalid_inputs_for_results_searches_metrics(value):
@@ -529,6 +506,8 @@ def test_update_handles_invalid_inputs_for_results_searches_metrics(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("number", allow_null=True))
 def test_update_handles_invalid_inputs_for_results_searches_metric_value(value):
@@ -539,6 +518,8 @@ def test_update_handles_invalid_inputs_for_results_searches_metric_value(value):
             EvaluationComplete(**input)
         with pytest.raises(ValidationError):
             EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_results_searches_scenario_id(value):
@@ -548,6 +529,8 @@ def test_update_handles_invalid_inputs_for_results_searches_scenario_id(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_update_handles_invalid_inputs_for_runtime(value):
@@ -557,6 +540,8 @@ def test_update_handles_invalid_inputs_for_runtime(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_update_handles_invalid_inputs_for_runtime_indices(value):
@@ -566,6 +551,8 @@ def test_update_handles_invalid_inputs_for_runtime_indices(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_update_handles_invalid_inputs_for_runtime_scenarios(value):
@@ -575,6 +562,8 @@ def test_update_handles_invalid_inputs_for_runtime_scenarios(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_update_handles_invalid_inputs_for_runtime_judgements(value):
@@ -584,6 +573,8 @@ def test_update_handles_invalid_inputs_for_runtime_judgements(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_update_handles_invalid_inputs_for_runtime_strategies(value):
@@ -593,6 +584,8 @@ def test_update_handles_invalid_inputs_for_runtime_strategies(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_objects", allow_empty=True))
 def test_update_handles_invalid_inputs_for_unrated_docs(value):
@@ -602,6 +595,8 @@ def test_update_handles_invalid_inputs_for_unrated_docs(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_unrated_docs_index(value):
@@ -611,6 +606,8 @@ def test_update_handles_invalid_inputs_for_unrated_docs_index(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_unrated_docs_id(value):
@@ -620,6 +617,8 @@ def test_update_handles_invalid_inputs_for_unrated_docs_id(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("int_ge_0"))
 def test_update_handles_invalid_inputs_for_unrated_docs_count(value):
@@ -629,6 +628,8 @@ def test_update_handles_invalid_inputs_for_unrated_docs_count(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_unrated_docs_strategies(value):
@@ -638,6 +639,8 @@ def test_update_handles_invalid_inputs_for_unrated_docs_strategies(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_unrated_docs_scenarios(value):
@@ -647,6 +650,8 @@ def test_update_handles_invalid_inputs_for_unrated_docs_scenarios(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("int_ge_0"))
 def test_update_handles_invalid_inputs_for_took(value):
@@ -656,6 +661,8 @@ def test_update_handles_invalid_inputs_for_took(value):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
         EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
     
 ####  Test Creation of Computed Fields  ########################################
 
