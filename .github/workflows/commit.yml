@@ -1,0 +1,53 @@
+# Build and test Elasticsearch Relevance Studio
+name: Commit
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    strategy:
+
+      # Attempt to run all tests.
+      fail-fast: false
+
+    # Use the latest LTS OS.
+    runs-on: ubuntu-22.04
+
+    steps:
+
+      # Checkout the repository.
+      # Uses: https://github.com/actions/checkout
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # Setup Python.
+      # Uses: https://github.com/actions/setup-python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Cache pip packages.
+      # Uses: https://github.com/actions/cache
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # Install dependencies.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      # Run unit tests.
+      - name: Run unit tests
+        run: pytest tests/unit
