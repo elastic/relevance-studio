@@ -41,7 +41,7 @@ const ChartMetricsHeatmap = (props) => {
   const max = 1.0
   const bands = []
   // Generate non-linear breakpoints using a power curve
-  const skew = 0.67
+  const skew = 0.5
   const breakpoints = Array.from({ length: numBands + 1 }, (_, i) => {
     const t = Math.pow(i / numBands, skew)
     return min + (max - min) * t
