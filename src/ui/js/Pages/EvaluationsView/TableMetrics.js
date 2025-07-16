@@ -4,11 +4,17 @@ import {
   EuiInMemoryTable,
   EuiProgress,
   EuiText,
-  euiPaletteForStatus
+  euiPaletteForStatus,
+  colorPalette
 } from '@elastic/eui'
+import { useAppContext } from '../../Contexts/AppContext'
 import utils from '../../utils'
 
 const TableMetrics = ({ evaluation, rowOnHover }) => {
+
+  ////  Context  ///////////////////////////////////////////////////////////////
+
+  const { darkMode } = useAppContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -24,15 +30,21 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   /**
    * Configure color bands
    */
-  const numBands = 25
-  const colors = euiPaletteForStatus(numBands).reverse()
+  const numBands = 5
+  const colors = [
+    '#E55940', // Dark Poppy
+    '#FFAD18', // Dark Yellow
+    '#FEC514', // Yellow
+    '#02BCB7', // Teal
+    darkMode ? '#48EFCF' : '#128D91', // Light Teal : Dark Teal
+  ] //euiPaletteForStatus(numBands).reverse()
   const min = 0.0
   const max = 1.0
-  const step = (max - min) / numBands
+  const breakpoints = [ min, 0.5, 0.7, 0.9, max ]
   const bands = colors.map((color, i) => ({
     color,
-    start: i === 0 ? -Infinity : min + step * i,
-    end: i === numBands - 1 ? Infinity : min + step * (i + 1),
+    start: i === 0 ? -Infinity : breakpoints[i],
+    end: i === numBands - 1 ? Infinity : breakpoints[i + 1],
   }))
   const getColorBand = (value) => {
     return bands.find(b => value >= b.start && value < b.end)?.color || colors[colors.length - 1]
@@ -48,35 +60,14 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   useEffect(() => {
     if (!evaluation.results)
       return
-    const dataByStrategy = {}
-    evaluation.results.forEach((result) => {
-      const strategy_id = result.strategy_id
-      if (!dataByStrategy[strategy_id])
-        dataByStrategy[strategy_id] = {}
-      result.searches.forEach((search) => {
-        const scenario_id = search.scenario_id
-        if (!dataByStrategy[strategy_id][scenario_id])
-          dataByStrategy[strategy_id][scenario_id] = search.metrics
-      })
-    })
     const rows = []
-    for (const strategy_id in dataByStrategy) {
-      const metricsAvg = {}
-      for (const scenario_id in dataByStrategy[strategy_id]) {
-        for (const metric in dataByStrategy[strategy_id][scenario_id]) {
-          if (metricsAvg[metric] === undefined)
-            metricsAvg[metric] = []
-          metricsAvg[metric].push(dataByStrategy[strategy_id][scenario_id][metric])
-        }
-      }
+    for (const _id in evaluation.summary.strategy_id) {
       const row = {
-        strategy_id: strategy_id,
-        name: runtimeStrategy(strategy_id).name,
-        tags: runtimeStrategy(strategy_id).tags,
-        metrics: {}
+        strategy_id: _id,
+        name: runtimeStrategy(_id).name,
+        tags: runtimeStrategy(_id).tags,
+        metrics: evaluation.summary.strategy_id[_id]._total.metrics
       }
-      for (const metric in metricsAvg)
-        row.metrics[metric] = utils.average(metricsAvg[metric])
       rows.push(row)
     }
     setItems(rows)
@@ -87,7 +78,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       for (const metric of sortPriority) {
         if ((evaluation.task?.metrics || []).includes(metric)) {
           setSort({
-            field: `metrics.${metric}`,
+            field: `metrics.${metric}.avg`,
             direction: 'desc',
           });
           break;
@@ -125,7 +116,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   ]
   if ((evaluation.task?.metrics || []).includes('ndcg')) {
     columns.push({
-      field: 'metrics.ndcg',
+      field: 'metrics.ndcg.avg',
       name: (
         <>
           NDCG <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
@@ -136,11 +127,11 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       render: (name, item) => (
         <div style={{ position: 'relative', width: '100%' }}>
           <EuiProgress
-            color={getColorBand(item.metrics.ndcg)}
-            label={item.metrics.ndcg ? item.metrics.ndcg.toFixed(4) : '-'}
+            color={getColorBand(item.metrics.ndcg.avg)}
+            label={item.metrics.ndcg.avg ? item.metrics.ndcg.avg.toFixed(4) : '-'}
             max={1}
             size='s'
-            value={item.metrics.ndcg}
+            value={item.metrics.ndcg.avg}
           />
         </div>
       )
@@ -148,7 +139,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   }
   if ((evaluation.task?.metrics || []).includes('precision')) {
     columns.push({
-      field: 'metrics.precision',
+      field: 'metrics.precision.avg',
       name: (
         <>
           Precision <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
@@ -159,11 +150,11 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       render: (name, item) => (
         <div style={{ position: 'relative', width: '100%' }}>
           <EuiProgress
-            color={getColorBand(item.metrics.precision)}
-            label={item.metrics.precision ? item.metrics.precision.toFixed(4) : '-'}
+            color={getColorBand(item.metrics.precision.avg)}
+            label={item.metrics.precision.avg ? item.metrics.precision.avg.toFixed(4) : '-'}
             max={1}
             size='s'
-            value={item.metrics.precision}
+            value={item.metrics.precision.avg}
           />
         </div>
       )
@@ -171,7 +162,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   }
   if ((evaluation.task?.metrics || []).includes('recall')) {
     columns.push({
-      field: 'metrics.recall',
+      field: 'metrics.recall.avg',
       name: (
         <>
           Recall <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
@@ -182,11 +173,11 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       render: (name, item) => (
         <div style={{ position: 'relative', width: '100%' }}>
           <EuiProgress
-            color={getColorBand(item.metrics.recall)}
-            label={item.metrics.recall ? item.metrics.recall.toFixed(4) : '-'}
+            color={getColorBand(item.metrics.recall.avg)}
+            label={item.metrics.recall.avg ? item.metrics.recall.avg.toFixed(4) : '-'}
             max={1}
             size='s'
-            value={item.metrics.recall}
+            value={item.metrics.recall.avg}
           />
         </div>
       )
