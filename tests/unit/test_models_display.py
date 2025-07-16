@@ -7,6 +7,7 @@ from server.models.displays import DisplayCreate, DisplayUpdate
 from tests.utils import (
     assert_valid_meta_for_create,
     assert_valid_meta_for_update,
+    invalid_values_for,
     mock_context,
 )
 
@@ -115,13 +116,13 @@ def test_update_is_valid_without_optional_inputs():
     assert model.template is None
     assert model.fields is None
     
-def test_create_is_invalid_with_unexpected_fields():
+def test_create_is_invalid_with_unexpected_inputs():
     input = mock_input_create()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
         DisplayCreate.model_validate(input, context=mock_context())
         
-def test_update_is_invalid_with_unexpected_fields():
+def test_update_is_invalid_with_unexpected_inputs():
     input = mock_input_update()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
@@ -129,42 +130,42 @@ def test_update_is_invalid_with_unexpected_fields():
     
 ####  Test Validation of Input Values  #########################################
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_project_id(value):
     input = mock_input_create()
     input["project_id"] = value
     with pytest.raises(ValidationError):
         DisplayCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_project_id(value):
     input = mock_input_update()
     input["project_id"] = value
     with pytest.raises(ValidationError):
         DisplayUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_index_pattern(value):
     input = mock_input_create()
     input["index_pattern"] = value
     with pytest.raises(ValidationError):
         DisplayCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_index_pattern(value):
     input = mock_input_update()
     input["index_pattern"] = value
     with pytest.raises(ValidationError):
         DisplayUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", "test", None, True, False, [], [1] ])
+@pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_create_handles_invalid_inputs_for_template(value):
     input = mock_input_create()
     input["template"] = value
     with pytest.raises(ValidationError):
         DisplayCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", "test", None, True, False, [], [1] ])
+@pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_update_handles_invalid_inputs_for_template(value):
     input = mock_input_update()
     input["template"] = value

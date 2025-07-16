@@ -7,6 +7,7 @@ from server.models.projects import ProjectCreate, ProjectUpdate
 from tests.utils import (
     assert_valid_meta_for_create,
     assert_valid_meta_for_update,
+    invalid_values_for,
     mock_context,
 )
 
@@ -116,13 +117,13 @@ def test_update_is_valid_without_optional_inputs():
     model = ProjectUpdate.model_validate(input, context=mock_context())
     assert model.params is None
     
-def test_create_is_invalid_with_unexpected_fields():
+def test_create_is_invalid_with_unexpected_inputs():
     input = mock_input_create()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
         ProjectCreate.model_validate(input, context=mock_context())
         
-def test_update_is_invalid_with_unexpected_fields():
+def test_update_is_invalid_with_unexpected_inputs():
     input = mock_input_update()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
@@ -130,56 +131,56 @@ def test_update_is_invalid_with_unexpected_fields():
     
 ####  Test Validation of Input Values  #########################################
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_name(value):
     input = mock_input_create()
     input["name"] = value
     with pytest.raises(ValidationError):
         ProjectCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_name(value):
     input = mock_input_update()
     input["name"] = value
     with pytest.raises(ValidationError):
         ProjectUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_index_pattern(value):
     input = mock_input_create()
     input["index_pattern"] = value
     with pytest.raises(ValidationError):
         ProjectCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_index_pattern(value):
     input = mock_input_update()
     input["index_pattern"] = value
     with pytest.raises(ValidationError):
         ProjectUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings"))
 def test_create_handles_invalid_inputs_for_params(value):
     input = mock_input_create()
     input["params"] = value
     with pytest.raises(ValidationError):
         ProjectCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_params(value):
     input = mock_input_create()
     input["params"] = value
     with pytest.raises(ValidationError):
         ProjectUpdate(**input)
         
-@pytest.mark.parametrize("value", [-1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("int_ge_0"))
 def test_create_handles_invalid_inputs_for_rating_scale_min(value):
     input = mock_input_create()
     input["rating_scale"]["min"] = value
     with pytest.raises(ValidationError):
         ProjectCreate(**input)
         
-@pytest.mark.parametrize("value", [-1, 0, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("int_ge_1"))
 def test_create_handles_invalid_inputs_for_rating_scale_max(value):
     input = mock_input_create()
     input["rating_scale"]["max"] = value

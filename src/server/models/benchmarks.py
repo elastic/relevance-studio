@@ -2,14 +2,16 @@
 from typing import List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, StrictInt
 
 # App packages
 from .asset import AssetCreate, AssetUpdate
 
 
 class TaskStrategiesCreate(BaseModel):
-    model_config = { "extra": "forbid" }
+    model_config = { "extra": "forbid", "strict": True }
+    
+    # Optional inputs
     ids_: List[str] = Field(alias="_ids", default_factory=list)
     tags: List[str] = Field(default_factory=list)
 
@@ -28,7 +30,9 @@ class TaskStrategiesCreate(BaseModel):
         return value
 
 class TaskStrategiesUpdate(BaseModel):
-    model_config = { "extra": "forbid" }
+    model_config = { "extra": "forbid", "strict": True }
+    
+    # Optional inputs
     ids_: List[str] = Field(alias="_ids", default_factory=list)
     tags: List[str] = Field(default_factory=list)
 
@@ -51,10 +55,12 @@ class TaskStrategiesUpdate(BaseModel):
         return value
 
 class TaskScenariosCreate(BaseModel):
-    model_config = { "extra": "forbid" }
+    model_config = { "extra": "forbid", "strict": True }
+    
+    # Optional inputs
     ids_: List[str] = Field(alias="_ids", default_factory=list)
     tags: List[str] = Field(default_factory=list)
-    sample_size: Optional[int] = Field(default=1000, ge=1)
+    sample_size: Optional[StrictInt] = Field(default=1000, ge=1)
     sample_seed: Optional[str] = Field(default=None)
 
     @field_validator("ids_")
@@ -79,10 +85,12 @@ class TaskScenariosCreate(BaseModel):
         return value
 
 class TaskScenariosUpdate(BaseModel):
-    model_config = { "extra": "forbid" }
+    model_config = { "extra": "forbid", "strict": True }
+    
+    # Optional inputs
     ids_: List[str] = Field(alias="_ids", default_factory=list)
     tags: List[str] = Field(default_factory=list)
-    sample_size: Optional[int] = Field(default=1000, ge=1)
+    sample_size: Optional[StrictInt] = Field(default=1000, ge=1)
     sample_seed: Optional[str] = Field(default=None)
 
     @field_validator("ids_")
@@ -111,9 +119,11 @@ class TaskScenariosUpdate(BaseModel):
         return value
 
 class TaskCreate(BaseModel):
-    model_config = { "extra": "forbid" }
+    model_config = { "extra": "forbid", "strict": True }
+    
+    # Optional inputs
     metrics: List[str] = Field(default_factory=lambda: ["ndcg", "precision", "recall"])
-    k: int = Field(default=10, ge=1)
+    k: StrictInt = Field(default=10, ge=1)
     strategies: TaskStrategiesCreate = Field(default_factory=TaskStrategiesCreate)
     scenarios: TaskScenariosCreate = Field(default_factory=TaskScenariosCreate)
 
@@ -135,7 +145,9 @@ class TaskCreate(BaseModel):
         return stripped
 
 class TaskUpdate(BaseModel):
-    model_config = { "extra": "forbid" }
+    model_config = { "extra": "forbid", "strict": True }
+    
+    # Optional inputs
     metrics: Optional[List[str]] = None
     strategies: Optional[TaskStrategiesUpdate] = None
     scenarios: Optional[TaskScenariosUpdate] = None
@@ -162,9 +174,9 @@ class BenchmarkCreate(AssetCreate):
     # Required inputs
     project_id: str
     name: str
-    task: Optional[TaskCreate] = None
 
     # Optional inputs
+    task: Optional[TaskCreate] = None
     description: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
 

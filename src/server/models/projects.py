@@ -2,15 +2,17 @@
 from typing import List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, StrictInt
 
 # App packages
 from .asset import AssetCreate, AssetUpdate
 
 class RatingScaleModel(BaseModel):
-    model_config = { "extra": "forbid" }
-    min: int = Field(ge=0)
-    max: int = Field(ge=1)
+    model_config = { "extra": "forbid", "strict": True }
+    
+    # Required inputs
+    min: StrictInt = Field(ge=0)
+    max: StrictInt = Field(ge=1)
 
     @field_validator("min", mode="before")
     @classmethod
@@ -35,6 +37,8 @@ class RatingScaleModel(BaseModel):
         return max_value
 
 class ProjectCreate(AssetCreate):
+    
+    # Required inputs
     name: str
     index_pattern: str
     params: List[str]
@@ -63,6 +67,8 @@ class ProjectCreate(AssetCreate):
 
 
 class ProjectUpdate(AssetUpdate):
+    
+    # Optional inputs
     name: str = None
     index_pattern: str = None
     params: Optional[List[str]] = None

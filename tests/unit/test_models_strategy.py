@@ -7,6 +7,7 @@ from server.models.strategies import StrategyCreate, StrategyUpdate
 from tests.utils import (
     assert_valid_meta_for_create,
     assert_valid_meta_for_update,
+    invalid_values_for,
     mock_context,
 )
 
@@ -127,13 +128,13 @@ def test_update_is_valid_without_optional_inputs():
     assert model.template is None
     assert model.params is None
     
-def test_create_is_invalid_with_unexpected_fields():
+def test_create_is_invalid_with_unexpected_inputs():
     input = mock_input_create()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
         StrategyCreate.model_validate(input, context=mock_context())
         
-def test_update_is_invalid_with_unexpected_fields():
+def test_update_is_invalid_with_unexpected_inputs():
     input = mock_input_update()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
@@ -141,35 +142,35 @@ def test_update_is_invalid_with_unexpected_fields():
     
 ####  Test Validation of Input Values  #########################################
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_project_id(value):
     input = mock_input_create()
     input["project_id"] = value
     with pytest.raises(ValidationError):
         StrategyCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_project_id(value):
     input = mock_input_update()
     input["project_id"] = value
     with pytest.raises(ValidationError):
         StrategyUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_name(value):
     input = mock_input_create()
     input["name"] = value
     with pytest.raises(ValidationError):
         StrategyCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_name(value):
     input = mock_input_update()
     input["name"] = value
     with pytest.raises(ValidationError):
         StrategyUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_create_handles_invalid_inputs_for_tags(value):
     input = mock_input_create()
     input["tags"] = value
@@ -182,7 +183,7 @@ def test_create_handles_valid_inputs_for_tags(value):
     input["tags"] = value
     StrategyCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [""], [1], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_tags(value):
     input = mock_input_update()
     input["tags"] = value
@@ -195,14 +196,14 @@ def test_update_handles_valid_inputs_for_tags(value):
     input["tags"] = value
     StrategyUpdate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", "test", None, True, False, [], [1], {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_create_handles_invalid_inputs_for_template(value):
     input = mock_input_create()
     input["template"] = value
     with pytest.raises(ValidationError):
         StrategyCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", "test", None, True, False, [], [1], {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
 def test_update_handles_invalid_inputs_for_template(value):
     input = mock_input_update()
     input["template"] = value

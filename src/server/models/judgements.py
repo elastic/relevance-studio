@@ -2,7 +2,7 @@
 from typing import List
 
 # Third-party packages
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, StrictInt
 
 # App packages
 from .asset import AssetCreate, AssetUpdate
@@ -14,7 +14,7 @@ class JudgementCreate(AssetCreate):
     scenario_id: str
     index: str
     doc_id: str
-    rating: int = Field(ge=0)
+    rating: StrictInt = Field(ge=0)
 
     @field_validator("project_id")
     @classmethod

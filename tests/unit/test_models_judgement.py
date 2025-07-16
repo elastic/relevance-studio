@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from server.models.judgements import JudgementCreate
 from tests.utils import (
     assert_valid_meta_for_create,
+    invalid_values_for,
     mock_context,
 )
 
@@ -69,7 +70,7 @@ def test_create_is_valid_without_optional_inputs():
     # judgement creates have no optional inputs
     pass
     
-def test_create_is_invalid_with_unexpected_fields():
+def test_create_is_invalid_with_unexpected_inputs():
     input = mock_input_create()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
@@ -77,35 +78,35 @@ def test_create_is_invalid_with_unexpected_fields():
     
 ####  Test Validation of Input Values  #########################################
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_project_id(value):
     input = mock_input_create()
     input["project_id"] = value
     with pytest.raises(ValidationError):
         JudgementCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_scenario_id(value):
     input = mock_input_create()
     input["scenario_id"] = value
     with pytest.raises(ValidationError):
         JudgementCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_index(value):
     input = mock_input_create()
     input["index"] = value
     with pytest.raises(ValidationError):
         JudgementCreate(**input)
         
-@pytest.mark.parametrize("value", [0, 1, "", None, True, False, [], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_doc_id(value):
     input = mock_input_create()
     input["doc_id"] = value
     with pytest.raises(ValidationError):
         JudgementCreate(**input)
         
-@pytest.mark.parametrize("value", [-1,  "", None, True, False, [], [1], ["test"], {}, {"a":"b"} ])
+@pytest.mark.parametrize("value", invalid_values_for("int_ge_0"))
 def test_create_handles_invalid_inputs_for_rating(value):
     input = mock_input_create()
     input["rating"] = value
