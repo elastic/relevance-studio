@@ -35,17 +35,22 @@ const ChartMetricsHeatmap = (props) => {
   /**
    * Configure color bands
    */
-  const numColorBands = 25
-  const colorBands = euiPaletteForStatus(numColorBands).reverse()
-  const valueMin = 0.0
-  const valueMax = 1.0
-  const valueRange = valueMax - valueMin
+  const numBands = 24
+  const colorBands = euiPaletteForStatus(numBands).reverse()
+  const min = 0.0
+  const max = 1.0
   const bands = []
-  for (let i = 0; i < numColorBands; i++) {
+  // Generate non-linear breakpoints using a power curve
+  const skew = 0.67
+  const breakpoints = Array.from({ length: numBands + 1 }, (_, i) => {
+    const t = Math.pow(i / numBands, skew)
+    return min + (max - min) * t
+  })
+  for (let i = 0; i < numBands; i++) {
     bands.push({
       color: colorBands[i],
-      start: i == 0 ? -Infinity : valueRange / numColorBands * (i),
-      end: i == numColorBands - 1 ? Infinity : valueRange / numColorBands * (i + 1)
+      start: i === 0 ? -Infinity : breakpoints[i],
+      end: i === numBands - 1 ? Infinity : breakpoints[i + 1],
     })
   }
 
