@@ -10,12 +10,16 @@ import {
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
+import { usePageResources } from '../../Contexts/ResourceContext'
+import { getHistory } from '../../history'
 
 const TableMetrics = ({ evaluation, rowOnHover }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
+  const history = getHistory()
   const { darkMode } = useAppContext()
+  const { project } = usePageResources()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -239,7 +243,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     field: 'rated_docs.percent',
     name: (
       <>
-        Rated docs <EuiText component='span' size='xs'><small>(%)</small></EuiText>
+        Rated docs
       </>
     ),
     sortable: true,
@@ -255,6 +259,22 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         />
       </div>
     )
+  })
+  columns.push({
+    name: 'Actions',
+    actions: [
+      {
+        color: 'primary',
+        description: 'Edit current strategy',
+        icon: 'editorLink',
+        isPrimary: true,
+        name: 'Edit',
+        onClick: (item) => {
+          history.push({ pathname: `/projects/${project._id}/strategies/${item.strategy_id}` })
+        },
+        type: 'icon'
+      },
+    ],
   })
 
   return (
