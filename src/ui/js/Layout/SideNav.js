@@ -41,6 +41,7 @@ const SideNav = () => {
         id: 'project',
         href: `#/projects/${project._id}`,
         forceOpen: true,
+        isSelected: path == '/projects/:project_id',
         items: [
           {
             name: 'Displays',

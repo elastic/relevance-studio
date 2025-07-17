@@ -168,6 +168,22 @@ utils.formatDuration = (ms) => {
   )
 }
 
+utils.jsonStringifySortedKeys = (obj, replacer = null, space = 2) => {
+  const sortKeys = (value) => {
+    if (Array.isArray(value))
+      return value.map(sortKeys)
+    if (value && typeof value === 'object' && value.constructor === Object) {
+      return Object.keys(value).sort().reduce((acc, key) => {
+        acc[key] = sortKeys(value[key]);
+        return acc
+      }, {})
+    } else {
+      return value
+    }
+  }
+  return JSON.stringify(sortKeys(obj), replacer, space)
+}
+
 /**
  * Given an Elasticsearch field type, return its corresponding EuiIcon type and color.
  */

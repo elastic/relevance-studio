@@ -335,7 +335,7 @@ const FlyoutForm = ({
           </EuiFormRow>
           <EuiSpacer />
           <EuiFormRow
-            helpText='Tags to keep things organized.'
+            helpText='Optional tags to keep things organized.'
             label='Tags'
           >
             {renderFormTags()}

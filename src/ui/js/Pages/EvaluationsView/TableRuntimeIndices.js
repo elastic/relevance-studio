@@ -9,6 +9,7 @@ import {
   EuiScreenReaderOnly,
   EuiToolTip,
 } from '@elastic/eui'
+import utils from '../../utils'
 
 const TableRuntimeIndices = ({ items }) => {
 
@@ -38,7 +39,7 @@ const TableRuntimeIndices = ({ items }) => {
           overflowHeight={400}
           style={{ width: '100%' }}
         >
-          {JSON.stringify(_item, null, 2)}
+          {utils.jsonStringifySortedKeys(_item, null, 2)}
         </EuiCodeBlock>
       </EuiPanel>
     )
@@ -112,6 +113,7 @@ const TableRuntimeIndices = ({ items }) => {
 
   return (
     <EuiInMemoryTable
+      allowNeutralSort={false}
       columns={columns}
       itemId='_id'
       itemIdToExpandedRowMap={itemsToExpandedRows}

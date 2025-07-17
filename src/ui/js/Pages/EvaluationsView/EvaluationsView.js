@@ -20,7 +20,9 @@ import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import FlyoutRuntime from './FlyoutRuntime'
 import ChartMetricsScatterplot from './ChartMetricsScatterplot'
 import ChartMetricsHeatmap from './ChartMetricsHeatmap'
+import PanelUnratedDocs from './PanelUnratedDocs'
 import TableMetrics from './TableMetrics'
+import utils from '../../utils'
 
 const EvaluationsView = () => {
 
@@ -71,7 +73,7 @@ const EvaluationsView = () => {
   })
 
   const downloadEvaluation = () => {
-    const blob = new Blob([JSON.stringify(evaluation, null, 2)], { type: 'application/json' })
+    const blob = new Blob([utils.jsonStringifySortedKeys(evaluation, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -373,6 +375,25 @@ const EvaluationsView = () => {
           </EuiSkeletonText>
         </EuiPanel>
       </EuiPanel>
+      <EuiSpacer size='m' />
+
+      {/* Unrated docs */}
+      <EuiPanel paddingSize='none'>
+        <EuiPanel color='transparent'>
+          <EuiTitle size='s'>
+            <h2>Unrated docs</h2>
+          </EuiTitle>
+        </EuiPanel>
+        <EuiHorizontalRule margin='none' />
+        <EuiPanel color='transparent'>
+          <EuiSkeletonText lines={16} isLoading={!isReady}>
+            {evaluation?.results &&
+              <PanelUnratedDocs evaluation={evaluation} />
+            }
+          </EuiSkeletonText>
+        </EuiPanel>
+      </EuiPanel>
+      <EuiSpacer size='m' />
     </Page>
   )
 }

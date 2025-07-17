@@ -36,7 +36,7 @@ const SearchResultsJudgements = ({
   results.forEach((result) => {
     cards.push(
       <JudgementCard
-        key={`${result.doc._id}~${result.doc._id}`}
+        key={`${result.doc._index}~${result.doc._id}`}
         _id={result._id}
         doc={result.doc}
         project={project}

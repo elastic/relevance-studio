@@ -10,6 +10,7 @@ import {
   EuiScreenReaderOnly,
   EuiToolTip,
 } from '@elastic/eui'
+import utils from '../../utils'
 
 const TableRuntimeScenarios = ({ items }) => {
 
@@ -37,7 +38,7 @@ const TableRuntimeScenarios = ({ items }) => {
           overflowHeight={300}
           style={{ width: '100%' }}
         >
-          {JSON.stringify(item, null, 2)}
+          {utils.jsonStringifySortedKeys(item, null, 2)}
         </EuiCodeBlock>
       </EuiPanel>
     )
@@ -128,6 +129,7 @@ const TableRuntimeScenarios = ({ items }) => {
 
   return (
     <EuiInMemoryTable
+      allowNeutralSort={false}
       columns={columns}
       itemId='_id'
       itemIdToExpandedRowMap={itemsToExpandedRows}
