@@ -13,6 +13,8 @@ import {
 
 const TableRuntimeScenarios = ({ items }) => {
 
+  ////  State  /////////////////////////////////////////////////////////////////
+
   const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
 
   const toggleDetails = (item) => {
@@ -22,6 +24,8 @@ const TableRuntimeScenarios = ({ items }) => {
       return next
     })
   }
+
+  ////  Render  ////////////////////////////////////////////////////////////////
 
   const renderDetails = (item) => {
     return (

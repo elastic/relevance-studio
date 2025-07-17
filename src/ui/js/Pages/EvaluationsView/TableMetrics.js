@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
   EuiBadge,
+  EuiButtonIcon,
+  EuiCodeBlock,
   EuiInMemoryTable,
+  EuiPanel,
   EuiProgress,
+  EuiScreenReaderOnly,
   EuiText,
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
-import utils from '../../utils'
 
 const TableMetrics = ({ evaluation, rowOnHover }) => {
 
@@ -17,12 +20,19 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [items, setItems] = useState([])
+  const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
   const [sort, setSort] = useState({
     field: 'name',
     direction: 'asc',
   })
 
-  ////  Effects  ///////////////////////////////////////////////////////////////
+  const toggleDetails = (item) => {
+    setItemIdToExpandedRowMap(prev => {
+      const next = { ...prev }
+      next[item.strategy_id] ? delete next[item.strategy_id] : (next[item.strategy_id] = renderDetails(item))
+      return next
+    })
+  }
 
   /**
    * Configure color bands
@@ -50,6 +60,8 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]
 
   const sortPriority = ['ndcg', 'precision', 'recall']
+
+  ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
    * Create chart data from evaluation results.
@@ -84,11 +96,50 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     }
   }, [evaluation])
 
-
-
   ////  Render  ////////////////////////////////////////////////////////////////
 
+  const renderDetails = (item) => {
+      return (
+        <EuiPanel color='transparent' paddingSize='none'>
+          <EuiCodeBlock
+            isCopyable
+            language='json'
+            paddingSize='m'
+            overflowHeight={400}
+            style={{ width: '100%' }}
+          >
+            {runtimeStrategy(item.strategy_id)?.template?.source}
+          </EuiCodeBlock>
+        </EuiPanel>
+      )
+    }
+
   const columns = [
+      {
+        align: 'left',
+        width: '40px',
+        isExpander: true,
+        name: (
+          <EuiScreenReaderOnly>
+            <span>Expand row</span>
+          </EuiScreenReaderOnly>
+        ),
+        mobileOptions: { header: false },
+        render: (item) => {
+          const _itemsToExpandedRows = { ...itemsToExpandedRows }
+          return (
+            <EuiButtonIcon
+              onClick={() => toggleDetails(item)}
+              aria-label={
+                _itemsToExpandedRows[item.strategy_id] ? 'Collapse' : 'Expand'
+              }
+              iconType={
+                _itemsToExpandedRows[item.strategy_id] ? 'arrowDown' : 'arrowRight'
+              }
+            />
+          )
+        },
+      },
     {
       field: 'name',
       name: 'Strategy',
@@ -187,6 +238,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         allowNeutralSort={false}
         columns={columns}
         itemId='strategy_id'
+        itemIdToExpandedRowMap={itemsToExpandedRows}
         items={items}
         onTableChange={({ sort: newSort }) => {
           if (newSort) setSort(newSort)

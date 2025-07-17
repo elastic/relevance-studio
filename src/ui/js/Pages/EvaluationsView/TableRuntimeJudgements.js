@@ -12,6 +12,8 @@ import {
 
 const TableRuntimeJudgements = ({ items }) => {
 
+  ////  State  /////////////////////////////////////////////////////////////////
+
   const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
 
   const toggleDetails = (item) => {
@@ -21,6 +23,8 @@ const TableRuntimeJudgements = ({ items }) => {
       return next
     })
   }
+
+  ////  Render  ////////////////////////////////////////////////////////////////
 
   const renderDetails = (item) => {
     const _item = { ...item }

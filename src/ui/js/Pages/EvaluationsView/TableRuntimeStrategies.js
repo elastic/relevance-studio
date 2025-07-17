@@ -13,6 +13,8 @@ import {
 
 const TableRuntimeStrategies = ({ items }) => {
 
+  ////  State  /////////////////////////////////////////////////////////////////
+
   const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
 
   const toggleDetails = (item) => {
@@ -61,6 +63,8 @@ const TableRuntimeStrategies = ({ items }) => {
     }
     return serialize(obj, 0)
   }
+
+  ////  Render  ////////////////////////////////////////////////////////////////
 
   const renderDetails = (item) => {
     return (
