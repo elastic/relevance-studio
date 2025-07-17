@@ -22,13 +22,15 @@ import ChartMetricsScatterplot from './ChartMetricsScatterplot'
 import ChartMetricsHeatmap from './ChartMetricsHeatmap'
 import PanelUnratedDocs from './PanelUnratedDocs'
 import TableMetrics from './TableMetrics'
+import { getHistory } from '../../history'
 import utils from '../../utils'
 
 const EvaluationsView = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { benchmark, evaluation } = usePageResources()
+  const history = getHistory()
+  const { project, benchmark, evaluation } = usePageResources()
   const isReady = useResources().hasResources(['project', 'benchmark', 'evaluation'])
 
   ////  State  /////////////////////////////////////////////////////////////////
@@ -379,13 +381,31 @@ const EvaluationsView = () => {
 
       {/* Unrated docs */}
       <EuiPanel paddingSize='none'>
-        <EuiPanel color='transparent'>
-          <EuiTitle size='s'>
-            <h2>Unrated docs</h2>
-          </EuiTitle>
-        </EuiPanel>
+        <EuiFlexGroup>
+          <EuiFlexItem grow>
+            <EuiPanel color='transparent'>
+              <EuiTitle size='s'>
+                <h2>Unrated docs</h2>
+              </EuiTitle>
+            </EuiPanel>
+          </EuiFlexItem>
+          <EuiFlexItem grow={false}>
+            <EuiPanel color='transparent' paddingSize='none'>
+              <EuiButton style={{ margin: '8px 16px' }} onClick={(e) => {
+                const pairs = []
+                evaluation.unrated_docs.forEach((doc) => {
+                  pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
+                })
+                const query = encodeURIComponent(pairs.join(' OR '))
+                history.push(`/projects/${project._id}/judgements?query=${query}`)
+              }}>
+                Judge
+              </EuiButton>
+            </EuiPanel>
+          </EuiFlexItem>
+        </EuiFlexGroup>
         <EuiHorizontalRule margin='none' />
-        <EuiPanel color='transparent'>
+        <EuiPanel color='transparent' style={{ height: '600px', overflowY: 'scroll' }}>
           <EuiSkeletonText lines={16} isLoading={!isReady}>
             {evaluation?.results &&
               <PanelUnratedDocs evaluation={evaluation} />

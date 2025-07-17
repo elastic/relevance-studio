@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   EuiBadge,
   EuiButtonGroup,
-  EuiButtonIcon,
   EuiCallOut,
   EuiCode,
   EuiFlexGrid,
@@ -11,7 +10,7 @@ import {
   EuiHorizontalRule,
   EuiIcon,
   EuiPanel,
-  EuiScreenReaderOnly,
+  EuiProgress,
   EuiSpacer,
   EuiText,
   EuiToolTip,
@@ -31,10 +30,7 @@ const PanelUnratedDocs = ({ evaluation }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [errorContent, setErrorContent] = useState(null)
-  const [hasSearched, setHasSearched] = useState(false)
   const [indexPatternMap, setIndexPatternMap] = useState({})
-  const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [results, setResults] = useState({})
   const [resultsPerRow, setResultsPerRow] = useState(3)
@@ -99,11 +95,9 @@ const PanelUnratedDocs = ({ evaluation }) => {
       let response
       try {
         setIsLoadingResults(true)
-        const response = await api.content_search(project.index_pattern, body)
+        response = await api.content_search(project.index_pattern, body)
 
         // Handle API response
-        setErrorContent(null)
-        setHasSearched(true)
         const _results = {}
         response.data?.hits?.hits?.forEach((hit) => {
           _results[hit._id] = hit
@@ -112,13 +106,7 @@ const PanelUnratedDocs = ({ evaluation }) => {
         })
         setResults(_results)
       } catch (e) {
-        if (response?.data?.error?.reason) {
-          setHasSearched(true)
-          if (response?.data?.error?.reason)
-            setErrorContent(response.data)
-        } else {
-          return addToast(api.errorToast(e, { title: 'Failed to get unrated docs' }))
-        }
+        addToast(api.errorToast(e, { title: 'Failed to get unrated docs' }))
       } finally {
         setIsLoadingResults(false)
       }
@@ -146,80 +134,6 @@ const PanelUnratedDocs = ({ evaluation }) => {
   const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]
 
   ////  Render  ////////////////////////////////////////////////////////////////
-
-  const columns = [
-    {
-      align: 'left',
-      width: '40px',
-      isExpander: true,
-      name: (
-        <EuiScreenReaderOnly>
-          <span>Expand row</span>
-        </EuiScreenReaderOnly>
-      ),
-      mobileOptions: { header: false },
-      render: (item) => {
-        const _itemsToExpandedRows = { ...itemsToExpandedRows }
-        return (
-          <EuiButtonIcon
-            onClick={() => toggleDetails(item)}
-            aria-label={
-              _itemsToExpandedRows[item._id] ? 'Collapse' : 'Expand'
-            }
-            iconType={
-              _itemsToExpandedRows[item._id] ? 'arrowDown' : 'arrowRight'
-            }
-          />
-        )
-      },
-    },
-    {
-      field: 'count',
-      name: 'Count',
-      sortable: true,
-      truncateText: true,
-      render: (name, item) => item.count
-    },
-    {
-      field: '_index',
-      name: 'Index',
-      sortable: true,
-      truncateText: true,
-      render: (name, item) => item._index
-    },
-    {
-      field: '_id',
-      name: '_id',
-      sortable: true,
-      truncateText: true,
-      render: (name, item) => item._id
-    },
-    {
-      field: 'card',
-      name: '',
-      sortable: false,
-      render: (name, item) => {
-        const template = resolveIndexToDisplay(item._index)?.template
-        return (
-          <DocCard
-            key={`${item._index}~${item._id}`}
-            doc={item}
-            panelProps={{
-              hasBorder: false,
-              hasShadow: false,
-              style: {
-                borderTopLeftRadius: 0,
-                borderTopRightRadius: 0
-              }
-            }}
-            body={template?.body}
-            imagePosition={template?.image?.position}
-            imageUrl={template?.image?.url}
-          />
-        )
-      }
-    },
-  ]
 
   const renderDocs = () => {
     const docs = []
@@ -254,105 +168,133 @@ const PanelUnratedDocs = ({ evaluation }) => {
       })
       docs.push(
         <EuiFlexItem grow={false}>
-          {doc._id in results &&
-            <EuiPanel paddingSize='none'>
-
-              {/* Display the doc contents */}
-              {!!doc &&
-                <DocCard
-                  key={`${doc._index}~${doc._id}`}
-                  doc={results[doc._id]}
-                  panelProps={{
-                    hasBorder: false,
-                    hasShadow: false,
-                    style: {
-                      borderBottomLeftRadius: 0,
-                      borderBottomRightRadius: 0,
-                    }
-                  }}
-                  body={template?.body}
-                  imagePosition={template?.image?.position}
-                  imageUrl={template?.image?.url}
-                />
-              }
-              {!doc &&
-                <DocCard
-                  key={`${doc._index}~${doc._id}`}
-                  doc={{ _index: doc._index, _id: doc._id, }}
-                  panelProps={{
-                    hasBorder: false,
-                    hasShadow: false,
-                    style: {
-                      borderBottomLeftRadius: 0,
-                      borderBottomRightRadius: 0,
-                    }
-                  }}
-                  body={'Document not found. It might no longer exist.'}
-                />
-              }
-
-              {/* Display the count of occurrences */}
-              <EuiHorizontalRule margin='none' />
-              <EuiPanel
-                color='primary'
-                hasBorder={false}
-                hasShadow={false}
-                paddingSize='s'
+          <EuiPanel paddingSize='none' style={{ position: 'relative' }}>
+            {isLoadingResults &&
+              <EuiProgress
+                color='accent'
+                size='s'
                 style={{
-                  borderRadius: 0,
-                }}>
-                <EuiText color='subdued' size='xs' style={{ paddingLeft: '8px', }}>
-                  <b style={{ paddingRight: '4px' }}>{doc.count}</b> occurrence{doc.count == 1 ? '' : 's'}
-                </EuiText>
-              </EuiPanel>
+                  borderTopLeftRadius: '4px',
+                  borderTopRightRadius: '4px',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  zIndex: 2,
+                }}
+              />
+            }
 
-              {/* Display the scenarios and strategies it appeared for */}
-              <EuiPanel
-                color='subdued'
-                hasBorder={false}
-                hasShadow={false}
-                paddingSize='none'
-                style={{
-                  borderTopLeftRadius: 0,
-                  borderTopRightRadius: 0,
-                  borderRightStyle: 'none',
-                }}>
-                <EuiFlexGroup gutterSize='s'>
-                  <EuiFlexItem grow>
-                    <EuiPanel color='transparent' paddingSize='m' style={{ paddingTop: '8px' }}>
-                      <EuiText color='subdued' size='xs'>
-                        <div style={{ fontWeight: 500 }}>
-                          Scenarios
-                        </div>
-                        <EuiSpacer size='xs' />
-                        <div style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          margin: '-1px',
-                        }}>
-                          {scenarioList}
-                        </div>
-                      </EuiText>
-                      <EuiSpacer size='s' />
-                      <EuiText color='subdued' size='xs'>
-                        <div style={{ fontWeight: 500 }}>
-                          Strategies
-                        </div>
-                        <EuiSpacer size='xs' />
-                        <div style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          margin: '-1px',
-                        }}>
-                          {strategyList}
-                        </div>
-                      </EuiText>
-                    </EuiPanel>
-                  </EuiFlexItem>
-                </EuiFlexGroup>
-              </EuiPanel>
+            {/* Display the doc contents */}
+            {isLoadingResults &&
+              <DocCard
+                key={`${doc._index}~${doc._id}`}
+                doc={{ _index: doc._index, _id: doc._id, }}
+                panelProps={{
+                  hasBorder: false,
+                  hasShadow: false,
+                  style: {
+                    borderBottomLeftRadius: 0,
+                    borderBottomRightRadius: 0,
+                  }
+                }}
+                body={'Loading doc...'}
+              />
+            }
+            {!isLoadingResults && doc._id in results &&
+              <DocCard
+                key={`${doc._index}~${doc._id}`}
+                doc={results[doc._id]}
+                panelProps={{
+                  hasBorder: false,
+                  hasShadow: false,
+                  style: {
+                    borderBottomLeftRadius: 0,
+                    borderBottomRightRadius: 0,
+                  }
+                }}
+                body={template?.body}
+                imagePosition={template?.image?.position}
+                imageUrl={template?.image?.url}
+              />
+            }
+            {!isLoadingResults && !(doc._id in results) &&
+              <DocCard
+                key={`${doc._index}~${doc._id}`}
+                doc={{ _index: doc._index, _id: doc._id, }}
+                panelProps={{
+                  hasBorder: false,
+                  hasShadow: false,
+                  style: {
+                    borderBottomLeftRadius: 0,
+                    borderBottomRightRadius: 0,
+                  }
+                }}
+                body={'Document not found. It might no longer exist.'}
+              />
+            }
+
+            {/* Display the count of occurrences */}
+            <EuiHorizontalRule margin='none' />
+            <EuiPanel
+              color='primary'
+              hasBorder={false}
+              hasShadow={false}
+              paddingSize='s'
+              style={{
+                borderRadius: 0,
+              }}>
+              <EuiText color='subdued' size='xs' style={{ paddingLeft: '8px', }}>
+                <b style={{ paddingRight: '4px' }}>{doc.count}</b> occurrence{doc.count == 1 ? '' : 's'}
+              </EuiText>
             </EuiPanel>
-          }
+
+            {/* Display the scenarios and strategies it appeared for */}
+            <EuiPanel
+              color='subdued'
+              hasBorder={false}
+              hasShadow={false}
+              paddingSize='none'
+              style={{
+                borderTopLeftRadius: 0,
+                borderTopRightRadius: 0,
+                borderRightStyle: 'none',
+              }}>
+              <EuiFlexGroup gutterSize='s'>
+                <EuiFlexItem grow>
+                  <EuiPanel color='transparent' paddingSize='m' style={{ paddingTop: '12px' }}>
+                    <EuiText color='subdued' size='xs'>
+                      <div style={{ fontWeight: 500 }}>
+                        Scenarios
+                      </div>
+                      <EuiSpacer size='xs' />
+                      <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        margin: '-1px',
+                      }}>
+                        {scenarioList}
+                      </div>
+                    </EuiText>
+                    <EuiSpacer size='m' />
+                    <EuiText color='subdued' size='xs'>
+                      <div style={{ fontWeight: 500 }}>
+                        Strategies
+                      </div>
+                      <EuiSpacer size='xs' />
+                      <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        margin: '-1px',
+                      }}>
+                        {strategyList}
+                      </div>
+                    </EuiText>
+                  </EuiPanel>
+                </EuiFlexItem>
+              </EuiFlexGroup>
+            </EuiPanel>
+          </EuiPanel>
         </EuiFlexItem>
       )
     }
@@ -360,7 +302,7 @@ const PanelUnratedDocs = ({ evaluation }) => {
   }
 
   return (
-    <EuiPanel color='transparent' paddingSize='none' style={{ height: '600px', overflowY: 'scroll' }}>
+    <EuiPanel color='transparent' paddingSize='none'>
       {!!evaluation.unrated_docs &&
         <>
           {/* Disclaimer */}
@@ -407,7 +349,7 @@ const PanelUnratedDocs = ({ evaluation }) => {
           </EuiPanel>
         </>
       }
-      <EuiPanel color='transparent' paddingSize='m'>
+      <EuiPanel color='transparent' paddingSize='s'>
         <EuiFlexGrid alignItems='start' columns={resultsPerRow}>
           {renderDocs()}
         </EuiFlexGrid>

@@ -184,6 +184,45 @@ utils.jsonStringifySortedKeys = (obj, replacer = null, space = 2) => {
   return JSON.stringify(sortKeys(obj), replacer, space)
 }
 
+utils.jsonStringifySortedKeysWithTripleQuotes = (obj, replacer = null, space = 2) => {
+  const serialize = (value, currentIndent = 0) => {
+    const currentIndentStr = ' '.repeat(currentIndent)
+    const nextIndent = currentIndent + space
+    const nextIndentStr = ' '.repeat(nextIndent)
+    if (value === null)
+      return 'null'
+    if (typeof value === 'undefined')
+      return 'undefined'
+    if (typeof value === 'boolean' || typeof value === 'number')
+      return String(value)
+    if (typeof value === 'string') {
+      if (value.includes('\n'))
+        return `"""\n${value.split('\\n').join('')}\n"""`
+      else
+        return utils.jsonStringifySortedKeys(value, replacer, space)
+    }
+    if (Array.isArray(value)) {
+      if (value.length === 0)
+        return '[]'
+      const items = value.map(item => nextIndentStr + serialize(item, nextIndent))
+      return '[\n' + items.join(',\n') + '\n' + currentIndentStr + ']'
+    }
+    if (typeof value === 'object') {
+      const keys = Object.keys(value).sort()
+      if (keys.length === 0)
+        return '{}'
+      const items = keys.map(key => {
+        const serializedKey = utils.jsonStringifySortedKeys(key, replacer, space)
+        const serializedValue = serialize(value[key], nextIndent)
+        return `${nextIndentStr}${serializedKey}: ${serializedValue}`
+      })
+      return '{\n' + items.join(',\n') + '\n' + currentIndentStr + '}'
+    }
+    return utils.jsonStringifySortedKeys(value, replacer, space) // fallback
+  }
+  return serialize(obj, 0)
+}
+
 /**
  * Given an Elasticsearch field type, return its corresponding EuiIcon type and color.
  */
