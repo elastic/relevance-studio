@@ -70,6 +70,18 @@ const EvaluationsView = () => {
     _id: { by: 'value', order: 'asc' }, label: 'Metric', checked: 'on'
   })
 
+  const downloadEvaluation = () => {
+    const blob = new Blob([JSON.stringify(evaluation, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `evaluation-${evaluation._id}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   ////  Render  ////////////////////////////////////////////////////////////////
 
   const renderSelectMetric = () => {
@@ -263,6 +275,17 @@ const EvaluationsView = () => {
   /**
    * Button to open flyout to inspect runtime assets.
    */
+  const renderButtonDownload = () => (
+    <EuiButton
+      iconType='download'
+      onClick={() => downloadEvaluation()}>
+      Download evaluation
+    </EuiButton>
+  )
+
+  /**
+   * Button to open flyout to inspect runtime assets.
+   */
   const renderButtonRuntime = () => (
     <EuiButton
       iconType='inspect'
@@ -282,7 +305,7 @@ const EvaluationsView = () => {
         }
       </EuiSkeletonTitle>
     }
-      buttons={[renderButtonRuntime()]}
+      buttons={[renderButtonRuntime(), renderButtonDownload()]}
     >
       {isFlyoutRuntimeOpen &&
         <FlyoutRuntime
