@@ -47,7 +47,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   ]
   const min = 0.0
   const max = 1.0
-  const breakpoints = [ min, 0.5, 0.7, 0.9, max ]
+  const breakpoints = [min, 0.5, 0.7, 0.9, max]
   const bands = colors.map((color, i) => ({
     color,
     start: i === 0 ? -Infinity : breakpoints[i],
@@ -71,11 +71,15 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       return
     const rows = []
     for (const _id in evaluation.summary.strategy_id) {
-      const row = {
+      let row = {
         strategy_id: _id,
         name: runtimeStrategy(_id).name,
         tags: runtimeStrategy(_id).tags,
-        metrics: evaluation.summary.strategy_id[_id]._total.metrics
+        metrics: evaluation.summary.strategy_id[_id]._total.metrics,
+        unrated_docs: evaluation.summary.strategy_id[_id]._total.unrated_docs,
+      }
+      row['rated_docs'] = {
+        percent: 100 - row.unrated_docs.percent
       }
       rows.push(row)
     }
@@ -99,47 +103,47 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   ////  Render  ////////////////////////////////////////////////////////////////
 
   const renderDetails = (item) => {
-      return (
-        <EuiPanel color='transparent' paddingSize='none'>
-          <EuiCodeBlock
-            isCopyable
-            language='json'
-            paddingSize='m'
-            overflowHeight={400}
-            style={{ width: '100%' }}
-          >
-            {runtimeStrategy(item.strategy_id)?.template?.source}
-          </EuiCodeBlock>
-        </EuiPanel>
-      )
-    }
+    return (
+      <EuiPanel color='transparent' paddingSize='none'>
+        <EuiCodeBlock
+          isCopyable
+          language='json'
+          paddingSize='m'
+          overflowHeight={400}
+          style={{ width: '100%' }}
+        >
+          {runtimeStrategy(item.strategy_id)?.template?.source}
+        </EuiCodeBlock>
+      </EuiPanel>
+    )
+  }
 
   const columns = [
-      {
-        align: 'left',
-        width: '40px',
-        isExpander: true,
-        name: (
-          <EuiScreenReaderOnly>
-            <span>Expand row</span>
-          </EuiScreenReaderOnly>
-        ),
-        mobileOptions: { header: false },
-        render: (item) => {
-          const _itemsToExpandedRows = { ...itemsToExpandedRows }
-          return (
-            <EuiButtonIcon
-              onClick={() => toggleDetails(item)}
-              aria-label={
-                _itemsToExpandedRows[item.strategy_id] ? 'Collapse' : 'Expand'
-              }
-              iconType={
-                _itemsToExpandedRows[item.strategy_id] ? 'arrowDown' : 'arrowRight'
-              }
-            />
-          )
-        },
+    {
+      align: 'left',
+      width: '40px',
+      isExpander: true,
+      name: (
+        <EuiScreenReaderOnly>
+          <span>Expand row</span>
+        </EuiScreenReaderOnly>
+      ),
+      mobileOptions: { header: false },
+      render: (item) => {
+        const _itemsToExpandedRows = { ...itemsToExpandedRows }
+        return (
+          <EuiButtonIcon
+            onClick={() => toggleDetails(item)}
+            aria-label={
+              _itemsToExpandedRows[item.strategy_id] ? 'Collapse' : 'Expand'
+            }
+            iconType={
+              _itemsToExpandedRows[item.strategy_id] ? 'arrowDown' : 'arrowRight'
+            }
+          />
+        )
       },
+    },
     {
       field: 'name',
       name: 'Strategy',
@@ -231,6 +235,27 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       )
     })
   }
+  columns.push({
+    field: 'rated_docs.percent',
+    name: (
+      <>
+        Rated docs <EuiText component='span' size='xs'><small>(%)</small></EuiText>
+      </>
+    ),
+    sortable: true,
+    style: { width: '100px' },
+    render: (name, item) => (
+      <div style={{ position: 'relative', width: '100%' }}>
+        <EuiProgress
+          color={getColorBand(item.rated_docs.percent / 100)}
+          label={item.rated_docs.percent.toFixed(0) + '%'}
+          max={1}
+          size='s'
+          value={item.rated_docs.percent / 100.0}
+        />
+      </div>
+    )
+  })
 
   return (
     <div className='evaluations-table-metrics' style={{ height: '390px', overflow: 'auto' }}>
