@@ -44,6 +44,9 @@
             }
           }
         },
+        "tags": {
+          "type": "keyword"
+        },
         "_search": {
           "properties": {
             "name": {
@@ -53,6 +56,9 @@
               "type": "text"
             },
             "params": {
+              "type": "text"
+            },
+            "tags": {
               "type": "text"
             }
           }

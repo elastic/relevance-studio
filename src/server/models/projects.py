@@ -43,6 +43,9 @@ class ProjectCreate(AssetCreate):
     index_pattern: str
     params: List[str]
     rating_scale: RatingScaleModel
+    
+    # Optional inputs
+    tags: List[str] = Field(default_factory=list)
 
     @field_validator("name")
     @classmethod
@@ -65,6 +68,13 @@ class ProjectCreate(AssetCreate):
             raise ValueError("params must be a non-empty list of non-empty strings")
         return value
 
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
+        return value
+
 
 class ProjectUpdate(AssetUpdate):
     
@@ -72,6 +82,7 @@ class ProjectUpdate(AssetUpdate):
     name: str = None
     index_pattern: str = None
     params: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
 
     @field_validator("name")
     @classmethod
@@ -98,4 +109,11 @@ class ProjectUpdate(AssetUpdate):
             return value
         if not all(isinstance(p, str) and p.strip() for p in value):
             raise ValueError("params must be a non-empty list of non-empty strings if given")
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]):
+        if value is None or not all(isinstance(t, str) and t.strip() for t in value):
+            raise ValueError("tags must be a list of non-empty strings if given")
         return value

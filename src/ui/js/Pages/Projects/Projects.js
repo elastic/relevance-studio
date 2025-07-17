@@ -190,6 +190,21 @@ const Projects = () => {
       </>),
     },
     {
+      field: 'tags',
+      name: 'Tags',
+      width: '100px',
+      render: (name, doc) => {
+        const tags = []
+        for (var i in doc.tags)
+          tags.push(
+            <EuiBadge color='hollow' key={doc.tags[i]}>
+              {doc.tags[i]}
+            </EuiBadge>
+          )
+        return tags
+      },
+    },
+    {
       name: 'Actions',
       actions: [
         {

@@ -3,6 +3,7 @@ import {
   EuiButton,
   EuiButtonEmpty,
   EuiButtonIcon,
+  EuiComboBox,
   EuiForm,
   EuiFormControlLayoutDelimited,
   EuiFormRow,
@@ -15,6 +16,7 @@ import {
   EuiFlyoutBody,
   EuiFlyoutHeader,
   EuiFlyoutFooter,
+  EuiIcon,
   EuiInlineEditTitle,
   EuiSpacer,
   EuiToolTip,
@@ -24,13 +26,13 @@ import api from '../../api'
 import utils from '../../utils'
 
 const FlyoutForm = ({
-    action,
-    doc,
-    isProcessing,
-    onClose,
-    onSuccess,
-    setIsProcessing
-  }) => {
+  action,
+  doc,
+  isProcessing,
+  onClose,
+  onSuccess,
+  setIsProcessing,
+}) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -44,14 +46,15 @@ const FlyoutForm = ({
     params: [{ name: 'text' }],
     rating_scale: {
       min: 0,
-      max: 4
-    }
+      max: 4,
+    },
+    tags: [],
   })
   const [formBlurs, setFormBlurs] = useState({
     name: false,
     index_pattern: false,
     rating_scale_min: false,
-    rating_scale_max: false
+    rating_scale_max: false,
   })
 
   ////  Effects  ///////////////////////////////////////////////////////////////
@@ -66,8 +69,9 @@ const FlyoutForm = ({
       params: (doc.params || []).map(p => { return { name: p } }),
       rating_scale: {
         min: doc.rating_scale?.min || 0,
-        max: doc.rating_scale?.max || 4
-      }
+        max: doc.rating_scale?.max || 4,
+      },
+      tags: doc.tags || [],
     })
   }, [doc])
 
@@ -82,8 +86,9 @@ const FlyoutForm = ({
     newDoc.params = form.params.map(p => p.name.trim()).filter(p => p != '').sort()
     newDoc.rating_scale = {
       min: form.rating_scale.min,
-      max: form.rating_scale.max
+      max: form.rating_scale.max,
     }
+    newDoc.tags = form.tags.map(t => t.trim()).filter(t => t != '').sort()
 
     // Submit API request
     let response
@@ -275,6 +280,32 @@ const FlyoutForm = ({
     </>)
   }
 
+  const renderFormTags = () => {
+    return (
+      <EuiComboBox
+        aria-label='Tags'
+        compressed
+        fullWidth
+        noSuggestions
+        onChange={(options) => {
+          const tags = []
+          options.forEach((option) => tags.push(option.key))
+          setForm(prev => ({ ...prev, tags: tags }))
+        }}
+        onCreateOption={(tag) => {
+          const tags = form.tags?.concat(tag)
+          setForm(prev => ({ ...prev, tags: tags }))
+        }}
+        placeholder='Tags'
+        selectedOptions={form.tags?.map((tag) => ({
+          key: tag,
+          label: tag,
+          prepend: <EuiIcon size='s' type='tag' />
+        }))}
+      />
+    )
+  }
+
   return (
     <EuiForm>
       <EuiFlyout hideCloseButton onClose={onClose} ownFocus>
@@ -301,6 +332,13 @@ const FlyoutForm = ({
             label='Params'
           >
             {renderFormParams()}
+          </EuiFormRow>
+          <EuiSpacer />
+          <EuiFormRow
+            helpText='Tags to keep things organized.'
+            label='Tags'
+          >
+            {renderFormTags()}
           </EuiFormRow>
         </EuiFlyoutBody>
         <EuiFlyoutFooter>

@@ -26,6 +26,9 @@ def mock_input_create():
             "min": 0,
             "max": 4,
         },
+        "tags": [
+            "test",
+        ],
     }
     return input
 
@@ -94,8 +97,10 @@ def test_update_is_invalid_with_forbidden_inputs():
 
 def test_create_is_valid_without_optional_inputs():
     
-    # project creates have no optional inputs
-    pass
+    # "tags" is optional in the input for creates
+    input = mock_input_create()
+    input.pop("tags", None)
+    model = ProjectCreate.model_validate(input, context=mock_context())
 
 def test_update_is_valid_without_optional_inputs():
     
@@ -116,6 +121,12 @@ def test_update_is_valid_without_optional_inputs():
     input.pop("params", None)
     model = ProjectUpdate.model_validate(input, context=mock_context())
     assert model.params is None
+    
+    # "tags" is optional in the input for updates
+    input = mock_input_update()
+    input.pop("tags", None)
+    model = ProjectUpdate.model_validate(input, context=mock_context())
+    assert model.tags is None
     
 def test_create_is_invalid_with_unexpected_inputs():
     input = mock_input_create()
@@ -186,6 +197,32 @@ def test_create_handles_invalid_inputs_for_rating_scale_max(value):
     input["rating_scale"]["max"] = value
     with pytest.raises(ValidationError):
         ProjectCreate(**input)
+        
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
+def test_create_handles_invalid_inputs_for_tags(value):
+    input = mock_input_create()
+    input["tags"] = value
+    with pytest.raises(ValidationError):
+        ProjectCreate(**input)
+        
+@pytest.mark.parametrize("value", [[],["test"]])
+def test_create_handles_valid_inputs_for_tags(value):
+    input = mock_input_create()
+    input["tags"] = value
+    ProjectCreate(**input)
+        
+@pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
+def test_update_handles_invalid_inputs_for_tags(value):
+    input = mock_input_update()
+    input["tags"] = value
+    with pytest.raises(ValidationError):
+        ProjectUpdate(**input)
+        
+@pytest.mark.parametrize("value", [[],["test"]])
+def test_update_handles_valid_inputs_for_tags(value):
+    input = mock_input_update()
+    input["tags"] = value
+    ProjectUpdate(**input)
     
 ####  Test Creation of Computed Fields  ########################################
 
@@ -212,6 +249,7 @@ def test_create_serialization_has_all_given_inputs():
     assert sorted(serialized["params"]) == sorted(mock_input_create()["params"])
     assert serialized["rating_scale"]["min"] == mock_input_create()["rating_scale"]["min"]
     assert serialized["rating_scale"]["max"] == mock_input_create()["rating_scale"]["max"]
+    assert sorted(serialized["tags"]) == sorted(mock_input_create()["tags"])
     
     # Test that @meta fields were properly serialized
     assert "@meta" in serialized and "meta" not in serialized
@@ -219,8 +257,15 @@ def test_create_serialization_has_all_given_inputs():
     
 def test_create_serialization_initializes_omitted_optional_inputs():
     
-    # project creates have no optional inputs
-    pass
+    # Use mock input without optional fields
+    input = mock_input_create()
+    input.pop("tags", None)
+    
+    model = ProjectCreate.model_validate(input, context=mock_context())
+    serialized = model.serialize()
+    
+    # Test that inputs are in serialized output
+    assert sorted(serialized["tags"]) == []
     
 def test_update_serialization_has_all_given_inputs():
     
@@ -233,6 +278,7 @@ def test_update_serialization_has_all_given_inputs():
     assert serialized["name"] == mock_input_update()["name"]
     assert serialized["index_pattern"] == mock_input_update()["index_pattern"]
     assert sorted(serialized["params"]) == sorted(mock_input_update()["params"])
+    assert sorted(serialized["tags"]) == sorted(mock_input_update()["tags"])
     
     # Test that @meta fields were properly serialized
     assert "@meta" in serialized and "meta" not in serialized
@@ -244,13 +290,16 @@ def test_update_serialization_omits_omitted_optional_inputs():
     input = mock_input_update()
     input.pop("name", None)
     input.pop("index_pattern", None)
+    input.pop("params", None)
+    input.pop("tags", None)
     model = ProjectUpdate.model_validate(input, context=mock_context())
     serialized = model.serialize()
     
     # Test that omitted optional inputs are not in serialized output
     assert "name" not in serialized
     assert "index_pattern" not in serialized
-    assert "fields" not in serialized or serialized["fields"] is None
+    assert "tags" not in serialized
+    assert "params" not in serialized or serialized["params"] is None
     
     # Test that @meta fields were properly serialized
     assert "@meta" in serialized and "meta" not in serialized
