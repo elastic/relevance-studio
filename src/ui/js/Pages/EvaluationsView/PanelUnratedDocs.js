@@ -307,7 +307,7 @@ const PanelUnratedDocs = ({ evaluation }) => {
         <>
           {/* Disclaimer */}
           <EuiCallOut>
-            You are viewing the <b>current state</b> of the unrated documents for this evaluation. The contents might different from what was matched during the evaluation, but the <EuiCode transparentBackground style={{ padding: 0 }}>_index</EuiCode> and <EuiCode transparentBackground style={{ padding: 0 }}>_id</EuiCode> are the same.
+            You are viewing the <b>current state</b> of the unrated documents for this evaluation. The contents might differ from what was matched during the evaluation, but the <EuiCode transparentBackground style={{ padding: 0 }}>_index</EuiCode> and <EuiCode transparentBackground style={{ padding: 0 }}>_id</EuiCode> are the same.
           </EuiCallOut>
 
           {/* Show number of results and change grid size */}
