@@ -74,130 +74,54 @@ const ChartMetricsHeatmap = (props) => {
   useEffect(() => {
     if (!evaluation.results || !xGroupBy || !xSortBy || !yGroupBy || !ySortBy)
       return
-
-    /**
-     * Gather metrics by selected groupings.
-     * 
-     * Structure of the pre-aggregated groups object:
-     * 
-     * {
-     *   yKey: {
-     *     xKey: [ METRIC_VALUE, ... ],
-     *     ...
-     *   },
-     *   ...
-     * }
-     */
-    const groups = {}
-    evaluation.results.forEach((result) => {
-      let yKeys = []
-      switch (yGroupBy) {
-        case 'strategy_id':
-          yKeys = [result.strategy_id]
-          if (!groups[result.strategy_id])
-            groups[result.strategy_id] = {}
-          break
-        case 'strategy_tag':
-          yKeys = runtimeStrategy(result.strategy_id).tags
-          yKeys.forEach((tag) => {
-            if (!groups[tag])
-              groups[tag] = {}
-          })
-          break
-        default:
-          console.warn(`Not implemented: ${yGroupBy}`)
-          return
+    const _data = []
+    for (const [yKey, yValue] of Object.entries(evaluation.summary[yGroupBy])) {
+      const total = {
+        x: 'Average',
+        y: yKey,
+        value: evaluation.summary[yGroupBy][yKey]._total.metrics[metric].avg,
       }
-      result.searches.forEach((search) => {
-        switch (xGroupBy) {
-          case 'scenario_id': {
-            const xKey = search.scenario_id
-            yKeys.forEach(yKey => {
-              if (!groups[yKey][xKey])
-                groups[yKey][xKey] = []
-              groups[yKey][xKey].push(search.metrics[metric])
-            })
-            break
-          }
-          case 'scenario_tag': {
-            const tags = runtimeScenario(search.scenario_id).tags
-            yKeys.forEach(yKey => {
-              tags.forEach(tag => {
-                if (!groups[yKey][tag])
-                  groups[yKey][tag] = []
-                groups[yKey][tag].push(search.metrics[metric])
-              })
-            })
-            break
-          }
-          default:
-            console.warn(`Not implemented: ${xGroupBy}`)
-            return
+      _data.push(total)
+      for (const [xKey, xValue] of Object.entries(yValue[`by_${xGroupBy}`])) {
+        const row = {
+          x: xKey,
+          y: yKey,
+          value: xValue.metrics[metric].avg,
         }
-      })
-    })
-
-    // Aggregate the metrics, and create a total _avg column
-    const groupsData = []
-    const avgRows = []
-    for (const y in groups) {
-      const yRow = []
-      const rowValues = groups[y]
-      const xKeys = Object.keys(rowValues)
-      let ySum = 0
-      let yCount = 0
-      for (const x of xKeys) {
-        const vals = rowValues[x]
-        const avg = utils.average(vals)
-        yRow.push({ x, y, value: avg })
-        ySum += avg
-        yCount++
+        _data.push(row)
       }
-      const yAvg = ySum / yCount
-      avgRows.push({ y, avg: yAvg })
-      yRow.unshift({ x: '_avg', y, value: yAvg }) // _avg always comes first
-      groupsData.push(...yRow)
+    }
+    
+    // Sort by overall average value. First, group rows by yKey
+    const grouped = {}
+    for (const row of _data) {
+      if (!grouped[row.y])
+        grouped[row.y] = []
+      grouped[row.y].push(row)
     }
 
-    // Y axis order
-    const yOrder = avgRows
-      .sort((a, b) => ySortBy.order === 'desc' ? b.avg - a.avg : a.avg - b.avg)
-      .map(d => d.y)
-    const yIndex = Object.fromEntries(yOrder.map((y, i) => [y, i]))
+    // Then, sort group keys by the value of their 'Average' row
+    const sortedYKeys = Object.entries(grouped)
+      .sort(([, aRows], [, bRows]) => {
+        const aAvg = aRows.find(r => r.x === 'Average')?.value ?? -Infinity
+        const bAvg = bRows.find(r => r.x === 'Average')?.value ?? -Infinity
+        return bAvg - aAvg // descending
+      })
+      .map(([yKey]) => yKey)
 
-    // X axis order, calculated from group data
-    const xSums = {}
-    const xCounts = {}
-    groupsData.forEach(d => {
-      if (d.x === '_avg') return
-      if (!xSums[d.x]) {
-        xSums[d.x] = 0
-        xCounts[d.x] = 0
-      }
-      xSums[d.x] += d.value
-      xCounts[d.x]++
-    })
-    const xAvgs = Object.keys(xSums).map(x => ({
-      x, avg: xSums[x] / xCounts[x]
-    }))
-    const xOrder = ['_avg', ...xAvgs
-      .sort((a, b) =>
-        xSortBy.order === 'desc' ? b.avg - a.avg : a.avg - b.avg
-      ).map(d => d.x)]
-    const xIndex = Object.fromEntries(xOrder.map((x, i) => [x, i]))
-
-    // Final sort
-    const orderedData = groupsData.sort((a, b) => {
-      if (yIndex[a.y] !== yIndex[b.y])
-        return yIndex[a.y] - yIndex[b.y]
-      return xIndex[a.x] - xIndex[b.x]
-    })
+    // Finally, rebuild _data in the new order
+    const sortedData = []
+    for (const yKey of sortedYKeys) {
+      sortedData.push(...grouped[yKey])
+    }
+    _data.length = 0
+    _data.push(...sortedData)
 
     setData(prev => {
       // Prevent infinite loop
-      if (JSON.stringify(prev) === JSON.stringify(orderedData))
+      if (JSON.stringify(prev) === JSON.stringify(_data))
         return prev
-      return orderedData
+      return _data
     })
     console.debug('[EvaluationsHeatmap state updated]', { data })
   }, [evaluation, xGroupBy, xSortBy, yGroupBy, ySortBy])

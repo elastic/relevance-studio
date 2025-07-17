@@ -4,8 +4,6 @@ import {
   EuiInMemoryTable,
   EuiProgress,
   EuiText,
-  euiPaletteForStatus,
-  colorPalette
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import utils from '../../utils'
@@ -24,7 +22,6 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     direction: 'asc',
   })
 
-
   ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
@@ -37,7 +34,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     '#FEC514', // Yellow
     '#02BCB7', // Teal
     darkMode ? '#48EFCF' : '#128D91', // Light Teal : Dark Teal
-  ] //euiPaletteForStatus(numBands).reverse()
+  ]
   const min = 0.0
   const max = 1.0
   const breakpoints = [ min, 0.5, 0.7, 0.9, max ]
@@ -187,6 +184,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   return (
     <div className='evaluations-table-metrics' style={{ height: '390px', overflow: 'auto' }}>
       <EuiInMemoryTable
+        allowNeutralSort={false}
         columns={columns}
         itemId='strategy_id'
         items={items}

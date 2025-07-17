@@ -23,6 +23,45 @@ const TableRuntimeStrategies = ({ items }) => {
     })
   }
 
+  const jsonStringifyWithTripleQuotes = (obj, indent = 2) => {
+    const serialize = (value, currentIndent = 0) => {
+      const currentIndentStr = ' '.repeat(currentIndent)
+      const nextIndent = currentIndent + indent
+      const nextIndentStr = ' '.repeat(nextIndent)
+      if (value === null)
+        return 'null'
+      if (typeof value === 'undefined')
+        return 'undefined'
+      if (typeof value === 'boolean' || typeof value === 'number')
+        return String(value)
+      if (typeof value === 'string') {
+        if (value.includes('\n'))
+          return `"""\n${value.split('\\n').join('')}\n"""`
+        else
+          return JSON.stringify(value)
+      }
+      if (Array.isArray(value)) {
+        if (value.length === 0)
+          return '[]'
+        const items = value.map(item => nextIndentStr + serialize(item, nextIndent))
+        return '[\n' + items.join(',\n') + '\n' + currentIndentStr + ']'
+      }
+      if (typeof value === 'object') {
+        const keys = Object.keys(value)
+        if (keys.length === 0)
+          return '{}'
+        const items = keys.map(key => {
+          const serializedKey = JSON.stringify(key)
+          const serializedValue = serialize(value[key], nextIndent)
+          return `${nextIndentStr}${serializedKey}: ${serializedValue}`
+        })
+        return '{\n' + items.join(',\n') + '\n' + currentIndentStr + '}'
+      }
+      return JSON.stringify(value) // fallback
+    }
+    return serialize(obj, 0)
+  }
+
   const renderDetails = (item) => {
     return (
       <EuiPanel color='transparent' paddingSize='none'>
@@ -33,7 +72,7 @@ const TableRuntimeStrategies = ({ items }) => {
           overflowHeight={400}
           style={{ width: '100%' }}
         >
-          {JSON.stringify(item, null, 2)}
+          {jsonStringifyWithTripleQuotes(item)}
         </EuiCodeBlock>
       </EuiPanel>
     )

@@ -85,12 +85,20 @@ def generate_summary(evaluation, strategies: List, scenarios: List):
     # Get all unique strategy tags and scenario tags from results
     strategy_tags = set()
     scenario_tags = set()
-    for _ in strategies:
-        strategy_tags.update(_.get("tags", []))
-    for _ in scenarios:
-        scenario_tags.update(_.get("tags", []))
-    strategy_tags = sorted(list(strategy_tags))
-    scenario_tags = sorted(list(scenario_tags))
+    strategy_id_to_tags = {}
+    for s in strategies:
+        tags = s.get("tags", [])
+        strategy_tags.update(tags)
+        strategy_id_to_tags[s["_id"]] = tags
+    
+    scenario_id_to_tags = {}
+    for s in scenarios:
+        tags = s.get("tags", [])
+        scenario_tags.update(tags)
+        scenario_id_to_tags[s["_id"]] = tags
+
+    strategy_tags = sorted(strategy_tags)
+    scenario_tags = sorted(scenario_tags)
     
     # Process by strategy _id
     for strategy_id in strategy_ids:
@@ -121,7 +129,7 @@ def generate_summary(evaluation, strategies: List, scenarios: List):
             scenario_searches = [
                 s for s in all_searches if s['scenario_id'] == scenario_id
             ]
-            for tag in scenario_tags:
+            for tag in scenario_id_to_tags.get(scenario_id, []):
                 if tag not in by_scenario_tag:
                     by_scenario_tag[tag] = []
                 by_scenario_tag[tag].extend(scenario_searches)
@@ -129,6 +137,7 @@ def generate_summary(evaluation, strategies: List, scenarios: List):
         # Calculate aggregated metrics for each scenario tag
         for tag in by_scenario_tag:
             by_scenario_tag[tag] = _generate_summary_metrics(by_scenario_tag[tag])
+
         summary['strategy_id'][strategy_id] = {
             '_total': total_metrics,
             'by_scenario_id': by_scenario_id,
@@ -143,7 +152,7 @@ def generate_summary(evaluation, strategies: List, scenarios: List):
         ]
         for result in strategy_results:
             searches = result['searches']
-            for tag in strategy_tags:
+            for tag in strategy_id_to_tags.get(strategy_id, []):
                 if tag not in strategy_tag_searches:
                     strategy_tag_searches[tag] = []
                 strategy_tag_searches[tag].extend(searches)
@@ -168,7 +177,7 @@ def generate_summary(evaluation, strategies: List, scenarios: List):
             scenario_searches = [
                 s for s in all_searches if s['scenario_id'] == scenario_id
             ]
-            for tag in scenario_tags:
+            for tag in scenario_id_to_tags.get(scenario_id, []):
                 if tag not in by_scenario_tag:
                     by_scenario_tag[tag] = []
                 by_scenario_tag[tag].extend(scenario_searches)
@@ -176,11 +185,13 @@ def generate_summary(evaluation, strategies: List, scenarios: List):
         # Calculate aggregated metrics for each scenario tag
         for tag in by_scenario_tag:
             by_scenario_tag[tag] = _generate_summary_metrics(by_scenario_tag[tag])
+
         summary['strategy_tag'][strategy_tag] = {
             '_total': total_metrics,
             'by_scenario_id': by_scenario_id,
             'by_scenario_tag': by_scenario_tag
         }
+
     return summary
 
 def run(

@@ -21,7 +21,6 @@ import {
   EuiText
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
-import utils from '../../utils'
 
 const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategyInFocus }) => {
 
@@ -35,71 +34,19 @@ const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategy
 
   /**
    * Create chart data from evaluation results.
-   * 
-   * Structure of the data object:
-   * 
-   * [
-   *   {
-   *     x: FLOAT,  // precision
-   *     y: FLOAT,  // recall
-   *     z: FLOAT   // (bubble size)
-   *   },
-   *   ...
-   * ]
    */
   useEffect(() => {
     if (!evaluation.results || !groupBy)
       return
-
-    /**
-     * Gather metrics by selected grouping.
-     * 
-     * Structure of the pre-aggregated groups object:
-     * 
-     * {
-     *   key: [ METRIC_VALUE, ... ],
-     *   ...
-     * }
-     */
-    const groups = {}
-    evaluation.results.forEach((result) => {
-      let keys = []
-      switch (groupBy) {
-        case 'strategy_id':
-          keys = [result.strategy_id]
-          if (!groups[result.strategy_id])
-            groups[result.strategy_id] = { precision: [], recall: [], ndcg: [] }
-          break
-        case 'strategy_tag':
-          keys = runtimeStrategy(result.strategy_id).tags
-          keys.forEach((tag) => {
-            if (!groups[tag])
-              groups[tag] = { precision: [], recall: [], ndcg: [] }
-          })
-          break
-        default:
-          console.warn(`Not implemented: ${groupBy}`)
-          return
-      }
-      result.searches.forEach((search) => {
-        keys.forEach((key) => {
-          groups[key].precision.push(search.metrics.precision)
-          groups[key].recall.push(search.metrics.recall)
-          groups[key].ndcg.push(search.metrics.ndcg)
-        })
-      })
-    })
-
-    // Aggregate the metrics
     const _data = []
-    for (const key in groups) {
-      const z = 10 // bubble size
-      _data.push({
-        recall: utils.average(groups[key].recall),
-        precision: utils.average(groups[key].precision),
-        ndcg: utils.average(groups[key].ndcg),
-        label: key
-      })
+    for (const key in evaluation.summary[groupBy]) {
+      const row = {
+        label: key,
+        ndcg: evaluation.summary[groupBy][key]._total.metrics.ndcg.avg,
+        precision: evaluation.summary[groupBy][key]._total.metrics.precision.avg,
+        recall: evaluation.summary[groupBy][key]._total.metrics.recall.avg,
+      }
+      _data.push(row)
     }
 
     setData(prev => {
@@ -127,7 +74,7 @@ const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategy
     },
     bubbleSeriesStyle: {
       point: {
-        fill: darkMode ? '#A6EDEA' : '#16C5C0',
+        fill: darkMode ? '#48EFCF' : '#16C5C0',
         strokeWidth: 0
       },
     },

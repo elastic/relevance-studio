@@ -148,7 +148,7 @@ def fetch_strategies(
             }
         },
         "size": 10000,
-        "_source": [ "params" ]
+        "_source": [ "params", "tags" ]
     }
     
     # Include strategies whose _id exists in strategy_ids or strategy_tags
