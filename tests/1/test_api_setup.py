@@ -12,8 +12,8 @@ def api_setup_response(services, wipe_data):
     
 def test_api_setup__has_correct_contents(api_setup_response, constants):
     assert sorted(api_setup_response.keys()) == [ "failures", "requests" ]
-    assert api_setup_response["failures"] == 0
-    for req in api_setup_response["requests"]:
+    assert api_setup_response["response"]["failures"] == 0
+    for req in api_setup_response["response"]["requests"]:
         assert sorted(req.keys()) == [ "index_template", "response" ]
         assert sorted(req["response"].keys()) == [ "body", "status" ]
         assert req["index_template"] in constants["index_templates"]

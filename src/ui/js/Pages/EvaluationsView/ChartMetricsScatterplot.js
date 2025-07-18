@@ -143,6 +143,7 @@ const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategy
         />
         <Axis
           id='y'
+          domain={{ min: 0.0, max: 1.0 }}
           position={Position.Left}
           showOverlappingTicks={true}
           showOverlappingLabels={true}

@@ -46,7 +46,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
       const newDoc = {
         index: doc._index,
         doc_id: doc._id,
-        rating: rating,
+        rating: parseInt(rating),
       }
       let response
       try {

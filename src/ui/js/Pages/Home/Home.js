@@ -115,7 +115,7 @@ const Home = () => {
         <div style={{ textAlign: 'center' }}>
           <EuiSpacer />
           <EuiTitle size='l'>
-            <h1><big>Welcome!</big></h1>
+            <h1 style={{ fontWeight: 700 }}><big>Welcome!</big></h1>
           </EuiTitle>
           <EuiSpacer />
           <EuiText>

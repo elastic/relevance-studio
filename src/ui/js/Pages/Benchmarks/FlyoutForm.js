@@ -216,8 +216,8 @@ const FlyoutForm = ({
     if (action != 'update')
       return
     setForm({
-      name: doc.name,
-      description: doc.description,
+      name: doc.name || '',
+      description: doc.description || '',
       tags: doc.tags || [],
       metrics: doc.task?.metrics || [],
       k: doc.task?.k || 10,
@@ -244,9 +244,7 @@ const FlyoutForm = ({
     e?.preventDefault();
     const newDoc = doc ? { ...doc } : {}
     newDoc.name = form.name.trim()
-    const _description = form.description?.trim() || ''
-    if (_description != '')
-      newDoc.description = _description
+    newDoc.description = form.description?.trim() || ''
     const _tags = form.tags.map(t => t.trim()).filter(t => t != '').sort()
     newDoc.tags = _tags
     newDoc.task = {

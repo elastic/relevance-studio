@@ -164,7 +164,8 @@ const Strategies = () => {
       // Pass whole doc, because index() is required for updates to strategies.
       const doc = { ...modalUpdate }
       doc.name = modalUpdate.name.trim()
-      doc.tag = modalUpdate.tags || []
+      doc.tags = modalUpdate.tags || []
+      delete doc.params // delete immutable fields if they exist
       return await onSubmitModal('update', doc, modalUpdate._id)
     }
   }

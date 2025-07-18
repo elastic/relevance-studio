@@ -252,15 +252,6 @@ class BenchmarkUpdate(AssetUpdate):
         if not value.strip():
             raise ValueError("name must be a non-empty string if given")
         return value
-    
-    @field_validator("description")
-    @classmethod
-    def validate_description(cls, value: Optional[str]):
-        if value is None:
-            return value
-        if not value.strip():
-            raise ValueError("description must be a non-empty string if given")
-        return value
 
     @field_validator("tags")
     @classmethod

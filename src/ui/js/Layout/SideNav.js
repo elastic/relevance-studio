@@ -86,14 +86,6 @@ const SideNav = () => {
   const items = () => [
     {
       name: 'Relevance Studio',
-      icon: <EuiIcon
-        type='logoElasticsearch'
-        style={{
-          marginLeft: '-2px',
-          marginRight: '4px',
-          height: '20px',
-          width: '20px'
-        }} />,
       id: 'sidenav',
       href: '#/',
       isSelected: path.hash == '#/',

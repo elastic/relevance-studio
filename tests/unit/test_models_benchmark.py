@@ -188,7 +188,7 @@ def test_update_handles_invalid_inputs_for_name(value):
     with pytest.raises(ValidationError):
         BenchmarkUpdate(**input)
         
-@pytest.mark.parametrize("value", invalid_values_for("string"))
+@pytest.mark.parametrize("value", invalid_values_for("string", allow_empty=True))
 def test_update_handles_invalid_inputs_for_description(value):
     input = mock_input_update()
     input["description"] = value
