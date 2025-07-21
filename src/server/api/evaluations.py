@@ -457,73 +457,79 @@ def run(
         # Create a set of requests for each evaluation metric
         for m in evaluation["task"]["metrics"]:
             
-            # Reset the metric and requests for this iterartion
-            _rank_eval["metric"] = {}
-            _rank_eval["requests"] = []
+            # Run rank_eval one strategy at a time to scale for larger benchmarks
+            for template in _rank_eval["templates"]:
             
-            # Define the metric for this iteration
-            metric_name = metrics_config[m]["name"]
-            _rank_eval["metric"][metric_name] = metrics_config[m]["config"]
-            
-            # Define requests for each combination of strategies and scenarios
-            grid = list(itertools.product(evaluation["strategy_id"], evaluation["scenario_id"]))
-            for strategy_id, scenario_id in grid:
-                # Skip scenarios that have no ratings/judgements
-                if scenario_id not in ratings or not ratings[scenario_id]:
+                # Reset the metric and requests for this iterartion
+                _rank_eval["metric"] = {}
+                _rank_eval["requests"] = []
+                
+                # Define the metric for this iteration
+                metric_name = metrics_config[m]["name"]
+                _rank_eval["metric"][metric_name] = metrics_config[m]["config"]
+                
+                # Define requests for each combination of strategies and scenarios
+                grid = list(itertools.product([
+                    template["id"]], # strategy_id
+                    evaluation["scenario_id"], # scenario_id
+                ))
+                for strategy_id, scenario_id in grid:
+                    # Skip scenarios that have no ratings/judgements
+                    if scenario_id not in ratings or not ratings[scenario_id]:
+                        continue
+                        
+                    _rank_eval["requests"].append({
+                        "id": f"{strategy_id}~{scenario_id}",
+                        "template_id": strategy_id,
+                        "params": scenarios[scenario_id],
+                        "ratings": ratings[scenario_id]
+                    })
+                    
+                # Skip if no valid requests (all scenarios have no ratings)
+                if not _rank_eval["requests"]:
                     continue
                     
-                _rank_eval["requests"].append({
-                    "id": f"{strategy_id}~{scenario_id}",
-                    "template_id": strategy_id,
-                    "params": scenarios[scenario_id],
-                    "ratings": ratings[scenario_id]
-                })
+                # Run _rank_eval on the content deployment and accumulate the results
+                body = {
+                    "metric": _rank_eval["metric"],
+                    "requests": _rank_eval["requests"],
+                    "templates": [ template, ]
+                }
                 
-            # Skip if no valid requests (all scenarios have no ratings)
-            if not _rank_eval["requests"]:
-                continue
+                # Debug: Print request structure
+                print(f"Rank eval request for strategy {template['id']}:")
+                print(f"  Templates: {len(_rank_eval['templates'])}")
+                print(f"  Requests: {len(_rank_eval['requests'])}")
+                print(f"  Metric: {_rank_eval['metric']}")
                 
-            # Run _rank_eval on the content deployment and accumulate the results
-            body = {
-                "metric": _rank_eval["metric"],
-                "requests": _rank_eval["requests"],
-                "templates": _rank_eval["templates"]
-            }
-            
-            # Debug: Print request structure
-            print(f"Rank eval request for metric {m}:")
-            print(f"  Templates: {len(_rank_eval['templates'])}")
-            print(f"  Requests: {len(_rank_eval['requests'])}")
-            print(f"  Metric: {_rank_eval['metric']}")
-            
-            es_response = es("content").rank_eval(
-                index=index_pattern,
-                body=body
-            )
-            
-            # Store results
-            for request_id, details in es_response.body["details"].items():
-                strategy_id, scenario_id = request_id.split("~", 1)
-                _results[strategy_id][scenario_id]["metrics"][m] = details["metric_score"]
-                if not len(_results[strategy_id][scenario_id]["hits"]):
-                    _results[strategy_id][scenario_id]["hits"] = details["hits"]
-                    # Find unrated docs
-                    for hit in details["hits"]:
-                        if hit["rating"] is not None:
-                            continue
-                        _index = hit["hit"]["_index"]
-                        _id = hit["hit"]["_id"]
-                        if _index not in _unrated_docs:
-                            _unrated_docs[_index] = {}
-                        if _id not in _unrated_docs[_index]:
-                            _unrated_docs[_index][_id] = {
-                                "count": 0,
-                                "strategies": set(),
-                                "scenarios": set()
-                            }
-                        _unrated_docs[_index][_id]["count"] += 1
-                        _unrated_docs[_index][_id]["strategies"].add(strategy_id)
-                        _unrated_docs[_index][_id]["scenarios"].add(scenario_id)
+                es_response = es("content").rank_eval(
+                    index=index_pattern,
+                    body=body
+                )
+                
+                # Store results
+                for request_id, details in es_response.body["details"].items():
+                    strategy_id, scenario_id = request_id.split("~", 1)
+                    _results[strategy_id][scenario_id]["metrics"][m] = details["metric_score"]
+                    if not len(_results[strategy_id][scenario_id]["hits"]):
+                        _results[strategy_id][scenario_id]["hits"] = details["hits"]
+                        # Find unrated docs
+                        for hit in details["hits"]:
+                            if hit["rating"] is not None:
+                                continue
+                            _index = hit["hit"]["_index"]
+                            _id = hit["hit"]["_id"]
+                            if _index not in _unrated_docs:
+                                _unrated_docs[_index] = {}
+                            if _id not in _unrated_docs[_index]:
+                                _unrated_docs[_index][_id] = {
+                                    "count": 0,
+                                    "strategies": set(),
+                                    "scenarios": set()
+                                }
+                            _unrated_docs[_index][_id]["count"] += 1
+                            _unrated_docs[_index][_id]["strategies"].add(strategy_id)
+                            _unrated_docs[_index][_id]["scenarios"].add(scenario_id)
             
         # Restructure results for response
         evaluation["results"] = []

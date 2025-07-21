@@ -252,7 +252,7 @@ const FlyoutForm = ({
     newDoc.tags = _tags
     newDoc.task = {
       metrics: form.metrics,
-      k: form.k
+      k: parseInt(form.k)
     }
     const _strategies = {}
     _strategies._ids = form.strategies_ids
@@ -262,7 +262,7 @@ const FlyoutForm = ({
     _scenarios._ids = form.scenarios_ids
     _scenarios.tags = form.scenarios_tags
     if (form.scenarios_sample_size)
-      _scenarios.sample_size = form.scenarios_sample_size
+      _scenarios.sample_size = parseInt(form.scenarios_sample_size)
     if (form.scenarios_sample_seed !== '')
       _scenarios.sample_seed = form.scenarios_sample_seed
     newDoc.task.scenarios = _scenarios
