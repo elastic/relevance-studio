@@ -19,6 +19,7 @@ import {
   EuiInMemoryTable,
   EuiNotificationBadge,
   EuiPanel,
+  EuiProgress,
   EuiSpacer,
   EuiSuperSelect,
   EuiSwitch,
@@ -42,7 +43,7 @@ const FlyoutForm = ({
 }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
-  
+
   const { addToast, darkMode } = useAppContext()
   const { project } = usePageResources()
   const isReady = useResources().hasResources(['project'])
@@ -187,10 +188,12 @@ const FlyoutForm = ({
         // Get full strategies and scenarios by _ids 
         const [strategiesRes, scenariosRes] = await Promise.all([
           api.strategies_search(project._id, {
-            filters: [{ "ids": { "values": strategyIds }}]
+            filters: [{ "ids": { "values": strategyIds } }],
+            size: 10000,
           }),
           api.scenarios_search(project._id, {
-            filters: [{ "ids": { "values": scenarioIds }}]
+            filters: [{ "ids": { "values": scenarioIds } }],
+            size: 10000,
           }),
         ])
         setStrategiesCandidates(utils.hitsToDocs(strategiesRes))
@@ -886,7 +889,19 @@ const FlyoutForm = ({
           </EuiFlexItem>
 
           {/* Preview */}
-          <EuiFlexItem grow={5} style={{ borderLeft: darkMode ? '1px solid rgb(0, 0, 0)' : '1px solid rgb(211, 218, 230)' }}>
+          <EuiFlexItem grow={5} style={{ borderLeft: darkMode ? '1px solid rgb(0, 0, 0)' : '1px solid rgb(211, 218, 230)', position: 'relative' }}>
+            {isLoadingCandidates &&
+              <EuiProgress
+                color='accent'
+                size='s'
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                }}
+              />
+            }
             <EuiPanel color='transparent' paddingSize='l'>
               <EuiTitle>
                 <EuiText>

@@ -128,8 +128,8 @@ def delete(_id: str) -> Dict[str, Any]:
 
 def fetch_strategies(
         project_id: str,
-        strategy_ids: List = None,
-        strategy_tags: List = None,
+        strategy_ids: List[str] = None,
+        strategy_tags: List[str] = None,
         strategy_ids_excluded: List = None,
     ) -> Dict[str, Set[str]]:
     """
@@ -143,7 +143,14 @@ def fetch_strategies(
             "bool": {
                 "filter": [
                     { "term": { "project_id": project_id }},
-                    { "exists": { "field": "params" }} # strategies aren't runnable if they don't have params
+                    {
+                        "script": {
+                            "script": {
+                                "source": "doc['params'].size() > 0", # strategies aren't runnable if they don't have params
+                                "lang": "painless"
+                            }
+                        }
+                    }
                 ]
             }
         },
@@ -178,77 +185,56 @@ def fetch_strategies(
         strategies[hit_id] = hit["_source"]
     return strategies
 
-def sample_scenarios(
-        scenarios: Dict[str, Tuple[Set[str], List[str], float]],
-        sample_size: int = None,
-        sample_seed: Any = None,
-    ) -> Dict[str, Any]:
-    
-    # Determine whether sampling is applicable
-    sample_size = sample_size if sample_size else 1000
-    if len(scenarios) <= sample_size:
-        return scenarios # no need to sample
-    
-    # Random sampling becomes deterministic if sample_seed is given
-    sample_seed = sample_seed if sample_seed else random.randrange(1 << 30)
-
-    # Build buckets by (tag, rating_bin)
-    buckets = {}
-    for sid, (params, tags, rating) in scenarios.items():
-        rating_bin = int(rating) # crude bucketing
-        for tag in tags or ["_no_tag"]:
-            key = (tag, rating_bin)
-            buckets.setdefault(key, []).append((sid, params, tags, rating))
-
-    selected = {}
-    bucket_keys = list(buckets.keys())
-    while len(selected) < sample_size and bucket_keys:
-        random.Random(sample_seed).shuffle(bucket_keys)
-        for key in bucket_keys:
-            if buckets[key]:
-                sid, params, tags, rating = buckets[key].pop()
-                selected[sid] = (params, tags, rating)
-                if len(selected) >= sample_size:
-                    break
-        bucket_keys = [ k for k in bucket_keys if buckets[k] ] # drop empty buckets
-    return selected
-
-def fetch_runnable_scenarios(
+def fetch_scenarios(
         project_id: str,
-        scenario_ids: List = None,
-        scenario_tags: List = None,
-        sample_size: int = None,
+        scenario_ids: List[str] = None,
+        scenario_tags: List[str] = None,
+        sample_size: int = 1000,
         sample_seed: int = None,
-    ) -> Dict[str, Tuple[Set[str], List[str], float]]:
+    ) -> Dict[str, Any]:
     """
-    Scenarios can be optionally filtered by _ids or tags.
+    Strategies can be optionally filtered by _ids or tags.
     """
     scenario_ids = scenario_ids or []
     scenario_tags = scenario_tags or []
     body = {
         "query": {
-            "bool": {
-                "filter": [
-                    { "term": { "project_id": project_id }},
-                    { "exists": { "field": "params" }}
-                ]
+            "function_score": {
+                "random_score": {},
+                "query": {
+                    "bool": {
+                        "filter": [
+                            { "term": { "project_id": project_id }},
+                            {
+                                "script": {
+                                    "script": {
+                                        "source": "doc['params'].size() > 0", # scenarios aren't runnable if they don't have params
+                                        "lang": "painless"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
             }
         },
-        "size": 10000,
+        "size": sample_size,
         "_source": [ "params", "tags" ]
     }
+    if sample_seed is not None:
+        body["query"]["function_score"]["random_score"]["seed"] = sample_seed
     
-     # Include scenarios whose _id exists in scenario_ids or scenario_tags
+    # Include scenarios whose _id exists in scenario_ids or scenario_tags
     should_clauses = []
     if scenario_ids:
         should_clauses.append({ "terms": { "_id": scenario_ids } })
     if scenario_tags:
         should_clauses.append({ "terms": { "tags": scenario_tags } })
     if should_clauses:
-        body["query"]["bool"]["should"] = should_clauses
-        body["query"]["bool"]["minimum_should_match"] = 1
+        body["query"]["function_score"]["query"]["bool"]["should"] = should_clauses
+        body["query"]["function_score"]["query"]["bool"]["minimum_should_match"] = 1
         
-    # Fetch scenarios
+    # Fetch strategies
     response = es("studio").search(
         index="esrs-scenarios",
         body=body
@@ -257,48 +243,7 @@ def fetch_runnable_scenarios(
     for hit in response["hits"]["hits"]:
         hit_id = hit["_id"]
         scenarios[hit_id] = hit["_source"]
-
-    # Fetch average rating per scenario
-    body = {
-        "query": {
-            "bool": {
-                "filter": [
-                    { "term": { "project_id": project_id }},
-                    { "terms": { "scenario_id": list(scenarios.keys()) }},
-                    { "range": { "rating": { "gt": 0 }}}
-                ]
-            }
-        },
-        "aggs": {
-            "by_scenario": {
-                "terms": {
-                    "field": "scenario_id",
-                    "size": 10000
-                },
-                "aggs": {
-                    "avg_rating": { "avg": { "field": "rating" }}
-                }
-            }
-        },
-        "size": 0,
-        "_source": False
-    }
-    response = es("studio").search(
-        index="esrs-judgements",
-        body=body
-    )
-    ratings = {}
-    for bucket in response["aggregations"]["by_scenario"]["buckets"]:
-        scenario_id = bucket["key"]
-        avg_rating = bucket["avg_rating"]["value"]
-        ratings[scenario_id] = avg_rating
-
-    # Filter runnable only
-    scenarios_runnable = {}
-    for _id, doc in scenarios.items():
-        if _id in ratings:
-            scenarios_runnable[_id] = doc
-    return sample_scenarios(scenarios_runnable, sample_size, sample_seed)
+    return scenarios
 
 def make_candidate_pool(
         project_id: str,
@@ -360,8 +305,8 @@ def make_candidate_pool(
         )
         strategies.update(strategies_fetched)
     
-    # Fetch runnable scenarios given as _ids or tags - sampled if needed
-    scenarios = fetch_runnable_scenarios(
+    # Fetch scenarios (randomly sampled if needed)
+    scenarios = fetch_scenarios(
         project_id,
         scenario_ids,
         scenario_tags,
