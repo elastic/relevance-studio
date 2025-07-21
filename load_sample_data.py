@@ -283,7 +283,6 @@ def parallel_bulk_import(deployment, filepath, index, transformer=None, chunk_si
         num_running_total = 0
         for chunk in chunked_iterable(read_jsonl_lines(filepath, transformer), size=chunk_size):
             num_docs += len(chunk)
-            ids = [doc_id for _, doc_id in chunk]
             futures.append(executor.submit(bulk_index_worker, chunk, index, deployment))
         for future in futures:
             successes, errors = future.result()
