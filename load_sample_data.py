@@ -29,7 +29,8 @@ from server.models import *
 load_dotenv()
 
 CWD = os.path.dirname(os.path.abspath(__file__))
-CHUNK_SIZE = 50
+CHUNK_SIZE_ASSETS = 500 # esrs-studio assets
+CHUNK_SIZE_DATA = 50 # content
 SAMPLE_DATA_DIRECTORY = os.path.join(CWD, "sample-data")
 SAMPLE_DATA_INDEX_PREFIX = "esrs-sample-data-"
 SAMPLE_DATASETS = [
@@ -255,7 +256,7 @@ def bulk_index_worker(docs_with_ids, index, deployment):
             logger.error(json.dumps(error, indent=2))
         raise
 
-def chunked_iterable(iterable, size=CHUNK_SIZE):
+def chunked_iterable(iterable, size=CHUNK_SIZE_DATA):
     """
     Split iterable into chunks of given size.
     """
@@ -268,7 +269,7 @@ def chunked_iterable(iterable, size=CHUNK_SIZE):
     if chunk:
         yield chunk
         
-def parallel_bulk_import(deployment, filepath, index, transformer=None, chunk_size=CHUNK_SIZE):
+def parallel_bulk_import(deployment, filepath, index, transformer=None, chunk_size=CHUNK_SIZE_DATA):
     """
     Load and index documents from file in parallel using threads.
     """
@@ -331,10 +332,9 @@ def make_strategy_docs(dataset):
             "project_id": make_project_id(dataset),
             "name": "Query String (AND)",
             "tags": [ "bm25" ],
-            "params": [ "text" ],
             "template": {
                 "lang": "painless",
-                "source": """{
+                "source": json.dumps({
                     "retriever": {
                         "standard": {
                             "query": {
@@ -345,7 +345,7 @@ def make_strategy_docs(dataset):
                             }
                         }
                     }
-                }"""
+                }, indent=2)
             }
         },
         {
@@ -355,10 +355,9 @@ def make_strategy_docs(dataset):
             "project_id": make_project_id(dataset),
             "name": "Query String (OR)",
             "tags": [ "bm25" ],
-            "params": [ "text" ],
             "template": {
                 "lang": "painless",
-                "source": """{
+                "source": json.dumps({
                     "retriever": {
                         "standard": {
                             "query": {
@@ -369,7 +368,7 @@ def make_strategy_docs(dataset):
                             }
                         }
                     }
-                }"""
+                }, indent=2)
             }
         }
     ]
@@ -385,8 +384,6 @@ def make_judgement_doc(dataset, doc_id, scenario_id, rating):
             make_index_name(dataset),
             doc_id
         ]),
-        "@timestamp": make_timestamp(),
-        "@author": "human",
         "project_id": make_project_id(dataset),
         "scenario_id": scenario_id,
         "index": make_index_name(dataset),
@@ -404,7 +401,6 @@ def make_scenario_doc(dataset, _id, name, text, tags=[]):
         ]),
         "project_id": make_project_id(dataset),
         "name": name,
-        "params": [ "text" ],
         "values": { "text": text },
         "tags": tags or []
     }
@@ -419,11 +415,7 @@ def make_display_doc(dataset):
         ]),
         "project_id": make_project_id(dataset),
         "index_pattern": make_index_name(dataset),
-        "template": dataset.get("display", {}).get("template") or {},
-        "fields": [
-            "text",
-            "title"
-        ]
+        "template": dataset.get("display", {}).get("template") or {}
     }
     
 def make_project_doc(dataset):
@@ -435,7 +427,8 @@ def make_project_doc(dataset):
         "name": dataset["name"],
         "index_pattern": make_index_name(dataset),
         "params": dataset["params"],
-        "rating_scale": dataset["rating_scale"]
+        "rating_scale": dataset["rating_scale"],
+        "tags": ["beir"],
     }
 
 
@@ -460,10 +453,11 @@ def load_strategies(dataset):
     logger.debug(f"Loading strategies for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "strategies.jsonl")
     def transformer(doc):
+        doc.pop("_id", None)
         doc_dict = StrategyCreate.model_validate(doc).serialize()
-        doc_dict = utils.copy_fields_to_search(doc_dict, api.strategies.SEARCH_FIELDS)
+        doc_dict = utils.copy_fields_to_search("strategies", doc_dict)
         return doc_dict
-    parallel_bulk_import("studio", filepath, "esrs-strategies", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-strategies", transformer, chunk_size=CHUNK_SIZE_ASSETS) 
 
 def load_judgements(dataset):
     """
@@ -472,10 +466,11 @@ def load_judgements(dataset):
     logger.debug(f"Loading judgements for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "judgements.jsonl")
     def transformer(doc):
+        doc.pop("_id", None)
         doc_dict = JudgementCreate.model_validate(doc).serialize()
-        doc_dict = utils.copy_fields_to_search(doc_dict, api.judgements.SEARCH_FIELDS)
+        doc_dict = utils.copy_fields_to_search("judgements", doc_dict)
         return doc_dict
-    parallel_bulk_import("studio", filepath, "esrs-judgements", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-judgements", transformer, chunk_size=CHUNK_SIZE_ASSETS)
 
 def load_scenarios(dataset):
     """
@@ -484,10 +479,11 @@ def load_scenarios(dataset):
     logger.debug(f"Loading scenarios for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "scenarios.jsonl")
     def transformer(doc):
+        doc.pop("_id", None)
         doc_dict = ScenarioCreate.model_validate(doc).serialize()
-        doc_dict = utils.copy_fields_to_search(doc_dict, api.scenarios.SEARCH_FIELDS)
+        doc_dict = utils.copy_fields_to_search("scenarios", doc_dict)
         return doc_dict
-    parallel_bulk_import("studio", filepath, "esrs-scenarios", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-scenarios", transformer, chunk_size=CHUNK_SIZE_ASSETS)
 
 def load_displays(dataset):
     """
@@ -496,10 +492,11 @@ def load_displays(dataset):
     logger.debug(f"Loading displays for: {dataset['id']}")
     filepath = os.path.join(staging_directory(dataset), "displays.jsonl")
     def transformer(doc):
+        doc.pop("_id", None)
         doc_dict = DisplayCreate.model_validate(doc).serialize()
-        doc_dict = utils.copy_fields_to_search(doc_dict, api.displays.SEARCH_FIELDS)
+        doc_dict = utils.copy_fields_to_search("displays", doc_dict)
         return doc_dict
-    parallel_bulk_import("studio", filepath, "esrs-displays", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-displays", transformer, chunk_size=CHUNK_SIZE_ASSETS)
     
 def load_project(dataset):
     """
@@ -510,10 +507,11 @@ def load_project(dataset):
     #api.projects.delete(make_project_id(dataset))
     filepath = os.path.join(staging_directory(dataset), "projects.jsonl")
     def transformer(doc):
+        doc.pop("_id", None)
         doc_dict = ProjectCreate.model_validate(doc).serialize()
-        doc_dict = utils.copy_fields_to_search(doc_dict, api.projects.SEARCH_FIELDS)
+        doc_dict = utils.copy_fields_to_search("projects", doc_dict)
         return doc_dict
-    parallel_bulk_import("studio", filepath, "esrs-projects", transformer)
+    parallel_bulk_import("studio", filepath, "esrs-projects", transformer, chunk_size=CHUNK_SIZE_ASSETS)
 
 def load_dataset_assets(dataset):
     """
