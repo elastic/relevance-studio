@@ -27,6 +27,18 @@ import {
 import FlyoutHelp from './FlyoutHelp'
 import api from '../../api'
 import utils from '../../utils'
+import MustacheEditor from './MustacheEditor/MustacheEditor';
+
+const monacoStyles = `
+  .monaco-editor .mustache {
+    color: #9c27b0;
+    font-weight: bold;
+  }
+
+  .vs-dark .monaco-editor .mustache {
+    color: #ce93d8;
+  }
+`;
 
 const StrategiesEdit = () => {
 
@@ -68,12 +80,10 @@ const StrategiesEdit = () => {
    * Initialize form once loaded
    */
   useEffect(() => {
-    if (!strategy)
-      return
-    setLastSavedStrategy(strategy)
-    if (strategy.template?.source)
-      setStrategyDraft(JSON.stringify(JSON.parse(strategy.template.source), null, 2))
-  }, [strategy])
+    if (!strategy?.template?.source) return;
+    // Use the template source directly, no JSON parsing needed
+    setStrategyDraft(strategy.template.source);
+  }, [strategy]);
 
   /**
    * Extract params (formatted as Mustache variables) from a JSON string.
@@ -95,17 +105,15 @@ const StrategiesEdit = () => {
   }, [strategyDraft])
 
   const onSaveStrategy = async (e) => {
-    // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
-
-    try {
-      JSON.parse(strategyDraft)
-    } catch (e) {
+  
+    // Remove the JSON.parse validation since we're working with Mustache templates directly
+    if (!strategyDraft || typeof strategyDraft !== 'string') {
       return addToast({
         color: 'danger',
         title: 'Failed to update strategy',
-        text: `Your strategy isn't a valid JSON object.`
-      })
+        text: 'Strategy template is empty or invalid.'
+      });
     }
 
     // Prepare doc field updates
@@ -261,40 +269,39 @@ const StrategiesEdit = () => {
    * Handle testing strategy
    */
   const onTestStrategy = (e) => {
-    // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
-
+  
     // Verify that a scenario has been chosen
-    let scenarioValues
+    let scenarioValues;
     try {
-      scenarioValues = scenario.values
+      scenarioValues = scenario.values;
     } catch (e) {
       return addToast({
         title: 'Failed to test strategy',
         color: 'warning',
         text: 'You must pick a scenario to test your strategy on. Choose a scenario from the search bar at the top of the right panel.'
-      })
+      });
     }
-
+  
     // Verify that the strategy can be populated with values from the scenario
-    let strategyPopulated
+    let strategyPopulated;
     try {
-      strategyPopulated = applyParams(strategyDraft, scenarioValues)
+      // Try to parse the JSON first
+      const parsedStrategy = JSON.parse(strategyDraft);
+      // Then apply the template
+      const template = JSON.stringify(parsedStrategy);
+      const rendered = template.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
+        return scenarioValues[key.trim()] || '';
+      });
+      strategyPopulated = JSON.parse(rendered);
     } catch (e) {
       return addToast({
         title: `Can't test strategy`,
         color: 'warning',
-        text: `Your strategy isn't a valid JSON object.`
-      })
+        text: 'Failed to apply scenario values to strategy params. Make sure your template is valid JSON with Mustache variables.'
+      });
     }
-    if (!strategyPopulated) {
-      return addToast({
-        title: `Can't test strategy`,
-        color: 'warning',
-        text: 'Failed to apply scenario values to strategy params.'
-      })
-    }
-
+  
     // Submit API request(s)
     (async () => {
 
@@ -535,33 +542,26 @@ const StrategiesEdit = () => {
 
   const renderEditor = () => {
     return (
-      <Editor
-        height='100%'
-        language='json'
-        onChange={(value, event) => setStrategyDraft(value)}
-        onMount={handleEditorMount}
+      <MustacheEditor
+        value={strategyDraft}
+        onChange={setStrategyDraft}
+        darkMode={darkMode}
         options={{
           folding: true,
           fontSize: 12,
           insertSpaces: true,
           lineNumbers: 'on',
-          minimap: {
-            enabled: false
-          },
+          minimap: { enabled: false },
           renderLineHighlight: false,
           renderOverviewRuler: false,
           scrollBeyondLastLine: false,
-          stickyScroll: {
-            enabled: false,
-          },
+          stickyScroll: { enabled: false },
           tabSize: 2
         }}
-        theme={darkMode ? 'vs-dark' : 'light'}
-        value={strategyDraft}
       />
-    )
+    );
   }
-
+  
   const renderEditorPanel = () => (
     <EuiPanel
       hasBorder={false}

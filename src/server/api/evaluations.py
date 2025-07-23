@@ -301,8 +301,7 @@ def run(
                 })
         for hit in hits:
             template = hit["_source"]["template"]["source"]
-            if isinstance(template, str):
-                template = json.loads(template)
+
             _rank_eval["templates"].append({
                 "id": hit["_id"],
                 "template": {
@@ -376,9 +375,9 @@ def run(
             body=body
         )
         for hit in es_response.body["hits"]["hits"]:
-            scenarios[hit["_id"]] = hit["_source"]["values"]
+            scenarios[hit["_id"]] = hit["_source"]
             runtime_scenario = {
-                "_fingerprint": utils.fingerprint([ hit["_source"]["values"] ])
+                "_fingerprint": utils.fingerprint([ hit["_source"] ])
             }
             for field, value in hit["_source"].items():
                 if field == "project_id":

@@ -1,0 +1,9 @@
+.mustache-token {
+    color: #9c27b0;
+    font-weight: bold;
+  }
+  
+  /* override when in dark theme */
+  .vs-dark .mustache-token {
+    color: #ce93d8;
+  }

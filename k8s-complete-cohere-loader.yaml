@@ -1,0 +1,1119 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: complete-cohere-loader-script
+  namespace: default
+data:
+  load_complete_cohere_dataset.py: |
+    #!/usr/bin/env python3
+    """
+    Complete Cohere BEIR dataset loader - includes project assets for Relevance Studio
+    """
+    
+    from datasets import load_dataset
+    import json
+    import os
+    import logging
+    import time
+    import sys
+    import uuid
+
+    from datetime import datetime, timezone
+    from elasticsearch import Elasticsearch
+    
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+    
+    # Get dataset from environment
+    DATASET_NAME = os.getenv('DATASET_NAME', 'scifact')
+    
+    # Dataset configurations matching load_sample_data.py
+    DATASET_CONFIGS = {
+        "scifact": {
+            "id": "scifact-cohere",
+            "name": "SciFact with Cohere Embeddings",
+            "fields": ["text", "title", "vector"],
+            "params": ["vector"],
+            "rating_scale": {"min": 0, "max": 2},
+            "display": {"template": {"body": "### {{title}}\\n{{text}}"}},
+            "source": "cohere_beir",
+            "beir_name": "scifact",
+            "rating_scale": {"min": 0, "max": 1},
+            "vector_dimension": 1024
+        },
+        "fiqa": {
+            "id": "fiqa-cohere", 
+            "name": "FiQA-2018 with Cohere Embeddings",
+            "fields": ["text", "vector"],
+            "params": ["vector"],
+            "rating_scale": {"min": 0, "max": 1},
+            "display": {"template": {"body": "{{text}}"}},
+            "source": "cohere_beir",
+            "beir_name": "fiqa",
+            "vector_dimension": 1024
+        },
+        "hotpotqa": {
+            "id": "hotpotqa-cohere",
+            "name": "HotpotQA with Cohere Embeddings", 
+            "fields": ["text", "title", "vector"],
+            "params": ["vector"],
+            "rating_scale": {"min": 0, "max": 1},
+            "display": {"template": {"body": "### {{title}}\\n{{text}}"}},
+            "source": "cohere_beir",
+            "beir_name": "hotpotqa",
+            "vector_dimension": 1024
+        },
+        "nq": {
+            "id": "natural-questions-cohere",
+            "name": "Natural Questions with Cohere Embeddings",
+            "fields": ["text", "title", "vector"],
+            "params": ["vector"], 
+            "rating_scale": {"min": 0, "max": 1},
+            "display": {"template": {"body": "### {{title}}\\n{{text}}"}},
+            "source": "cohere_beir",
+            "beir_name": "nq",
+            "vector_dimension": 1024
+        },
+        "msmarco": {
+            "id": "msmarco-cohere",
+            "name": "MS MARCO with Cohere Embeddings",
+            "fields": ["text", "vector"],
+            "params": ["vector"],
+            "rating_scale": {"min": 0, "max": 1},
+            "display": {"template": {"body": "{{text}}"}},
+            "source": "cohere_beir", 
+            "beir_name": "msmarco",
+            "vector_dimension": 1024
+        }
+    }
+    
+    # Elasticsearch connection
+    def get_es_client():
+        es_host = os.getenv('ELASTICSEARCH_HOST', 'elastic-rs-es-http.default.svc.cluster.local')
+        es_port = int(os.getenv('ELASTICSEARCH_PORT', '9200'))
+        es_user = os.getenv('ELASTICSEARCH_USER', 'elastic')
+        es_password = os.getenv('ELASTICSEARCH_PASSWORD', 'dA52SCq3S2rKF6xA4H803t8N')
+        
+        return Elasticsearch(
+            [{'host': es_host, 'port': es_port, 'scheme': 'https'}],
+            basic_auth=(es_user, es_password),
+            verify_certs=False,
+            ssl_show_warn=False,
+            request_timeout=60,
+            max_retries=3,
+            retry_on_timeout=True
+        )
+    
+    es_client = get_es_client()
+    
+    def make_index_name(dataset):
+        """Generate index name for dataset"""
+        return f"esrs-sample-data-{dataset['id']}"
+    
+    def create_index_mapping(index_name, is_query=False, is_qrel=False):
+        """Create appropriate mapping with BBQ IVF"""
+        
+        if is_qrel:
+            mapping = {
+                "mappings": {
+                    "properties": {
+                        "query_id": {"type": "keyword"},
+                        "corpus_id": {"type": "keyword"},
+                        "score": {"type": "float"},
+                        "@timestamp": {"type": "date"}
+                    }
+                },
+                "settings": {"number_of_shards": 1, "number_of_replicas": 0}
+            }
+        elif is_query:
+            mapping = {
+                "mappings": {
+                    "properties": {
+                        "text": {"type": "text"},
+                        "query_id": {"type": "keyword"},
+                        "query_embedding": {
+                            "type": "dense_vector",
+                            "dims": 1024,
+                            "index_options": {
+                                "type": "bbq_ivf"
+                            }
+                        },
+                        "@timestamp": {"type": "date"}
+                    }
+                },
+                "settings": {"number_of_shards": 1, "number_of_replicas": 0}
+            }
+        else:  # documents with BBQ IVF
+            mapping = {
+                "mappings": {
+                    "properties": {
+                        "text": {"type": "text"},
+                        "title": {"type": "text"},
+                        "doc_id": {"type": "keyword"},
+                        "vector": {  # Use 'vector' field name to match project assets
+                            "type": "dense_vector",
+                            "dims": 1024,
+                            "index_options": {
+                                "type": "bbq_ivf"
+                            }
+                        },
+                        "@timestamp": {"type": "date"}
+                    }
+                },
+                "settings": {"number_of_shards": 1, "number_of_replicas": 0}
+            }
+        
+        # Delete and create index
+        try:
+            es_client.indices.delete(index=index_name)
+            logger.info(f"Deleted existing index: {index_name}")
+        except Exception:
+            pass
+        
+        es_client.indices.create(index=index_name, body=mapping)
+        logger.info(f"Created index with BBQ IVF: {index_name}")
+    
+    def load_documents(dataset):
+        """Load document embeddings"""
+        
+        index_name = make_index_name(dataset)
+        logger.info(f"📄 Loading documents for {dataset['name']}...")
+        
+        create_index_mapping(index_name, is_query=False, is_qrel=False)
+        
+        try:
+            docs = load_dataset("Cohere/beir-embed-english-v3", f"{dataset['beir_name']}-corpus", split="train", streaming=True)
+            
+            actions = []
+            doc_count = 0
+            batch_size = 200
+            
+            for doc in docs:
+                index_doc = {
+                    "text": doc.get("text", ""),
+                    "title": doc.get("title", ""),
+                    "doc_id": doc.get("_id", str(doc_count)),
+                    "vector": doc["emb"],  # Use 'vector' field name
+                    "@timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                
+                actions.append({"index": {"_index": index_name, "_id": doc.get("_id", str(doc_count))}})
+                actions.append(index_doc)
+                doc_count += 1
+                
+                if len(actions) >= (batch_size * 2):
+                    try:
+                        response = es_client.bulk(operations=actions, refresh=False, request_timeout=30)
+                        if not response.body.get("errors"):
+                            logger.info(f"📄 {dataset['name']}: indexed {len(actions)//2} documents (total: {doc_count})")
+                    except Exception as e:
+                        logger.error(f"Bulk indexing failed: {e}")
+                    
+                    actions = []
+            
+            if actions:
+                try:
+                    response = es_client.bulk(operations=actions, refresh=True, request_timeout=30)
+                    if not response.body.get("errors"):
+                        logger.info(f"📄 {dataset['name']}: indexed final {len(actions)//2} documents")
+                except Exception as e:
+                    logger.error(f"Final bulk indexing failed: {e}")
+            
+            logger.info(f"✅ {dataset['name']} documents completed: {doc_count} total")
+            return doc_count
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to load documents: {e}")
+            return 0
+    
+    def create_indices():
+        """Create all required indices with proper mappings"""
+        indices = {
+            "esrs-projects": {
+                "mappings": {
+                    "properties": {
+                        "id": {"type": "keyword"},
+                        "name": {"type": "keyword"},
+                        "index_pattern": {"type": "keyword"},
+                        "params": {"type": "keyword"},
+                        "fields": {"type": "keyword"},
+                        "rating_scale": {
+                            "properties": {
+                                "min": {"type": "integer"},
+                                "max": {"type": "integer"}
+                            }
+                        },
+                        "tags": {"type": "keyword"},
+                        "display": {"enabled": False},
+                        "@meta": {
+                            "properties": {
+                                "created_at": {"type": "date"},
+                                "created_by": {"type": "keyword"},
+                                "updated_at": {"type": "date"},
+                                "updated_by": {"type": "keyword"}
+                            }
+                        },
+                        "_search": {
+                            "properties": {
+                                "name": {"type": "text"},
+                                "index_pattern": {"type": "text"},
+                                "params": {"type": "text"}
+                            }
+                        }
+                    }
+                }
+            },
+            "esrs-displays": {
+                "mappings": {
+                    "properties": {
+                        "id": {"type": "keyword"},
+                        "project_id": {"type": "keyword"},
+                        "name": {"type": "keyword"},
+                        "description": {"type": "text"},
+                        "index_pattern": {"type": "keyword"},
+                        "fields": {"type": "keyword"},
+                        "template": {"enabled": False},
+                        "type": {"type": "keyword"},
+                        "is_default": {"type": "boolean"},
+                        "@meta": {
+                            "properties": {
+                                "created_at": {"type": "date"},
+                                "created_by": {"type": "keyword"},
+                                "updated_at": {"type": "date"},
+                                "updated_by": {"type": "keyword"}
+                            }
+                        },
+                        "_search": {
+                            "properties": {
+                                "name": {"type": "text"},
+                                "description": {"type": "text"},
+                                "type": {"type": "text"}
+                            }
+                        }
+                    }
+                }
+            },
+            "esrs-scenarios": {
+                "mappings": {
+                    "properties": {
+                        "id": {"type": "keyword"},
+                        "project_id": {"type": "keyword"},
+                        "name": {"type": "keyword"},
+                        "description": {"type": "text"},
+                        "params": {"type": "keyword"},
+                        "tags": {"type": "keyword"},
+                        "@meta": {
+                            "properties": {
+                                "created_at": {"type": "date"},
+                                "created_by": {"type": "keyword"},
+                                "updated_at": {"type": "date"},
+                                "updated_by": {"type": "keyword"}
+                            }
+                        },
+                        "query_text": {"type": "text"},
+                        "k": {"type": "integer"},
+                        "num_candidates": {"type": "integer"},
+                        "query_vector": {
+                            "type": "dense_vector",
+                            "dims": 1024,
+                            "index": True,
+                            "similarity": "cosine"
+                        },
+                        "_search": {
+                            "type": "object",
+                            "enabled": False
+                        }
+                    }
+                }
+            },
+            "esrs-judgements": {
+                "mappings": {
+                    "properties": {
+                        "project_id": {"type": "keyword"},
+                        "scenario_id": {"type": "keyword"},
+                        "doc_id": {"type": "keyword"},
+                        "index": {"type": "keyword"},
+                        "rating": {"type": "integer"},
+                        "@meta": {
+                            "properties": {
+                                "created_at": {"type": "date"},
+                                "created_by": {"type": "keyword"},
+                                "updated_at": {"type": "date"},
+                                "updated_by": {"type": "keyword"}
+                            }
+                        },
+                        "_search": {
+                            "properties": {
+                                "doc_id": {"type": "text"},
+                                "rating": {"type": "keyword"}
+                            }
+                        }
+                    }
+                }
+            },
+            "esrs-strategies": {
+                "mappings": {
+                    "properties": {
+                        "id": {"type": "keyword"},
+                        "project_id": {"type": "keyword"},
+                        "name": {"type": "keyword"},
+                        "params": {"type": "keyword"},
+                        "tags": {"type": "keyword"},
+                        "template": {
+                            "properties": {
+                                "lang": {"type": "keyword"},
+                                "source": {"type": "text"}
+                            }
+                        },
+                        "@meta": {
+                            "properties": {
+                                "created_at": {"type": "date"},
+                                "created_by": {"type": "keyword"},
+                                "updated_at": {"type": "date"},
+                                "updated_by": {"type": "keyword"}
+                            }
+                        },
+                        "_search": {
+                            "properties": {
+                                "name": {"type": "text"},
+                                "params": {"type": "text"},
+                                "tags": {"type": "text"}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        for index_name, index_body in indices.items():
+            try:
+                # Only create index if it doesn't exist
+                if not es_client.indices.exists(index=index_name):
+                    create_body = {
+                        "mappings": index_body["mappings"],
+                        "settings": {
+                            "index": {
+                                "number_of_shards": 1,
+                                "number_of_replicas": 1
+                            }
+                        }
+                    }
+                    es_client.indices.create(index=index_name, body=create_body)
+                    logger.info(f"✅ Created index with mapping: {index_name}")
+                else:
+                    logger.info(f"ℹ️  Using existing index: {index_name}")
+                
+                # Verify mapping
+                current_mapping = es_client.indices.get_mapping(index=index_name)
+                logger.debug(f"Current mapping for {index_name}: {current_mapping}")
+            except Exception as e:
+                logger.error(f"Failed to ensure index {index_name}: {e}")
+                raise
+
+    def create_project_assets(dataset):
+        """Create project, displays, scenarios, judgments, strategies"""
+        
+        logger.info(f"🎯 Creating project assets for {dataset['name']}...")
+        now = datetime.now(timezone.utc).isoformat()
+        project_id = dataset["id"]
+        # Ensure rating_scale has proper structure with min/max as numbers
+        rating_scale = dataset.get("rating_scale", {"min": 1, "max": 5})
+        
+        # Create all indices with proper mappings first
+        create_indices()
+        
+        # Check if project already exists
+        if es_client.exists(index="esrs-projects", id=project_id):
+            logger.info(f"ℹ️  Project {project_id} already exists, skipping creation")
+            return project_id
+            
+        # Create project document - match UI's expected structure
+        project = {
+            "id": project_id,
+            "name": dataset["name"],
+            "index_pattern": make_index_name(dataset),
+            "params": " ".join(dataset["params"]),  # Space-separated string
+            "fields": dataset["fields"],  # Add fields from dataset config
+            "rating_scale": {
+                "min": int(rating_scale.get("min", 1)),
+                "max": int(rating_scale.get("max", 5))
+            },
+            "tags": ["beir", "cohere", dataset["beir_name"]],
+            "display": dataset.get("display", {}),
+            "@meta": {
+                "created_at": now,
+                "created_by": "system",
+                "updated_at": now,
+                "updated_by": "system"
+            },
+            "_search": {
+                "name": dataset["name"],
+                "index_pattern": make_index_name(dataset),
+                "params": " ".join(dataset["params"])
+            }
+        }
+        try:
+            # Let index template handle mapping automatically
+            es_client.index(index="esrs-projects", id=project_id, document=project)
+            logger.info(f"✅ Upserted project: {project['name']}")
+        except Exception as e:
+            logger.error(f"Failed to upsert project: {e}")
+        
+        # 2. Upsert Display (one per project)
+        display_id = f"{project_id}-display"
+        display = {
+            "id": display_id,
+            "project_id": project_id,
+            "name": f"{dataset['name']} Display",
+            "description": f"Display template for {dataset['name']}",
+            "index_pattern": make_index_name(dataset),
+            "fields": dataset["fields"],
+            "template": dataset["display"]["template"],
+            "type": "search_results",
+            "is_default": True,
+            "@meta": {
+                "created_at": now,
+                "created_by": "system",
+                "updated_at": now,
+                "updated_by": "system"
+            },
+            "_search": {
+                "name": f"{dataset['name']} Display",
+                "description": f"Display template for {dataset['name']}",
+                "type": "search_results"
+            }
+        }
+        try:
+            # Let index template handle mapping automatically
+            es_client.index(index="esrs-displays", id=display_id, document=display)
+            logger.info(f"✅ Upserted display template")
+        except Exception as e:
+            logger.error(f"Failed to upsert display: {e}")
+        
+        # 3. Create Scenarios from queries
+        logger.info(f"🔍 Creating scenarios from queries...")
+        try:
+            queries = load_dataset("Cohere/beir-embed-english-v3", f"{dataset['beir_name']}-queries", split="test", streaming=True)
+            
+            scenario_actions = []
+            scenario_count = 0
+            query_to_scenario = {}  # Track mapping for judgments
+            
+            for query in queries:
+                scenario_id = str(uuid.uuid4())
+                query_id = query.get('_id', f'query_{scenario_count}')
+                
+                # Store mapping for judgment creation
+                query_to_scenario[query_id] = scenario_id
+                
+                # Format that matches UI's expected structure
+                # Create scenario document that matches the mapping
+                scenario_doc_id = f"{project_id}-{scenario_id}"
+                
+                # Required structure for benchmarking
+                scenario = {
+                    "id": scenario_doc_id,
+                    "project_id": project_id,
+                    "name": f"{dataset['name']} - Query {query_id}",
+                    "description": f"Query: {query.get('text', '')[:100]}...",
+                    "tags": ["vector-search", "knn", dataset['beir_name']],
+                    
+                    # Parameters that strategies will use - must match strategy template parameters
+                    "params": ["query_vector", "k", "num_candidates"],
+                    "query_text": query.get('text', ''),
+                    "query_vector": query["emb"],  # The actual vector for the query
+                    "k": 10,  # Default top-k value
+                    "num_candidates": 100,  # Number of candidates for approximate search
+                    "dataset": dataset['beir_name'],                    
+                    # Metadata
+                    "@meta": {
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "created_by": "system",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_by": "system"
+                    },
+                    
+                    # Search fields (for UI)
+                    "_search": {
+                        "name": f"{dataset['name']} - Query {query_id}",
+                        "tags": f"vector-search knn {dataset['beir_name']}",
+                        "params": ["query_vector", "k", "num_candidates"]  # Stored as array
+                    }
+                }
+                
+                # Only add if scenario doesn't already exist
+                if not es_client.exists(index="esrs-scenarios", id=scenario_doc_id):
+                    scenario_actions.append({"index": {"_index": "esrs-scenarios", "_id": scenario_doc_id}})
+                    scenario_actions.append(scenario)
+                    scenario_count += 1
+                
+                if scenario_count > 0 and len(scenario_actions) >= 200:
+                    try:
+                        # Let index template handle mapping automatically
+                        es_client.bulk(operations=scenario_actions, refresh=False)
+                        logger.info(f"🔍 Created {len(scenario_actions)//2} scenarios (total: {scenario_count})")
+                    except Exception as e:
+                        logger.error(f"Failed to create scenarios: {e}")
+                    
+                    scenario_actions = []
+            
+            if scenario_actions:
+                try:
+                    es_client.bulk(operations=scenario_actions, refresh=True)
+                    logger.info(f"🔍 Created final {len(scenario_actions)//2} scenarios")
+                except Exception as e:
+                    logger.error(f"Failed to create final scenarios: {e}")
+            
+            logger.info(f"✅ Created {scenario_count} scenarios from queries")
+            
+        except Exception as e:
+            logger.error(f"Failed to create scenarios: {e}")
+        
+
+        # 4. Create KNN and Brute Force Strategies directly in Elasticsearch
+        logger.info(f"🎯 Creating strategies for project {project_id}...")
+        
+        # Create strategies index with proper mapping
+        strategies_mapping = {
+            "mappings": {
+                "properties": {
+                    "id": {"type": "keyword"},
+                    "project_id": {"type": "keyword"},
+                    "name": {"type": "keyword"},
+                    "tags": {"type": "keyword"},
+                    "template": {
+                        "properties": {
+                            "lang": {"type": "keyword"},
+                            "source": {"type": "text"}
+                        }
+                    },
+                    "created_at": {"type": "date"}
+                }
+            },
+            "settings": {"number_of_shards": 1, "number_of_replicas": 0}
+        }
+        
+        try:
+            es_client.indices.create(index="esrs-strategies", body=strategies_mapping, ignore=400)
+            logger.info(f"✅ Created esrs-strategies index")
+        except Exception as e:
+            logger.error(f"Failed to create strategies index: {e}")
+        
+        # KNN Strategy data
+        knn_strategy_id = f"{project_id}-knn-strategy"
+
+        knn_template = """{
+            "knn": {
+                "field": "vector",
+                "k": {{k}},
+                "query_vector": {{#toJson}}query_vector{{/toJson}},
+                "num_candidates": {{num_candidates}}
+            }
+        }"""
+
+        knn_strategy = {
+            "id": knn_strategy_id,
+            "project_id": project_id,
+            "name": "KNN Vector Search",
+            "params": ["k", "query_vector", "num_candidates"], 
+            "tags": ["knn", "vector", "ann"],
+            "template": {
+                "lang": "mustache",
+                "source": json.dumps(knn_template)
+            },
+            "@meta": {
+                "created_at": now,
+                "created_by": "system",
+                "updated_at": now,
+                "updated_by": "system"
+            },
+            "_search": {
+                "name": "KNN Vector Search",
+                "params": ["k", "query_vector", "num_candidates"],
+                "tags": "knn vector ann"
+            }
+        }
+        
+        # Brute Force Strategy data
+        brute_force_strategy_id = f"{project_id}-brute-force-strategy"
+
+        brute_force_template = """{
+            "query": {
+                "script_score": {
+                    "query": {"match_all": {}},
+                    "script": {
+                        "source": "cosineSimilarity(params.queryVector, 'vector') + 1.0",
+                        "params": {
+                            "queryVector": {{#toJson}}query_vector{{/toJson}}
+                        }
+                    }
+                }
+            }
+        }"""
+        
+        brute_force_strategy = { 
+            "id": brute_force_strategy_id,
+            "project_id": project_id,
+            "name": "Brute Force Cosine",
+            "params": ["query_vector"],  # Stored as array
+            "tags": ["brute-force", "exact", "cosine"],
+            "template": {
+                "lang": "mustache",
+                "source": json.dumps(brute_force_template)
+            },
+            "@meta": {
+                "created_at": now,
+                "created_by": "system",
+                "updated_at": now,
+                "updated_by": "system"
+            },
+            "_search": {
+                "name": "Brute Force Cosine",
+                "params": ["query_vector"], 
+                "tags": "brute-force exact cosine"
+            }
+        }
+        
+        # Create strategies directly in Elasticsearch
+        try:
+            strategy_count = 0
+            
+            # Create KNN strategy
+            es_client.index(index="esrs-strategies", id=knn_strategy_id, document=knn_strategy)
+            logger.info(f"✅ Created KNN strategy: {knn_strategy_id}")
+            
+            # Create Brute Force strategy
+            es_client.index(index="esrs-strategies", id=brute_force_strategy_id, document=brute_force_strategy)
+            logger.info(f"✅ Created Brute Force strategy: {brute_force_strategy_id}")
+            
+            strategy_count += 1
+            
+            logger.info(f"✅ Created {strategy_count}/2 strategies for project {project_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to create strategies: {e}")
+        
+        # 5. Create Judgements from qrels
+        logger.info(f"⚖️  Creating judgements from qrels...")
+        
+        # Let index template handle judgements mapping automatically
+        
+        try:
+            # Use the query_to_scenario mapping created during scenario creation
+            qrels = load_dataset("Cohere/beir-embed-english-v3", f"{dataset['beir_name']}-qrels", split="test", streaming=True)
+            
+            judgment_actions = []
+            judgment_count = 0
+            
+            for qrel in qrels:
+                query_id = qrel.get("query_id", "")
+                scenario_id = query_to_scenario.get(query_id)
+                
+                # Skip if we don't have a corresponding scenario
+                if not scenario_id:
+                    continue
+                    
+                # Get the scenario ID for this query
+                scenario_doc_id = f"{project_id}-{scenario_id}"
+                doc_id = qrel.get("corpus_id", str(uuid.uuid4()))
+                judgment_id = f"{project_id}-{query_id}-{doc_id}"
+                
+                judgment = {
+                    "id": judgment_id,
+                    "project_id": project_id,
+                    "scenario_id": scenario_doc_id,
+                    "doc_id": doc_id,
+                    "index": make_index_name(dataset),
+                    "rating": int(qrel.get("score", 0)),
+                    "query_id": query_id,
+                    "dataset": dataset['beir_name'],
+                    "@meta": {
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "created_by": "system",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_by": "system"
+                    },
+                    "_search": {
+                        "doc_id": doc_id,
+                        "rating": str(int(qrel.get("score", 0))),
+                        "dataset": dataset['beir_name']
+                    }
+                }
+                
+                # Log the judgment document being created
+                logger.debug(f"Creating judgment document: {json.dumps(judgment)}")
+                
+                judgment_actions.append({"index": {"_index": "esrs-judgements", "_id": judgment_id}})
+                judgment_actions.append(judgment)
+                judgment_count += 1
+                
+                if len(judgment_actions) >= 1000:
+                    try:
+                        logger.debug(f"Sending bulk request with {len(judgment_actions)//2} judgments")
+                        response = es_client.bulk(operations=judgment_actions, refresh=False)
+                        
+                        # Log the full response if there were any errors
+                        if response.get('errors', False):
+                            logger.error(f"❌ Errors in bulk operation: {json.dumps(response, indent=2)}")
+                            
+                            # Log each error in the response
+                            for i, item in enumerate(response.get('items', [])):
+                                if 'error' in item.get('index', {}):
+                                    error = item['index']['error']
+                                    logger.error(f"Error in item {i}: {error.get('type')} - {error.get('reason')}")
+                        
+                        logger.info(f"⚖️  Created {len(judgment_actions)//2} judgements (total: {judgment_count})")
+                        judgment_actions = []
+                    except Exception as e:
+                        logger.error(f"❌ Failed to create judgements: {str(e)}")
+                        if hasattr(e, 'info'):
+                            logger.error(f"Error details: {json.dumps(e.info, indent=2)}")
+                        raise
+            
+            # Insert any remaining judgments
+            if judgment_actions:
+                try:
+                    logger.debug(f"Sending final bulk request with {len(judgment_actions)//2} judgments")
+                    response = es_client.bulk(operations=judgment_actions, refresh=True)
+                    
+                    # Log the full response if there were any errors
+                    if response.get('errors', False):
+                        logger.error(f"❌ Errors in final bulk operation: {json.dumps(response, indent=2)}")
+                        
+                        # Log each error in the response
+                        for i, item in enumerate(response.get('items', [])):
+                            if 'error' in item.get('index', {}):
+                                error = item['index']['error']
+                                logger.error(f"Error in final item {i}: {error.get('type')} - {error.get('reason')}")
+                    
+                    logger.info(f"⚖️  Created final {len(judgment_actions)//2} judgements")
+                except Exception as e:
+                    logger.error(f"❌ Failed to create final judgements: {str(e)}")
+                    if hasattr(e, 'info'):
+                        logger.error(f"Error details: {json.dumps(e.info, indent=2)}")
+                    raise
+            
+            logger.info(f"✅ Created {judgment_count} judgements from qrels")
+            
+        except Exception as e:
+            logger.error(f"Failed to create judgements: {e}")
+        
+        return project_id
+    
+    def main():
+        """Load complete dataset with project assets"""
+        
+        dataset = DATASET_CONFIGS.get(DATASET_NAME)
+        if not dataset:
+            logger.error(f"Unknown dataset: {DATASET_NAME}")
+            sys.exit(1)
+        
+        logger.info(f"🚀 Starting complete load for {dataset['name']}...")
+        start_time = time.time()
+        
+        # Load documents with BBQ IVF
+        doc_count = load_documents(dataset)
+        
+        # Create project assets
+        project_id = create_project_assets(dataset)
+        
+        elapsed = time.time() - start_time
+        logger.info(f"🎉 {dataset['name']} COMPLETE: {doc_count} docs + project assets in {elapsed:.1f}s")
+        logger.info(f"📋 Project ID: {project_id}")
+        
+        if doc_count > 0:
+            logger.info(f"✅ {dataset['name']} pod completed successfully!")
+        else:
+            logger.error(f"❌ {dataset['name']} pod failed!")
+            sys.exit(1)
+    
+    if __name__ == "__main__":
+        main()
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: complete-cohere-loader-scifact
+  namespace: default
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: complete-cohere-loader
+        dataset: scifact
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: loader
+        image: python:3.11-slim
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            set -e
+            echo "🚀 Installing dependencies for Complete SciFact..."
+            pip install --upgrade pip --quiet
+            pip install --no-cache-dir datasets elasticsearch python-dotenv --quiet
+            echo "✅ Dependencies installed"
+            python /scripts/load_complete_cohere_dataset.py
+        env:
+        - name: DATASET_NAME
+          value: "scifact"
+        - name: ELASTICSEARCH_HOST
+          value: "elastic-rs-es-http.default.svc.cluster.local"
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ELASTICSEARCH_USER
+          value: "elastic"
+        - name: ELASTICSEARCH_PASSWORD
+          value: "dA52SCq3S2rKF6xA4H803t8N"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: script
+          mountPath: /scripts
+      volumes:
+      - name: script
+        configMap:
+          name: complete-cohere-loader-script
+          defaultMode: 0755
+
+---
+# FiQA Complete Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: complete-cohere-loader-fiqa
+  namespace: default
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: complete-cohere-loader
+        dataset: fiqa
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: loader
+        image: python:3.11-slim
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            set -e
+            echo "🚀 Installing dependencies for Complete FiQA..."
+            pip install --upgrade pip --quiet
+            pip install --no-cache-dir datasets elasticsearch python-dotenv --quiet
+            echo "✅ Dependencies installed"
+            python /scripts/load_complete_cohere_dataset.py
+        env:
+        - name: DATASET_NAME
+          value: "fiqa"
+        - name: ELASTICSEARCH_HOST
+          value: "elastic-rs-es-http.default.svc.cluster.local"
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ELASTICSEARCH_USER
+          value: "elastic"
+        - name: ELASTICSEARCH_PASSWORD
+          value: "dA52SCq3S2rKF6xA4H803t8N"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: script
+          mountPath: /scripts
+      volumes:
+      - name: script
+        configMap:
+          name: complete-cohere-loader-script
+          defaultMode: 0755
+
+---
+# HotpotQA Complete Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: complete-cohere-loader-hotpotqa
+  namespace: default
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: complete-cohere-loader
+        dataset: hotpotqa
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: loader
+        image: python:3.11-slim
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            set -e
+            echo "🚀 Installing dependencies for Complete HotpotQA..."
+            pip install --upgrade pip --quiet
+            pip install --no-cache-dir datasets elasticsearch python-dotenv --quiet
+            echo "✅ Dependencies installed"
+            python /scripts/load_complete_cohere_dataset.py
+        env:
+        - name: DATASET_NAME
+          value: "hotpotqa"
+        - name: ELASTICSEARCH_HOST
+          value: "elastic-rs-es-http.default.svc.cluster.local"
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ELASTICSEARCH_USER
+          value: "elastic"
+        - name: ELASTICSEARCH_PASSWORD
+          value: "dA52SCq3S2rKF6xA4H803t8N"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: script
+          mountPath: /scripts
+      volumes:
+      - name: script
+        configMap:
+          name: complete-cohere-loader-script
+          defaultMode: 0755
+
+---
+# Natural Questions Complete Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: complete-cohere-loader-nq
+  namespace: default
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: complete-cohere-loader
+        dataset: nq
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: loader
+        image: python:3.11-slim
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            set -e
+            echo "🚀 Installing dependencies for Complete Natural Questions..."
+            pip install --upgrade pip --quiet
+            pip install --no-cache-dir datasets elasticsearch python-dotenv --quiet
+            echo "✅ Dependencies installed"
+            python /scripts/load_complete_cohere_dataset.py
+        env:
+        - name: DATASET_NAME
+          value: "nq"
+        - name: ELASTICSEARCH_HOST
+          value: "elastic-rs-es-http.default.svc.cluster.local"
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ELASTICSEARCH_USER
+          value: "elastic"
+        - name: ELASTICSEARCH_PASSWORD
+          value: "dA52SCq3S2rKF6xA4H803t8N"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: script
+          mountPath: /scripts
+      volumes:
+      - name: script
+        configMap:
+          name: complete-cohere-loader-script
+          defaultMode: 0755
+
+---
+# MS MARCO Complete Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: complete-cohere-loader-msmarco
+  namespace: default
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: complete-cohere-loader
+        dataset: msmarco
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: loader
+        image: python:3.11-slim
+        command: ["/bin/bash"]
+        args:
+          - -c
+          - |
+            set -e
+            echo "🚀 Installing dependencies for Complete MS MARCO..."
+            pip install --upgrade pip --quiet
+            pip install --no-cache-dir datasets elasticsearch python-dotenv --quiet
+            echo "✅ Dependencies installed"
+            python /scripts/load_complete_cohere_dataset.py
+        env:
+        - name: DATASET_NAME
+          value: "msmarco"
+        - name: ELASTICSEARCH_HOST
+          value: "elastic-rs-es-http.default.svc.cluster.local"
+        - name: ELASTICSEARCH_PORT
+          value: "9200"
+        - name: ELASTICSEARCH_USER
+          value: "elastic"
+        - name: ELASTICSEARCH_PASSWORD
+          value: "dA52SCq3S2rKF6xA4H803t8N"
+        resources:
+          requests:
+            memory: "3Gi"
+            cpu: "1500m"
+          limits:
+            memory: "6Gi"
+            cpu: "3000m"
+        volumeMounts:
+        - name: script
+          mountPath: /scripts
+      volumes:
+      - name: script
+        configMap:
+          name: complete-cohere-loader-script
+          defaultMode: 0755

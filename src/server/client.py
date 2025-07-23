@@ -71,7 +71,9 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
         },
         "request_timeout": ELASTICSEARCH_TIMEOUT,
         "max_retries": 4,
-        "retry_on_timeout": True
+        "retry_on_timeout": True,
+        "verify_certs": False,
+        "ssl_show_warn": False
     }
     if ELASTIC_CLOUD_ID:
         es_studio_kwargs["cloud_id"] = ELASTIC_CLOUD_ID
@@ -97,7 +99,9 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
             },
             "request_timeout": ELASTICSEARCH_TIMEOUT,
             "max_retries": 4,
-            "retry_on_timeout": True
+            "retry_on_timeout": True,
+            "verify_certs": False,
+            "ssl_show_warn": False
         }
         if CONTENT_ELASTIC_CLOUD_ID:
             es_content_kwargs["cloud_id"] = CONTENT_ELASTIC_CLOUD_ID
