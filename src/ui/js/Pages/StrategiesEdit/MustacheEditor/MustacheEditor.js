@@ -1,4 +1,3 @@
-// /Users/lilyadler/relevance-studio/src/ui/js/Components/MustacheEditor/MustacheEditor.js
 import React, { useEffect, useRef, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import './MustacheEditor.css';

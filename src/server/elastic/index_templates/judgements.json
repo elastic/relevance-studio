@@ -7,7 +7,6 @@
   ],
   "template": {
     "mappings": {
-      "dynamic": "strict",
       "properties": {
         "@meta": {
           "properties": {
@@ -21,6 +20,9 @@
               "type": "date"
             },
             "updated_by": {
+              "type": "keyword"
+            },
+            "type": {
               "type": "keyword"
             }
           }

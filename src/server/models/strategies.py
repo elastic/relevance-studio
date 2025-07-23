@@ -56,8 +56,10 @@ class StrategyCreate(AssetCreate):
     @computed_field
     @property
     def params(self) -> Optional[List[str]]:
-        return utils.extract_params(self.template.source or "") if self.template else []
-    
+        if not self.template or not self.template.source:
+            return []
+        # Pass the source string directly without JSON serialization
+        return utils.extract_params(self.template.source)    
 class StrategyUpdate(AssetUpdate):
     
     # Required inputs
@@ -99,4 +101,7 @@ class StrategyUpdate(AssetUpdate):
     @computed_field
     @property
     def params(self) -> Optional[List[str]]:
-        return utils.extract_params(self.template.source or "") if self.template and self.template.source else None
+        if not self.template or not hasattr(self.template, 'source') or self.template.source is None:
+            return None
+        # Pass the source string directly without JSON serialization
+        return utils.extract_params(self.template.source)

@@ -106,13 +106,27 @@ data:
     
     es_client = get_es_client()
     
+    def create_index_template(index_name, mapping_body):
+        """Create an Elasticsearch index template for the given index pattern"""
+        template_name = f"{index_name}-template"
+        body = {
+            "index_patterns": [index_name],
+            "template": mapping_body
+        }
+        try:
+            es_client.indices.put_index_template(name=template_name, body=body)
+            logger.info(f"✅ Created index template: {template_name} (pattern: {index_name})")
+        except Exception as e:
+            logger.error(f"Failed to create index template {template_name}: {e}")
+            raise
+
     def make_index_name(dataset):
         """Generate index name for dataset"""
         return f"esrs-sample-data-{dataset['id']}"
     
     def create_index_mapping(index_name, is_query=False, is_qrel=False):
-        """Create appropriate mapping with BBQ IVF"""
-        
+        """Prepare mapping settings and register as index template"""
+        # Define mapping and settings as before
         if is_qrel:
             mapping = {
                 "mappings": {
@@ -134,35 +148,33 @@ data:
                         "query_embedding": {
                             "type": "dense_vector",
                             "dims": 1024,
-                            "index_options": {
-                                "type": "bbq_ivf"
-                            }
+                            "index_options": {"type": "bbq_ivf"}
                         },
                         "@timestamp": {"type": "date"}
                     }
                 },
                 "settings": {"number_of_shards": 1, "number_of_replicas": 0}
             }
-        else:  # documents with BBQ IVF
+        else:
             mapping = {
                 "mappings": {
                     "properties": {
                         "text": {"type": "text"},
                         "title": {"type": "text"},
                         "doc_id": {"type": "keyword"},
-                        "vector": {  # Use 'vector' field name to match project assets
+                        "vector": {
                             "type": "dense_vector",
                             "dims": 1024,
-                            "index_options": {
-                                "type": "bbq_ivf"
-                            }
+                            "index_options": {"type": "bbq_ivf"}
                         },
                         "@timestamp": {"type": "date"}
                     }
                 },
                 "settings": {"number_of_shards": 1, "number_of_replicas": 0}
             }
-        
+
+        create_index_template(index_name, mapping)
+
         # Delete and create index
         try:
             es_client.indices.delete(index=index_name)
@@ -250,7 +262,8 @@ data:
                                 "created_at": {"type": "date"},
                                 "created_by": {"type": "keyword"},
                                 "updated_at": {"type": "date"},
-                                "updated_by": {"type": "keyword"}
+                                "updated_by": {"type": "keyword"},
+                                "type": {"type": "keyword"}
                             }
                         },
                         "_search": {
@@ -280,7 +293,8 @@ data:
                                 "created_at": {"type": "date"},
                                 "created_by": {"type": "keyword"},
                                 "updated_at": {"type": "date"},
-                                "updated_by": {"type": "keyword"}
+                                "updated_by": {"type": "keyword"},
+                                "type": {"type": "keyword"}
                             }
                         },
                         "_search": {
@@ -307,7 +321,8 @@ data:
                                 "created_at": {"type": "date"},
                                 "created_by": {"type": "keyword"},
                                 "updated_at": {"type": "date"},
-                                "updated_by": {"type": "keyword"}
+                                "updated_by": {"type": "keyword"},
+                                "type": {"type": "keyword"}
                             }
                         },
                         "query_text": {"type": "text"},
@@ -339,7 +354,8 @@ data:
                                 "created_at": {"type": "date"},
                                 "created_by": {"type": "keyword"},
                                 "updated_at": {"type": "date"},
-                                "updated_by": {"type": "keyword"}
+                                "updated_by": {"type": "keyword"},
+                                "type": {"type": "keyword"}
                             }
                         },
                         "_search": {
@@ -370,7 +386,8 @@ data:
                                 "created_at": {"type": "date"},
                                 "created_by": {"type": "keyword"},
                                 "updated_at": {"type": "date"},
-                                "updated_by": {"type": "keyword"}
+                                "updated_by": {"type": "keyword"},
+                                "type": {"type": "keyword"}
                             }
                         },
                         "_search": {
@@ -394,7 +411,7 @@ data:
                         "settings": {
                             "index": {
                                 "number_of_shards": 1,
-                                "number_of_replicas": 1
+                                "number_of_replicas": 0
                             }
                         }
                     }
@@ -444,7 +461,8 @@ data:
                 "created_at": now,
                 "created_by": "system",
                 "updated_at": now,
-                "updated_by": "system"
+                "updated_by": "system",
+                "type": "projects"
             },
             "_search": {
                 "name": dataset["name"],
@@ -475,7 +493,8 @@ data:
                 "created_at": now,
                 "created_by": "system",
                 "updated_at": now,
-                "updated_by": "system"
+                "updated_by": "system",
+                "type": "displays"
             },
             "_search": {
                 "name": f"{dataset['name']} Display",
@@ -530,7 +549,8 @@ data:
                         "created_at": datetime.now(timezone.utc).isoformat(),
                         "created_by": "system",
                         "updated_at": datetime.now(timezone.utc).isoformat(),
-                        "updated_by": "system"
+                        "updated_by": "system",
+                        "type": "scenarios"
                     },
                     
                     # Search fields (for UI)
@@ -619,13 +639,14 @@ data:
             "tags": ["knn", "vector", "ann"],
             "template": {
                 "lang": "mustache",
-                "source": json.dumps(knn_template)
+                "source": knn_template
             },
             "@meta": {
                 "created_at": now,
                 "created_by": "system",
                 "updated_at": now,
-                "updated_by": "system"
+                "updated_by": "system",
+                "type": "strategies"
             },
             "_search": {
                 "name": "KNN Vector Search",
@@ -659,13 +680,14 @@ data:
             "tags": ["brute-force", "exact", "cosine"],
             "template": {
                 "lang": "mustache",
-                "source": json.dumps(brute_force_template)
+                "source": brute_force_template
             },
             "@meta": {
                 "created_at": now,
                 "created_by": "system",
                 "updated_at": now,
-                "updated_by": "system"
+                "updated_by": "system",
+                "type": "strategies"
             },
             "_search": {
                 "name": "Brute Force Cosine",
@@ -731,7 +753,8 @@ data:
                         "created_at": datetime.now(timezone.utc).isoformat(),
                         "created_by": "system",
                         "updated_at": datetime.now(timezone.utc).isoformat(),
-                        "updated_by": "system"
+                        "updated_by": "system",
+                        "type": "judgements"
                     },
                     "_search": {
                         "doc_id": doc_id,
@@ -875,7 +898,7 @@ spec:
             memory: "1Gi"
             cpu: "500m"
           limits:
-            memory: "2Gi"
+            memory: "3Gi"
             cpu: "1000m"
         volumeMounts:
         - name: script

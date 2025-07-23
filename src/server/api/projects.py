@@ -95,7 +95,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-projects" }},
+                                { "term": { "@meta.type": "projects" }},
                                 { "term": { "_id": _id }}
                             ]
                         }
@@ -103,7 +103,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-displays" }},
+                                { "term": { "@meta.type": "displays" }},
                                 { "term": { "project_id": _id }}
                             ]
                         }
@@ -111,7 +111,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-scenarios" }},
+                                { "term": { "@meta.type": "scenarios" }},
                                 { "term": { "project_id": _id }}
                             ]
                         }
@@ -119,7 +119,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-judgements" }},
+                                { "term": { "@meta.type": "judgements" }},
                                 { "term": { "project_id": _id }}
                             ]
                         }
@@ -127,7 +127,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-strategies" }},
+                                { "term": { "@meta.type": "stratagies" }},
                                 { "term": { "project_id": _id }}
                             ]
                         }
@@ -135,7 +135,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-benchmarks" }},
+                                { "term": { "@meta.type": "benchmarks" }},
                                 { "term": { "project_id": _id }}
                             ]
                         }
@@ -143,7 +143,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-evaluations" }},
+                                { "term": { "@meta.type": "evaluations" }},
                                 { "term": { "project_id": _id }}
                             ]
                         }

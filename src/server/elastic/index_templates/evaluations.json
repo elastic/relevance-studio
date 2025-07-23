@@ -13,7 +13,6 @@
       }
     },
     "mappings": {
-      "dynamic": "strict",
       "properties": {
         "@meta": {
           "properties": {
@@ -34,6 +33,9 @@
             },
             "stopped_at": {
               "type": "date"
+            },
+            "type": {
+              "type": "keyword"
             }
           }
         },

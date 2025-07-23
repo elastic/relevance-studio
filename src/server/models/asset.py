@@ -27,11 +27,16 @@ class AssetCreate(Asset):
         user = (info.context or {}).get("user", "unknown")
         if "@meta" in input:
             raise ValueError("@meta is forbidden in input")
+            
+        # Derive asset_type from the class name (e.g., "ProjectCreate" -> "project")
+        asset_type = cls.__name__.lower().replace("create", "").replace("update", "")
+        
         input["@meta"] = {
             "created_at": utils.timestamp(),
             "created_by": user,
             "updated_at": None,
-            "updated_by": None
+            "updated_by": None,
+            "type": asset_type
         }
         return input
 
@@ -54,6 +59,10 @@ class AssetUpdate(Asset):
         user = (info.context or {}).get("user", "unknown")
         if "@meta" in input:
             raise ValueError("@meta is forbidden in input")
+            
+        # Derive asset_type from the class name (e.g., "ProjectCreate" -> "project")
+        asset_type = cls.__name__.lower().replace("create", "").replace("update", "")
+        
         input["@meta"] = {
             "updated_at": utils.timestamp(),
             "updated_by": user

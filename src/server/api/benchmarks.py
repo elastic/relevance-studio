@@ -98,7 +98,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-benchmarks" }},
+                                { "term": { "type": "benchmarks" }},
                                 { "term": { "_id": _id }}
                             ]
                         }
@@ -106,7 +106,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-evaluations" }},
+                                { "term": { "type": "evaluations" }},
                                 { "term": { "benchmark_id": _id }}
                             ]
                         }

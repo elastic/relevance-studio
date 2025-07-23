@@ -6,7 +6,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from hashlib import blake2b
-from typing import Any, Dict, List
+from typing import Union, Any, Dict, List
 
 # Third-party packages
 from .client import es
@@ -66,11 +66,19 @@ def timestamp(t: float = None):
     t = t or time.time()
     return datetime.fromtimestamp(t, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
-def extract_params(obj: Dict[str, Any]):
+def extract_params(obj: Union[str, Dict[str, Any]]):
     """
-    Extract Mustache variable params from an object serialized as json.
+    Extract Mustache variable params from a string or a JSON-serializable object.
     """
-    return sorted(list(set(re.findall(RE_PARAMS, json.dumps(obj)))))
+    if isinstance(obj, str):
+        # If it's already a string, use it directly
+        text = obj
+    else:
+        # Otherwise, convert to JSON string
+        text = json.dumps(obj)
+    
+    # Find all parameters in the text
+    return sorted(list(set(re.findall(RE_PARAMS, text))))
 
 def copy_fields_to_search(template_name: str, doc: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -334,7 +342,7 @@ def search_assets(
     indices = []
     for relational_asset_type in counts:
         body["aggs"]["counts"]["aggs"][relational_asset_type] = {
-            "filter": { "term": {  "_index": f"esrs-{relational_asset_type}" }}
+            "filter": { "term": {  "@meta.type": f"{relational_asset_type}" }}
         }
         indices.append(f"esrs-{relational_asset_type}")
     aggs_response = es("studio").search(

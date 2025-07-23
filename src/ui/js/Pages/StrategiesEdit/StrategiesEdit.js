@@ -116,10 +116,12 @@ const StrategiesEdit = () => {
       });
     }
 
+    const currentParams = Array.from(params)
     // Prepare doc field updates
     const doc = {
       name: lastSavedStrategy.name,
       tags: lastSavedStrategy.tags,
+      params: currentParams.params,
       template: {
         lang: 'mustache',
         source: strategyDraft
