@@ -92,7 +92,7 @@ data:
         es_host = os.getenv('ELASTICSEARCH_HOST', 'elastic-rs-es-http.default.svc.cluster.local')
         es_port = int(os.getenv('ELASTICSEARCH_PORT', '9200'))
         es_user = os.getenv('ELASTICSEARCH_USER', 'elastic')
-        es_password = os.getenv('ELASTICSEARCH_PASSWORD', 'dA52SCq3S2rKF6xA4H803t8N')
+        es_password = os.getenv('ELASTICSEARCH_PASSWORD', '')
         
         return Elasticsearch(
             [{'host': es_host, 'port': es_port, 'scheme': 'https'}],
@@ -892,7 +892,10 @@ spec:
         - name: ELASTICSEARCH_USER
           value: "elastic"
         - name: ELASTICSEARCH_PASSWORD
-          value: "dA52SCq3S2rKF6xA4H803t8N"
+          valueFrom:
+            secretKeyRef:
+              name: elastic-rs-es-elastic-user
+              key: elastic
         resources:
           requests:
             memory: "1Gi"
@@ -950,7 +953,10 @@ spec:
         - name: ELASTICSEARCH_USER
           value: "elastic"
         - name: ELASTICSEARCH_PASSWORD
-          value: "dA52SCq3S2rKF6xA4H803t8N"
+          valueFrom:
+            secretKeyRef:
+              name: elastic-rs-es-elastic-user
+              key: elastic
         resources:
           requests:
             memory: "1Gi"
@@ -1008,7 +1014,10 @@ spec:
         - name: ELASTICSEARCH_USER
           value: "elastic"
         - name: ELASTICSEARCH_PASSWORD
-          value: "dA52SCq3S2rKF6xA4H803t8N"
+          valueFrom:
+            secretKeyRef:
+              name: elastic-rs-es-elastic-user
+              key: elastic
         resources:
           requests:
             memory: "2Gi"
@@ -1066,7 +1075,10 @@ spec:
         - name: ELASTICSEARCH_USER
           value: "elastic"
         - name: ELASTICSEARCH_PASSWORD
-          value: "dA52SCq3S2rKF6xA4H803t8N"
+          valueFrom:
+            secretKeyRef:
+              name: elastic-rs-es-elastic-user
+              key: elastic
         resources:
           requests:
             memory: "2Gi"
@@ -1124,7 +1136,10 @@ spec:
         - name: ELASTICSEARCH_USER
           value: "elastic"
         - name: ELASTICSEARCH_PASSWORD
-          value: "dA52SCq3S2rKF6xA4H803t8N"
+          valueFrom:
+            secretKeyRef:
+              name: elastic-rs-es-elastic-user
+              key: elastic
         resources:
           requests:
             memory: "3Gi"
