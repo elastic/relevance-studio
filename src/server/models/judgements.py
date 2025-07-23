@@ -8,7 +8,7 @@ from pydantic import Field, field_validator, StrictInt
 from .asset import AssetCreate, AssetUpdate
 
 class JudgementCreate(AssetCreate):
-    
+    asset_type: ClassVar[str] = "judgements"
     # Required inputs
     project_id: str
     scenario_id: str
@@ -55,5 +55,6 @@ class JudgementUpdate(AssetUpdate):
     """
     The Judgements API doesn't support partial updates.
     """
+    asset_type: ClassVar[str] = "judgements"
     def __init__(self, *args, **kwargs):
         raise Exception("Not implemented.")

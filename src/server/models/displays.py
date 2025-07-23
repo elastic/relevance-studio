@@ -1,5 +1,5 @@
 # Standard packages
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, ClassVar
 
 # Third-party packages
 from pydantic import computed_field, Field, field_validator
@@ -26,7 +26,7 @@ def extract_fields_from_template(template: Dict[str, Any]) -> List[str]:
     return sorted(set(fields))
 
 class DisplayCreate(AssetCreate):
-    
+    asset_type: ClassVar[str] = "displays"
     # Required inputs
     project_id: str
     index_pattern: str
@@ -55,6 +55,7 @@ class DisplayCreate(AssetCreate):
     
 class DisplayUpdate(AssetUpdate):
     
+    asset_type: ClassVar[str] = "displays"
     # Required inputs
     project_id: str
     

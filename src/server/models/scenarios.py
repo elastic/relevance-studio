@@ -26,7 +26,7 @@ def extract_fields_from_template(template: Dict[str, Any]) -> List[str]:
     return sorted(set(fields))
 
 class ScenarioCreate(AssetCreate):
-    
+    asset_type: ClassVar[str] = "scenarios"
     # Required inputs
     project_id: str
     name: str
@@ -70,7 +70,7 @@ class ScenarioCreate(AssetCreate):
             return sorted(list(self.values.keys()))
     
 class ScenarioUpdate(AssetUpdate):
-    
+    asset_type: ClassVar[str] = "scenarios"
     # Required inputs
     project_id: str
     

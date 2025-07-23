@@ -37,7 +37,7 @@ class RatingScaleModel(BaseModel):
         return max_value
 
 class ProjectCreate(AssetCreate):
-    
+    asset_type: ClassVar[str] = "projects"
     # Required inputs
     name: str
     index_pattern: str
@@ -77,6 +77,7 @@ class ProjectCreate(AssetCreate):
 
 
 class ProjectUpdate(AssetUpdate):
+    asset_type: ClassVar[str] = "projects"
     
     # Optional inputs
     name: str = None

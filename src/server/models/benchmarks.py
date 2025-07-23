@@ -1,5 +1,7 @@
 # Standard packages
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, ClassVar
+
+
 
 # Third-party packages
 from pydantic import BaseModel, Field, field_validator, model_validator, StrictInt
@@ -187,6 +189,8 @@ class TaskUpdate(BaseModel):
 
 class BenchmarkCreate(AssetCreate):
 
+    asset_type: ClassVar[str] = "benchmarks"
+    
     # Required inputs
     project_id: str
     name: str
@@ -228,6 +232,7 @@ class BenchmarkCreate(AssetCreate):
 
 class BenchmarkUpdate(AssetUpdate):
 
+    asset_type: ClassVar[str] = "benchmarks"
     # Required inputs
     project_id: str
 

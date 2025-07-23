@@ -1,5 +1,5 @@
 # Standard packages
-from typing import Any, Dict, List
+from typing import Any, Dict, List, ClassVar
 
 # App packages
 from .. import utils

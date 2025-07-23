@@ -1,5 +1,5 @@
 # Standard packages
-from typing import List, Optional
+from typing import List, Optional, ClassVar
 
 # Third-party packages
 from pydantic import BaseModel, computed_field, Field, field_validator
@@ -23,7 +23,7 @@ class TemplateUpdate(BaseModel):
     source: Optional[str] = None
 
 class StrategyCreate(AssetCreate):
-    
+    asset_type: ClassVar[str] = "strategies"
     # Required inputs
     project_id: str
     name: str
@@ -62,6 +62,7 @@ class StrategyCreate(AssetCreate):
         return utils.extract_params(self.template.source)    
 class StrategyUpdate(AssetUpdate):
     
+    asset_type: ClassVar[str] = "strategies"
     # Required inputs
     project_id: str
     
