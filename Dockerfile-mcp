@@ -1,0 +1,22 @@
+####  Build the MCP server  ####################################################
+
+FROM python:3.10-slim AS server-mcp
+WORKDIR /app
+
+# Copy project files
+COPY requirements.txt requirements-mcp.txt ./
+COPY src/server ./server
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements-mcp.txt
+
+####  Run the server  ##########################################################
+
+# Set environment variables
+ENV FASTMCP_HOST=0.0.0.0
+ENV FASTMCP_PORT=4096
+ENV FASTMCP_SERVER_TRANSPORT=http
+
+# Run the MCP server
+CMD ["python", "-m", "server.fastmcp"]
+EXPOSE 4200

@@ -1,5 +1,4 @@
 # Standard packages
-from copy import deepcopy
 from typing import Any, Dict, List
 
 # App packages
@@ -18,7 +17,7 @@ def search(
         aggs: bool = False,
     ) -> Dict[str, Any]:
     """
-    Search projects in Elasticsearch.
+    Search for projects.
     """
     response = utils.search_assets(
         "projects", None, text, filters, sort, size, page,
@@ -28,14 +27,14 @@ def search(
 
 def tags() -> Dict[str, Any]:
     """
-    Search tags for projects in Elasticsearch.
+    List all project tags (up to 10,000).
     """
     es_response = utils.search_tags("projects")
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
     """
-    Get a project by in Elasticsearch.
+    Get a project by its _id.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -44,13 +43,15 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
     """
-    Create a project in Elasticsearch. Allow a predetermined _id.
+    Create a project.
+    
+    Accepts an optional pregenerated _id for idempotence.
     """
     
     # Create, validate, and dump model
-    doc = ProjectCreate.model_validate(doc).serialize()
+    doc = ProjectCreate.model_validate(doc, context={"user": user}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("projects", doc)
@@ -64,13 +65,13 @@ def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
-    Update a project in Elasticsearch.
+    Update a project by its _id.
     """
     
     # Create, validate, and dump model
-    doc_partial = ProjectUpdate.model_validate(doc_partial).serialize()
+    doc_partial = ProjectUpdate.model_validate(doc_partial, context={"user": user}).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("projects", doc_partial)
@@ -86,7 +87,10 @@ def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
 
 def delete(_id: str) -> Dict[str, Any]:
     """
-    Delete a project in Elasticsearch.
+    Delete a project by its _id.
+    
+    This also deletes all displays, scenarios, judgements, strategies,
+    benchmarks, and evaluations that share its project_id.
     """
     body = {
         "query": {

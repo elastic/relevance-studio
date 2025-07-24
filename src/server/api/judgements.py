@@ -43,20 +43,20 @@ def search(
         }
     }
     if filter == "rated-human":
-        body["query"]["bool"]["filter"].append({
-            "term": { "@author": "human"}
-        })
+        body["query"]["bool"]["must_not"] = {
+            "term": { "@meta.created_by": "ai"}
+        }
     elif filter == "rated-ai":
         body["query"]["bool"]["filter"].append({
-            "term": { "@author": "ai"}
+            "term": { "@meta.created_by": "ai"}
         })
     if sort == "rating-newest":
         body["sort"] = [{
-            "@timestamp": "desc"
+            "@meta.created_at": "desc"
         }]
     elif sort == "rating-oldest":
         body["sort"] = [{
-            "@timestamp": "asc"
+            "@meta.created_at": "asc"
         }]
     es_response = es("studio").search(index="esrs-judgements", body=body)
     for hit in es_response.body.get("hits", {}).get("hits") or []:
@@ -66,9 +66,8 @@ def search(
             judgements[_index] = {}
         judgements[_index][_id] = {
             "_id": hit["_id"],
-            "@timestamp": hit["_source"].get("@timestamp"),
-            "@author": hit["_source"].get("@author"),
-            "rating": hit["_source"].get("rating")
+            "@meta": hit["_source"].get("@meta"),
+            "rating": hit["_source"].get("rating"),
         }
         
     # Search docs on the content deployment
@@ -134,28 +133,28 @@ def search(
     response["hits"] = es_response.body["hits"]
     for i, hit in enumerate(response["hits"]["hits"]):
         response["hits"]["hits"][i] = {
-            "_id": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("_id", None),
-            "@timestamp": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("@timestamp", None),
-            "@author": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("@author", None),
-            "rating": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("rating", None),
+            "_id": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("_id"),
+            "@meta": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("@meta"),
+            "rating": judgements.get(hit["_index"], {}).get(hit["_id"], {}).get("rating"),
             "doc": hit
         }
     if response["hits"]["hits"] and sort in ( "rating-newest", "rating-oldest" ):
         reverse = True if sort == "rating-newest" else False
         fallback = "0000-01-01T00:00:00Z" if not reverse else "9999-12-31T23:59:59Z"
-        response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: hit.get("@timestamp") or fallback, reverse=reverse)
+        response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: hit.get("@meta", {}).get("created_at") or fallback, reverse=reverse)
     return response
 
-def set(doc: Dict[str, Any]) -> Dict[str, Any]:
+def set(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
-    Create or update a judgement in Elasticsearch.
+    Create or update a judgement.
     
-    Use a deterministic _id for UX efficiency, and to prevent the creation of
-    duplicate judgements for the same scenario, index, and doc.
+    Gemerates a deterministic _id for UX efficiency, and to prevent the creation
+    of duplicate judgements for the same combination of scenario, index, and doc.
     """
     
     # Create, validate, and dump model
-    doc = JudgementCreate.model_validate(doc).serialize()
+    doc = JudgementCreate.model_validate(doc, context={"user": user}).serialize()
+    print(doc)
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("judgements", doc)

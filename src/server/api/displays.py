@@ -18,7 +18,7 @@ def search(
         aggs: bool = False,
     ) -> Dict[str, Any]:
     """
-    Search scenarios in Elasticsearch.
+    Search for displays.
     """
     response = utils.search_assets(
         "displays", project_id, text, filters, sort, size, page
@@ -27,7 +27,7 @@ def search(
 
 def get(_id: str) -> Dict[str, Any]:
     """
-    Get a display in Elasticsearch.
+    Get a display by its _id.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -36,13 +36,15 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
     """
-    Create a display in Elasticsearch. Allow a predetermined _id.
+    Create a display.
+    
+    Accepts an optional pregenerated _id for idempotence.
     """
     
     # Create, validate, and dump model
-    doc = DisplayCreate.model_validate(doc).serialize()
+    doc = DisplayCreate.model_validate(doc, context={"user": user}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("displays", doc)
@@ -56,13 +58,13 @@ def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
-    Update a display in Elasticsearch.
+    Update a display by its _id.
     """
     
     # Create, validate, and dump model
-    doc_partial = DisplayUpdate.model_validate(doc_partial).serialize()
+    doc_partial = DisplayUpdate.model_validate(doc_partial, context={"user": user}).serialize()
 
     
     # Copy searchable fields to _search
@@ -79,7 +81,7 @@ def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
 
 def delete(_id: str) -> Dict[str, Any]:
     """
-    Delete a display in Elasticsearch.
+    Delete a display by its _id.
     """
     es_response = es("studio").delete(
         index=INDEX_NAME,

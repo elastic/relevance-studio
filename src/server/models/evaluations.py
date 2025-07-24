@@ -151,6 +151,18 @@ class UnratedDocs(BaseModel):
 class Evaluation(BaseModel):
     model_config = { "extra": "forbid", "strict": True }
     meta: Dict[str, Optional[str]] = Field(alias='@meta')
+    
+    @classmethod
+    def model_input_json_schema(cls, **kwargs: Any) -> dict:
+        """
+        Return the JSON schema for inputs, which excludes the @meta field. 
+        """
+        schema = super().model_json_schema(**kwargs)
+        if "properties" in schema:
+            schema["properties"].pop("@meta", None)
+        if "required" in schema and "@meta" in schema["required"]:
+            schema["required"].remove("@meta")
+        return schema
 
 class EvaluationCreate(Evaluation):
     
@@ -162,9 +174,9 @@ class EvaluationCreate(Evaluation):
     @model_validator(mode="before")
     @classmethod
     def enrich_meta(cls, input, info):
-        user = (info.context or {}).get("user", "unknown")
+        user = (info.context or {}).get("user") or "unknown"
         if "@meta" in input:
-            raise ValueError("@meta is forbidden in input")
+            raise ValueError("@meta is forbidden as an input")
         input["@meta"] = {
             "status": "pending",
             "created_at": utils.timestamp(),

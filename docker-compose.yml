@@ -1,5 +1,5 @@
 services:
-  es-relevance-studio-server:
+  esrs-server:
     build:
       context: .
       dockerfile: Dockerfile
@@ -7,7 +7,7 @@ services:
       - 4096:4096
     env_file:
       - .env
-  es-relevance-studio-worker:
+  esrs-worker:
     build:
       context: .
       dockerfile: Dockerfile
@@ -19,3 +19,24 @@ services:
       replicas: 1
       restart_policy:
           condition: on-failure
+  esrs-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile-mcp
+    ports:
+      - 4200:4200
+    env_file:
+      - .env
+  esrs-mcp-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile-mcp
+      network: host
+    command: ["python", "-m", "server.fastmcp_proxy"]
+    stdin_open: true
+    tty: true
+    environment:
+      - FASTMCP_DEBUG=true
+    env_file:
+      - .env
+    network_mode: host

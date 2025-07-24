@@ -346,3 +346,13 @@ def search_assets(
     if "aggregations" in aggs_response.body:
         es_response.body["aggregations"] = aggs_response.body["aggregations"]
     return es_response
+
+def attach_schema_doc(cls):
+    """
+    Decorator that attaches the JSON schema of a Pydantic model
+    to its own docstring.
+    """
+    base_doc = cls.__doc__ or ""
+    schema = cls.model_json_schema()
+    cls.__doc__ = base_doc.rstrip() + "\n\nJSON Schema:\n" + str(schema)
+    return cls

@@ -75,14 +75,20 @@ const ChartMetricsHeatmap = (props) => {
     if (!evaluation.results || !xGroupBy || !xSortBy || !yGroupBy || !ySortBy)
       return
     const _data = []
-    for (const [yKey, yValue] of Object.entries(evaluation.summary[yGroupBy])) {
+    const summary = { ...evaluation.summary }
+    console.error(summary)
+    for (const [yKey, yValue] of Object.entries(summary[yGroupBy])) {
       const total = {
         x: 'Average',
         y: yKey,
-        value: evaluation.summary[yGroupBy][yKey]._total.metrics[metric].avg,
+        value: summary[yGroupBy][yKey]._total.metrics[metric].avg,
       }
       _data.push(total)
       for (const [xKey, xValue] of Object.entries(yValue[`by_${xGroupBy}`])) {
+        // In rare cases it's possible for scenarios without judgements to be
+        // included in evaluations. There won't be metrics in those cases.
+        if (xValue?.metrics[metric] === undefined)
+          continue
         const row = {
           x: xKey,
           y: yKey,
@@ -91,7 +97,7 @@ const ChartMetricsHeatmap = (props) => {
         _data.push(row)
       }
     }
-    
+
     // Sort by overall average value. First, group rows by yKey
     const grouped = {}
     for (const row of _data) {

@@ -14,6 +14,10 @@
 6. Setup the index templates: `curl -XPOST http://localhost:4096/setup`
 7. Open the app: [http://localhost:4096/](http://localhost:4096/)
 
+To use MCP with Claude Desktop, you'll need to do Step 1 from the Development
+section and then run `fastmcp install claude-desktop src/server/fastmcp_proxy.py`
+to install the MCP proxy in Claude Desktop.
+
 ## Development
 
 These instructions were tested on MacOS.
@@ -70,6 +74,22 @@ Repeat steps 2 and 3 anytime you need to start a worker in another terminal.
 
 With the server and UI running from Steps 2 and 3, open [http://localhost:8080/](http://localhost:8080/) and click the button on the homepage to setup the index templates and indices.
 
+**Step 6. (Optional) Run the MCP server and proxy for Claude Desktop**
+
+In a terminal, navigate to the root-level directory of this project and run:
+
+1. Run `brew install uv` which is needed by Claude Desktop
+2. Run `conda create -n esrs python=3.10` to create a virtual environment
+3. Run `conda activate esrs` to activate the virtual environment
+4. Run `pip install -r requirements-mcp.txt` to install the dependencies
+5. Run `python -m src.server.fastmcp` to start the MCP server
+6. Run `fastmcp install claude-desktop src/server/fastmcp_proxy.py` to install the MCP proxy in Claude Desktop
+7. Restart Claude Desktop
+
+Repeat steps 2, 3, 5, and 6 anytime you need to start the MCP server and proxy in another terminal.
+
+Repeat steps 5, 6, and 7 anytime you make changes to the MCP server or proxy.
+
 ### Testing
 
-1. Run `pytest -x` to run tests for the server. The test script will run the server and a single-node Elasticsearch cluster in docker compose.
+1. Run `pytest tests/unit` to run unit tests for the server.

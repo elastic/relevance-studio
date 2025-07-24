@@ -66,11 +66,6 @@ api.projects_search = async (body) => {
   return responseOrFallbackSetup(response)
 }
 
-api.projects_tags = async () => {
-  const response = await client.get(`/api/projects/_tags`)
-  return responseOrFallbackSetup(response)
-}
-
 api.projects_get = async (project_id) => {
   validateArgs('api.projects_get', { project_id, })
   const response = await client.get(`/api/projects/${project_id}`)

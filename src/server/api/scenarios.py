@@ -18,7 +18,7 @@ def search(
         aggs: bool = False,
     ) -> Dict[str, Any]:
     """
-    Search scenarios in Elasticsearch.
+    Search for scenarios.
     """
     response = utils.search_assets(
         "scenarios", project_id, text, filters, sort, size, page,
@@ -28,14 +28,14 @@ def search(
 
 def tags(project_id: str) -> Dict[str, Any]:
     """
-    Search tags for scenarios in Elasticsearch.
+    List all scenario tags (up to 10,000).
     """
     es_response = utils.search_tags("scenarios", project_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
     """
-    Get a scenario in Elasticsearch.
+    Get a scenario by its _id.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -44,16 +44,16 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any]) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
-    Create a scenario in Elasticsearch.
+    Create a scenario.
     
-    Use a deterministic _id for UX efficiency, and to prevent the creation of
-    duplicate scenarios for the same values.
+    Generates a deterministic _id for UX efficiency, and to prevent the creation
+    of duplicate scenarios for the same values.
     """
     
     # Create, validate, and dump model
-    doc = ScenarioCreate.model_validate(doc).serialize()
+    doc = ScenarioCreate.model_validate(doc, context={"user": user}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("scenarios", doc)
@@ -67,13 +67,13 @@ def create(doc: Dict[str, Any]) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
-    Update a scenario in Elasticsearch.
+    Update a scenario by its _id.
     """
     
     # Create, validate, and dump model
-    doc_partial = ScenarioUpdate.model_validate(doc_partial).serialize()
+    doc_partial = ScenarioUpdate.model_validate(doc_partial, context={"user": user}).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("scenarios", doc_partial)
@@ -89,8 +89,9 @@ def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
 
 def delete(_id: str) -> Dict[str, Any]:
     """
-    Delete a scenario in Elasticsearch.
-    Delete all judgements that share its scenario_id.
+    Delete a scenario by its _id
+    
+    This also deletes all judgements that share its scenario_id.
     """
     body = {
         "query": {

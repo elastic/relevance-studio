@@ -14,7 +14,6 @@ from elasticsearch.exceptions import ApiError
 # App packages
 from . import api
 from .models import *
-from .client import es
 
 ####  Configuration  ###########################################################
 
@@ -98,10 +97,6 @@ def validate_project_id_match(body, project_id_from_url):
 def projects_search():
     body = request.get_json() or {}
     return api.projects.search(**body)
-
-@api_route("/api/projects/<string:project_id>/benchmarks/_tags", methods=["GET"])
-def projects_tags(project_id):
-    return api.projects.tags("projects")
 
 @api_route("/api/projects/<string:_id>", methods=["GET"])
 def projects_get(_id):

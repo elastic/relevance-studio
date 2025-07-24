@@ -611,7 +611,7 @@ def search(
         aggs: bool = False,
     ) -> Dict[str, Any]:
     """
-    Search evaluations in Elasticsearch.
+    Search for evaluations.
     """
     filters = [{ "term": { "benchmark_id": benchmark_id }}]
     response = utils.search_assets(
@@ -621,7 +621,7 @@ def search(
 
 def get(_id: str) -> Dict[str, Any]:
     """
-    Get an evaluation in Elasticsearch.
+    Get an evaluation by its _id.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -634,9 +634,10 @@ def create(
         project_id: str,
         benchmark_id: str,
         task: Dict[str, Any],
+        user: str = None,
     ) -> Dict[str, Any]:
     """
-    Create a pending evaluation in Elasticsearch.
+    Create a pending evaluation for a given project_id and benchmark_id.
     """
     
     # Create, validate, and dump model
@@ -645,7 +646,7 @@ def create(
         "benchmark_id": benchmark_id,
         "task": task
     }
-    doc = EvaluationCreate.model_validate(doc).serialize()
+    doc = EvaluationCreate.model_validate(doc, context={"user": user}).serialize()
     
     es_response = es("studio").index(
         index=INDEX_NAME,

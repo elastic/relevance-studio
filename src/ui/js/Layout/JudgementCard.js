@@ -28,7 +28,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
 
   const [judgementId, setJudgementId] = useState(props._id)
   const [loadingRating, setLoadingRating] = useState(false)
-  const [author, setAuthor] = useState(props.author)
+  const [createdBy, setCreatedBy] = useState(props.createdBy)
   const [rating, setRating] = useState(props.rating)
   const dragging = useRef(false)
   const lastCommittedRating = useRef(rating)
@@ -64,7 +64,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
         addToast(utils.toastClientResponse(response))
       } else {
         lastCommittedRating.current = rating
-        setAuthor('human')
+        setCreatedBy('unknown')
         setJudgementId(response.data._id)
       }
     })()
@@ -89,7 +89,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
       } else {
         setRating(null)
         lastCommittedRating.current = null
-        setAuthor(null)
+        setCreatedBy(null)
       }
     })()
   }
@@ -219,9 +219,9 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                     borderRightStyle: 'none',
                     borderTopRightRadius: 0
                   }}>
-                  {author &&
+                  {createdBy &&
                     <EuiToolTip
-                      content={`Rated by ${author == 'ai' ? 'AI' : 'human'}`}
+                      content={`Rated by ${createdBy == 'ai' ? 'AI' : 'human'}`}
                       anchorProps={{
                         style: {
                           marginLeft: '19px'
@@ -229,11 +229,11 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                       }}
                     >
                       <EuiButtonIcon
-                        aria-label={`Rated by ${author}`}
-                        color={author == 'ai' ? 'primary' : 'text'}
-                        display={author == 'ai' ? 'base' : 'empty'}
+                        aria-label={`Rated by ${createdBy}`}
+                        color={createdBy == 'ai' ? 'primary' : 'text'}
+                        display={createdBy == 'ai' ? 'base' : 'empty'}
                         iconSize='m'
-                        iconType={author == 'ai' ? 'sparkles' : 'user'}
+                        iconType={createdBy == 'ai' ? 'sparkles' : 'user'}
                         onClick={() => { }}
                         size='s'
                         style={{

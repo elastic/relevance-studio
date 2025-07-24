@@ -20,7 +20,7 @@ def search(
         aggs: bool = False,
     ) -> Dict[str, Any]:
     """
-    Search benchmarks in Elasticsearch.
+    Search for benchmarks.
     """
     response = utils.search_assets(
         "benchmarks", project_id, text, filters, sort, size, page,
@@ -30,14 +30,14 @@ def search(
 
 def tags(project_id: str) -> Dict[str, Any]:
     """
-    Search tags for benchmarks in Elasticsearch.
+    List all benchmark tags (up to 10,000).
     """
     es_response = utils.search_tags("benchmarks", project_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
     """
-    Get a benchmark in Elasticsearch.
+    Get a benchmark by its _id.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -46,13 +46,15 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
     """
-    Create a benchmark in Elasticsearch. Allow a predetermined _id.
+    Create a benchmark.
+    
+    Accepts an optional pregenerated _id for idempotence.
     """
     
     # Create, validate, and serialize model
-    doc = BenchmarkCreate.model_validate(doc).serialize()
+    doc = BenchmarkCreate.model_validate(doc, context={"user": user}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("benchmarks", doc)
@@ -66,13 +68,13 @@ def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
-    Update a benchmark in Elasticsearch.
+    Update a benchmark by its _id.
     """
     
     # Create, validate, and serialize model
-    doc_partial = BenchmarkUpdate.model_validate(doc_partial).serialize()
+    doc_partial = BenchmarkUpdate.model_validate(doc_partial, context={"user": user}).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("benchmarks", doc_partial)
@@ -88,8 +90,9 @@ def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
 
 def delete(_id: str) -> Dict[str, Any]:
     """
-    Delete a benchmark in Elasticsearch.
-    Delete all evaluations that share its scenario_id.
+    Delete a benchmark by its _id.
+    
+    This also deletes all evaluations that share its benchmark_id.
     """
     body = {
         "query": {
@@ -234,7 +237,7 @@ def fetch_scenarios(
         body["query"]["function_score"]["query"]["bool"]["should"] = should_clauses
         body["query"]["function_score"]["query"]["bool"]["minimum_should_match"] = 1
         
-    # Fetch strategies
+    # Fetch scenarios
     response = es("studio").search(
         index="esrs-scenarios",
         body=body
@@ -243,6 +246,47 @@ def fetch_scenarios(
     for hit in response["hits"]["hits"]:
         hit_id = hit["_id"]
         scenarios[hit_id] = hit["_source"]
+        
+    # Exclude scenarios that have no judgements with ratings greater than 0
+    body = {
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": [
+                    {
+                        "terms": {
+                            "scenario_id": list(scenarios.keys())
+                        }
+                    },
+                    {
+                        "range": {
+                            "rating": {
+                                "gt": 0
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "aggs": {
+            "scenarios_with_ratings": {
+                "terms": {
+                    "field": "scenario_id",
+                    "size": 10000
+                }
+            }
+        }
+    }
+    response = es("studio").search(
+        index="esrs-judgements",
+        body=body
+    )
+    scenarios_with_ratings = set()
+    for bucket in response["aggregations"]["scenarios_with_ratings"]["buckets"]:
+        scenarios_with_ratings.add(bucket["key"])
+    scenarios = {
+        _id: _source for _id, _source in scenarios.items() if _id in scenarios_with_ratings
+    }
     return scenarios
 
 def make_candidate_pool(

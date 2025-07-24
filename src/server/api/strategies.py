@@ -18,7 +18,7 @@ def search(
         aggs: bool = False,
     ) -> Dict[str, Any]:
     """
-    Search strategies in Elasticsearch.
+    Search for strategies.
     """
     response = utils.search_assets(
         "strategies", project_id, text, filters, sort, size, page
@@ -27,14 +27,14 @@ def search(
 
 def tags(project_id: str) -> Dict[str, Any]:
     """
-    Search tags for strategies in Elasticsearch.
+    List all strategy tags (up to 10,000).
     """
     es_response = utils.search_tags("strategies", project_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
     """
-    Get a strategy in Elasticsearch.
+    Get a strategy by its _id.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -43,13 +43,15 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
     """
-    Create a strategy in Elasticsearch.
+    Create a strategy.
+    
+    Accepts an optional pregenerated _id for idempotence.
     """
     
     # Create, validate, and dump model
-    doc = StrategyCreate.model_validate(doc).serialize()
+    doc = StrategyCreate.model_validate(doc, context={"user": user}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("strategies", doc)
@@ -63,13 +65,13 @@ def create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
-    Update a strategy in Elasticsearch.
+    Update a strategy by its _id.
     """ 
     
     # Create, validate, and dump model
-    doc_partial = StrategyUpdate.model_validate(doc_partial).serialize()
+    doc_partial = StrategyUpdate.model_validate(doc_partial, context={"user": user}).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("strategies", doc_partial)
@@ -85,7 +87,7 @@ def update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
 
 def delete(_id: str) -> Dict[str, Any]:
     """
-    Delete a strategy in Elasticsearch.
+    Delete a strategy by its _id.
     """
     es_response = es("studio").delete(
         index=INDEX_NAME,

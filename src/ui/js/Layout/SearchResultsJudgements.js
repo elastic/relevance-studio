@@ -42,8 +42,7 @@ const SearchResultsJudgements = ({
         project={project}
         scenario={scenario}
         rating={result.rating}
-        author={result['@author']}
-        timestamp={result['@timestamp']}
+        createdBy={result['@meta']?.created_by}
         template={resolveIndexToDisplay(result.doc._index)?.template}
         showScore={showScore}
       />
