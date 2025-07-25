@@ -7,7 +7,7 @@
   ],
   "template": {
     "mappings": {
-      "dynamic": "strict",
+      "dynamic": "true",
       "properties": {
         "@meta": {
           "properties": {
