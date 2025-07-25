@@ -1,6 +1,5 @@
 # Standard packages
-import random
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Set
 
 # App packages
 from .. import utils

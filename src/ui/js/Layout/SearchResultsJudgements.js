@@ -43,6 +43,7 @@ const SearchResultsJudgements = ({
         scenario={scenario}
         rating={result.rating}
         createdBy={result['@meta']?.created_by}
+        updatedBy={result['@meta']?.updated_by}
         template={resolveIndexToDisplay(result.doc._index)?.template}
         showScore={showScore}
       />

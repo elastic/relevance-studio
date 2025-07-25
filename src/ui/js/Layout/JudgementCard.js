@@ -29,6 +29,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
   const [judgementId, setJudgementId] = useState(props._id)
   const [loadingRating, setLoadingRating] = useState(false)
   const [createdBy, setCreatedBy] = useState(props.createdBy)
+  const [updatedBy, setUpdatedBy] = useState(props.updatedBy)
   const [rating, setRating] = useState(props.rating)
   const dragging = useRef(false)
   const lastCommittedRating = useRef(rating)
@@ -65,6 +66,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
       } else {
         lastCommittedRating.current = rating
         setCreatedBy('unknown')
+        setUpdatedBy('unknown')
         setJudgementId(response.data._id)
       }
     })()
@@ -90,6 +92,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
         setRating(null)
         lastCommittedRating.current = null
         setCreatedBy(null)
+        setUpdatedBy(null)
       }
     })()
   }
@@ -219,7 +222,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                     borderRightStyle: 'none',
                     borderTopRightRadius: 0
                   }}>
-                  {createdBy &&
+                  {(createdBy || updatedBy) &&
                     <EuiToolTip
                       content={`Rated by ${createdBy == 'ai' ? 'AI' : 'human'}`}
                       anchorProps={{
@@ -229,11 +232,11 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                       }}
                     >
                       <EuiButtonIcon
-                        aria-label={`Rated by ${createdBy}`}
-                        color={createdBy == 'ai' ? 'primary' : 'text'}
-                        display={createdBy == 'ai' ? 'base' : 'empty'}
+                        aria-label={`Rated by ${updatedBy || createdBy}`}
+                        color={(updatedBy || createdBy) == 'ai' ? 'primary' : 'text'}
+                        display={(updatedBy || createdBy) == 'ai' ? 'base' : 'empty'}
                         iconSize='m'
-                        iconType={createdBy == 'ai' ? 'sparkles' : 'user'}
+                        iconType={(updatedBy || createdBy) == 'ai' ? 'sparkles' : 'user'}
                         onClick={() => { }}
                         size='s'
                         style={{
