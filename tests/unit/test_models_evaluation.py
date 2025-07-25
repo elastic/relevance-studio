@@ -43,7 +43,7 @@ def mock_input_create():
     Returns a mock input with all required and optional fields for creates.
     """
     input = {
-        "project_id": "58278355-f4f3-56d2-aa81-498250f27798",
+        "workspace_id": "58278355-f4f3-56d2-aa81-498250f27798",
         "benchmark_id": "49d68c9a-35ed-4558-a98b-96c04ccb540c",
         "task": {
             "metrics": [
@@ -201,9 +201,9 @@ def mock_input_update():
 
 def test_create_is_invalid_without_required_inputs():
     
-    # "project_id" is required in the input for creates
+    # "workspace_id" is required in the input for creates
     input = mock_input_create()
-    input.pop("project_id", None)
+    input.pop("workspace_id", None)
     with pytest.raises(ValidationError):
         EvaluationCreate.model_validate(input, context=mock_context())
     
@@ -256,9 +256,9 @@ def test_update_is_invalid_with_unexpected_inputs():
 ####  Test Validation of Input Values  #########################################
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
-def test_create_handles_invalid_inputs_for_project_id(value):
+def test_create_handles_invalid_inputs_for_workspace_id(value):
     input = mock_input_create()
-    input["project_id"] = value
+    input["workspace_id"] = value
     with pytest.raises(ValidationError):
         EvaluationCreate(**input)
         
@@ -693,7 +693,7 @@ def test_create_serialization_has_all_given_inputs():
     
     # Test that inputs are in serialized output
     expected = mock_input_create()
-    assert serialized["project_id"] == expected["project_id"]
+    assert serialized["workspace_id"] == expected["workspace_id"]
     assert serialized["benchmark_id"] == expected["benchmark_id"]
     assert sorted(serialized["task"]["metrics"]) == sorted(expected["task"]["metrics"])
     assert serialized["task"]["k"] == expected["task"]["k"]

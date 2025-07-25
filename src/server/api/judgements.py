@@ -10,7 +10,7 @@ INDEX_NAME = "esrs-judgements"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("judgements")
 
 def search(
-        project_id: str,
+        workspace_id: str,
         scenario_id: str,
         index_pattern: str,
         query: Dict[str, Any] = {},
@@ -31,7 +31,7 @@ def search(
         "query": {
             "bool": {
                 "filter": [
-                    { "term": { "project_id": project_id }},
+                    { "term": { "workspace_id": workspace_id }},
                     { "term": { "scenario_id": scenario_id }}
                 ]
             }
@@ -191,7 +191,7 @@ def set(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     es_response = es("studio").update(
         index=INDEX_NAME,
         id=utils.unique_id([
-            doc["project_id"],
+            doc["workspace_id"],
             doc["scenario_id"],
             doc["index"],
             doc["doc_id"],

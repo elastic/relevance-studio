@@ -19,7 +19,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
 
   const history = getHistory()
   const { darkMode } = useAppContext()
-  const { project } = usePageResources()
+  const { workspace } = usePageResources()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -270,7 +270,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         isPrimary: true,
         name: 'Edit',
         onClick: (item) => {
-          history.push({ pathname: `/projects/${project._id}/strategies/${item.strategy_id}` })
+          history.push({ pathname: `/workspaces/${workspace._id}/strategies/${item.strategy_id}` })
         },
         type: 'icon'
       },

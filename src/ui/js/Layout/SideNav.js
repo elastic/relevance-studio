@@ -28,55 +28,55 @@ const SideNav = () => {
       return {}
     }
   }
-  const { project } = useSafePageResources()
+  const { workspace } = useSafePageResources()
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  const projectItems = () => {
-    if (!project)
+  const workspaceItems = () => {
+    if (!workspace)
       return []
     return [
       {
-        name: (<>{project.name}</>),
-        id: 'project',
-        href: `#/projects/${project._id}`,
+        name: (<>{workspace.name}</>),
+        id: 'workspace',
+        href: `#/workspaces/${workspace._id}`,
         forceOpen: true,
-        isSelected: path == '/projects/:project_id',
+        isSelected: path == '/workspaces/:workspace_id',
         items: [
           {
             name: 'Displays',
             id: 'displays',
             icon: <EuiIcon color='subdued' type='palette' size='m' />,
-            href: `#/projects/${project._id}/displays`,
-            isSelected: path.startsWith('/projects/:project_id/displays'),
+            href: `#/workspaces/${workspace._id}/displays`,
+            isSelected: path.startsWith('/workspaces/:workspace_id/displays'),
           },
           {
             name: 'Scenarios',
             id: 'scenarios',
             icon: <EuiIcon color='subdued' type='comment' size='m' />,
-            href: `#/projects/${project._id}/scenarios`,
-            isSelected: path.startsWith('/projects/:project_id/scenarios'),
+            href: `#/workspaces/${workspace._id}/scenarios`,
+            isSelected: path.startsWith('/workspaces/:workspace_id/scenarios'),
           },
           {
             name: 'Judgements',
             id: 'judgements',
             icon: <EuiText color='subdued' style={{ marginBottom: '-4px' }}><IconScale stroke={1.5} size={16} /></EuiText>,
-            href: `#/projects/${project._id}/judgements`,
-            isSelected: path.startsWith('/projects/:project_id/judgements'),
+            href: `#/workspaces/${workspace._id}/judgements`,
+            isSelected: path.startsWith('/workspaces/:workspace_id/judgements'),
           },
           {
             name: 'Strategies',
             id: 'strategies',
             icon: <EuiText color='subdued' style={{ marginBottom: '-4px' }}><IconCodeDots stroke={1.5} size={16} /></EuiText>,
-            href: `#/projects/${project._id}/strategies`,
-            isSelected: path.startsWith('/projects/:project_id/strategies'),
+            href: `#/workspaces/${workspace._id}/strategies`,
+            isSelected: path.startsWith('/workspaces/:workspace_id/strategies'),
           },
           {
             name: 'Benchmarks',
             id: 'benchmarks',
             icon: <EuiIcon color='subdued' type='stats' size='m' />,
-            href: `#/projects/${project._id}/benchmarks`,
-            isSelected: path.startsWith('/projects/:project_id/benchmarks'),
+            href: `#/workspaces/${workspace._id}/benchmarks`,
+            isSelected: path.startsWith('/workspaces/:workspace_id/benchmarks'),
           }
         ]
       }
@@ -91,11 +91,11 @@ const SideNav = () => {
       isSelected: path.hash == '#/',
       items: [
         {
-          name: 'Projects',
-          id: 'projects',
-          href: '#/projects',
-          isSelected: path == '/projects',
-          items: projectItems()
+          name: 'Workspaces',
+          id: 'workspaces',
+          href: '#/workspaces',
+          isSelected: path == '/workspaces',
+          items: workspaceItems()
         }
       ],
     },
@@ -127,7 +127,7 @@ const SideNav = () => {
             }}>
             <EuiText color='subdued' size='xs'>
               <p style={{ fontWeight: 400, fontSize: '11px', lineHeight: '14px' }}>
-                Elasticsearch Relevance Studio is a community project maintained by the Search AI Solutions Architects at Elastic. It's not covered by Elastic Support.
+                Elasticsearch Relevance Studio is a community workspace maintained by the Search AI Solutions Architects at Elastic. It's not covered by Elastic Support.
               </p>
             </EuiText>
           </EuiPanel>

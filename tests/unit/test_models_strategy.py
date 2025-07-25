@@ -16,7 +16,7 @@ def mock_input_create():
     Returns a mock input with all required and optional fields for creates.
     """
     input = {
-        "project_id": "58278355-f4f3-56d2-aa81-498250f27798",
+        "workspace_id": "58278355-f4f3-56d2-aa81-498250f27798",
         "name": "Classical - Name match",
         "tags": [
             "bm25",
@@ -39,9 +39,9 @@ def mock_input_update():
 
 def test_create_is_invalid_without_required_inputs():
     
-    # "project_id" is required in the input for creates
+    # "workspace_id" is required in the input for creates
     input = mock_input_create()
-    input.pop("project_id", None)
+    input.pop("workspace_id", None)
     with pytest.raises(ValidationError):
         StrategyCreate.model_validate(input, context=mock_context())
     
@@ -53,9 +53,9 @@ def test_create_is_invalid_without_required_inputs():
 
 def test_update_is_invalid_without_required_inputs():
     
-    # "project_id" is required in the input for updates
+    # "workspace_id" is required in the input for updates
     input = mock_input_create()
-    input.pop("project_id", None)
+    input.pop("workspace_id", None)
     with pytest.raises(ValidationError):
         StrategyUpdate.model_validate(input, context=mock_context())
 
@@ -143,16 +143,16 @@ def test_update_is_invalid_with_unexpected_inputs():
 ####  Test Validation of Input Values  #########################################
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
-def test_create_handles_invalid_inputs_for_project_id(value):
+def test_create_handles_invalid_inputs_for_workspace_id(value):
     input = mock_input_create()
-    input["project_id"] = value
+    input["workspace_id"] = value
     with pytest.raises(ValidationError):
         StrategyCreate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
-def test_update_handles_invalid_inputs_for_project_id(value):
+def test_update_handles_invalid_inputs_for_workspace_id(value):
     input = mock_input_update()
-    input["project_id"] = value
+    input["workspace_id"] = value
     with pytest.raises(ValidationError):
         StrategyUpdate(**input)
         
@@ -239,7 +239,7 @@ def test_create_serialization_has_all_given_inputs():
     serialized = model.serialize()
     
     # Test that inputs are in serialized output
-    assert serialized["project_id"] == mock_input_create()["project_id"]
+    assert serialized["workspace_id"] == mock_input_create()["workspace_id"]
     assert serialized["name"] == mock_input_create()["name"]
     assert serialized["tags"] == mock_input_create()["tags"]
     assert serialized["template"] == mock_input_create()["template"]
@@ -280,7 +280,7 @@ def test_update_serialization_has_all_given_inputs():
     serialized = model.serialize()
     
     # Test that inputs are in serialized output
-    assert serialized["project_id"] == mock_input_update()["project_id"]
+    assert serialized["workspace_id"] == mock_input_update()["workspace_id"]
     assert serialized["name"] == mock_input_update()["name"]
     assert serialized["tags"] == mock_input_update()["tags"]
     assert serialized["template"] == mock_input_update()["template"]

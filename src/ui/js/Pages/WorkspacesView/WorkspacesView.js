@@ -19,18 +19,18 @@ import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import { Page } from '../../Layout'
 import { getHistory } from '../../history'
 
-const ProjectsView = () => {
+const WorkspacesView = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const history = getHistory()
-  const { project } = usePageResources()
-  const isReady = useResources().hasResources(['project'])
+  const { workspace } = usePageResources()
+  const isReady = useResources().hasResources(['workspace'])
 
   const renderScenarios = () => (
     <>
       <EuiButton onClick={() => {
-        history.push(`/projects/${project._id}/scenarios`)
+        history.push(`/workspaces/${workspace._id}/scenarios`)
       }}>
         Manage scenarios
       </EuiButton>
@@ -40,7 +40,7 @@ const ProjectsView = () => {
   const renderJudgements = () => (
     <>
       <EuiButton onClick={() => {
-        history.push(`/projects/${project._id}/judgements`)
+        history.push(`/workspaces/${workspace._id}/judgements`)
       }}>
         Manage judgements
       </EuiButton>
@@ -50,7 +50,7 @@ const ProjectsView = () => {
   const renderStrategies = () => (
     <>
       <EuiButton onClick={() => {
-        history.push(`/projects/${project._id}/strategies`)
+        history.push(`/workspaces/${workspace._id}/strategies`)
       }}>
         Manage strategies
       </EuiButton>
@@ -60,7 +60,7 @@ const ProjectsView = () => {
   const renderBenchmarks = () => (
     <>
       <EuiButton onClick={() => {
-        history.push(`/projects/${project._id}/benchmarks`)
+        history.push(`/workspaces/${workspace._id}/benchmarks`)
       }}>
         Manage benchmarks
       </EuiButton>
@@ -122,7 +122,7 @@ const ProjectsView = () => {
               iconSize='s'
               iconType='doubleArrowRight'
               onClick={() => {
-                history.push(`/projects/${project._id}/${assetType}`)
+                history.push(`/workspaces/${workspace._id}/${assetType}`)
               }}
               size='xs'
             />
@@ -140,7 +140,7 @@ const ProjectsView = () => {
 
   const renderButtonDisplays = () => (
     <EuiButton iconType='palette' onClick={() => {
-        history.push(`/projects/${project._id}/displays`)
+        history.push(`/workspaces/${workspace._id}/displays`)
       }}>
       Manage displays
     </EuiButton>
@@ -149,11 +149,11 @@ const ProjectsView = () => {
   return (
     <Page panelled title={
       <EuiSkeletonTitle isLoading={!isReady} size='l'>
-        {!project?.name &&
+        {!workspace?.name &&
           <>Not found</>
         }
-        {!!project?.name &&
-          <>{project.name}</>
+        {!!workspace?.name &&
+          <>{workspace.name}</>
         }
       </EuiSkeletonTitle>
     } buttons={[ renderButtonDisplays() ]}>
@@ -175,4 +175,4 @@ const ProjectsView = () => {
   )
 }
 
-export default ProjectsView
+export default WorkspacesView

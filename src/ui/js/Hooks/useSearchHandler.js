@@ -5,7 +5,7 @@ import utils from '../utils'
 
 const useSearchHandler = ({
   searchFn,
-  projectId,
+  workspaceId,
   resourceId = null, // optional second arg like benchmark_id
   searchText = "",
   searchPage = 1,
@@ -44,12 +44,12 @@ const useSearchHandler = ({
           order: searchSortOrder,
         }
       }
-      if (!projectId)
+      if (!workspaceId)
         response = await searchFn(body)
       else if (!resourceId)
-        response = await searchFn(projectId, body)
+        response = await searchFn(workspaceId, body)
       else
-        response = await searchFn(projectId, resourceId, body)
+        response = await searchFn(workspaceId, resourceId, body)
       total = response?.data?.hits?.total?.value
       setDocs?.(utils.hitsToDocs(response))
       setAggs?.(utils.hitsToAggs(response))
@@ -63,7 +63,7 @@ const useSearchHandler = ({
     }
   }, [
     searchFn,
-    projectId,
+    workspaceId,
     resourceId,
     searchText,
     searchPage,

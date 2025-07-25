@@ -213,10 +213,10 @@ def run(
     try:
     
         # Parse and validate request
-        project_id = evaluation["project_id"]
+        workspace_id = evaluation["workspace_id"]
         
         # Select candidates for strategies and scenarios
-        candidates = benchmarks.make_candidate_pool(project_id, evaluation["task"])
+        candidates = benchmarks.make_candidate_pool(workspace_id, evaluation["task"])
         
         # If there are no strategies or scenarios that meet the criteria of the
         # benchmark task definition, mark the evaluation as "skipped" and exit.
@@ -257,10 +257,10 @@ def run(
         # strategies, scenarios, or judgements
         size = 10000
         
-        # Get the index pattern and rating scale of project
+        # Get the index pattern and rating scale of workspace
         es_response = es("studio").get(
-            index="esrs-projects",
-            id=project_id,
+            index="esrs-workspaces",
+            id=workspace_id,
             source_includes=["index_pattern","rating_scale"]
         )
         index_pattern = es_response.body["_source"]["index_pattern"]
@@ -313,7 +313,7 @@ def run(
                 "_fingerprint": utils.fingerprint([ template ])
             }
             for field, value in hit["_source"].items():
-                if field == "project_id":
+                if field == "workspace_id":
                     continue
                 runtime_strategy[field] = value
             evaluation["runtime"]["strategies"][hit["_id"]] = runtime_strategy
@@ -348,7 +348,7 @@ def run(
                 "_fingerprint": utils.fingerprint([ hit["_id"], hit["_source"]["rating"] ])
             }
             for field, value in hit["_source"].items():
-                if field == "project_id":
+                if field == "workspace_id":
                     continue
                 runtime_judgement[field] = value
             evaluation["runtime"]["judgements"][hit["_id"]] = runtime_judgement
@@ -381,7 +381,7 @@ def run(
                 "_fingerprint": utils.fingerprint([ hit["_source"]["values"] ])
             }
             for field, value in hit["_source"].items():
-                if field == "project_id":
+                if field == "workspace_id":
                     continue
                 runtime_scenario[field] = value
             evaluation["runtime"]["scenarios"][hit["_id"]] = runtime_scenario
@@ -601,7 +601,7 @@ def run(
         raise e
     
 def search(
-        project_id: str,
+        workspace_id: str,
         benchmark_id: str,
         text: str = "",
         filters: List[Dict[str, Any]] = [],
@@ -615,7 +615,7 @@ def search(
     """
     filters = [{ "term": { "benchmark_id": benchmark_id }}]
     response = utils.search_assets(
-        "evaluations", project_id, text, filters, sort, size, page
+        "evaluations", workspace_id, text, filters, sort, size, page
     )
     return response
 
@@ -631,18 +631,18 @@ def get(_id: str) -> Dict[str, Any]:
     return es_response
 
 def create(
-        project_id: str,
+        workspace_id: str,
         benchmark_id: str,
         task: Dict[str, Any],
         user: str = None,
     ) -> Dict[str, Any]:
     """
-    Create a pending evaluation for a given project_id and benchmark_id.
+    Create a pending evaluation for a given workspace_id and benchmark_id.
     """
     
     # Create, validate, and dump model
     doc = {
-        "project_id": project_id,
+        "workspace_id": workspace_id,
         "benchmark_id": benchmark_id,
         "task": task
     }

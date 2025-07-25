@@ -32,8 +32,8 @@ const FlyoutForm = ({
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const { project } = usePageResources()
-  const isReady = useResources().hasResources(['project'])
+  const { workspace } = usePageResources()
+  const isReady = useResources().hasResources(['workspace'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -49,12 +49,12 @@ const FlyoutForm = ({
 
   ////  Effects  ///////////////////////////////////////////////////////////////
 
-  // Initialize params from project
+  // Initialize params from workspace
   useEffect(() => {
     if (!isReady)
       return
     const _params = []
-    project.params.forEach((param) => _params.push({ name: param, value: '' }))
+    workspace.params.forEach((param) => _params.push({ name: param, value: '' }))
     setForm(prev => ({ ...prev, values: _params }))
   }, [isReady])
 
@@ -90,9 +90,9 @@ const FlyoutForm = ({
             .map(({ name, value }) => [name, String(value).trim()])
             .filter(([, trimmed]) => trimmed !== "")
         )
-        response = await api.scenarios_create(project._id, newDoc)
+        response = await api.scenarios_create(workspace._id, newDoc)
       } else if (action == 'update') {
-        response = await api.scenarios_update(project._id, doc._id, newDoc)
+        response = await api.scenarios_update(workspace._id, doc._id, newDoc)
       }
       if (response.status > 299)
         return addToast(utils.toastClientResponse(response))

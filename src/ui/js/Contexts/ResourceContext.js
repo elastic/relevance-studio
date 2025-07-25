@@ -9,22 +9,22 @@ const ResourceContext = createContext()
 const RESOURCE_LOADERS = {
 
   // Individual resources (by _id)
-  project: (params) => api.projects_get(params.project_id),
-  benchmark: (params) => api.benchmarks_get(params.project_id, params.benchmark_id),
-  evaluation: (params) => api.evaluations_get(params.project_id, params.benchmark_id, params.evaluation_id),
-  display: (params) => api.displays_get(params.project_id, params.display_id),
-  strategy: (params) => api.strategies_get(params.project_id, params.strategy_id),
-  scenario: (params) => api.scenarios_get(params.project_id, params.scenario_id),
+  workspace: (params) => api.workspaces_get(params.workspace_id),
+  benchmark: (params) => api.benchmarks_get(params.workspace_id, params.benchmark_id),
+  evaluation: (params) => api.evaluations_get(params.workspace_id, params.benchmark_id, params.evaluation_id),
+  display: (params) => api.displays_get(params.workspace_id, params.display_id),
+  strategy: (params) => api.strategies_get(params.workspace_id, params.strategy_id),
+  scenario: (params) => api.scenarios_get(params.workspace_id, params.scenario_id),
 
   // Collection resources (e.g. search results)
-  displays: (params) => api.displays_search(params.project_id, { text: '*' }),
+  displays: (params) => api.displays_search(params.workspace_id, { text: '*' }),
 }
 
 // Define how to extract resources from the responses
 const RESOURCE_DATA_EXTRACTORS = {
 
   // Individual resources (by _id)
-  project: (response) => ({ ...response.data._source, _id: response.data._id }),
+  workspace: (response) => ({ ...response.data._source, _id: response.data._id }),
   benchmark: (response) => ({ ...response.data._source, _id: response.data._id }),
   evaluation: (response) => ({ ...response.data._source, _id: response.data._id }),
   display: (response) => ({ ...response.data._source, _id: response.data._id }),
@@ -37,7 +37,7 @@ const RESOURCE_DATA_EXTRACTORS = {
 
 // Map param names to resource types
 const PARAM_TO_RESOURCE = {
-  project_id: 'project',
+  workspace_id: 'workspace',
   benchmark_id: 'benchmark',
   evaluation_id: 'evaluation',
   display_id: 'display',

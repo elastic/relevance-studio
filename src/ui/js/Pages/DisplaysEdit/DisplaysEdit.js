@@ -31,8 +31,8 @@ const DisplaysEdit = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
   
   const { addToast, darkMode } = useAppContext()
-  const { project, display } = usePageResources()
-  const isReady = useResources().hasResources(['project', 'display'])
+  const { workspace, display } = usePageResources()
+  const isReady = useResources().hasResources(['workspace', 'display'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -54,7 +54,7 @@ const DisplaysEdit = () => {
   ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
-   * Get indices when project is ready
+   * Get indices when workspace is ready
    */
   useEffect(() => {
     if (!isReady)
@@ -63,7 +63,7 @@ const DisplaysEdit = () => {
       let response
       try {
         setIsLoadingIndices(true)
-        response = await api.content_mappings_browse(project.index_pattern)
+        response = await api.content_mappings_browse(workspace.index_pattern)
       } catch (e) {
         return addToast(api.errorToast(e, { title: 'Failed to get indices' }))
       } finally {
@@ -158,7 +158,7 @@ const DisplaysEdit = () => {
     let response
     try {
       setIsProcessing(true)
-      response = await api.displays_update(project._id, display._id, doc)
+      response = await api.displays_update(workspace._id, display._id, doc)
     } catch (e) {
       return addToast(api.errorToast(e, { title: `Failed to update display` }))
     } finally {

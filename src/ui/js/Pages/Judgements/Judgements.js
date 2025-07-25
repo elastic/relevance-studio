@@ -38,9 +38,9 @@ const Judgements = () => {
   const location = useLocation()
   const history = getHistory()
   const { addToast, darkMode } = useAppContext()
-  const { project, displays } = usePageResources()
+  const { workspace, displays } = usePageResources()
   useAdditionalResources(['displays'])
-  const isReady = useResources().hasResources(['project', 'displays'])
+  const isReady = useResources().hasResources(['workspace', 'displays'])
 
   ////  Defaults  //////////////////////////////////////////////////////////////
 
@@ -256,7 +256,7 @@ const Judgements = () => {
   const onSearchScenarios = async (text) => {
     try {
       setIsLoadingScenarios(true)
-      const response = await api.scenarios_search(project._id, { text })
+      const response = await api.scenarios_search(workspace._id, { text })
       const urlParams = getUrlParams()
       const options = response.data.hits.hits.map((doc) => ({
         _id: doc._id,
@@ -281,7 +281,7 @@ const Judgements = () => {
 
       // Submit API request
       const body = {
-        index_pattern: project.index_pattern,
+        index_pattern: workspace.index_pattern,
         query_string: queryString,
       }
       if (filterSelected.value)
@@ -293,7 +293,7 @@ const Judgements = () => {
       let response
       try {
         setIsLoadingResults(true)
-        response = await api.judgements_search(project._id, scenario._id, body)
+        response = await api.judgements_search(workspace._id, scenario._id, body)
       } catch (e) {
         return addToast(api.errorToast(e, { title: 'Failed to search docs' }))
       } finally {
@@ -404,7 +404,7 @@ const Judgements = () => {
     <SearchResultsJudgements
       displays={displays}
       indexPatternMap={indexPatternMap}
-      project={project}
+      workspace={workspace}
       scenario={scenario}
       results={results}
       resultsPerRow={resultsPerRow}

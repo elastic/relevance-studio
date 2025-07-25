@@ -9,7 +9,7 @@ from ..models import StrategyCreate, StrategyUpdate
 INDEX_NAME = "esrs-strategies"
 
 def search(
-        project_id: str,
+        workspace_id: str,
         text: str = "",
         filters: List[Dict[str, Any]] = [],
         sort: Dict[str, Any] = {},
@@ -21,15 +21,15 @@ def search(
     Search for strategies.
     """
     response = utils.search_assets(
-        "strategies", project_id, text, filters, sort, size, page
+        "strategies", workspace_id, text, filters, sort, size, page
     )
     return response
 
-def tags(project_id: str) -> Dict[str, Any]:
+def tags(workspace_id: str) -> Dict[str, Any]:
     """
     List all strategy tags (up to 10,000).
     """
-    es_response = utils.search_tags("strategies", project_id)
+    es_response = utils.search_tags("strategies", workspace_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:

@@ -10,17 +10,17 @@ from .asset import AssetCreate, AssetUpdate
 class JudgementCreate(AssetCreate):
     
     # Required inputs
-    project_id: str
+    workspace_id: str
     scenario_id: str
     index: str
     doc_id: str
     rating: StrictInt = Field(ge=0)
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("scenario_id")

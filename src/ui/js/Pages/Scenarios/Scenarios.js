@@ -20,8 +20,8 @@ const Scenarios = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const history = getHistory()
-  const { project } = usePageResources()
-  const isReady = useResources().hasResources(['project'])
+  const { workspace } = usePageResources()
+  const isReady = useResources().hasResources(['workspace'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -62,14 +62,14 @@ const Scenarios = () => {
 
   /**
    * Automatically submit the search and return to page one either when the
-   * project is ready or when the user changes pagination settings.
+   * workspace is ready or when the user changes pagination settings.
    */
   useEffect(() => {
     if (!isReady)
       return
     onSubmitSearch()
     setSearchPage(1)
-  }, [project?._id, searchSize, searchSortField, searchSortOrder])
+  }, [workspace?._id, searchSize, searchSortField, searchSortOrder])
 
   /**
    * Automatically submit the search when the user selects a different page in
@@ -86,7 +86,7 @@ const Scenarios = () => {
    */
   const onSubmitSearch = useSearchHandler({
     searchFn: api.scenarios_search, // search scenarios
-    projectId: project?._id,
+    workspaceId: workspace?._id,
     searchText,
     searchPage,
     searchSize,
@@ -168,7 +168,7 @@ const Scenarios = () => {
         const count = searchAggs?.[doc._id]?.judgements ?? 0
         return (
           <EuiLink onClick={(e) => {
-            history.push(`/projects/${project._id}/judgements?scenario=${doc._id}&filter=rated`)
+            history.push(`/workspaces/${workspace._id}/judgements?scenario=${doc._id}&filter=rated`)
           }}>
             {count.toLocaleString()}
           </EuiLink>
@@ -211,7 +211,7 @@ const Scenarios = () => {
       docType='scenario'
       isProcessing={isProcessing}
       onClose={() => setModalDelete(null)}
-      onDelete={async () => await api.scenarios_delete(project._id, modalDelete._id)}
+      onDelete={async () => await api.scenarios_delete(workspace._id, modalDelete._id)}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
     />

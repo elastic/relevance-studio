@@ -4,10 +4,10 @@ from . import (
     displays,
     evaluations,
     judgements,
-    projects,
     scenarios,
     setup,
     strategies,
+    workspaces,
 )
 
 __all__ = [
@@ -16,8 +16,8 @@ __all__ = [
     "displays",
     "evaluations",
     "judgements",
-    "projects",
     "scenarios",
     "setup",
     "strategies",
+    "workspaces",
 ]

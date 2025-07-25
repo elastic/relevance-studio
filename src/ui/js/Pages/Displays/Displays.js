@@ -30,8 +30,8 @@ const Displays = () => {
 
   const history = getHistory()
   const { addToast } = useAppContext()
-  const { project } = usePageResources()
-  const isReady = useResources().hasResources(['project'])
+  const { workspace } = usePageResources()
+  const isReady = useResources().hasResources(['workspace'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -75,7 +75,7 @@ const Displays = () => {
 
   /**
    * Automatically submit the search and return to page one either when the
-   * project is ready or when the user changes pagination settings.
+   * workspace is ready or when the user changes pagination settings.
    */
   useEffect(() => {
     if (!isReady)
@@ -99,7 +99,7 @@ const Displays = () => {
    */
   const onSubmitSearch = useSearchHandler({
     searchFn: api.displays_search, // search displauy
-    projectId: project?._id,
+    workspaceId: workspace?._id,
     searchText,
     searchPage,
     searchSize,
@@ -120,11 +120,11 @@ const Displays = () => {
     try {
       setIsProcessing(true)
       if (action == 'create')
-        response = await api.displays_create(project._id, doc)
+        response = await api.displays_create(workspace._id, doc)
       else if (action == 'update')
-        response = await api.displays_update(project._id, _id, doc)
+        response = await api.displays_update(workspace._id, _id, doc)
       else if (action == 'delete')
-        response = await api.displays_delete(project._id, _id)
+        response = await api.displays_delete(workspace._id, _id)
     } catch (e) {
       return addToast(api.errorToast(e, { title: `Failed to ${action} display` }))
     } finally {
@@ -137,7 +137,7 @@ const Displays = () => {
     if (modalCreate) {
 
       // Redirect to display editor
-      history.push({ pathname: `/projects/${project._id}/displays/${response.data._id}` })
+      history.push({ pathname: `/workspaces/${workspace._id}/displays/${response.data._id}` })
       return setModalCreate(null)
     } else {
 
@@ -170,11 +170,11 @@ const Displays = () => {
 
   /**
    * Check if the index pattern of the display is within the scope of the
-   * index pattern of the project. Both can have commas, so those are split,
+   * index pattern of the workspace. Both can have commas, so those are split,
    * and if any of the input splits matches any of the target splits,
    * then consider the whole thing to be a match.
    */
-  const isIndexPatternInProjectScope = (inputPattern, targetPattern) => {
+  const isIndexPatternInWorkspaceScope = (inputPattern, targetPattern) => {
     const toParts = (pattern) => pattern.split(',').map(p => p.trim()).filter(Boolean)
     const toRegex = (glob) => new RegExp('^' + glob.replace(/[-[\]/{}()+?.\\^$|]/g, '\\$&').replace(/\*/g, '.*') + '$')
     const inputs = toParts(inputPattern)
@@ -187,7 +187,7 @@ const Displays = () => {
   }
 
   const indexPatternInput = (modalCreate?.index_pattern || modalUpdate?.index_pattern) || ''
-  const indexPatternInScope = project ? isIndexPatternInProjectScope(indexPatternInput, project.index_pattern) : false
+  const indexPatternInScope = workspace ? isIndexPatternInWorkspaceScope(indexPatternInput, workspace.index_pattern) : false
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
@@ -198,7 +198,7 @@ const Displays = () => {
       sortable: true,
       truncateText: true,
       render: (name, doc) => {
-        return <EuiLink href={`#/projects/${project._id}/displays/${doc._id}`}>
+        return <EuiLink href={`#/workspaces/${workspace._id}/displays/${doc._id}`}>
           {doc.index_pattern}
         </EuiLink>
       }
@@ -258,11 +258,11 @@ const Displays = () => {
         <EuiForm component='form' id='create-update'>
           <EuiFormRow label='Index Pattern' helpText={<>
             <p>
-              An <a href='https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-multiple-data-streams-indices' target='_blank'>index pattern</a> whose documents will render with this display.<br />It must be a subset of this project's index pattern.
+              An <a href='https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-multiple-data-streams-indices' target='_blank'>index pattern</a> whose documents will render with this display.<br />It must be a subset of this workspace's index pattern.
             </p>
             <br />
             <p>
-              Project index pattern: <b>{project?.index_pattern}</b>
+              Workspace index pattern: <b>{workspace?.index_pattern}</b>
             </p>
             <br />
             {indexPatternInput.trim() == '' &&
@@ -277,7 +277,7 @@ const Displays = () => {
                   type={indexPatternInScope ? 'check' : 'cross'}
                 />
                 <small>
-                  Your display's index pattern is {indexPatternInScope ? '' : 'not'} within the scope of the project.
+                  Your display's index pattern is {indexPatternInScope ? '' : 'not'} within the scope of the workspace.
                 </small>
               </p>
             }
@@ -324,7 +324,7 @@ const Displays = () => {
       docType='display'
       isProcessing={isProcessing}
       onClose={() => setModalDelete(null)}
-      onDelete={async () => await api.displays_delete(project._id, modalDelete._id)}
+      onDelete={async () => await api.displays_delete(workspace._id, modalDelete._id)}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
     />

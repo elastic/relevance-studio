@@ -19,8 +19,8 @@ const Benchmarks = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const history = getHistory()
-  const { project } = usePageResources()
-  const isReady = useResources().hasResources(['project'])
+  const { workspace } = usePageResources()
+  const isReady = useResources().hasResources(['workspace'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -61,7 +61,7 @@ const Benchmarks = () => {
 
   /**
    * Automatically submit the search and return to page one either when the
-   * project is ready or when the user changes pagination settings.
+   * workspace is ready or when the user changes pagination settings.
    */
   useEffect(() => {
     if (!isReady)
@@ -85,7 +85,7 @@ const Benchmarks = () => {
    */
   const onSubmitSearch = useSearchHandler({
     searchFn: api.benchmarks_search, // search benchmarks
-    projectId: project?._id,
+    workspaceId: workspace?._id,
     searchText,
     searchPage,
     searchSize,
@@ -109,7 +109,7 @@ const Benchmarks = () => {
       sortable: true,
       truncateText: true,
       render: (name, doc) => (
-        <EuiLink href={`#/projects/${project._id}/benchmarks/${doc._id}`}>
+        <EuiLink href={`#/workspaces/${workspace._id}/benchmarks/${doc._id}`}>
           {doc.name}
         </EuiLink>
       )
@@ -123,7 +123,7 @@ const Benchmarks = () => {
         return (
           <EuiLink onClick={(e) => {
             history.push({
-              pathname: `/projects/${project._id}/bencharms/${doc._id}/evaluations`,
+              pathname: `/workspaces/${workspace._id}/bencharms/${doc._id}/evaluations`,
             })
           }}>
             {count.toLocaleString()}
@@ -214,7 +214,7 @@ const Benchmarks = () => {
       docType='benchmark'
       isLoading={isProcessing}
       onClose={() => setModalDelete(null)}
-      onDelete={async () => await api.benchmarks_delete(project._id, modalDelete._id)}
+      onDelete={async () => await api.benchmarks_delete(workspace._id, modalDelete._id)}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
     />

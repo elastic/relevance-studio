@@ -6,11 +6,11 @@ import { EvaluationsView } from './EvaluationsView'
 import { Home } from './Home'
 import { Judgements } from './Judgements'
 import { NotFound } from './NotFound'
-import { Projects } from './Projects'
-import { ProjectsView } from './ProjectsView'
 import { Scenarios } from './Scenarios'
 import { Strategies } from './Strategies'
 import { StrategiesEdit } from './StrategiesEdit'
+import { Workspaces } from './Workspaces'
+import { WorkspacesView } from './WorkspacesView'
 
 const Pages = ({ children }) => <>{children}</>
 
@@ -22,10 +22,10 @@ Pages.EvaluationsView = EvaluationsView
 Pages.Home = Home
 Pages.Judgements = Judgements
 Pages.NotFound = NotFound
-Pages.Projects = Projects
-Pages.ProjectsView = ProjectsView
 Pages.Scenarios = Scenarios
 Pages.Strategies = Strategies
 Pages.StrategiesEdit = StrategiesEdit
+Pages.Workspaces = Workspaces
+Pages.WorkspacesView = WorkspacesView
 
 export { Pages }

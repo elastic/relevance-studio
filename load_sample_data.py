@@ -313,9 +313,9 @@ def make_index_name(dataset):
     """
     return f"{SAMPLE_DATA_INDEX_PREFIX}{dataset['id']}"
 
-def make_project_id(dataset):
+def make_workspace_id(dataset):
     """
-    Generate a project_id for a given sample dataset.
+    Generate a workspace_id for a given sample dataset.
     """
     return utils.unique_id(f"esrs-sample-data-{dataset['id']}")
 
@@ -326,9 +326,9 @@ def make_strategy_docs(dataset):
     return [
         {
             "_id": utils.unique_id([
-                make_project_id(dataset), "query-string-and"
+                make_workspace_id(dataset), "query-string-and"
             ]),
-            "project_id": make_project_id(dataset),
+            "workspace_id": make_workspace_id(dataset),
             "name": "Query String (AND)",
             "tags": [ "bm25" ],
             "template": {
@@ -349,9 +349,9 @@ def make_strategy_docs(dataset):
         },
         {
             "_id": utils.unique_id([
-                make_project_id(dataset), "query-string-or"
+                make_workspace_id(dataset), "query-string-or"
             ]),
-            "project_id": make_project_id(dataset),
+            "workspace_id": make_workspace_id(dataset),
             "name": "Query String (OR)",
             "tags": [ "bm25" ],
             "template": {
@@ -378,12 +378,12 @@ def make_judgement_doc(dataset, doc_id, scenario_id, rating):
     """
     return {
         "_id": utils.unique_id([
-            make_project_id(dataset),
+            make_workspace_id(dataset),
             scenario_id,
             make_index_name(dataset),
             doc_id
         ]),
-        "project_id": make_project_id(dataset),
+        "workspace_id": make_workspace_id(dataset),
         "scenario_id": scenario_id,
         "index": make_index_name(dataset),
         "doc_id": doc_id,
@@ -396,9 +396,9 @@ def make_scenario_doc(dataset, _id, name, text, tags=[]):
     """
     return {
         "_id": utils.unique_id([
-            make_project_id(dataset), { "text": text } 
+            make_workspace_id(dataset), { "text": text } 
         ]),
-        "project_id": make_project_id(dataset),
+        "workspace_id": make_workspace_id(dataset),
         "name": name,
         "values": { "text": text },
         "tags": tags or []
@@ -410,19 +410,19 @@ def make_display_doc(dataset):
     """
     return {
         "_id": utils.unique_id([
-            make_project_id(dataset), make_index_name(dataset)
+            make_workspace_id(dataset), make_index_name(dataset)
         ]),
-        "project_id": make_project_id(dataset),
+        "workspace_id": make_workspace_id(dataset),
         "index_pattern": make_index_name(dataset),
         "template": dataset.get("display", {}).get("template") or {}
     }
     
-def make_project_doc(dataset):
+def make_workspace_doc(dataset):
     """
-    Create a document that will be indexed in esrs-projects.
+    Create a document that will be indexed in esrs-workspaces.
     """
     return {
-        "_id": make_project_id(dataset),
+        "_id": make_workspace_id(dataset),
         "name": dataset["name"],
         "index_pattern": make_index_name(dataset),
         "params": dataset["params"],
@@ -431,7 +431,7 @@ def make_project_doc(dataset):
     }
 
 
-####  Load project assets  #####################################################
+####  Load workspace assets  #####################################################
 
 def load_evaluations(dataset):
     """
@@ -497,27 +497,27 @@ def load_displays(dataset):
         return doc_dict
     parallel_bulk_import("studio", filepath, "esrs-displays", transformer, chunk_size=CHUNK_SIZE_ASSETS)
     
-def load_project(dataset):
+def load_workspace(dataset):
     """
-    Load project into Elasticsearch for a given dataset.
+    Load workspace into Elasticsearch for a given dataset.
     """
-    logger.debug(f"Loading project for: {dataset['id']}")
-    #logger.debug(f"Deleting old project if it exist for: {make_index_name(dataset)}")
-    #api.projects.delete(make_project_id(dataset))
-    filepath = os.path.join(staging_directory(dataset), "projects.jsonl")
+    logger.debug(f"Loading workspace for: {dataset['id']}")
+    #logger.debug(f"Deleting old workspace if it exist for: {make_index_name(dataset)}")
+    #api.workspaces.delete(make_workspace_id(dataset))
+    filepath = os.path.join(staging_directory(dataset), "workspaces.jsonl")
     def transformer(doc):
         doc.pop("_id", None)
-        doc_dict = ProjectCreate.model_validate(doc).serialize()
-        doc_dict = utils.copy_fields_to_search("projects", doc_dict)
+        doc_dict = WorkspaceCreate.model_validate(doc).serialize()
+        doc_dict = utils.copy_fields_to_search("workspaces", doc_dict)
         return doc_dict
-    parallel_bulk_import("studio", filepath, "esrs-projects", transformer, chunk_size=CHUNK_SIZE_ASSETS)
+    parallel_bulk_import("studio", filepath, "esrs-workspaces", transformer, chunk_size=CHUNK_SIZE_ASSETS)
 
 def load_dataset_assets(dataset):
     """
-    Load all project assets into Elasticsearch for a given dataset.
+    Load all workspace assets into Elasticsearch for a given dataset.
     """
-    logger.info(f"Loading project assets for: {dataset['id']}")
-    load_project(dataset)
+    logger.info(f"Loading workspace assets for: {dataset['id']}")
+    load_workspace(dataset)
     load_displays(dataset)
     load_scenarios(dataset)
     load_judgements(dataset)
@@ -527,13 +527,13 @@ def load_dataset_assets(dataset):
     
 def load_datasets_assets(datasets):
     """
-    Load all project assets into Elasticsearch for all given datasets.
+    Load all workspace assets into Elasticsearch for all given datasets.
     """
     for dataset in datasets:
         load_dataset_assets(dataset)
         
         
-####  Stage project assets  ####################################################
+####  Stage workspace assets  ####################################################
 
 def stage_evaluations(dataset):
     """
@@ -583,7 +583,7 @@ def stage_judgements(dataset):
                 continue
             data = json.loads(line)
             scenario_ids[data["_id"]] = utils.unique_id([
-                make_project_id(dataset), { "text": data["text"] } 
+                make_workspace_id(dataset), { "text": data["text"] } 
             ])
             
     logger.debug(f"Staging judgements for: {dataset['id']}")
@@ -641,32 +641,32 @@ def stage_displays(dataset):
         asset = make_display_doc(dataset)
         print(json.dumps(asset), file=output)
 
-def stage_project(dataset):
+def stage_workspace(dataset):
     """
-    Create a "project" asset for a given dataset.
+    Create a "workspace" asset for a given dataset.
     Save it to the staging directory.
     """
-    logger.debug(f"Staging project for: {dataset['id']}")
-    filepath_output = os.path.join(staging_directory(dataset), "projects.jsonl")
+    logger.debug(f"Staging workspace for: {dataset['id']}")
+    filepath_output = os.path.join(staging_directory(dataset), "workspaces.jsonl")
     with open(filepath_output, "w") as output:
-        asset = make_project_doc(dataset)
+        asset = make_workspace_doc(dataset)
         print(json.dumps(asset), file=output)
 
 def stage_dataset_assets(dataset):
     """
     Transform and stage a given dataset from its original format to
-    project assets for Elasticsearch Relevance Studio. Save each set of assets
+    workspace assets for Elasticsearch Relevance Studio. Save each set of assets
     to its respective sample data directory.
     """
-    logger.info(f"Staging project assets for dataset: {dataset['id']}")
+    logger.info(f"Staging workspace assets for dataset: {dataset['id']}")
     try:
-        logger.debug(f"Wiping any existing project assets in: {staging_directory(dataset)}")
+        logger.debug(f"Wiping any existing workspace assets in: {staging_directory(dataset)}")
         shutil.rmtree(staging_directory(dataset))
     except FileNotFoundError:
         pass
-    logger.debug(f"Staging new project assets in: {staging_directory(dataset)}")
+    logger.debug(f"Staging new workspace assets in: {staging_directory(dataset)}")
     os.mkdir(staging_directory(dataset))
-    stage_project(dataset)
+    stage_workspace(dataset)
     stage_displays(dataset)
     stage_scenarios(dataset)
     stage_judgements(dataset)
@@ -677,7 +677,7 @@ def stage_dataset_assets(dataset):
 def stage_datasets_assets(datasets):
     """
     Transform and stage all given datasets from their original format to
-    project assets for Elasticsearch Relevance Studio. Save each set of assets
+    workspace assets for Elasticsearch Relevance Studio. Save each set of assets
     to its respective sample data directory.
     """
     for dataset in datasets:
@@ -804,8 +804,8 @@ def handle_run(run_download, run_load, run_stage, run_import, run_all, datasets,
 @cli.command()
 @click.option("-d", "--download", "run_download", is_flag=True, help="Download datasets from their sources")
 @click.option("-l", "--load", "run_load", is_flag=True, help="Load datasets into Elasticsearch")
-@click.option("-s", "--stage", "run_stage", is_flag=True, help="Stage project assets for datasets")
-@click.option("-i", "--import", "run_import", is_flag=True, help="Import staged project assets into Elasticsearch")
+@click.option("-s", "--stage", "run_stage", is_flag=True, help="Stage workspace assets for datasets")
+@click.option("-i", "--import", "run_import", is_flag=True, help="Import staged workspace assets into Elasticsearch")
 @click.option("-a", "--all", "run_all", is_flag=True, help="Run all steps (default)")
 @click.option("-v", "--vectors", is_flag=True, help="Include ELSER and E5 vectorization")
 @click.option("--datasets", "-D", multiple=False, help="Datasets to run (comma separated). Defaults to all.")

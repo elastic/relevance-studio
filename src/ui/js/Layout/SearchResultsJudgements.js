@@ -8,7 +8,7 @@ import {
 
 const SearchResultsJudgements = ({
   indexPatternMap,
-  project,
+  workspace,
   scenario,
   results,
   resultsPerRow,
@@ -39,7 +39,7 @@ const SearchResultsJudgements = ({
         key={`${result.doc._index}~${result.doc._id}`}
         _id={result._id}
         doc={result.doc}
-        project={project}
+        workspace={workspace}
         scenario={scenario}
         rating={result.rating}
         createdBy={result['@meta']?.created_by}

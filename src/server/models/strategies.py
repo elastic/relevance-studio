@@ -25,18 +25,18 @@ class TemplateUpdate(BaseModel):
 class StrategyCreate(AssetCreate):
     
     # Required inputs
-    project_id: str
+    workspace_id: str
     name: str
     
     # Optional inputs
     tags: List[str] = Field(default_factory=list)
     template: TemplateCreate = Field(default_factory=TemplateCreate)
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("name")
@@ -61,18 +61,18 @@ class StrategyCreate(AssetCreate):
 class StrategyUpdate(AssetUpdate):
     
     # Required inputs
-    project_id: str
+    workspace_id: str
     
     # Optional inputs
     name: str = Field(default=None)
     tags: Optional[List[str]] = None
     template: Optional[TemplateUpdate] = None
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("name")

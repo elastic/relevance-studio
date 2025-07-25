@@ -33,9 +33,9 @@ const StrategiesEdit = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
-  const { project, strategy, displays } = usePageResources()
+  const { workspace, strategy, displays } = usePageResources()
   useAdditionalResources(['displays'])
-  const isReady = useResources().hasResources(['project', 'strategy', 'displays'])
+  const isReady = useResources().hasResources(['workspace', 'strategy', 'displays'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -122,7 +122,7 @@ const StrategiesEdit = () => {
     let response
     try {
       setIsProcessing(true)
-      response = await api.strategies_update(project._id, strategy._id, doc)
+      response = await api.strategies_update(workspace._id, strategy._id, doc)
     } catch (e) {
       return addToast(api.errorToast(e, { title: 'Failed to update strategy' }))
     } finally {
@@ -179,14 +179,14 @@ const StrategiesEdit = () => {
 
   // Fetch scenarios immediately when opening the dropdown
   useEffect(() => {
-    if (!project?._id || !isScenariosOpen)
+    if (!workspace?._id || !isScenariosOpen)
       return
     onSearchScenarios(`*${scenarioSearchString}*`)
-  }, [project?._id, isScenariosOpen])
+  }, [workspace?._id, isScenariosOpen])
 
   // Fetch scenarios with debounce when typing
   useEffect(() => {
-    if (!project?._id || !isScenariosOpen)
+    if (!workspace?._id || !isScenariosOpen)
       return
     const debounced = debounce(() => {
       onSearchScenarios(`*${scenarioSearchString}*`)
@@ -196,7 +196,7 @@ const StrategiesEdit = () => {
   }, [scenarioSearchString])
 
   useEffect(() => {
-    if (!project?._id || !scenarioOptions)
+    if (!workspace?._id || !scenarioOptions)
       return
     for (const i in scenarioOptions) {
       if (scenarioOptions[i].checked) {
@@ -236,7 +236,7 @@ const StrategiesEdit = () => {
   const onSearchScenarios = async (text) => {
     try {
       setIsLoadingScenarios(true)
-      const response = await api.scenarios_search(project._id, { text })
+      const response = await api.scenarios_search(workspace._id, { text })
       const options = response.data.hits.hits.map((doc) => ({
         _id: doc._id,
         label: doc._source.name,
@@ -300,7 +300,7 @@ const StrategiesEdit = () => {
 
       // Prepare request body for search
       const body = {
-        index_pattern: project.index_pattern,
+        index_pattern: workspace.index_pattern,
         query: strategyPopulated
       }
       if (sourceFilters)
@@ -316,7 +316,7 @@ const StrategiesEdit = () => {
             "started_at": null,
             "stopped_at": null
           },
-          "project_id": project._id,
+          "workspace_id": workspace._id,
           "task": {
             "metrics": ["ndcg", "precision", "recall"],
             "k": 10,
@@ -348,9 +348,9 @@ const StrategiesEdit = () => {
       try {
         setIsLoadingResults(true)
         const promises = [
-          api.judgements_search(project._id, scenario._id, body),
+          api.judgements_search(workspace._id, scenario._id, body),
           isRankEvalEnabled
-            ? api.evaluations_run(project._id, evaluation)
+            ? api.evaluations_run(workspace._id, evaluation)
             : Promise.resolve(null),
         ]
         const [response_search, response_rank_eval] = await Promise.all(promises)
@@ -411,7 +411,7 @@ const StrategiesEdit = () => {
     {results.length > 0 &&
       <SearchResultsJudgements
         indexPatternMap={indexPatternMap}
-        project={project}
+        workspace={workspace}
         scenario={scenario}
         results={results}
         resultsPerRow={2}

@@ -188,7 +188,7 @@ class TaskUpdate(BaseModel):
 class BenchmarkCreate(AssetCreate):
 
     # Required inputs
-    project_id: str
+    workspace_id: str
     name: str
 
     # Optional inputs
@@ -196,11 +196,11 @@ class BenchmarkCreate(AssetCreate):
     description: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("name")
@@ -229,7 +229,7 @@ class BenchmarkCreate(AssetCreate):
 class BenchmarkUpdate(AssetUpdate):
 
     # Required inputs
-    project_id: str
+    workspace_id: str
 
     # Optional inputs
     name: str = None
@@ -237,11 +237,11 @@ class BenchmarkUpdate(AssetUpdate):
     tags: Optional[List[str]] = None
     task: Optional[TaskUpdate] = None
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("name")

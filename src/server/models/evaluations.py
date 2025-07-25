@@ -167,7 +167,7 @@ class Evaluation(BaseModel):
 class EvaluationCreate(Evaluation):
     
     # Required fields
-    project_id: str
+    workspace_id: str
     benchmark_id: str
     task: TaskCreate
     
@@ -195,11 +195,11 @@ class EvaluationCreate(Evaluation):
             raise ValueError("created_by is required")
         return self
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("benchmark_id")
@@ -222,7 +222,7 @@ class EvaluationCreate(Evaluation):
 class EvaluationStop(Evaluation):
     
     # Required fields
-    project_id: Optional[str] = None
+    workspace_id: Optional[str] = None
     benchmark_id: Optional[str] = None
     task: Optional[TaskCreate] = None
     scenario_id: Optional[List[str]] = None

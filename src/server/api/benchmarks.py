@@ -10,7 +10,7 @@ INDEX_NAME = "esrs-benchmarks"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmarks")
 
 def search(
-        project_id: str,
+        workspace_id: str,
         text: str = "",
         filters: List[Dict[str, Any]] = [],
         sort: Dict[str, Any] = {},
@@ -22,16 +22,16 @@ def search(
     Search for benchmarks.
     """
     response = utils.search_assets(
-        "benchmarks", project_id, text, filters, sort, size, page,
+        "benchmarks", workspace_id, text, filters, sort, size, page,
         counts=[ "evaluations" ] if aggs else []
     )
     return response
 
-def tags(project_id: str) -> Dict[str, Any]:
+def tags(workspace_id: str) -> Dict[str, Any]:
     """
     List all benchmark tags (up to 10,000).
     """
-    es_response = utils.search_tags("benchmarks", project_id)
+    es_response = utils.search_tags("benchmarks", workspace_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
@@ -129,7 +129,7 @@ def delete(_id: str) -> Dict[str, Any]:
 ####  Candidate Selection  #####################################################
 
 def fetch_strategies(
-        project_id: str,
+        workspace_id: str,
         strategy_ids: List[str] = None,
         strategy_tags: List[str] = None,
         strategy_ids_excluded: List = None,
@@ -144,7 +144,7 @@ def fetch_strategies(
         "query": {
             "bool": {
                 "filter": [
-                    { "term": { "project_id": project_id }},
+                    { "term": { "workspace_id": workspace_id }},
                     {
                         "script": {
                             "script": {
@@ -188,7 +188,7 @@ def fetch_strategies(
     return strategies
 
 def fetch_scenarios(
-        project_id: str,
+        workspace_id: str,
         scenario_ids: List[str] = None,
         scenario_tags: List[str] = None,
         sample_size: int = 1000,
@@ -206,7 +206,7 @@ def fetch_scenarios(
                 "query": {
                     "bool": {
                         "filter": [
-                            { "term": { "project_id": project_id }},
+                            { "term": { "workspace_id": workspace_id }},
                             {
                                 "script": {
                                     "script": {
@@ -289,7 +289,7 @@ def fetch_scenarios(
     return scenarios
 
 def make_candidate_pool(
-        project_id: str,
+        workspace_id: str,
         task: Dict[str, Any]
     ) -> Dict[str, Any]:
     """
@@ -341,7 +341,7 @@ def make_candidate_pool(
     # Fetch strategies
     if not strategies_docs:
         strategies_fetched = fetch_strategies(
-            project_id,
+            workspace_id,
             strategy_ids,
             strategy_tags,
             list(strategies), # exclude any strategies that were given as docs
@@ -350,7 +350,7 @@ def make_candidate_pool(
     
     # Fetch scenarios (randomly sampled if needed)
     scenarios = fetch_scenarios(
-        project_id,
+        workspace_id,
         scenario_ids,
         scenario_tags,
         scenario_sample_size,

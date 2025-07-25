@@ -37,7 +37,7 @@
             }
           }
         },
-        "project_id": {
+        "workspace_id": {
           "type": "keyword"
         },
         "benchmark_id": {

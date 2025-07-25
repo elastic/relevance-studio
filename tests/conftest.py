@@ -16,7 +16,7 @@ DOCKER_COMPOSE_FILE = os.path.join("tests", "docker-compose.yml")
 ES_URL = "http://localhost:9200"
 ESRS_URL = "http://localhost:4096"
 ESRS_INDICES = [
-    "esrs-projects",
+    "esrs-workspaces",
     "esrs-displays",
     "esrs-scenarios",
     "esrs-judgements",

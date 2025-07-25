@@ -3,7 +3,7 @@ import pytest
 from pydantic import ValidationError
 
 # App packages
-from server.models.projects import ProjectCreate, ProjectUpdate
+from server.models.workspaces import WorkspaceCreate, WorkspaceUpdate
 from tests.utils import (
     assert_valid_meta_for_create,
     assert_valid_meta_for_update,
@@ -48,29 +48,29 @@ def test_create_is_invalid_without_required_inputs():
     input = mock_input_create()
     input.pop("name", None)
     with pytest.raises(ValidationError):
-        ProjectCreate.model_validate(input, context=mock_context())
+        WorkspaceCreate.model_validate(input, context=mock_context())
     
     # "index_pattern" is required in the input for creates
     input = mock_input_create()
     input.pop("index_pattern", None)
     with pytest.raises(ValidationError):
-        ProjectCreate.model_validate(input, context=mock_context())
+        WorkspaceCreate.model_validate(input, context=mock_context())
     
     # "params" is required in the input for creates
     input = mock_input_create()
     input.pop("params", None)
     with pytest.raises(ValidationError):
-        ProjectCreate.model_validate(input, context=mock_context())
+        WorkspaceCreate.model_validate(input, context=mock_context())
     
     # "rating_scale" is required in the input for creates
     input = mock_input_create()
     input.pop("rating_scale", None)
     with pytest.raises(ValidationError):
-        ProjectCreate.model_validate(input, context=mock_context())
+        WorkspaceCreate.model_validate(input, context=mock_context())
 
 def test_update_is_invalid_without_required_inputs():
     
-    # project updates have no required inputs
+    # workspace updates have no required inputs
     pass
 
 def test_create_is_invalid_with_forbidden_inputs():
@@ -79,7 +79,7 @@ def test_create_is_invalid_with_forbidden_inputs():
     input = mock_input_create()
     input["@meta"] = {"created_at": "invalid", "created_by": "should-fail"}
     with pytest.raises(ValidationError):
-        ProjectCreate.model_validate(input, context=mock_context())
+        WorkspaceCreate.model_validate(input, context=mock_context())
 
 def test_update_is_invalid_with_forbidden_inputs():
     
@@ -87,58 +87,58 @@ def test_update_is_invalid_with_forbidden_inputs():
     input = mock_input_update()
     input["@meta"] = {"updated_at": "invalid", "updated_by": "should-fail"}
     with pytest.raises(ValidationError):
-        ProjectUpdate.model_validate(input, context=mock_context())
+        WorkspaceUpdate.model_validate(input, context=mock_context())
     
     # "rating_scale" is forbidden in the input for updates
     input = mock_input_update()
     input["rating_scale"] = mock_input_create()["rating_scale"]
     with pytest.raises(ValidationError):
-        ProjectUpdate.model_validate(input, context=mock_context())
+        WorkspaceUpdate.model_validate(input, context=mock_context())
 
 def test_create_is_valid_without_optional_inputs():
     
     # "tags" is optional in the input for creates
     input = mock_input_create()
     input.pop("tags", None)
-    model = ProjectCreate.model_validate(input, context=mock_context())
+    model = WorkspaceCreate.model_validate(input, context=mock_context())
 
 def test_update_is_valid_without_optional_inputs():
     
     # "name" is optional in the input for updates
     input = mock_input_update()
     input.pop("name", None)
-    model = ProjectUpdate.model_validate(input, context=mock_context())
+    model = WorkspaceUpdate.model_validate(input, context=mock_context())
     assert model.name is None
     
     # "index_pattern" is optional in the input for updates
     input = mock_input_update()
     input.pop("index_pattern", None)
-    model = ProjectUpdate.model_validate(input, context=mock_context())
+    model = WorkspaceUpdate.model_validate(input, context=mock_context())
     assert model.index_pattern is None
     
     # "params" is optional in the input for updates
     input = mock_input_update()
     input.pop("params", None)
-    model = ProjectUpdate.model_validate(input, context=mock_context())
+    model = WorkspaceUpdate.model_validate(input, context=mock_context())
     assert model.params is None
     
     # "tags" is optional in the input for updates
     input = mock_input_update()
     input.pop("tags", None)
-    model = ProjectUpdate.model_validate(input, context=mock_context())
+    model = WorkspaceUpdate.model_validate(input, context=mock_context())
     assert model.tags is None
     
 def test_create_is_invalid_with_unexpected_inputs():
     input = mock_input_create()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
-        ProjectCreate.model_validate(input, context=mock_context())
+        WorkspaceCreate.model_validate(input, context=mock_context())
         
 def test_update_is_invalid_with_unexpected_inputs():
     input = mock_input_update()
     input["foo"] = "bar"
     with pytest.raises(ValidationError):
-        ProjectUpdate.model_validate(input, context=mock_context())
+        WorkspaceUpdate.model_validate(input, context=mock_context())
     
 ####  Test Validation of Input Values  #########################################
         
@@ -147,91 +147,91 @@ def test_create_handles_invalid_inputs_for_name(value):
     input = mock_input_create()
     input["name"] = value
     with pytest.raises(ValidationError):
-        ProjectCreate(**input)
+        WorkspaceCreate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_name(value):
     input = mock_input_update()
     input["name"] = value
     with pytest.raises(ValidationError):
-        ProjectUpdate(**input)
+        WorkspaceUpdate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_create_handles_invalid_inputs_for_index_pattern(value):
     input = mock_input_create()
     input["index_pattern"] = value
     with pytest.raises(ValidationError):
-        ProjectCreate(**input)
+        WorkspaceCreate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_index_pattern(value):
     input = mock_input_update()
     input["index_pattern"] = value
     with pytest.raises(ValidationError):
-        ProjectUpdate(**input)
+        WorkspaceUpdate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_strings"))
 def test_create_handles_invalid_inputs_for_params(value):
     input = mock_input_create()
     input["params"] = value
     with pytest.raises(ValidationError):
-        ProjectCreate(**input)
+        WorkspaceCreate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("string"))
 def test_update_handles_invalid_inputs_for_params(value):
     input = mock_input_create()
     input["params"] = value
     with pytest.raises(ValidationError):
-        ProjectUpdate(**input)
+        WorkspaceUpdate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("int_ge_0"))
 def test_create_handles_invalid_inputs_for_rating_scale_min(value):
     input = mock_input_create()
     input["rating_scale"]["min"] = value
     with pytest.raises(ValidationError):
-        ProjectCreate(**input)
+        WorkspaceCreate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("int_ge_1"))
 def test_create_handles_invalid_inputs_for_rating_scale_max(value):
     input = mock_input_create()
     input["rating_scale"]["max"] = value
     with pytest.raises(ValidationError):
-        ProjectCreate(**input)
+        WorkspaceCreate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_create_handles_invalid_inputs_for_tags(value):
     input = mock_input_create()
     input["tags"] = value
     with pytest.raises(ValidationError):
-        ProjectCreate(**input)
+        WorkspaceCreate(**input)
         
 @pytest.mark.parametrize("value", [[],["test"]])
 def test_create_handles_valid_inputs_for_tags(value):
     input = mock_input_create()
     input["tags"] = value
-    ProjectCreate(**input)
+    WorkspaceCreate(**input)
         
 @pytest.mark.parametrize("value", invalid_values_for("list_of_strings", allow_empty=True))
 def test_update_handles_invalid_inputs_for_tags(value):
     input = mock_input_update()
     input["tags"] = value
     with pytest.raises(ValidationError):
-        ProjectUpdate(**input)
+        WorkspaceUpdate(**input)
         
 @pytest.mark.parametrize("value", [[],["test"]])
 def test_update_handles_valid_inputs_for_tags(value):
     input = mock_input_update()
     input["tags"] = value
-    ProjectUpdate(**input)
+    WorkspaceUpdate(**input)
     
 ####  Test Creation of Computed Fields  ########################################
 
 def test_create_computes_meta():
-    model = ProjectCreate.model_validate(mock_input_create(), context=mock_context())
+    model = WorkspaceCreate.model_validate(mock_input_create(), context=mock_context())
     assert_valid_meta_for_create(model.meta, mock_context()["user"])
 
 def test_update_computes_meta():
-    model = ProjectUpdate.model_validate(mock_input_update(), context=mock_context())
+    model = WorkspaceUpdate.model_validate(mock_input_update(), context=mock_context())
     assert_valid_meta_for_update(model.meta, mock_context()["user"])
     
 ####  Test Serialization  ######################################################
@@ -240,7 +240,7 @@ def test_create_serialization_has_all_given_inputs():
     
     # Use mock input with required and optional fields
     input = mock_input_create()
-    model = ProjectCreate.model_validate(input, context=mock_context())
+    model = WorkspaceCreate.model_validate(input, context=mock_context())
     serialized = model.serialize()
     
     # Test that inputs are in serialized output
@@ -261,7 +261,7 @@ def test_create_serialization_initializes_omitted_optional_inputs():
     input = mock_input_create()
     input.pop("tags", None)
     
-    model = ProjectCreate.model_validate(input, context=mock_context())
+    model = WorkspaceCreate.model_validate(input, context=mock_context())
     serialized = model.serialize()
     
     # Test that inputs are in serialized output
@@ -271,7 +271,7 @@ def test_update_serialization_has_all_given_inputs():
     
     # Use mock input with required and optional fields
     input = mock_input_update()
-    model = ProjectUpdate.model_validate(input, context=mock_context())
+    model = WorkspaceUpdate.model_validate(input, context=mock_context())
     serialized = model.serialize()
     
     # Test that inputs are in serialized output
@@ -292,7 +292,7 @@ def test_update_serialization_omits_omitted_optional_inputs():
     input.pop("index_pattern", None)
     input.pop("params", None)
     input.pop("tags", None)
-    model = ProjectUpdate.model_validate(input, context=mock_context())
+    model = WorkspaceUpdate.model_validate(input, context=mock_context())
     serialized = model.serialize()
     
     # Test that omitted optional inputs are not in serialized output

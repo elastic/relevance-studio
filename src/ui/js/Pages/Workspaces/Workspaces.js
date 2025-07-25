@@ -13,7 +13,7 @@ import FlyoutForm from './FlyoutForm'
 import { getHistory } from '../../history'
 import api from '../../api'
 
-const Projects = () => {
+const Workspaces = () => {
 
   const history = getHistory()
 
@@ -56,7 +56,7 @@ const Projects = () => {
 
   /**
    * Automatically submit the search and return to page one either when the
-   * project is ready or when the user changes pagination settings.
+   * workspace is ready or when the user changes pagination settings.
    */
   useEffect(() => {
     onSubmitSearch()
@@ -75,13 +75,13 @@ const Projects = () => {
    * Search handler
    */
   const onSubmitSearch = useSearchHandler({
-    searchFn: api.projects_search, // search projects
+    searchFn: api.workspaces_search, // search workspaces
     searchText,
     searchPage,
     searchSize,
     searchSortField,
     searchSortOrder,
-    useAggs: true, // projects have aggs
+    useAggs: true, // workspaces have aggs
     setDocs: setSearchDocs,
     setAggs: setSearchAggs,
     setTotal: setSearchTotal,
@@ -99,7 +99,7 @@ const Projects = () => {
       sortable: true,
       truncateText: true,
       render: (name, doc) => (
-        <EuiLink href={`#/projects/${doc._id}`}>
+        <EuiLink href={`#/workspaces/${doc._id}`}>
           <EuiButton fill iconSize='s' iconType='folderOpen' size='s'>
             <small>{doc.name}</small>
           </EuiButton>
@@ -111,7 +111,7 @@ const Projects = () => {
       name: 'Scenarios',
       sortable: true,
       render: (name, doc) => (
-        <EuiLink href={`#/projects/${doc._id}/scenarios`}>
+        <EuiLink href={`#/workspaces/${doc._id}/scenarios`}>
           {searchAggs[doc._id]?.scenarios.toLocaleString() || 0}
         </EuiLink>
       ),
@@ -121,7 +121,7 @@ const Projects = () => {
       name: 'Judgements',
       sortable: true,
       render: (name, doc) => (
-        <EuiLink href={`#/projects/${doc._id}/judgements`}>
+        <EuiLink href={`#/workspaces/${doc._id}/judgements`}>
           {searchAggs[doc._id]?.judgements.toLocaleString() || 0}
         </EuiLink>
       ),
@@ -131,7 +131,7 @@ const Projects = () => {
       name: 'Strategies',
       sortable: true,
       render: (name, doc) => (
-        <EuiLink href={`#/projects/${doc._id}/strategies`}>
+        <EuiLink href={`#/workspaces/${doc._id}/strategies`}>
           {searchAggs[doc._id]?.strategies.toLocaleString() || 0}
         </EuiLink>
       ),
@@ -141,7 +141,7 @@ const Projects = () => {
       name: 'Benchmarks',
       sortable: true,
       render: (name, doc) => (
-        <EuiLink href={`#/projects/${doc._id}/benchmarks`}>
+        <EuiLink href={`#/workspaces/${doc._id}/benchmarks`}>
           {searchAggs[doc._id]?.benchmarks.toLocaleString() || 0}
         </EuiLink>
       ),
@@ -193,13 +193,13 @@ const Projects = () => {
           isPrimary: true,
           name: 'Displays',
           onClick: (doc) => {
-            history.push({ pathname: `/projects/${doc._id}/displays` })
+            history.push({ pathname: `/workspaces/${doc._id}/displays` })
           },
           type: 'icon'
         },
         {
           color: 'text',
-          description: 'Update this project',
+          description: 'Update this workspace',
           icon: 'documentEdit',
           isPrimary: true,
           name: 'Update',
@@ -208,7 +208,7 @@ const Projects = () => {
         },
         {
           color: 'danger',
-          description: 'Delete this project',
+          description: 'Delete this workspace',
           icon: 'trash',
           name: 'Delete',
           onClick: (doc) => setModalDelete(doc),
@@ -229,8 +229,8 @@ const Projects = () => {
       onClose={() => setFlyout(null)}
       onSuccess={(_id) => {
         if (flyout === true) {
-          // Redirect to project on create
-          history.push({ pathname: `/projects/${_id}` })
+          // Redirect to workspace on create
+          history.push({ pathname: `/workspaces/${_id}` })
         } else {
           // Refresh table on update
           onSubmitSearch()
@@ -245,7 +245,7 @@ const Projects = () => {
       description={
         !!Object.keys((searchAggs[modalDelete._id]) || {}).length &&
         <EuiText>
-          <p>This will delete all assets related to this project:</p>
+          <p>This will delete all assets related to this workspace:</p>
           <ul>
             {!!searchAggs[modalDelete._id]?.displays &&
               <li>{searchAggs[modalDelete._id]?.displays || 0} display{searchAggs[modalDelete._id]?.displays == 1 ? '' : 's'}</li>
@@ -266,11 +266,11 @@ const Projects = () => {
         </EuiText>
       }
       doc={modalDelete}
-      docType='project'
+      docType='workspace'
       isLoading={isProcessing}
       onClose={() => setModalDelete(null)}
-      //onError={(e) => addToast(api.errorToast(e, { title: `Failed to delete project` }))}
-      onDelete={async () => await api.projects_delete(modalDelete._id)}
+      //onError={(e) => addToast(api.errorToast(e, { title: `Failed to delete workspace` }))}
+      onDelete={async () => await api.workspaces_delete(modalDelete._id)}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
     />
@@ -278,12 +278,12 @@ const Projects = () => {
 
   const renderButtonCreate = () => (
     <EuiButton fill iconType='plusInCircle' onClick={() => setFlyout(true)}>
-      Create a new project
+      Create a new workspace
     </EuiButton>
   )
 
   return (
-    <Page title='Projects' buttons={[renderButtonCreate()]}>
+    <Page title='Workspaces' buttons={[renderButtonCreate()]}>
       {modalDelete && renderModalDelete()}
       {flyout && renderFlyout()}
       {hasEverSearched &&
@@ -294,14 +294,14 @@ const Projects = () => {
               title='Welcome!'
             >
               <EuiText>
-                Create your first project to get started.
+                Create your first workspace to get started.
               </EuiText>
               <EuiSpacer size='m' />
               <EuiButton
                 fill
                 iconType='plusInCircle'
                 onClick={() => setFlyout(true)}>
-                Create a new project
+                Create a new workspace
               </EuiButton>
             </EuiCallOut>
           }
@@ -335,4 +335,4 @@ const Projects = () => {
   )
 }
 
-export default Projects
+export default Workspaces

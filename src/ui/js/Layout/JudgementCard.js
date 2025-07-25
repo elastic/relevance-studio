@@ -22,7 +22,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const { project } = usePageResources()
+  const { workspace } = usePageResources()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -52,7 +52,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
       let response
       try {
         setLoadingRating(true)
-        response = await api.judgements_set(project._id, scenario._id, newDoc)
+        response = await api.judgements_set(workspace._id, scenario._id, newDoc)
       } catch (e) {
         setRating(lastCommittedRating.current)
         return addToast(api.errorToast(e, { title: 'Failed to set rating' }))
@@ -77,7 +77,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
       let response
       try {
         setLoadingRating(true)
-        response = await api.judgements_unset(project._id, judgementId)
+        response = await api.judgements_unset(workspace._id, judgementId)
       } catch (e) {
         setRating(lastCommittedRating.current)
         return addToast(api.errorToast(e, { title: 'Failed to unset rating' }))
@@ -99,10 +99,10 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  const colorBands = euiPaletteForStatus(project.rating_scale.max - project.rating_scale.min + 1).reverse()
+  const colorBands = euiPaletteForStatus(workspace.rating_scale.max - workspace.rating_scale.min + 1).reverse()
 
   const ticks = []
-  for (var i = project.rating_scale.min; i <= project.rating_scale.max; i++) {
+  for (var i = workspace.rating_scale.min; i <= workspace.rating_scale.max; i++) {
     ticks.push({
       label: <EuiText color='subdued' size='xs'><small>{i}</small></EuiText>,
       value: i
@@ -188,13 +188,13 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                       compressed
                       disabled={loadingRating}
                       fullWidth
-                      min={project.rating_scale.min}
-                      max={project.rating_scale.max}
+                      min={workspace.rating_scale.min}
+                      max={workspace.rating_scale.max}
                       levels={rating >= 0 ? [
                         {
                           color: colorBands[rating],
-                          min: project.rating_scale.min,
-                          max: project.rating_scale.max
+                          min: workspace.rating_scale.min,
+                          max: workspace.rating_scale.max
                         }
                       ] : [
                         {

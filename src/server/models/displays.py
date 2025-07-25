@@ -28,17 +28,17 @@ def extract_fields_from_template(template: Dict[str, Any]) -> List[str]:
 class DisplayCreate(AssetCreate):
     
     # Required inputs
-    project_id: str
+    workspace_id: str
     index_pattern: str
     
     # Optional inputs
     template: Dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("index_pattern")
@@ -56,17 +56,17 @@ class DisplayCreate(AssetCreate):
 class DisplayUpdate(AssetUpdate):
     
     # Required inputs
-    project_id: str
+    workspace_id: str
     
     # Optional inputs
     index_pattern: str = Field(default=None)
     template: Optional[Dict[str, Any]] = None
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("index_pattern")

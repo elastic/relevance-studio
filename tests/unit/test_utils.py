@@ -12,7 +12,7 @@ import re
 import uuid
 
 # App packages
-from .test_models_project import mock_input_create
+from .test_models_workspace import mock_input_create
 from server import utils
 
 RE_ISO_8601_TIMESTAMP = re.compile(
@@ -131,13 +131,13 @@ class TestUtils:
         assert actual == expected
     
     def test_get_search_fields_from_mapping(self):
-        actual = utils.get_search_fields_from_mapping("projects")
+        actual = utils.get_search_fields_from_mapping("workspaces")
         expected = sorted([ "name", "index_pattern", "params", "tags" ])
         assert actual == expected
     
     def test_copy_fields_to_search(self):
         given = mock_input_create()
-        actual = utils.copy_fields_to_search("projects", given)
+        actual = utils.copy_fields_to_search("workspaces", given)
         expected = mock_input_create()
         expected["_search"] = {
             "name": expected["name"],

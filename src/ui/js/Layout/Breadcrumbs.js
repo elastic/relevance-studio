@@ -92,7 +92,7 @@ const Breadcrumbs = () => {
 
         // Dynamically get friendly name from any resource type
         if (paramName.endsWith('_id')) {
-          const resourceType = paramName.replace('_id', '') // project_id -> project
+          const resourceType = paramName.replace('_id', '') // workspace_id -> workspace
           const resource = memoizedResources[resourceType]
 
           if (resource) {

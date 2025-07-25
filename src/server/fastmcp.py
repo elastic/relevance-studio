@@ -40,7 +40,7 @@ judgements, building strategies, and benchmarking their performance.
 
 ## Studio deployment data assets
 
-- **projects** - A namespace for all assets whose project_id matches the project _id.
+- **workspaces** - A namespace for all assets whose workspace_id matches the workspace _id.
 - **displays** - A markdown template to render documents from specific indices in the **UI**.
 - **scenarios** - A search input (e.g. "brown oxfords")
 - **judgements** - A rating for a given document from a given index for a given scenario.
@@ -52,21 +52,21 @@ judgements, building strategies, and benchmarking their performance.
 
 Here is the typical workflow of the application:
 
-1. Select a project to work in.
+1. Select a workspace to work in.
     - Take note of "_id", "name", "index_pattern", "rating_scale", and "params".
 2. Use displays to control the retrieval and display of documents from indices in the content deployment.
     - "index_pattern" is the Elasticsearch index pattern that the display. When multiple displays have overlapping "index_pattern" values, the more specific matching pattern should be used.
     - "fields" lists the fields that should be in the _source.includes of all searches to that index pattern.
     - "template.image.url" is an image for the document. It might contain mustache variables, which should be replaced by their respective values from "fields".
 3. Define a diverse set of scenarios that are representative of the use case.
-4. Curate judgements for each scenario using the project rating scale.
+4. Curate judgements for each scenario using the workspace rating scale.
     - "rating_scale_max" represents superb relevance.
     - "rating_scale.min" represents complete irrelevance.
     - "index" in judgements is the index of the doc being rated.
     - "doc_id" in judgements is the _id of the doc being rated.
 5. Build strategies that attempt to maximize search relevance.
     - Strategies are the bodies of Elasticsearch Search API, which is a "query" or "retriever".
-    - Strategies must implement at least one of the params from the project in the form of a Mustache variables. Example: "{{ text }}"
+    - Strategies must implement at least one of the params from the workspace in the form of a Mustache variables. Example: "{{ text }}"
 6. Define benchmarks.
 7. Run evaluations for a benchmark.
     - A worker process will execute these asynchronously. It may take seconds or minutes to complete.
@@ -90,23 +90,23 @@ You must adhere to the following requirements and best practices:
 
 ## Requirements
 
-### 1. Always scope operations on studio assets by project_id
+### 1. Always scope operations on studio assets by workspace_id
 
-All operations on **studio deployment data assets** must be scoped to a project.
+All operations on **studio deployment data assets** must be scoped to a workspace.
 If I ask you to perform a search, create, update, set, unset, or delete on
 displays, scenarios, judgements, strategies, benchmarks or evaluations, pass the
-project_id that you're currently working on as an argument to that function.
+workspace_id that you're currently working on as an argument to that function.
 
-If you aren't working on a project or you forgot which one it was, ask me for
-clarification on which project you should be using. If I give you an _id
-(which is a UUID), then use that as the project_id. If I give you a name or a
-description instead, then search for the project that best matches it and use
+If you aren't working on a workspace or you forgot which one it was, ask me for
+clarification on which workspace you should be using. If I give you an _id
+(which is a UUID), then use that as the workspace_id. If I give you a name or a
+description instead, then search for the workspace that best matches it and use
 that _id. If there are no good matches, let me know, and don't perform the
 operation.
 
 ### 2. Always fetch displays before searching or judging documents from the content deployment
 
-Fetch all displays for the project before searching or judging documents from
+Fetch all displays for the workspace before searching or judging documents from
 the content deployment. Use the display whose index_pattern best matches the
 index of the documents that you will be searching or judging. If there is a
 matching display, use the values of its "fields" as the values of
@@ -137,10 +137,10 @@ Look them up if needed.
 mcp = FastMCP(name="Relevance Studio", instructions=instructions)
     
 
-####  API: Projects  ###########################################################
+####  API: Workspaces  #########################################################
 
-@mcp.tool(description=api.projects.search.__doc__)
-def projects_search(
+@mcp.tool(description=api.workspaces.search.__doc__)
+def workspaces_search(
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
@@ -148,34 +148,34 @@ def projects_search(
         page: Optional[int] = 1,
         aggs: Optional[bool] = False,
     ) -> Dict[str, Any]:
-    return dict(api.projects.search(text, filters, sort, size, page, aggs))
+    return dict(api.workspaces.search(text, filters, sort, size, page, aggs))
 
-@mcp.tool(description=api.projects.get.__doc__)
-def projects_get(_id: str) -> Dict[str, Any]:
-    return dict(api.projects.get(_id))
+@mcp.tool(description=api.workspaces.get.__doc__)
+def workspaces_get(_id: str) -> Dict[str, Any]:
+    return dict(api.workspaces.get(_id))
 
-@mcp.tool(description=api.projects.create.__doc__ + f"""\n
-JSON schema for doc:\n\n{ProjectCreate.model_input_json_schema()}
+@mcp.tool(description=api.workspaces.create.__doc__ + f"""\n
+JSON schema for doc:\n\n{WorkspaceCreate.model_input_json_schema()}
 """)
-def projects_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
-    return dict(api.projects.create(doc, _id, user="ai"))
+def workspaces_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+    return dict(api.workspaces.create(doc, _id, user="ai"))
 
-@mcp.tool(description=api.projects.update.__doc__ + f"""\n
+@mcp.tool(description=api.workspaces.update.__doc__ + f"""\n
 JSON schema for doc_partial:\n\n{DisplayCreate.model_input_json_schema()}
 """)
-def projects_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.projects.update(_id, doc_partial, user="ai"))
+def workspaces_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+    return dict(api.workspaces.update(_id, doc_partial, user="ai"))
 
-@mcp.tool(description=api.projects.delete.__doc__)
-def projects_delete(_id: str) -> Dict[str, Any]:
-    return dict(api.projects.delete(_id))
+@mcp.tool(description=api.workspaces.delete.__doc__)
+def workspaces_delete(_id: str) -> Dict[str, Any]:
+    return dict(api.workspaces.delete(_id))
 
 
 ####  API: Displays  ###########################################################
 
 @mcp.tool(description=api.displays.search.__doc__)
 def displays_search(
-        project_id: str = "",
+        workspace_id: str = "",
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
@@ -183,7 +183,7 @@ def displays_search(
         page: Optional[int] = 1,
         aggs: Optional[bool] = False,
     ) -> Dict[str, Any]:
-    return dict(api.displays.search(project_id, text, filters, sort, size, page, aggs))
+    return dict(api.displays.search(workspace_id, text, filters, sort, size, page, aggs))
 
 @mcp.tool(description=api.displays.get.__doc__)
 def displays_get(_id: str) -> Dict[str, Any]:
@@ -206,11 +206,11 @@ def displays_delete(_id: str) -> Dict[str, Any]:
     return dict(api.displays.delete(_id))
 
 
-####  API: Scenarios  ###########################################################
+####  API: Scenarios  ##########################################################
 
 @mcp.tool(description=api.scenarios.search.__doc__)
 def scenarios_search(
-        project_id: str,
+        workspace_id: str,
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
@@ -218,11 +218,11 @@ def scenarios_search(
         page: Optional[int] = 1,
         aggs: Optional[bool] = False,
     ) -> Dict[str, Any]:
-    return dict(api.scenarios.search(project_id, text, filters, sort, size, page, aggs))
+    return dict(api.scenarios.search(workspace_id, text, filters, sort, size, page, aggs))
 
 @mcp.tool(description=api.scenarios.tags.__doc__)
-def scenarios_tags(project_id: str) -> Dict[str, Any]:
-    return dict(api.scenarios.tags(project_id))
+def scenarios_tags(workspace_id: str) -> Dict[str, Any]:
+    return dict(api.scenarios.tags(workspace_id))
 
 @mcp.tool(description=api.scenarios.get.__doc__)
 def scenarios_get(_id: str) -> Dict[str, Any]:
@@ -249,7 +249,7 @@ def scenarios_delete(_id: str) -> Dict[str, Any]:
 
 @mcp.tool(description=api.judgements.search.__doc__)
 def judgements_search(
-        project_id: str,
+        workspace_id: str,
         scenario_id: str,
         index_pattern: str,
         query: Dict[str, Any] = {},
@@ -258,7 +258,7 @@ def judgements_search(
         sort: str = None,
         _source: Dict[str, Any] = None
     ) -> Dict[str, Any]:
-    return dict(api.judgements.search(project_id, scenario_id, index_pattern, query, query_string, filter, sort, _source))
+    return dict(api.judgements.search(workspace_id, scenario_id, index_pattern, query, query_string, filter, sort, _source))
 
 @mcp.tool(description=api.judgements.set.__doc__ + f"""\n
 JSON schema for doc:\n\n{JudgementCreate.model_input_json_schema()}
@@ -271,11 +271,11 @@ def judgements_unset(_id: str) -> Dict[str, Any]:
     return dict(api.judgements.unset(_id))
 
 
-####  API: Strategies  ###########################################################
+####  API: Strategies  #########################################################
 
 @mcp.tool(description=api.strategies.search.__doc__)
 def strategies_search(
-        project_id: str = "",
+        workspace_id: str = "",
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
@@ -283,11 +283,11 @@ def strategies_search(
         page: Optional[int] = 1,
         aggs: Optional[bool] = False,
     ) -> Dict[str, Any]:
-    return dict(api.strategies.search(project_id, text, filters, sort, size, page, aggs))
+    return dict(api.strategies.search(workspace_id, text, filters, sort, size, page, aggs))
 
 @mcp.tool(description=api.strategies.tags.__doc__)
-def strategies_tags(project_id: str) -> Dict[str, Any]:
-    return dict(api.strategies.tags(project_id))
+def strategies_tags(workspace_id: str) -> Dict[str, Any]:
+    return dict(api.strategies.tags(workspace_id))
 
 @mcp.tool(description=api.strategies.get.__doc__)
 def strategies_get(_id: str) -> Dict[str, Any]:
@@ -314,7 +314,7 @@ def strategies_delete(_id: str) -> Dict[str, Any]:
 
 @mcp.tool(description=api.benchmarks.search.__doc__)
 def benchmarks_search(
-        project_id: str = "",
+        workspace_id: str = "",
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
@@ -322,15 +322,15 @@ def benchmarks_search(
         page: Optional[int] = 1,
         aggs: Optional[bool] = False,
     ) -> Dict[str, Any]:
-    return dict(api.benchmarks.search(project_id, text, filters, sort, size, page, aggs))
+    return dict(api.benchmarks.search(workspace_id, text, filters, sort, size, page, aggs))
 
 @mcp.tool(description=api.benchmarks.tags.__doc__)
-def benchmarks_tags(project_id: str) -> Dict[str, Any]:
-    return dict(api.benchmarks.tags(project_id))
+def benchmarks_tags(workspace_id: str) -> Dict[str, Any]:
+    return dict(api.benchmarks.tags(workspace_id))
 
 @mcp.tool(description=api.benchmarks.make_candidate_pool.__doc__)
-def benchmarks_make_candidate_pool(project_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.benchmarks.make_candidate_pool(project_id, task))
+def benchmarks_make_candidate_pool(workspace_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
+    return dict(api.benchmarks.make_candidate_pool(workspace_id, task))
 
 @mcp.tool(description=api.benchmarks.get.__doc__)
 def benchmarks_get(_id: str) -> Dict[str, Any]:
@@ -357,7 +357,7 @@ def benchmarks_delete(_id: str) -> Dict[str, Any]:
 
 @mcp.tool(description=api.evaluations.search.__doc__)
 def evaluations_search(
-        project_id: str = "",
+        workspace_id: str = "",
         benchmark_id: str = "",
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
@@ -366,7 +366,7 @@ def evaluations_search(
         page: Optional[int] = 1,
         aggs: Optional[bool] = False,
     ) -> Dict[str, Any]:
-    return dict(api.evaluations.search(project_id, benchmark_id, text, filters, sort, size, page, aggs))
+    return dict(api.evaluations.search(workspace_id, benchmark_id, text, filters, sort, size, page, aggs))
 
 @mcp.tool(description=api.evaluations.get.__doc__)
 def evaluations_get(_id: str) -> Dict[str, Any]:
@@ -375,8 +375,8 @@ def evaluations_get(_id: str) -> Dict[str, Any]:
 @mcp.tool(description=api.evaluations.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{EvaluationCreate.model_input_json_schema()}
 """)
-def evaluations_create(project_id: str, benchmark_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.evaluations.create(project_id, benchmark_id, task, user="ai"))
+def evaluations_create(workspace_id: str, benchmark_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
+    return dict(api.evaluations.create(workspace_id, benchmark_id, task, user="ai"))
 
 @mcp.tool(description=api.evaluations.run.__doc__)
 def evaluations_run(evaluation: Dict[str, Any], store_results: Optional[bool] = False) -> Dict[str, Any]:

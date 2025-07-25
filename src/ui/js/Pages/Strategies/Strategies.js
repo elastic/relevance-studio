@@ -30,8 +30,8 @@ const Strategies = () => {
 
   const history = getHistory()
   const { addToast } = useAppContext()
-  const { project } = usePageResources()
-  const isReady = useResources().hasResources(['project'])
+  const { workspace } = usePageResources()
+  const isReady = useResources().hasResources(['workspace'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -76,7 +76,7 @@ const Strategies = () => {
 
   /**
    * Automatically submit the search and return to page one either when the
-   * project is ready or when the user changes pagination settings.
+   * workspace is ready or when the user changes pagination settings.
    */
   useEffect(() => {
     if (!isReady)
@@ -100,7 +100,7 @@ const Strategies = () => {
    */
   const onSubmitSearch = useSearchHandler({
     searchFn: api.strategies_search, // search strategies
-    projectId: project?._id,
+    workspaceId: workspace?._id,
     searchText,
     searchPage,
     searchSize,
@@ -121,11 +121,11 @@ const Strategies = () => {
     try {
       setIsProcessing(true)
       if (action == 'create')
-        response = await api.strategies_create(project._id, doc)
+        response = await api.strategies_create(workspace._id, doc)
       else if (action == 'update')
-        response = await api.strategies_update(project._id, _id, doc)
+        response = await api.strategies_update(workspace._id, _id, doc)
       else if (action == 'delete')
-        response = await api.strategies_delete(project._id, _id)
+        response = await api.strategies_delete(workspace._id, _id)
     } catch (e) {
       return addToast(api.errorToast(e, { title: `Failed to ${action} strategy` }))
     } finally {
@@ -138,7 +138,7 @@ const Strategies = () => {
     if (modalCreate) {
 
       // Redirect to strategy editor
-      history.push({ pathname: `/projects/${project._id}/strategies/${response.data._id}` })
+      history.push({ pathname: `/workspaces/${workspace._id}/strategies/${response.data._id}` })
       return setModalCreate(null)
     } else {
 
@@ -179,7 +179,7 @@ const Strategies = () => {
       sortable: true,
       truncateText: true,
       render: (name, doc) => (
-        <EuiLink href={`#/projects/${project._id}/strategies/${doc._id}`}>
+        <EuiLink href={`#/workspaces/${workspace._id}/strategies/${doc._id}`}>
           {doc.name}
         </EuiLink>
       )
@@ -316,7 +316,7 @@ const Strategies = () => {
       docType='strategy'
       isProcessing={isProcessing}
       onClose={() => setModalDelete(null)}
-      onDelete={async () => await api.strategies_delete(project._id, modalDelete._id)}
+      onDelete={async () => await api.strategies_delete(workspace._id, modalDelete._id)}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
     />

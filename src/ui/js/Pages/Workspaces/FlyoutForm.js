@@ -95,21 +95,21 @@ const FlyoutForm = ({
     try {
       setIsProcessing(true)
       if (action == 'create') {
-        response = await api.projects_create(newDoc)
+        response = await api.workspaces_create(newDoc)
       } else {
         // Remove fields forbidden in updates
         const docPartial = { ...newDoc }
         delete docPartial.rating_scale
-        response = await api.projects_update(doc._id, docPartial)
+        response = await api.workspaces_update(doc._id, docPartial)
       }
     } catch (e) {
-      return addToast(api.errorToast(e, { title: `Failed to ${action} project` }))
+      return addToast(api.errorToast(e, { title: `Failed to ${action} workspace` }))
     } finally {
       setIsProcessing(false)
     }
     if (response.status > 299)
       return addToast(utils.toastClientResponse(response))
-    addToast(utils.toastDocCreateUpdateDelete(action, 'project', response.data._id, newDoc))
+    addToast(utils.toastDocCreateUpdateDelete(action, 'workspace', response.data._id, newDoc))
     if (onSuccess)
       onSuccess(response.data?._id || newDoc._id)
     if (onClose)
@@ -140,9 +140,9 @@ const FlyoutForm = ({
     return (
       <EuiInlineEditTitle
         heading='h2'
-        inputAriaLabel='Project name'
+        inputAriaLabel='Workspace name'
         isInvalid={formBlurs.name && isInvalidName()}
-        placeholder='Set project name'
+        placeholder='Set workspace name'
         onBlur={(e) => setFormBlurs(prev => ({ ...prev, name: true }))}
         onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
         value={form.name}

@@ -82,228 +82,228 @@ api_route = make_api_route(app)
 
 ####  API: Validations  ########################################################
 
-def validate_project_id_match(body, project_id_from_url):
+def validate_workspace_id_match(body, workspace_id_from_url):
     """
-    When updating documents, if a project_id is given in the request body,
-    it must match the project_id from the URL.
+    When updating documents, if a workspace_id is given in the request body,
+    it must match the workspace_id from the URL.
     """
-    if "project_id" in body and body["project_id"] != project_id_from_url:
-        raise BadRequest("The project_id in the URL must match project_id in request body if given.")
+    if "workspace_id" in body and body["workspace_id"] != workspace_id_from_url:
+        raise BadRequest("The workspace_id in the URL must match workspace_id in request body if given.")
     
 
-####  API: Projects  ###########################################################
+####  API: Workspaces  #########################################################
 
-@api_route("/api/projects/_search", methods=["POST"])
-def projects_search():
+@api_route("/api/workspaces/_search", methods=["POST"])
+def workspaces_search():
     body = request.get_json() or {}
-    return api.projects.search(**body)
+    return api.workspaces.search(**body)
 
-@api_route("/api/projects/<string:_id>", methods=["GET"])
-def projects_get(_id):
-    return api.projects.get(_id)
+@api_route("/api/workspaces/<string:_id>", methods=["GET"])
+def workspaces_get(_id):
+    return api.workspaces.get(_id)
 
-@api_route("/api/projects", methods=["POST"])
-def projects_create():
+@api_route("/api/workspaces", methods=["POST"])
+def workspaces_create():
     doc = request.get_json()
     _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.projects.create(doc, _id)
+    return api.workspaces.create(doc, _id)
 
-@api_route("/api/projects/<string:_id>", methods=["PUT"])
-def projects_update(_id):
+@api_route("/api/workspaces/<string:_id>", methods=["PUT"])
+def workspaces_update(_id):
     doc_partial = request.get_json()
-    return api.projects.update(_id, doc_partial)
+    return api.workspaces.update(_id, doc_partial)
 
-@api_route("/api/projects/<string:_id>", methods=["DELETE"])
-def projects_delete(_id):
-    return api.projects.delete(_id)
+@api_route("/api/workspaces/<string:_id>", methods=["DELETE"])
+def workspaces_delete(_id):
+    return api.workspaces.delete(_id)
 
 
 ####  API: Displays  ###########################################################
 
-@api_route("/api/projects/<string:project_id>/displays/_search", methods=["POST"])
-def displays_search(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/displays/_search", methods=["POST"])
+def displays_search(workspace_id):
     body = request.get_json() or {}
-    return api.displays.search(project_id, **body)
+    return api.displays.search(workspace_id, **body)
 
-@api_route("/api/projects/<string:project_id>/displays/<string:_id>", methods=["GET"])
-def displays_get(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/displays/<string:_id>", methods=["GET"])
+def displays_get(workspace_id, _id):
     return api.displays.get(_id)
 
-@api_route("/api/projects/<string:project_id>/displays", methods=["POST"])
-def displays_create(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/displays", methods=["POST"])
+def displays_create(workspace_id):
     doc = request.get_json()
-    validate_project_id_match(doc, project_id)
-    doc["project_id"] = project_id # ensure project_id from path is in doc
+    validate_workspace_id_match(doc, workspace_id)
+    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     _id = doc.pop("_id", None) # accept an optional _id if given
     return api.displays.create(doc, _id)
 
-@api_route("/api/projects/<string:project_id>/displays/<string:_id>", methods=["PUT"])
-def displays_update(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/displays/<string:_id>", methods=["PUT"])
+def displays_update(workspace_id, _id):
     doc_partial = request.get_json()
-    validate_project_id_match(doc_partial, project_id)
-    doc_partial["project_id"] = project_id # ensure project_id from path is in doc_partial
+    validate_workspace_id_match(doc_partial, workspace_id)
+    doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
     return api.displays.update(_id, doc_partial)
 
-@api_route("/api/projects/<string:project_id>/displays/<string:_id>", methods=["DELETE"])
-def displays_delete(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/displays/<string:_id>", methods=["DELETE"])
+def displays_delete(workspace_id, _id):
     return api.displays.delete(_id)
 
 
-####  API: Scenarios  ###########################################################
+####  API: Scenarios  ##########################################################
 
-@api_route("/api/projects/<string:project_id>/scenarios/_search", methods=["POST"])
-def scenarios_search(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/scenarios/_search", methods=["POST"])
+def scenarios_search(workspace_id):
     body = request.get_json() or {}
-    return api.scenarios.search(project_id, **body)
+    return api.scenarios.search(workspace_id, **body)
 
-@api_route("/api/projects/<string:project_id>/scenarios/_tags", methods=["GET"])
-def scenarios_tags(project_id):
-    return api.scenarios.tags(project_id)
+@api_route("/api/workspaces/<string:workspace_id>/scenarios/_tags", methods=["GET"])
+def scenarios_tags(workspace_id):
+    return api.scenarios.tags(workspace_id)
 
-@api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["GET"])
-def scenarios_get(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/scenarios/<string:_id>", methods=["GET"])
+def scenarios_get(workspace_id, _id):
     return api.scenarios.get(_id)
 
-@api_route("/api/projects/<string:project_id>/scenarios", methods=["POST"])
-def scenarios_create(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/scenarios", methods=["POST"])
+def scenarios_create(workspace_id):
     doc = request.get_json()
-    validate_project_id_match(doc, project_id)
-    doc["project_id"] = project_id # ensure project_id from path is in doc
+    validate_workspace_id_match(doc, workspace_id)
+    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     return api.scenarios.create(doc)
 
-@api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["PUT"])
-def scenarios_update(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/scenarios/<string:_id>", methods=["PUT"])
+def scenarios_update(workspace_id, _id):
     doc_partial = request.get_json()
-    validate_project_id_match(doc_partial, project_id)
-    doc_partial["project_id"] = project_id # ensure project_id from path is in doc_partial
+    validate_workspace_id_match(doc_partial, workspace_id)
+    doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
     return api.scenarios.update(_id, doc_partial)
 
-@api_route("/api/projects/<string:project_id>/scenarios/<string:_id>", methods=["DELETE"])
-def scenarios_delete(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/scenarios/<string:_id>", methods=["DELETE"])
+def scenarios_delete(workspace_id, _id):
     return api.scenarios.delete(_id)
 
 
 ####  API: Judgements  #########################################################
 
-@api_route("/api/projects/<string:project_id>/judgements/_search", methods=["POST"])
-def judgements_search(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/judgements/_search", methods=["POST"])
+def judgements_search(workspace_id):
     body = request.get_json()
-    body["project_id"] = project_id # ensure project_id from path is in doc
+    body["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     return api.judgements.search(**body)
 
-@api_route("/api/projects/<string:project_id>/judgements", methods=["PUT"])
-def judgements_set(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/judgements", methods=["PUT"])
+def judgements_set(workspace_id):
     doc = request.get_json()
-    validate_project_id_match(doc, project_id)
-    doc["project_id"] = project_id # ensure project_id from path is in doc
+    validate_workspace_id_match(doc, workspace_id)
+    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     doc.pop("_id", None) # _id is always generated from body
     return api.judgements.set(doc)
 
-@api_route("/api/projects/<string:project_id>/judgements/<string:_id>", methods=["DELETE"])
-def judgements_unset(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/judgements/<string:_id>", methods=["DELETE"])
+def judgements_unset(workspace_id, _id):
     return api.judgements.unset(_id)
 
 
-####  API: Strategies  ###########################################################
+####  API: Strategies  #########################################################
 
-@api_route("/api/projects/<string:project_id>/strategies/_search", methods=["POST"])
-def strategies_search(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/strategies/_search", methods=["POST"])
+def strategies_search(workspace_id):
     body = request.get_json() or {}
-    return api.strategies.search(project_id, **body)
+    return api.strategies.search(workspace_id, **body)
 
-@api_route("/api/projects/<string:project_id>/strategies/_tags", methods=["GET"])
-def strategies_tags(project_id):
-    return api.strategies.tags(project_id)
+@api_route("/api/workspaces/<string:workspace_id>/strategies/_tags", methods=["GET"])
+def strategies_tags(workspace_id):
+    return api.strategies.tags(workspace_id)
 
-@api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["GET"])
-def strategies_get(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/strategies/<string:_id>", methods=["GET"])
+def strategies_get(workspace_id, _id):
     return api.strategies.get(_id)
 
-@api_route("/api/projects/<string:project_id>/strategies", methods=["POST"])
-def strategies_create(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/strategies", methods=["POST"])
+def strategies_create(workspace_id):
     doc = request.get_json()
-    validate_project_id_match(doc, project_id)
-    doc["project_id"] = project_id # ensure project_id from path is in doc
+    validate_workspace_id_match(doc, workspace_id)
+    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     _id = doc.pop("_id", None) # accept an optional _id if given
     return api.strategies.create(doc, _id)
 
-@api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["PUT"])
-def strategies_update(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/strategies/<string:_id>", methods=["PUT"])
+def strategies_update(workspace_id, _id):
     doc_partial = request.get_json()
-    validate_project_id_match(doc_partial, project_id)
-    doc_partial["project_id"] = project_id # ensure project_id from path is in doc
+    validate_workspace_id_match(doc_partial, workspace_id)
+    doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     return api.strategies.update(_id, doc_partial)
 
-@api_route("/api/projects/<string:project_id>/strategies/<string:_id>", methods=["DELETE"])
-def strategies_delete(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/strategies/<string:_id>", methods=["DELETE"])
+def strategies_delete(workspace_id, _id):
     return api.strategies.delete(_id)
 
 
 ####  API: Benchmarks  #########################################################
 
-@api_route("/api/projects/<string:project_id>/benchmarks/_search", methods=["POST"])
-def benchmarks_search(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/_search", methods=["POST"])
+def benchmarks_search(workspace_id):
     body = request.get_json() or {}
-    return api.benchmarks.search(project_id, **body)
+    return api.benchmarks.search(workspace_id, **body)
 
-@api_route("/api/projects/<string:project_id>/benchmarks/_tags", methods=["GET"])
-def benchmarks_tags(project_id):
-    return api.benchmarks.tags(project_id)
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/_tags", methods=["GET"])
+def benchmarks_tags(workspace_id):
+    return api.benchmarks.tags(workspace_id)
 
-@api_route("/api/projects/<string:project_id>/benchmarks/_candidates", methods=["POST"])
-def benchmarks_make_candidate_pool(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/_candidates", methods=["POST"])
+def benchmarks_make_candidate_pool(workspace_id):
     body = request.get_json() or {}
-    return api.benchmarks.make_candidate_pool(project_id, body)
+    return api.benchmarks.make_candidate_pool(workspace_id, body)
 
-@api_route("/api/projects/<string:project_id>/benchmarks/<string:_id>", methods=["GET"])
-def benchmarks_get(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:_id>", methods=["GET"])
+def benchmarks_get(workspace_id, _id):
     return api.benchmarks.get(_id)
 
-@api_route("/api/projects/<string:project_id>/benchmarks", methods=["POST"])
-def benchmarks_create(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks", methods=["POST"])
+def benchmarks_create(workspace_id):
     doc = request.get_json()
-    validate_project_id_match(doc, project_id)
-    doc["project_id"] = project_id # ensure project_id from path is in doc
+    validate_workspace_id_match(doc, workspace_id)
+    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     _id = doc.pop("_id", None) # accept an optional _id if given
     return api.benchmarks.create(doc, _id)
 
-@api_route("/api/projects/<string:project_id>/benchmarks/<string:_id>", methods=["PUT"])
-def benchmarks_update(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:_id>", methods=["PUT"])
+def benchmarks_update(workspace_id, _id):
     doc_partial = request.get_json()
-    validate_project_id_match(doc_partial, project_id)
-    doc_partial["project_id"] = project_id # ensure project_id from path is in doc_partial
+    validate_workspace_id_match(doc_partial, workspace_id)
+    doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
     return api.benchmarks.update(_id, doc_partial)
 
-@api_route("/api/projects/<string:project_id>/benchmarks/<string:_id>", methods=["DELETE"])
-def benchmarks_delete(project_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:_id>", methods=["DELETE"])
+def benchmarks_delete(workspace_id, _id):
     return api.benchmarks.delete(_id)
 
 
 ####  API: Evaluations  ########################################################
 
-@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations/_search", methods=["POST"])
-def evaluations_search(project_id, benchmark_id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations/_search", methods=["POST"])
+def evaluations_search(workspace_id, benchmark_id):
     body = request.get_json() or {}
-    return api.evaluations.search(project_id, benchmark_id, **body)
+    return api.evaluations.search(workspace_id, benchmark_id, **body)
 
-@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["GET"])
-def evaluations_get(project_id, benchmark_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["GET"])
+def evaluations_get(workspace_id, benchmark_id, _id):
     return api.evaluations.get(_id)
 
-@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations", methods=["POST"])
-def evaluations_create(project_id, benchmark_id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations", methods=["POST"])
+def evaluations_create(workspace_id, benchmark_id):
     task = request.get_json()
-    return api.evaluations.create(project_id, benchmark_id, task)
+    return api.evaluations.create(workspace_id, benchmark_id, task)
 
-@api_route("/api/projects/<string:project_id>/evaluations/_run", methods=["POST"])
-def evaluations_run(project_id):
+@api_route("/api/workspaces/<string:workspace_id>/evaluations/_run", methods=["POST"])
+def evaluations_run(workspace_id):
     body = request.get_json()
-    validate_project_id_match(body, project_id)
-    body["project_id"] = project_id # ensure project_id from path is in doc
+    validate_workspace_id_match(body, workspace_id)
+    body["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     return api.evaluations.run(body)
 
-@api_route("/api/projects/<string:project_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["DELETE"])
-def evaluations_delete(project_id, benchmark_id, _id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["DELETE"])
+def evaluations_delete(workspace_id, benchmark_id, _id):
     return api.evaluations.delete(_id)
 
 

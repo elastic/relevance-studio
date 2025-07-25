@@ -9,7 +9,7 @@ from ..models import ScenarioCreate, ScenarioUpdate
 INDEX_NAME = "esrs-scenarios"
 
 def search(
-        project_id: str,
+        workspace_id: str,
         text: str = "",
         filters: List[Dict[str, Any]] = [],
         sort: Dict[str, Any] = {},
@@ -21,16 +21,16 @@ def search(
     Search for scenarios.
     """
     response = utils.search_assets(
-        "scenarios", project_id, text, filters, sort, size, page,
+        "scenarios", workspace_id, text, filters, sort, size, page,
         counts=[ "judgements" ] if aggs else []
     )
     return response
 
-def tags(project_id: str) -> Dict[str, Any]:
+def tags(workspace_id: str) -> Dict[str, Any]:
     """
     List all scenario tags (up to 10,000).
     """
-    es_response = utils.search_tags("scenarios", project_id)
+    es_response = utils.search_tags("scenarios", workspace_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
@@ -61,7 +61,7 @@ def create(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     # Submit
     es_response = es("studio").index(
         index=INDEX_NAME,
-        id=utils.unique_id([ doc["project_id"], doc["values"] ]),
+        id=utils.unique_id([ doc["workspace_id"], doc["values"] ]),
         document=doc,
         refresh=True,
     )

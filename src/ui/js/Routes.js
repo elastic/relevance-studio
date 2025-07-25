@@ -44,53 +44,53 @@ const Routes = () => {
           document.title = title
           return <Pages.Home />
         }} />
-        <RouteWithSetupCheck path='/projects' exact render={(r) => {
-          document.title = `Projects - ${title}`
-          return <Pages.Projects />
+        <RouteWithSetupCheck path='/workspaces' exact render={(r) => {
+          document.title = `Workspaces - ${title}`
+          return <Pages.Workspaces />
         }} />
 
         {/* Resource routes - wrap only the ones that need resources */}
-        <RouteWithSetupCheck path='/projects/:project_id' exact render={(r) => {
-          document.title = `Projects - ${r.match.params.project_id} - ${title}`
-          return <ResourceProvider><Pages.ProjectsView /></ResourceProvider>
+        <RouteWithSetupCheck path='/workspaces/:workspace_id' exact render={(r) => {
+          document.title = `Workspaces - ${r.match.params.workspace_id} - ${title}`
+          return <ResourceProvider><Pages.WorkspacesView /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/displays' exact render={() => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/displays' exact render={() => {
           document.title = `Displays - ${title}`
           return <ResourceProvider><Pages.Displays /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/displays/:display_id' exact render={(r) => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/displays/:display_id' exact render={(r) => {
           document.title = `Displays - ${r.match.params.display_id} - ${title}`
           return <ResourceProvider><Pages.DisplaysEdit /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/judgements' exact render={() => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/judgements' exact render={() => {
           document.title = `Judgements - ${title}`
           return <ResourceProvider><Pages.Judgements /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/scenarios' exact render={() => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/scenarios' exact render={() => {
           document.title = `Scenarios - ${title}`
           return <ResourceProvider><Pages.Scenarios /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/strategies' exact render={() => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/strategies' exact render={() => {
           document.title = `Strategies - ${title}`
           return <ResourceProvider><Pages.Strategies /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/strategies/:strategy_id' exact render={(r) => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/strategies/:strategy_id' exact render={(r) => {
           document.title = `Strategies - ${r.match.params.strategy_id} - ${title}`
           return <ResourceProvider><Pages.StrategiesEdit /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/benchmarks' exact render={() => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks' exact render={() => {
           document.title = `Benchmarks - ${title}`
           return <ResourceProvider><Pages.Benchmarks /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/benchmarks/:benchmark_id' exact render={(r) => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id' exact render={(r) => {
           document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
           return <ResourceProvider><Pages.BenchmarksView /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/benchmarks/:benchmark_id/evaluations' exact render={(r) => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations' exact render={(r) => {
           document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
           return <ResourceProvider><Pages.BenchmarksView /></ResourceProvider>
         }} />
-        <RouteWithSetupCheck path='/projects/:project_id/benchmarks/:benchmark_id/evaluations/:evaluation_id' exact render={(r) => {
+        <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations/:evaluation_id' exact render={(r) => {
           document.title = `Evaluations - ${r.match.params.evaluation_id} - ${title}`
           return <ResourceProvider><Pages.EvaluationsView /></ResourceProvider>
         }} />

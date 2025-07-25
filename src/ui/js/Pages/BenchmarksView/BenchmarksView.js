@@ -21,8 +21,8 @@ const BenchmarksView = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
   
   const { addToast, autoRefresh } = useAppContext()
-  const { project, benchmark } = usePageResources()
-  const isReady = useResources().hasResources(['project', 'benchmark'])
+  const { workspace, benchmark } = usePageResources()
+  const isReady = useResources().hasResources(['workspace', 'benchmark'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -56,7 +56,7 @@ const BenchmarksView = () => {
 
   /**
    * Automatically submit the search and return to page one either when the
-   * project is ready or when the user changes pagination settings.
+   * workspace is ready or when the user changes pagination settings.
    */
   useEffect(() => {
     if (!isReady)
@@ -80,7 +80,7 @@ const BenchmarksView = () => {
    */
   const onSubmitSearch = useSearchHandler({
     searchFn: api.evaluations_search, // search evaluations
-    projectId: project?._id,
+    workspaceId: workspace?._id,
     resourceId: benchmark?._id,
     searchText,
     searchPage,
@@ -130,7 +130,7 @@ const BenchmarksView = () => {
     try {
       setIsProcessing(true)
       response = await api.evaluations_create(
-        project._id,
+        workspace._id,
         benchmark._id,
         benchmark.task
       )
@@ -159,7 +159,7 @@ const BenchmarksView = () => {
       sortable: true,
       style: { width: '300px' },
       render: (name, doc) => (
-        <EuiLink href={`#/projects/${project._id}/benchmarks/${benchmark._id}/evaluations/${doc._id}`}>
+        <EuiLink href={`#/workspaces/${workspace._id}/benchmarks/${benchmark._id}/evaluations/${doc._id}`}>
           <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
             {doc._id}
           </EuiCode>
@@ -265,7 +265,7 @@ const BenchmarksView = () => {
       docType='evaluation'
       isProcessing={isProcessing}
       onClose={() => setModalDelete(null)}
-      onDelete={async () => await api.evaluations_delete(project._id, benchmark._id, modalDelete._id)}
+      onDelete={async () => await api.evaluations_delete(workspace._id, benchmark._id, modalDelete._id)}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
     />

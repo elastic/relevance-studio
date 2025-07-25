@@ -30,8 +30,8 @@ const EvaluationsView = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const history = getHistory()
-  const { project, benchmark, evaluation } = usePageResources()
-  const isReady = useResources().hasResources(['project', 'benchmark', 'evaluation'])
+  const { workspace, benchmark, evaluation } = usePageResources()
+  const isReady = useResources().hasResources(['workspace', 'benchmark', 'evaluation'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -397,7 +397,7 @@ const EvaluationsView = () => {
                   pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
                 })
                 const query = encodeURIComponent(pairs.join(' OR '))
-                history.push(`/projects/${project._id}/judgements?query=${query}`)
+                history.push(`/workspaces/${workspace._id}/judgements?query=${query}`)
               }}>
                 Judge
               </EuiButton>

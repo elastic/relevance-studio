@@ -45,8 +45,8 @@ const FlyoutForm = ({
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast, darkMode } = useAppContext()
-  const { project } = usePageResources()
-  const isReady = useResources().hasResources(['project'])
+  const { workspace } = usePageResources()
+  const isReady = useResources().hasResources(['workspace'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -93,7 +93,7 @@ const FlyoutForm = ({
       let response
       try {
         setIsLoadingStrategyTags(true)
-        response = await api.strategies_tags(project._id)
+        response = await api.strategies_tags(workspace._id)
       } catch (e) {
         return addToast(api.errorToast(e, { title: 'Failed to get strategy tags' }))
       } finally {
@@ -129,7 +129,7 @@ const FlyoutForm = ({
       let response
       try {
         setIsLoadingScenarioTags(true)
-        response = await api.scenarios_tags(project._id)
+        response = await api.scenarios_tags(workspace._id)
       } catch (e) {
         return addToast(api.errorToast(e, { title: 'Failed to get scenario tags' }))
       } finally {
@@ -177,7 +177,7 @@ const FlyoutForm = ({
           body.scenarios.sample_seed = form.scenarios_sample_seed
 
         // Get _ids of candidate strategies and scenarios
-        const response = await api.benchmarks_make_candidate_pool(project._id, body)
+        const response = await api.benchmarks_make_candidate_pool(workspace._id, body)
         const strategyIds = []
         const scenarioIds = []
         for (const i in response.data?.strategies || [])
@@ -187,11 +187,11 @@ const FlyoutForm = ({
 
         // Get full strategies and scenarios by _ids 
         const [strategiesRes, scenariosRes] = await Promise.all([
-          api.strategies_search(project._id, {
+          api.strategies_search(workspace._id, {
             filters: [{ "ids": { "values": strategyIds } }],
             size: 10000,
           }),
-          api.scenarios_search(project._id, {
+          api.scenarios_search(workspace._id, {
             filters: [{ "ids": { "values": scenarioIds } }],
             size: 10000,
           }),
@@ -270,12 +270,12 @@ const FlyoutForm = ({
     try {
       setIsProcessing(true)
       if (action == 'create') {
-        response = await api.benchmarks_create(project._id, newDoc)
+        response = await api.benchmarks_create(workspace._id, newDoc)
       } else {
         // Exclude immutable fields
         const updatedDoc = { ...newDoc }
         delete updatedDoc.task.k
-        response = await api.benchmarks_update(project._id, doc._id, updatedDoc)
+        response = await api.benchmarks_update(workspace._id, doc._id, updatedDoc)
       }
     } catch (e) {
       return addToast(api.errorToast(e, { title: `Failed to ${action} benchmark` }))

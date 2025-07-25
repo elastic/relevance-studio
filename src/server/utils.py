@@ -15,7 +15,7 @@ from .client import es
 RE_PARAMS = re.compile(r"{{\s*([\w.-]+)\s*}}")
 
 ASSET_TYPES = set([
-    "projects",
+    "workspaces",
     "displays",
     "scenarios",
     "judgements",
@@ -24,7 +24,7 @@ ASSET_TYPES = set([
     "evaluations",
 ])
 ASSET_TYPES_RELATIONAL_ID_NAMES = {
-    "projects": "project_id",
+    "workspaces": "workspace_id",
     "displays": "display_id",
     "scenarios": "scenario_id",
     "judgements": "judgement_id",
@@ -198,12 +198,12 @@ def remove_empty_values(obj, keep_fields=None, path=""):
     else:
         return obj
     
-def search_tags(asset_type: str, project_id: str = None) -> Dict[str, Any]:
+def search_tags(asset_type: str, workspace_id: str = None) -> Dict[str, Any]:
     """
-    Standardizes retrieval for tags() API of project assets.
+    Standardizes retrieval for tags() API of workspace assets.
     """
     if asset_type not in ASSET_TYPES:
-        raise Exception(f"\"{asset_type}\" is not a valid project asset type.")
+        raise Exception(f"\"{asset_type}\" is not a valid workspace asset type.")
     
     # Prepare search
     body = {}
@@ -211,13 +211,13 @@ def search_tags(asset_type: str, project_id: str = None) -> Dict[str, Any]:
     # Only return aggs
     body["size"] = 0
     
-    # Filter query by project_id
-    if asset_type == "projects":
-        body["query"] = { "bool": { "filter": [{ "ids": { "values": [ project_id ]}}]}}
+    # Filter query by workspace_id
+    if asset_type == "workspaces":
+        body["query"] = { "bool": { "filter": [{ "ids": { "values": [ workspace_id ]}}]}}
     else:
-        if not project_id:
-            raise Exception(f"\"project_id\" is required to scope searches.")
-        body["query"] = { "bool": { "filter": [{ "term": { "project_id": project_id }}]}}
+        if not workspace_id:
+            raise Exception(f"\"workspace_id\" is required to scope searches.")
+        body["query"] = { "bool": { "filter": [{ "term": { "workspace_id": workspace_id }}]}}
         
     # Return all tags (up to a max of 10,000)
     body["aggs"] = {
@@ -239,7 +239,7 @@ def search_tags(asset_type: str, project_id: str = None) -> Dict[str, Any]:
     
 def search_assets(
         asset_type: str,
-        project_id: str = None,
+        workspace_id: str = None,
         text: str = "",
         filters: List[Dict[str, Any]] = [],
         sort: Dict[str, Any] = {},
@@ -248,7 +248,7 @@ def search_assets(
         counts: List[str] = [],
     ) -> Dict[str, Any]:
     """
-    Standardizes basic searches and aggs for the search() API of project assets.
+    Standardizes basic searches and aggs for the search() API of workspace assets.
     
     Structure of the sort input (single field allowed):
     
@@ -266,20 +266,20 @@ def search_assets(
     ]
     """
     if asset_type not in ASSET_TYPES:
-        raise Exception(f"\"{asset_type}\" is not a valid project asset type.")
+        raise Exception(f"\"{asset_type}\" is not a valid workspace asset type.")
     if counts:
         for relational_asset_type in counts:
             if relational_asset_type not in ASSET_TYPES:
-                raise Exception(f"\"{relational_asset_type}\" is not a valid project asset type.")
+                raise Exception(f"\"{relational_asset_type}\" is not a valid workspace asset type.")
     
     # Prepare search
     body = {}
     
-    # Filter search by project_id
-    if asset_type != "projects":
-        if not project_id:
-            raise Exception(f"\"project_id\" is required to scope searches.")
-        body["query"] = { "bool": { "filter": [{ "term": { "project_id": project_id }}]}}
+    # Filter search by workspace_id
+    if asset_type != "workspaces":
+        if not workspace_id:
+            raise Exception(f"\"workspace_id\" is required to scope searches.")
+        body["query"] = { "bool": { "filter": [{ "term": { "workspace_id": workspace_id }}]}}
         
     # Apply any given filers
     for filter in filters or []:

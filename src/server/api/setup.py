@@ -13,7 +13,7 @@ PATH_BASE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "elastic", "index_templates"
 )
 PATH_INDEX_TEMPLATES = [
-    ( "esrs-projects", os.path.join(PATH_BASE, "projects.json") ),
+    ( "esrs-workspaces", os.path.join(PATH_BASE, "workspaces.json") ),
     ( "esrs-displays", os.path.join(PATH_BASE, "displays.json") ),
     ( "esrs-scenarios", os.path.join(PATH_BASE, "scenarios.json") ),
     ( "esrs-judgements", os.path.join(PATH_BASE, "judgements.json") ),

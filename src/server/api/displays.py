@@ -9,7 +9,7 @@ from ..models import DisplayCreate, DisplayUpdate
 INDEX_NAME = "esrs-displays"
 
 def search(
-        project_id: str,
+        workspace_id: str,
         text: str = "",
         filters: List[Dict[str, Any]] = [],
         sort: Dict[str, Any] = {},
@@ -21,7 +21,7 @@ def search(
     Search for displays.
     """
     response = utils.search_assets(
-        "displays", project_id, text, filters, sort, size, page
+        "displays", workspace_id, text, filters, sort, size, page
     )
     return response
 

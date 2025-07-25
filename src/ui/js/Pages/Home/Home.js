@@ -94,16 +94,16 @@ const Home = () => {
       <EuiCallOut color='primary'>
         <EuiText>
           <p>
-            Get started by creating a project.
+            Get started by creating a workspace.
           </p>
         </EuiText>
         <EuiSpacer />
         <EuiButton
           color='primary'
           fill
-          onClick={() => history.push('/projects')}
+          onClick={() => history.push('/workspaces')}
         >
-          Go to projects
+          Go to workspaces
         </EuiButton>
       </EuiCallOut>
     </EuiPanel>

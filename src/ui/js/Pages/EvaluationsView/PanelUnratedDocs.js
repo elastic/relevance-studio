@@ -25,7 +25,7 @@ const PanelUnratedDocs = ({ evaluation }) => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
-  const { project, displays } = usePageResources()
+  const { workspace, displays } = usePageResources()
   useAdditionalResources(['displays'])
 
   ////  State  /////////////////////////////////////////////////////////////////
@@ -95,7 +95,7 @@ const PanelUnratedDocs = ({ evaluation }) => {
       let response
       try {
         setIsLoadingResults(true)
-        response = await api.content_search(project.index_pattern, body)
+        response = await api.content_search(workspace.index_pattern, body)
 
         // Handle API response
         const _results = {}

@@ -4,9 +4,9 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import ProjectCreate, ProjectUpdate
+from ..models import WorkspaceCreate, WorkspaceUpdate
 
-INDEX_NAME = "esrs-projects"
+INDEX_NAME = "esrs-workspaces"
 
 def search(
         text: str = "",
@@ -17,24 +17,24 @@ def search(
         aggs: bool = False,
     ) -> Dict[str, Any]:
     """
-    Search for projects.
+    Search for workspaces.
     """
     response = utils.search_assets(
-        "projects", None, text, filters, sort, size, page,
+        "workspaces", None, text, filters, sort, size, page,
         counts=[ "displays", "scenarios", "judgements", "strategies", "benchmarks" ] if aggs else []
     )
     return response
 
 def tags() -> Dict[str, Any]:
     """
-    List all project tags (up to 10,000).
+    List all workspace tags (up to 10,000).
     """
-    es_response = utils.search_tags("projects")
+    es_response = utils.search_tags("workspaces")
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
     """
-    Get a project by its _id.
+    Get a workspace by its _id.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -45,16 +45,16 @@ def get(_id: str) -> Dict[str, Any]:
 
 def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
     """
-    Create a project.
+    Create a workspace.
     
     Accepts an optional pregenerated _id for idempotence.
     """
     
     # Create, validate, and dump model
-    doc = ProjectCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = WorkspaceCreate.model_validate(doc, context={"user": user}).serialize()
 
     # Copy searchable fields to _search
-    doc = utils.copy_fields_to_search("projects", doc)
+    doc = utils.copy_fields_to_search("workspaces", doc)
     
     # Submit 
     es_response = es("studio").index(
@@ -67,14 +67,14 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
 
 def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
-    Update a project by its _id.
+    Update a workspace by its _id.
     """
     
     # Create, validate, and dump model
-    doc_partial = ProjectUpdate.model_validate(doc_partial, context={"user": user}).serialize()
+    doc_partial = WorkspaceUpdate.model_validate(doc_partial, context={"user": user}).serialize()
     
     # Copy searchable fields to _search
-    doc_partial = utils.copy_fields_to_search("projects", doc_partial)
+    doc_partial = utils.copy_fields_to_search("workspaces", doc_partial)
     
     # Submit
     es_response = es("studio").update(
@@ -87,10 +87,10 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
 
 def delete(_id: str) -> Dict[str, Any]:
     """
-    Delete a project by its _id.
+    Delete a workspace by its _id.
     
     This also deletes all displays, scenarios, judgements, strategies,
-    benchmarks, and evaluations that share its project_id.
+    benchmarks, and evaluations that share its workspace_id.
     """
     body = {
         "query": {
@@ -99,7 +99,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-projects" }},
+                                { "term": { "_index": "esrs-workspaces" }},
                                 { "term": { "_id": _id }}
                             ]
                         }
@@ -108,7 +108,7 @@ def delete(_id: str) -> Dict[str, Any]:
                         "bool": {
                             "filter": [
                                 { "term": { "_index": "esrs-displays" }},
-                                { "term": { "project_id": _id }}
+                                { "term": { "workspace_id": _id }}
                             ]
                         }
                     },
@@ -116,7 +116,7 @@ def delete(_id: str) -> Dict[str, Any]:
                         "bool": {
                             "filter": [
                                 { "term": { "_index": "esrs-scenarios" }},
-                                { "term": { "project_id": _id }}
+                                { "term": { "workspace_id": _id }}
                             ]
                         }
                     },
@@ -124,7 +124,7 @@ def delete(_id: str) -> Dict[str, Any]:
                         "bool": {
                             "filter": [
                                 { "term": { "_index": "esrs-judgements" }},
-                                { "term": { "project_id": _id }}
+                                { "term": { "workspace_id": _id }}
                             ]
                         }
                     },
@@ -132,7 +132,7 @@ def delete(_id: str) -> Dict[str, Any]:
                         "bool": {
                             "filter": [
                                 { "term": { "_index": "esrs-strategies" }},
-                                { "term": { "project_id": _id }}
+                                { "term": { "workspace_id": _id }}
                             ]
                         }
                     },
@@ -140,7 +140,7 @@ def delete(_id: str) -> Dict[str, Any]:
                         "bool": {
                             "filter": [
                                 { "term": { "_index": "esrs-benchmarks" }},
-                                { "term": { "project_id": _id }}
+                                { "term": { "workspace_id": _id }}
                             ]
                         }
                     },
@@ -148,7 +148,7 @@ def delete(_id: str) -> Dict[str, Any]:
                         "bool": {
                             "filter": [
                                 { "term": { "_index": "esrs-evaluations" }},
-                                { "term": { "project_id": _id }}
+                                { "term": { "workspace_id": _id }}
                             ]
                         }
                     }
@@ -159,7 +159,7 @@ def delete(_id: str) -> Dict[str, Any]:
     }
     es_response = es("studio").delete_by_query(
         index=",".join([
-            "esrs-projects",
+            "esrs-workspaces",
             "esrs-displays",
             "esrs-scenarios",
             "esrs-judgements",

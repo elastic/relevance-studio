@@ -36,7 +36,7 @@ class RatingScaleModel(BaseModel):
             raise ValueError("rating_scale.max must be greater than rating_scale.min")
         return max_value
 
-class ProjectCreate(AssetCreate):
+class WorkspaceCreate(AssetCreate):
     
     # Required inputs
     name: str
@@ -76,7 +76,7 @@ class ProjectCreate(AssetCreate):
         return value
 
 
-class ProjectUpdate(AssetUpdate):
+class WorkspaceUpdate(AssetUpdate):
     
     # Optional inputs
     name: str = None

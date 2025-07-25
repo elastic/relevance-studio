@@ -28,18 +28,18 @@ def extract_fields_from_template(template: Dict[str, Any]) -> List[str]:
 class ScenarioCreate(AssetCreate):
     
     # Required inputs
-    project_id: str
+    workspace_id: str
     name: str
     values: Dict[str, Any]
     
     # Optional inputs
     tags: List[str] = Field(default_factory=list)
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("name")
@@ -72,17 +72,17 @@ class ScenarioCreate(AssetCreate):
 class ScenarioUpdate(AssetUpdate):
     
     # Required inputs
-    project_id: str
+    workspace_id: str
     
     # Optional inputs
     name: str = Field(default=None)
     tags: Optional[List[str]] = None
 
-    @field_validator("project_id")
+    @field_validator("workspace_id")
     @classmethod
-    def validate_project_id(cls, value: str):
+    def validate_workspace_id(cls, value: str):
         if not value.strip():
-            raise ValueError("project_id must be a non-empty string")
+            raise ValueError("workspace_id must be a non-empty string")
         return value
 
     @field_validator("name")
