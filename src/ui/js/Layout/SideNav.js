@@ -127,7 +127,7 @@ const SideNav = () => {
             }}>
             <EuiText color='subdued' size='xs'>
               <p style={{ fontWeight: 400, fontSize: '11px', lineHeight: '14px' }}>
-                Elasticsearch Relevance Studio is a community workspace maintained by the Search AI Solutions Architects at Elastic. It's not covered by Elastic Support.
+                Elasticsearch Relevance Studio is a community project maintained by the Search AI Solutions Architects at Elastic. It's not covered by Elastic Support.
               </p>
             </EuiText>
           </EuiPanel>

@@ -37,12 +37,6 @@
         "tags": {
           "type": "keyword"
         },
-        "scenario_id": {
-          "type": "keyword"
-        },
-        "strategy_id": {
-          "type": "keyword"
-        },
         "task": {
           "properties": {
             "metrics": {
