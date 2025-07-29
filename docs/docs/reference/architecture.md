@@ -44,7 +44,7 @@ You can learn more about the networking configuration of Elasticsearch here:
 
 ### Minimal setup
 
-<img src="../img/architecture-minimal.png" style="float: right; max-width: 400px; padding-left: 15px;" />
+<img src="img/architecture-minimal.png" style="float: right; max-width: 400px; padding-left: 15px;" />
 
 This is the simplest deployment pattern of Relevance Studio. A minimal setup includes the UI, Server, a Worker, and an Elasticsearch deployment that stores both the studio assets and the content.
 
@@ -56,7 +56,7 @@ This is the simplest deployment pattern of Relevance Studio. A minimal setup inc
 
 ### Minimal setup with MCP
 
-<img src="../img/architecture-minimal-mcp.png" style="float: right; max-width: 400px; padding-left: 15px;" />
+<img src="img/architecture-minimal-mcp.png" style="float: right; max-width: 400px; padding-left: 15px;" />
 
 This pattern extends the [minimal setup](#minimal-setup) by introducing the MCP Server.  The MCP Server makes it possible to use Relevance Studio in agentic workflows using the [Model Context Protocol (MCP)](https://modelcontextprotocol.io) over HTTP.
 
@@ -68,7 +68,7 @@ This pattern extends the [minimal setup](#minimal-setup) by introducing the MCP 
 
 ### Recommended setup
 
-<img src="../img/architecture-recommended.png" style="float: right; max-width: 400px; padding-left: 15px;" />
+<img src="img/architecture-recommended.png" style="float: right; max-width: 400px; padding-left: 15px;" />
 
 The recommended pattern separates the studio assets from the content into two Elasticsearch deployments. It also acknowledges that multiple Workers can run in parallel.
 
@@ -83,7 +83,7 @@ Advantages over the [minimal setup](#minimal-setup):
 
 ### Recommended setup with MCP
 
-<img src="../img/architecture-recommended-mcp.png" style="float: right; max-width: 400px; padding-left: 15px;" />
+<img src="img/architecture-recommended-mcp.png" style="float: right; max-width: 400px; padding-left: 15px;" />
 
 This pattern extends the [recommended setup](#recommended-setup) by introducing the MCP Server. The MCP Server follows the same implementation pattern as the [minimal setup with MCP](#minimal-setup-with-mcp).
 
@@ -93,7 +93,7 @@ This pattern extends the [recommended setup](#recommended-setup) by introducing 
 
 ### Recommended setup with MCP and Proxy for Claude Desktop
 
-<img src="../img/architecture-recommended-mcp-proxy.png" style="float: right; max-width: 400px; padding-left: 15px;" />
+<img src="img/architecture-recommended-mcp-proxy.png" style="float: right; max-width: 400px; padding-left: 15px;" />
 
 This pattern extends the [recommended setup with MCP](#recommended-setup-with-mcp) by introducing a local proxy designed primarily for integration Claude Desktop.
 

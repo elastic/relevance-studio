@@ -1,6 +1,6 @@
 # REST API
 
-The Relevance Studio [server](/docs/reference/architecture#server) provides a REST API to manage workspace assets in the studio deployment, search data in the content deployment, and run evaluations in the content deployment.
+The Relevance Studio [server](docs/reference/architecture#server) provides a REST API to manage workspace assets in the studio deployment, search data in the content deployment, and run evaluations in the content deployment.
 
 All REST API endpoints accept payloads as JSON and return payloads as JSON (`application/json`).
 
@@ -28,7 +28,7 @@ All REST API endpoints accept payloads as JSON and return payloads as JSON (`app
 
 ## Studio API
 
-The Studio API manages data assets in the [studio deployment](/docs/reference/architecture?id=elasticsearch).
+The Studio API manages data assets in the [studio deployment](docs/reference/architecture?id=elasticsearch).
 
 ### Workspaces API
 
@@ -78,7 +78,7 @@ Create a workspace.
 
 **`POST /api/workspaces`**
 
-Example payload with all required and optional fields from the [Workspace data model](/docs/reference/data-model?id=workspaces):
+Example payload with all required and optional fields from the [Workspace data model](docs/reference/data-model?id=workspaces):
 
 ```json
 {
@@ -99,7 +99,7 @@ Update a workspace by its `_id`.
 
 **`PUT /api/workspaces/<_id>`**
 
-Example payload with all required and optional fields from the [Workspace data model](/docs/reference/data-model?id=workspaces):
+Example payload with all required and optional fields from the [Workspace data model](docs/reference/data-model?id=workspaces):
 
 ```json
 {
@@ -169,7 +169,7 @@ Create a display in a given workspace. Accepts optional `_id`.
 
 **`POST /api/workspaces/<workspace_id>/displays`**
 
-Example payload with all required and optional fields from the [Display data model](/docs/reference/data-model?id=displays):
+Example payload with all required and optional fields from the [Display data model](docs/reference/data-model?id=displays):
 
 ```json
 {
@@ -192,7 +192,7 @@ Update a display by its `_id` in a given workspace.
 
 **`PUT /api/workspaces/<workspace_id>/displays/<_id>`**
 
-Example payload with all required and optional fields from the [Display data model](/docs/reference/data-model?id=displays):
+Example payload with all required and optional fields from the [Display data model](docs/reference/data-model?id=displays):
 
 ```json
 {
@@ -273,7 +273,7 @@ Create a scenario in a given workspace.
 
 **`POST /api/workspaces/<workspace_id>/scenarios`**
 
-Example payload with all required and optional fields from the [Scenario data model](/docs/reference/data-model?id=scenarios):
+Example payload with all required and optional fields from the [Scenario data model](docs/reference/data-model?id=scenarios):
 
 ```json
 {
@@ -293,7 +293,7 @@ Update a scenario by its `_id` in a given workspace.
 
 **`PUT /api/workspaces/<workspace_id>/scenarios/<_id>`**
 
-Example payload with all required and optional fields from the [Scenario data model](/docs/reference/data-model?id=scenarios):
+Example payload with all required and optional fields from the [Scenario data model](docs/reference/data-model?id=scenarios):
 
 ```json
 {
@@ -356,7 +356,7 @@ Set a judgement (as an upsert) in a given workspace.
 
 **`PUT /api/workspaces/<workspace_id>/judgements`**
 
-Example payload with all required and optional fields from the [Judgement data model](/docs/reference/data-model?id=judgements):
+Example payload with all required and optional fields from the [Judgement data model](docs/reference/data-model?id=judgements):
 
 ```json
 {
@@ -433,7 +433,7 @@ Create a strategy in a given workspace. Accepts optional `_id`.
 
 **`POST /api/workspaces/<workspace_id>/strategies`**
 
-Example payload with all required and optional fields from the [Strategy data model](/docs/reference/data-model?id=strategies):
+Example payload with all required and optional fields from the [Strategy data model](docs/reference/data-model?id=strategies):
 
 ```json
 {
@@ -454,7 +454,7 @@ Update a strategy by its `_id` in a given workspace.
 
 **`PUT /api/workspaces/<workspace_id>/strategies/<_id>`**
 
-Example payload with all required and optional fields from the [Strategy data model](/docs/reference/data-model?id=strategies):
+Example payload with all required and optional fields from the [Strategy data model](docs/reference/data-model?id=strategies):
 
 ```json
 {
@@ -539,7 +539,7 @@ Create a benchmark in a given workspace.. Accepts optional `_id`.
 
 **`POST /api/workspaces/<workspace_id>/benchmarks`**
 
-Example payload with all required and optional fields from the [Benchmark data model](/docs/reference/data-model?id=benchmarks):
+Example payload with all required and optional fields from the [Benchmark data model](docs/reference/data-model?id=benchmarks):
 
 ```json
 {
@@ -670,7 +670,7 @@ Create and enqueue an evaluation in a given workspace.
 
 **`POST /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/evaluations`**
 
-Example payload with all required and optional fields from the [Benchmark data model](/docs/reference/data-model?id=benchmarks):
+Example payload with all required and optional fields from the [Benchmark data model](docs/reference/data-model?id=benchmarks):
 
 ```json
 {
@@ -704,7 +704,7 @@ Example payload with all required and optional fields from the [Benchmark data m
 
 #### Run evaluation
 
-Run an evaluation. Used by [workers](/docs/reference/architecture?id=application).
+Run an evaluation. Used by [workers](docs/reference/architecture?id=application).
 
 **`POST /api/workspaces/<workspace_id>/evaluations/_run`**
 
@@ -718,11 +718,11 @@ Delete an evaluation by its `_id` in a given workspace.
 
 ## Content API
 
-The Content API retrieves documents and other data from the [content deployment](/docs/reference/architecture?id=elasticsearch).
+The Content API retrieves documents and other data from the [content deployment](docs/reference/architecture?id=elasticsearch).
 
 ### Search API
 
-Search documents in the [content deployment](/docs/reference/architecture?id=elasticsearch) by a given index pattern. Accepts any [Elasticsearch Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl) in the request payload.
+Search documents in the [content deployment](docs/reference/architecture?id=elasticsearch) by a given index pattern. Accepts any [Elasticsearch Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl) in the request payload.
 
 **`POST /api/content/_search/<index_pattern>`**
 
@@ -745,7 +745,7 @@ Example payload:
 
 ### Mappings API
 
-Retrieve all [mappings](https://www.elastic.co/docs/manage-data/data-store/mapping) from the [content deployment](/docs/reference/architecture?id=elasticsearch) that match a given index pattern.
+Retrieve all [mappings](https://www.elastic.co/docs/manage-data/data-store/mapping) from the [content deployment](docs/reference/architecture?id=elasticsearch) that match a given index pattern.
 
 **`GET /api/content/mappings/<index_pattern>`**
 
@@ -759,13 +759,13 @@ The System API manages the Relevance Studio application.
 
 #### Run setup
 
-Create the index templates and indices in the [studio deployment](/docs/reference/architecture?id=elasticsearch).
+Create the index templates and indices in the [studio deployment](docs/reference/architecture?id=elasticsearch).
 
 **`POST /api/setup`**
 
 #### Check setup
 
-Check if the index templates and indices have been created in the [studio deployment](/docs/reference/architecture?id=elasticsearch).
+Check if the index templates and indices have been created in the [studio deployment](docs/reference/architecture?id=elasticsearch).
 
 **`GET /api/setup`**
 

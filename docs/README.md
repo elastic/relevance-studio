@@ -12,8 +12,8 @@
 
 Elasticsearch Relevance Studio guides you in the best practices of **search relevance engineering** so that you can deliver amazing search experiences.
 
-<img src="../img/process.png" style="max-width: 600px; padding: 20px 0 0 0;" />
+<img src="img/process.png" style="max-width: 600px; padding: 20px 0 0 0;" />
 
 <h3>AI ready :sparkles:</h3>
 
-Elasticsearch Relevance Studio is equipped with an [MCP Server](/docs/reference/architecture?id=recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecyle of search relevance engineering &ndash; scaling up your operations much faster than possible with humans alone.
+Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/reference/architecture?id=recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecyle of search relevance engineering &ndash; scaling up your operations much faster than possible with humans alone.
