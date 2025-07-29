@@ -10,9 +10,9 @@ Tested on MacOS 15.5.
 
 Install dependencies:
 
-1. Install [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating) *(required by [UI](docs/reference/architecture?id=application))*
-2. Install [yarn](https://classic.yarnpkg.com/en/docs/install) (tested on version 1.22.22) *(required by [UI](docs/reference/architecture?id=application))*
-3. Install [python3](https://www.python.org/downloads/) (tested on version 3.10) *(required by [Server](docs/reference/architecture?id=application), [Worker](docs/reference/architecture?id=application), [MCP Server](docs/reference/architecture?id=application), [MCP Proxy](docs/reference/architecture?id=application))*
+1. Install [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating) *(required by [UI](docs/reference/architecture.md#application))*
+2. Install [yarn](https://classic.yarnpkg.com/en/docs/install) (tested on version 1.22.22) *(required by [UI](docs/reference/architecture.md#application))*
+3. Install [python3](https://www.python.org/downloads/) (tested on version 3.10) *(required by [Server](docs/reference/architecture.md#application), [Worker](docs/reference/architecture.md#application), [MCP Server](docs/reference/architecture.md#application), [MCP Proxy](docs/reference/architecture.md#application))*
 4. Install [docker](https://docs.docker.com/engine/install/) (tested on version 27.3.1) *(required for integration tests)*
 
 Clone this repo:

@@ -1,3 +1,3 @@
 # Development
 
-- [Setup for contributors](docs/development/setup-for-contributors)
+- [Setup for contributors](docs/development/setup-for-contributors.md)

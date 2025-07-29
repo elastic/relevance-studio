@@ -30,7 +30,7 @@ Create your `.env` file from the given `.env-reference` file:
 
 ...then configure your `.env` to use the endpoints and credentials of your Elasticsearch deployment(s).
 
-💡 *Read [roles and permissions](docs/setup/security?id=roles-and-permissions) to see the recommended configurations for security.*
+💡 *Read [roles and permissions](docs/setup/security.md#roles-and-permissions.md) to see the recommended configurations for security.*
 
 #### Step 3. Start Relevance Studio
 
