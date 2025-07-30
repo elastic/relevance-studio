@@ -1,95 +1,78 @@
 # Elasticsearch Relevance Studio
 
-**Elasticsearch Relevance Studio** (`esrs`) is a framework and test harness for search relevance engineering.
+*You know, for search relevance.*
 
-> ⚠️ This application is in early development. Expect things to break or change often until it matures.
+Elasticsearch Relevance Studio guides you in the best practices of **search relevance engineering** so you can deliver amazing search experiences.
+
+**AI ready :sparkles:**
+
+Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/reference/architecture.md#recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecyle of search relevance engineering &ndash; scaling up your operations much faster than possible with humans alone.
 
 ## Quickstart
 
-1. Clone this repo: `git clone https://github.com/elastic/relevance-studio.git`
-2. Enter the repo: `cd relevance-studio`
-3. Copy `.env-reference` to `.env`
-4. Configure `.env` to use the endpoints and credentials of your Elastic deployment
-5. Start the app: `docker compose up --build`
-6. Setup the index templates: `curl -XPOST http://localhost:4096/setup`
-7. Open the app: [http://localhost:4096/](http://localhost:4096/)
+Relevance Studio has a docker compose file so you can see how everything works before planning a production deployment.
 
-To use MCP with Claude Desktop, you'll need to do Step 1 from the Development
-section and then run `fastmcp install claude-desktop src/server/fastmcp_proxy.py`
-to install the MCP proxy in Claude Desktop.
+This quickstart guide was tested with macOS 15.5, Docker 27.3.1, and Elasticsearch 9.0.3.
 
-## Development
+### Prerequisites
 
-These instructions were tested on MacOS.
+This quickstart guide assumes that you have:
 
-**Step 1. Prepare your environment**
+* [docker](https://docs.docker.com/engine/install/) installed on your machine
+* An Elasticsearch deployment (8.x or higher) where your content is stored
+* An Elasticsearch deployment (8.x or higher) where Relevance Studio will store its assets (this can be the same as your content deployment)
 
-Install dependencies:
+### Step 1. Download Relevance Studio
 
-1. Install [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating)
-2. Install [yarn](https://classic.yarnpkg.com/en/docs/install) (tested on version 1.22.22)
-3. Install [miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install) (tested on version 25.3.1)
-4. Install [docker](https://docs.docker.com/engine/install/) (tested on version 27.3.1)
+Clone the repo:
 
-Clone this repo:
+**`git clone https://github.com/elastic/relevance-studio.git`**
 
-1. Run `git clone https://github.com/elastic/relevance-studio.git`
-2. Run `cd relevance-studio` to enter the root-level directory of this project
-3. Copy `.env-reference` to `.env`
-4. Configure `.env` to use the endpoints and credentials of your Elastic deployment
+...then enter the project directory:
 
-**Step 2. Run the server in develoment mode**
+**`cd relevance-studio`**
 
-In a terminal, navigate to the root-level directory of this project and run:
+### Step 2. Configure its connections to Elasticsearch
 
-1. Run `conda create -n esrs python=3.10` to create a virtual environment
-2. Run `conda activate esrs` to activate the virtual environment
-3. Run `pip install -r requirements-dev.txt` to install the dependencies
-4. Run `python -m src.server.flask` to run the server in development mode
+Create your `.env` file from the given `.env-reference` file:
 
-Repeat steps 2 and 4 anytime you need to start the server in a new terminal.
+**`cp .env-reference .env`**
 
-**Step 3. Run the UI in development mode**
+...then configure your `.env` to use the endpoints and credentials of your Elasticsearch deployment(s).
 
-In a terminal, navigate to the root-level directory of this project and run:
+💡 *Read [roles and permissions](docs/setup/security.md#roles-and-permissions.md) to see the recommended configurations for security.*
 
-1. Run `nvm install && nvm use` to use the node version specified in .nvmrc
-2. Run `yarn install` in the root project directory to install dependencies listed in `package.json`
-3. Run `yarn run dev` to start the app using the script defined in `package.json`
-4. Open [http://localhost:8080/](http://localhost:8080/) in your browser to open the app in development mode
+### Step 3. Start Relevance Studio
 
-Repeat steps 1, 3, and 4 anytime you need to start the UI in a new terminal.
+Start Relevance Studio with docker compose:
 
-**Step 4. Run an evaluation worker process**
+**`docker compose up --build`**
 
-In a terminal, navigate to the root-level directory of this project and run:
+...then open it in a web browser:
 
-1. Run `conda create -n esrs python=3.10` to create a virtual environment
-2. Run `conda activate esrs` to activate the virtual environment
-3. Run `python -m src.server.worker` to run a worker process
+[http://localhost:4096/](http://localhost:4096/)
 
-Repeat steps 2 and 3 anytime you need to start a worker in another terminal.
+...then click the "Setup" button to finish the setup.
 
-**Step 5. Setup the index templates and indices**
+You're ready to go! :rocket:
 
-With the server and UI running from Steps 2 and 3, open [http://localhost:8080/](http://localhost:8080/) and click the button on the homepage to setup the index templates and indices.
+### Connect Claude Desktop to Relevance Studio <span style="font-weight: 300">(optional)</span>
 
-**Step 6. (Optional) Run the MCP server and proxy for Claude Desktop**
+Claude Desktop provides a way to use with Relevance Studio with an AI assistant. The docker compose file deploys an MCP server and a proxy that handles communications between Claude Desktop and Relevance Studio.
 
-In a terminal, navigate to the root-level directory of this project and run:
+Install these on your machine:
 
-1. Run `brew install uv` which is needed by Claude Desktop
-2. Run `conda create -n esrs python=3.10` to create a virtual environment
-3. Run `conda activate esrs` to activate the virtual environment
-4. Run `pip install -r requirements-mcp.txt` to install the dependencies
-5. Run `python -m src.server.fastmcp` to start the MCP server
-6. Run `fastmcp install claude-desktop src/server/fastmcp_proxy.py` to install the MCP proxy in Claude Desktop
-7. Restart Claude Desktop
+- [Claude Desktop](https://claude.ai/download)
+- [fastmcp](https://github.com/jlowin/fastmcp?tab=readme-ov-file#installation)
 
-Repeat steps 2, 3, 5, and 6 anytime you need to start the MCP server and proxy in another terminal.
+...then run this command from the project directory:
 
-Repeat steps 5, 6, and 7 anytime you make changes to the MCP server or proxy.
+**`fastmcp install claude-desktop src/server/fastmcp_proxy.py`**
 
-### Testing
+...then restart Claude Desktop.
 
-1. Run `pytest tests/unit` to run unit tests for the server.
+Verify if things are working by asking Claude:
+
+*Are you connected to Relevance Studio?*
+
+Enjoy!
