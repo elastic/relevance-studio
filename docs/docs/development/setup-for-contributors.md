@@ -1,4 +1,4 @@
-# Setup for Contributors
+# Setup for contributors
 
 These instructions will prepare your environment for developing Relevance Studio.
 
