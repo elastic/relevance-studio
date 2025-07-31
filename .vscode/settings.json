@@ -1,0 +1,41 @@
+{
+  "psi-header.changes-tracking": {
+    "autoHeader": "autoSave",
+    "include": [
+      "javascript",
+      "python"
+    ]
+  },
+  "psi-header.config": {
+    "blankLinesAfter": 1,
+    "company": "Elasticsearch B.V.",
+    "forceToTop": true,
+    "license": "ELv2",
+  },
+  "psi-header.lang-config": [
+    {
+      "language": "python",
+      "begin": "",
+      "end": "",
+      "prefix": "# "
+    }
+  ],
+  "psi-header.templates": [
+    {
+      "language": "javascript",
+      "template": [
+        "Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one",
+        "or more contributor license agreements. Licensed under the Elastic License;",
+        "you may not use this file except in compliance with the Elastic License."
+      ]
+    },
+    {
+      "language": "python",
+      "template": [
+        "Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one",
+        "or more contributor license agreements. Licensed under the Elastic License;",
+        "you may not use this file except in compliance with the Elastic License."
+      ]
+    }
+  ]
+}
