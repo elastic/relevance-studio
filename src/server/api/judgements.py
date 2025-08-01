@@ -158,7 +158,6 @@ def set(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     
     # Create, validate, and dump model
     doc = JudgementCreate.model_validate(doc, context={"user": user}).serialize()
-    print(doc)
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("judgements", doc)
