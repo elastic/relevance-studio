@@ -9,3 +9,6 @@ requests==2.32.4
 beir==2.2.0
 click==8.2.1
 termcolor==3.1.0
+
+# other
+pip-licenses==5.0.0
