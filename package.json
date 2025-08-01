@@ -1,6 +1,7 @@
 {
-  "name": "esrs",
+  "name": "relevance-studio",
   "version": "0.1.0",
+  "license": "Elastic License 2.0",
   "source": "src/ui/index.html",
   "dependencies": {
     "@babel/polyfill": "^7.12.1",
