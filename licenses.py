@@ -39,6 +39,9 @@ def parse_requirements_file(filepath):
                     pkgs.add(name)
     return pkgs
 
+def is_self_dependency(pkg_name, pkg_version, root_package):
+    return f"{root_package}@{pkg_version}" == f"{pkg_name}@{pkg_version}"
+
 def get_declared_python_packages(requirements_files):
     declared = set()
     for req in requirements_files:
@@ -135,19 +138,36 @@ def get_python_license_texts(requirements_files, include_transitive):
     return licenses
 
 def get_node_licenses(package_file, include_transitive, include_dev):
-    declared = get_declared_node_packages(package_file, include_dev)
-    license_data_raw = run_command(["license-checker", "--json"], cwd=Path.cwd())
+    if not Path(package_file).exists():
+        return []
+
+    # Read the root project's metadata
+    with open(package_file) as f:
+        pkg_json = json.load(f)
+    root_name = pkg_json.get("name")
+    root_version = pkg_json.get("version")
+    declared = set(pkg_json.get("dependencies", {}).keys())
+    if include_dev:
+        declared |= set(pkg_json.get("devDependencies", {}).keys())
+
+    license_data_raw = run_command(["license-checker", "--json", "--production" if not include_dev else ""], cwd=Path.cwd())
     data = json.loads(license_data_raw)
+
     results = []
     for full_key, meta in data.items():
         name, version = full_key.rsplit("@", 1) if "@" in full_key else (full_key, "unknown")
+
+        # Skip the root project itself
+        if name == root_name and version == root_version:
+            continue
+
         is_top_level = name in declared
         if include_transitive or is_top_level:
             results.append({
                 "name": name,
                 "version": version,
                 "license": meta.get("licenses", "UNKNOWN"),
-                "source": package_file,
+                "source": "node.js",
                 "transitive": not is_top_level
             })
     return results
