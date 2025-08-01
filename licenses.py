@@ -251,10 +251,10 @@ def generate_notice(output, transitive, dev):
         requirements_files.append("requirements-dev.txt")
     package_file = "package.json"
 
-    click.echo("🔍 Getting Python license contents (transitive: {transitive}, dev: {dev})...")
+    click.echo(f"🔍 Getting Python license contents (transitive: {transitive}, dev: {dev})...")
     python_licenses = get_python_license_texts(requirements_files, include_transitive=transitive)
 
-    click.echo("🔍 Getting Node.js license contents (transitive: {transitive}, dev: {dev})...")
+    click.echo(f"🔍 Getting Node.js license contents (transitive: {transitive}, dev: {dev})...")
     node_licenses = get_node_license_texts(package_file, include_transitive=transitive, include_dev=dev)
 
     click.echo(f"📝 Writing {output} ...")
