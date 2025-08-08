@@ -4,75 +4,10 @@
 
 Elasticsearch Relevance Studio guides you in the best practices of **search relevance engineering** so you can deliver amazing search experiences.
 
-**AI ready :sparkles:**
+### AI ready :sparkles:
 
 Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/reference/architecture.md#recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecyle of search relevance engineering &ndash; scaling up your operations much faster than possible with humans alone.
 
-## Quickstart
+### Get started
 
-Relevance Studio has a docker compose file so you can see how everything works before planning a production deployment.
-
-This quickstart guide was tested with macOS 15.5, Docker 27.3.1, and Elasticsearch 9.0.3.
-
-### Prerequisites
-
-This quickstart guide assumes that you have:
-
-* [docker](https://docs.docker.com/engine/install/) installed on your machine
-* An Elasticsearch deployment (8.x or higher) where your content is stored
-* An Elasticsearch deployment (8.x or higher) where Relevance Studio will store its assets (this can be the same as your content deployment)
-
-### Step 1. Download Relevance Studio
-
-Clone the repo:
-
-**`git clone https://github.com/elastic/relevance-studio.git`**
-
-...then enter the project directory:
-
-**`cd relevance-studio`**
-
-### Step 2. Configure its connections to Elasticsearch
-
-Create your `.env` file from the given `.env-reference` file:
-
-**`cp .env-reference .env`**
-
-...then configure your `.env` to use the endpoints and credentials of your Elasticsearch deployment(s).
-
-💡 *Read [roles and permissions](docs/setup/security.md#roles-and-permissions.md) to see the recommended configurations for security.*
-
-### Step 3. Start Relevance Studio
-
-Start Relevance Studio with docker compose:
-
-**`docker compose up --build`**
-
-...then open it in a web browser:
-
-[http://localhost:4096/](http://localhost:4096/)
-
-...then click the "Setup" button to finish the setup.
-
-You're ready to go! :rocket:
-
-### Connect Claude Desktop to Relevance Studio <span style="font-weight: 300">(optional)</span>
-
-Claude Desktop provides a way to use with Relevance Studio with an AI assistant. The docker compose file deploys an MCP server and a proxy that handles communications between Claude Desktop and Relevance Studio.
-
-Install these on your machine:
-
-- [Claude Desktop](https://claude.ai/download)
-- [fastmcp](https://github.com/jlowin/fastmcp?tab=readme-ov-file#installation)
-
-...then run this command from the project directory:
-
-**`fastmcp install claude-desktop src/server/fastmcp_proxy.py`**
-
-...then restart Claude Desktop.
-
-Verify if things are working by asking Claude:
-
-*Are you connected to Relevance Studio?*
-
-Enjoy!
+**[Read the docs to get started](https://elastic.github.io/relevance-studio/#/docs/setup/quickstart)**
