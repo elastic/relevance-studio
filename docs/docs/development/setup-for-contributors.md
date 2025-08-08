@@ -11,9 +11,8 @@ Tested on MacOS 15.5.
 Install dependencies:
 
 1. Install [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating) *(required by [UI](docs/reference/architecture.md#application))*
-2. Install [yarn](https://classic.yarnpkg.com/en/docs/install) (tested on version 1.22.22) *(required by [UI](docs/reference/architecture.md#application))*
-3. Install [python3](https://www.python.org/downloads/) (tested on version 3.10) *(required by [Server](docs/reference/architecture.md#application), [Worker](docs/reference/architecture.md#application), [MCP Server](docs/reference/architecture.md#application), [MCP Proxy](docs/reference/architecture.md#application))*
-4. Install [docker](https://docs.docker.com/engine/install/) (tested on version 27.3.1) *(required for integration tests)*
+2. Install [python3](https://www.python.org/downloads/) (tested on version 3.10) *(required by [Server](docs/reference/architecture.md#application), [Worker](docs/reference/architecture.md#application), [MCP Server](docs/reference/architecture.md#application), [MCP Proxy](docs/reference/architecture.md#application))*
+3. Install [docker](https://docs.docker.com/engine/install/) (tested on version 27.3.1) *(required for integration tests)*
 
 Clone this repo:
 
@@ -43,8 +42,8 @@ Repeat steps 2 and 5 anytime you need to start the server in a new terminal.
 In a terminal, navigate to the root-level directory of this project and run:
 
 1. Run `nvm install && nvm use` to use the node version specified in .nvmrc
-2. Run `yarn install` in the root project directory to install dependencies listed in `package.json`
-3. Run `yarn run dev` to start the app using the script defined in `package.json`
+2. Run `npm install --legacy-peer-deps` in the root project directory to install dependencies listed in `package.json`
+3. Run `npm run dev` to start the app using the script defined in `package.json`
 4. Open [http://localhost:8080/](http://localhost:8080/) in your browser to open the app in development mode
 
 Repeat steps 1, 3, and 4 anytime you need to start the UI in a new terminal.

@@ -4,12 +4,12 @@ FROM node:20.15.1-slim AS ui
 WORKDIR /app
 
 # Copy project files
-COPY package.json yarn.lock .babelrc webpack.config.js ./ 
+COPY package.json package-lock.json .babelrc webpack.config.js ./ 
 COPY src/ui ./src/ui
 
 # Install dependencies and build
-RUN yarn install
-RUN yarn build
+RUN npm install --legacy-peer-deps
+RUN npm run build
 
 ####  Build the server  ########################################################
 
