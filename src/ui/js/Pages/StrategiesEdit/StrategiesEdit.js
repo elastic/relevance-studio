@@ -389,7 +389,7 @@ const StrategiesEdit = () => {
    * Reset the form to the last saved strategy.
    */
   const resetForm = () => {
-    setStrategyDraft(JSON.stringify(lastSavedStrategy.template.source, null, 2))
+    setStrategyDraft(lastSavedStrategy.template.source, null, 2)
   }
 
   ////  Render  ////////////////////////////////////////////////////////////////
