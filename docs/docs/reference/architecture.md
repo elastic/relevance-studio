@@ -2,16 +2,16 @@
 
 ## Application
 
-- [UI](#ui) - Provides a human user experience in a web browser
-- [Server](#server) - Provides a REST API for the UI and worker(s)
-- [Worker](#worker) - Checks for pending evaluations and runs them
-- [MCP Server](#mcp-server) *(optional)* - Enables MCP over HTTP for AI agents
-- [MCP Proxy](#mcp-proxy) *(optional)* - Enables MCP over stdio for local AI agents (e.g. Claude Desktop)
+- **UI** - Provides a human user experience in a web browser
+- **Server** - Provides a REST API for the UI and worker(s)
+- **Worker** - Checks for pending evaluations and runs them
+- **MCP Server** *(optional)* - Enables MCP over HTTP for AI agents
+- **MCP Proxy** *(optional)* - Enables MCP over stdio for local AI agents (e.g. Claude Desktop)
 
 ## Elasticsearch
 
-- [Studio deployment](#studio-deployment) - Stores application workspace assets
-- [Content deployment](#content-deployment) - Stores documents to be judged and runs rank evaluation
+- **Studio deployment** - Stores application workspace assets
+- **Content deployment** - Stores documents to be judged and runs rank evaluation
 
 ## Ports and protocols
 
