@@ -340,7 +340,7 @@ const EvaluationsView = () => {
               <p>
                 Evaluation failed due to this error:
               </p>
-              <br/>
+              <br />
               <EuiCallOut color='danger' title={evaluation.error.type || 'Unknown error'}>
                 {evaluation.error.traceback &&
                   <EuiCodeBlock language='python'>
@@ -350,6 +350,46 @@ const EvaluationsView = () => {
                 {!evaluation.error.traceback &&
                   <p>No other information was given for this error.</p>
                 }
+              </EuiCallOut>
+            </EuiPanel>
+          </EuiPanel>
+          <EuiSpacer size='m' />
+        </>
+      }
+
+      {/* Running */}
+      {evaluation && evaluation['@meta']?.status == 'running' &&
+        <>
+          <EuiPanel paddingSize='none'>
+            <EuiPanel color='transparent'>
+              <EuiTitle size='s'>
+                <h2>Running</h2>
+              </EuiTitle>
+            </EuiPanel>
+            <EuiHorizontalRule margin='none' />
+            <EuiPanel color='transparent'>
+              <EuiCallOut>
+                This evaluation is still running. You can return to this page when the evaluation is completed.
+              </EuiCallOut>
+            </EuiPanel>
+          </EuiPanel>
+          <EuiSpacer size='m' />
+        </>
+      }
+
+      {/* Skipped */}
+      {evaluation && evaluation['@meta']?.status == 'skipped' &&
+        <>
+          <EuiPanel paddingSize='none'>
+            <EuiPanel color='transparent'>
+              <EuiTitle size='s'>
+                <h2>Skipped</h2>
+              </EuiTitle>
+            </EuiPanel>
+            <EuiHorizontalRule margin='none' />
+            <EuiPanel color='transparent'>
+              <EuiCallOut>
+                This evaluation was skipped. This happens when the scenarios have no judgements with ratings.
               </EuiCallOut>
             </EuiPanel>
           </EuiPanel>
