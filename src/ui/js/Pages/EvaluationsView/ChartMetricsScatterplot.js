@@ -47,6 +47,9 @@ const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategy
       return
     const _data = []
     for (const key in evaluation.summary[groupBy]) {
+      console.log('---')
+      console.log(groupBy)
+      console.log(key)
       const row = {
         label: key,
         ndcg: evaluation.summary[groupBy][key]._total.metrics.ndcg.avg,

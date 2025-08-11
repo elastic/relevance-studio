@@ -191,6 +191,19 @@
             }
           }
         },
+        "error": {
+          "properties": {
+            "type": {
+              "type": "keyword"
+            },
+            "message": {
+              "type": "text"
+            },
+            "traceback": {
+              "type": "text"
+            }
+          }
+        },
         "took": {
           "type": "integer"
         }

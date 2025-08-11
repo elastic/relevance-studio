@@ -236,6 +236,7 @@ class EvaluationStop(Evaluation):
     runtime: Optional[Runtime] = None
     summary: Optional[Dict[str, Any]] = None
     unrated_docs: Optional[List[UnratedDocs]] = None
+    error: Optional[Dict[str, Any]] = None
     took: Optional[StrictInt] = Field(default=None, ge=0)
     
     @model_validator(mode="before")
@@ -298,6 +299,13 @@ class EvaluationStop(Evaluation):
     def validate_unrated_docs(cls, value):
         if value is None:
             raise ValueError("unrated_docs must be a list of objects")
+        return value
+    
+    @field_validator("error")
+    @classmethod
+    def validate_error(cls, value):
+        if value is None:
+            raise ValueError("error must be an object if given")
         return value
     
     @field_validator("took", mode="before")

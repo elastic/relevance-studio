@@ -18,7 +18,6 @@ import '@elastic/charts/dist/theme_only_dark.css'
 import '@elastic/charts/dist/theme_only_light.css'
 import { euiPaletteForStatus } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
-import utils from '../../utils'
 
 const ChartMetricsHeatmap = (props) => {
 

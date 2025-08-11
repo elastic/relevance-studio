@@ -7,6 +7,7 @@
 import itertools
 import json
 import time
+import traceback
 from typing import Any, Dict, List, Optional
 
 # App packages
@@ -535,6 +536,9 @@ def run(
                             _unrated_docs[_index][_id]["count"] += 1
                             _unrated_docs[_index][_id]["strategies"].add(strategy_id)
                             _unrated_docs[_index][_id]["scenarios"].add(scenario_id)
+                
+                # Store failures
+                _results[strategy_id][scenario_id]["failures"] = es_response.body.get("failures") or []
             
         # Restructure results for response
         evaluation["results"] = []
@@ -595,6 +599,11 @@ def run(
         print(e)
         stopped_at = time.time()
         evaluation["took"] = int(( stopped_at - started_at) * 1000)
+        evaluation["error"] = {
+            "type": e.__class__.__name__,
+            "message": str(e),
+            "traceback": "".join(traceback.format_exception(type(e), e, e.__traceback__))
+        }
         doc = EvaluationFail.model_validate(evaluation).serialize()
         if store_results:
             es("studio").update(

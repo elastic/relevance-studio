@@ -193,6 +193,7 @@ def mock_input_update():
                 ],
             },
         ],
+        "error": {},
         "took": 4096
     }
     return input
@@ -646,6 +647,17 @@ def test_update_handles_invalid_inputs_for_unrated_docs_strategies(value):
 def test_update_handles_invalid_inputs_for_unrated_docs_scenarios(value):
     input = mock_input_update()
     input["unrated_docs"][0]["scenarios"] = value
+    with pytest.raises(ValidationError):
+        EvaluationComplete(**input)
+    with pytest.raises(ValidationError):
+        EvaluationFail(**input)
+    with pytest.raises(ValidationError):
+        EvaluationSkip(**input)
+        
+@pytest.mark.parametrize("value", invalid_values_for("object", allow_empty=True))
+def test_update_handles_invalid_inputs_for_error(value):
+    input = mock_input_update()
+    input["error"] = value
     with pytest.raises(ValidationError):
         EvaluationComplete(**input)
     with pytest.raises(ValidationError):
