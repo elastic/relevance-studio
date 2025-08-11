@@ -8,6 +8,8 @@
 import { useState } from 'react'
 import {
   EuiButton,
+  EuiCallOut,
+  EuiCodeBlock,
   EuiFilterButton,
   EuiFilterGroup,
   EuiFlexGroup,
@@ -17,7 +19,6 @@ import {
   EuiPanel,
   EuiPopover,
   EuiSelectable,
-  EuiSkeletonText,
   EuiSkeletonTitle,
   EuiSpacer,
   EuiTitle,
@@ -325,17 +326,48 @@ const EvaluationsView = () => {
         />
       }
 
+      {/* Error */}
+      {!!Object.keys(evaluation?.error ?? {}).length &&
+        <>
+          <EuiPanel paddingSize='none'>
+            <EuiPanel color='transparent'>
+              <EuiTitle size='s'>
+                <h2>Failure</h2>
+              </EuiTitle>
+            </EuiPanel>
+            <EuiHorizontalRule margin='none' />
+            <EuiPanel color='transparent'>
+              <p>
+                Evaluation failed due to this error:
+              </p>
+              <br/>
+              <EuiCallOut color='danger' title={evaluation.error.type || 'Unknown error'}>
+                {evaluation.error.traceback &&
+                  <EuiCodeBlock language='python'>
+                    {evaluation.error.traceback}
+                  </EuiCodeBlock>
+                }
+                {!evaluation.error.traceback &&
+                  <p>No other information was given for this error.</p>
+                }
+              </EuiCallOut>
+            </EuiPanel>
+          </EuiPanel>
+          <EuiSpacer size='m' />
+        </>
+      }
+
       {/* Metrics */}
-      <EuiPanel paddingSize='none'>
-        <EuiPanel color='transparent'>
-          <EuiTitle size='s'>
-            <h2>Summary</h2>
-          </EuiTitle>
-        </EuiPanel>
-        <EuiHorizontalRule margin='none' />
-        <EuiPanel color='transparent'>
-          <EuiSkeletonText lines={16} isLoading={!isReady}>
-            {evaluation?.results &&
+      {evaluation?.summary &&
+        <>
+          <EuiPanel paddingSize='none'>
+            <EuiPanel color='transparent'>
+              <EuiTitle size='s'>
+                <h2>Summary</h2>
+              </EuiTitle>
+            </EuiPanel>
+            <EuiHorizontalRule margin='none' />
+            <EuiPanel color='transparent'>
               <EuiFlexGroup>
 
                 {/* Table */}
@@ -352,23 +384,23 @@ const EvaluationsView = () => {
                   </EuiPanel>
                 </EuiFlexItem>
               </EuiFlexGroup>
-            }
-          </EuiSkeletonText>
-        </EuiPanel>
-      </EuiPanel>
-      <EuiSpacer size='m' />
+            </EuiPanel>
+          </EuiPanel>
+          <EuiSpacer size='m' />
+        </>
+      }
 
       {/* Heatmap */}
-      <EuiPanel paddingSize='none'>
-        <EuiPanel color='transparent'>
-          <EuiTitle size='s'>
-            <h2>Strategies by scenario</h2>
-          </EuiTitle>
-        </EuiPanel>
-        <EuiHorizontalRule margin='none' />
-        <EuiPanel color='transparent'>
-          <EuiSkeletonText lines={16} isLoading={!isReady}>
-            {evaluation?.results &&
+      {evaluation?.summary &&
+        <>
+          <EuiPanel paddingSize='none'>
+            <EuiPanel color='transparent'>
+              <EuiTitle size='s'>
+                <h2>Strategies by scenario</h2>
+              </EuiTitle>
+            </EuiPanel>
+            <EuiHorizontalRule margin='none' />
+            <EuiPanel color='transparent'>
               <>
                 {renderHeatmapControls()}
                 <EuiSpacer size='m' />
@@ -380,47 +412,49 @@ const EvaluationsView = () => {
                   ySortBy={ySortBySelected._id}
                 />
               </>
-            }
-          </EuiSkeletonText>
-        </EuiPanel>
-      </EuiPanel>
-      <EuiSpacer size='m' />
+            </EuiPanel>
+          </EuiPanel>
+          <EuiSpacer size='m' />
+        </>
+      }
 
       {/* Unrated docs */}
-      <EuiPanel paddingSize='none'>
-        <EuiFlexGroup>
-          <EuiFlexItem grow>
-            <EuiPanel color='transparent'>
-              <EuiTitle size='s'>
-                <h2>Unrated docs</h2>
-              </EuiTitle>
-            </EuiPanel>
-          </EuiFlexItem>
-          <EuiFlexItem grow={false}>
-            <EuiPanel color='transparent' paddingSize='none'>
-              <EuiButton style={{ margin: '8px 16px' }} onClick={(e) => {
-                const pairs = []
-                evaluation.unrated_docs.forEach((doc) => {
-                  pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
-                })
-                const query = encodeURIComponent(pairs.join(' OR '))
-                history.push(`/workspaces/${workspace._id}/judgements?query=${query}`)
-              }}>
-                Judge
-              </EuiButton>
-            </EuiPanel>
-          </EuiFlexItem>
-        </EuiFlexGroup>
-        <EuiHorizontalRule margin='none' />
-        <EuiPanel color='transparent' style={{ height: '600px', overflowY: 'scroll' }}>
-          <EuiSkeletonText lines={16} isLoading={!isReady}>
-            {evaluation?.results &&
+      {evaluation?.summary &&
+        <>
+          <EuiPanel paddingSize='none'>
+            <EuiFlexGroup>
+              <EuiFlexItem grow>
+                <EuiPanel color='transparent'>
+                  <EuiTitle size='s'>
+                    <h2>Unrated docs</h2>
+                  </EuiTitle>
+                </EuiPanel>
+              </EuiFlexItem>
+              <EuiFlexItem grow={false}>
+                <EuiPanel color='transparent' paddingSize='none'>
+                  <EuiButton style={{ margin: '8px 16px' }} onClick={(e) => {
+                    const pairs = []
+                    evaluation.unrated_docs.forEach((doc) => {
+                      pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
+                    })
+                    const query = encodeURIComponent(pairs.join(' OR '))
+                    history.push(`/workspaces/${workspace._id}/judgements?query=${query}`)
+                  }}>
+                    Judge
+                  </EuiButton>
+                </EuiPanel>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+            <EuiHorizontalRule margin='none' />
+            <EuiPanel color='transparent' style={{ height: '600px', overflowY: 'scroll' }}>
               <PanelUnratedDocs evaluation={evaluation} />
-            }
-          </EuiSkeletonText>
-        </EuiPanel>
-      </EuiPanel>
-      <EuiSpacer size='m' />
+            </EuiPanel>
+          </EuiPanel>
+          <EuiSpacer size='m' />
+        </>
+      }
+
+
     </Page>
   )
 }
