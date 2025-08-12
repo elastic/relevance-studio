@@ -26,6 +26,7 @@ def mock_input_create():
         ],
         "task": {
             "metrics": [
+                "mrr",
                 "ndcg",
                 "precision",
                 "recall"
@@ -129,7 +130,7 @@ def test_create_is_valid_without_optional_inputs():
     input["task"].pop("metrics", None)
     model = BenchmarkCreate.model_validate(input, context=mock_context())
     assert sorted(model.task.metrics) == sorted([
-        "ndcg", "precision", "recall"
+        "mrr", "ndcg", "precision", "recall"
     ])
     
 def test_create_is_invalid_with_unexpected_inputs():
