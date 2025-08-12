@@ -23,7 +23,7 @@ from ..models import (
 
 INDEX_NAME = "esrs-evaluations"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("evaluations")
-VALID_METRICS = set([ "ndcg", "precision", "recall" ])
+VALID_METRICS = set([ "mrr", "ndcg", "precision", "recall" ])
 
 def _generate_summary_metrics(searches_list):
     """
@@ -415,12 +415,13 @@ def run(
             #        "maximum_relevance": rating_scale_max
             #    }
             #},
-            #"mrr": {
-            #    "name": "mean_reciprocal_rank",
-            #    "config": {
-            #        "k":  evaluation["task"]["k"]
-            #    }
-            #},
+            "mrr": {
+                "name": "mean_reciprocal_rank",
+                "config": {
+                    "k":  evaluation["task"]["k"],
+                    "relevant_rating_threshold": 1 # TODO: Make configurable
+                }
+            },
             "ndcg": {
                 "name": "dcg",
                 "config": {

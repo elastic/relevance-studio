@@ -373,6 +373,7 @@ const FlyoutForm = ({
             disabled={action == 'update'}
             isFullWidth
             idToSelectedMap={{
+              'mrr': form.metrics.includes('mrr'),
               'ndcg': form.metrics.includes('ndcg'),
               'precision': form.metrics.includes('precision'),
               'recall': form.metrics.includes('recall'),
@@ -392,6 +393,10 @@ const FlyoutForm = ({
               })
             }}
             options={[
+              {
+                id: 'mrr',
+                label: (<EuiText size='xs'>MRR</EuiText>),
+              },
               {
                 id: 'ndcg',
                 label: (<EuiText size='xs'>NDCG</EuiText>),

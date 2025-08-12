@@ -181,7 +181,7 @@ Elasticsearch index template: [esrs-benchmarks](https://github.com/elastic/relev
 - **`description`** - A human-readable description of the benchmark.
 - **`tags`** - Arbitrary tags for organizing benchmarks.
 - **`task.k`** - The value of `k` used for metrics like NDCG.
-- **`task.metrics`** - The names of the metrics to include. Supports `"ndcg"`, `"precision"`, and `"recall"`.
+- **`task.metrics`** - The names of the metrics to include. Supports `"ndcg"`, `"precision"`, `"recall"`, and `"mrr"`.
 - **`task.strategies._ids`** - The `_id` fields of [strategy](#strategies) documents to include in [evaluations](#evaluations).
 - **`task.strategies.tags`** - The `tags` of [strategies](#strategies) to include in [evaluations](#evaluations).
 - **`task.strategies.docs`** - The `_source` of [strategy](#strategies) documents to include in [evaluations](#evaluations). Primarily intended to be used by the strategy testing components of the [UI](docs/reference/architecture.md#application).
@@ -201,7 +201,7 @@ Elasticsearch index template: [esrs-benchmarks](https://github.com/elastic/relev
 |**`description`**|String|Optional|Optional||
 |**`tags`**|List of strings|Optional|Optional||
 |**`task.k`**|Integer|Required|Forbidden|Immutable|
-|**`task.metrics`**|List of strings|Required|Optional|Options: `"ndcg"`, `"precision"`, `"recall"`|
+|**`task.metrics`**|List of strings|Required|Optional|Options: `"ndcg"`, `"precision"`, `"recall"`, `"mrr"`|
 |**`task.strategies._ids`**|List of strings|Optional|Optional||
 |**`task.strategies.tags`**|List of strings|Optional|Optional||
 |**`task.strategies.docs`**|List of objects|Optional|Optional||

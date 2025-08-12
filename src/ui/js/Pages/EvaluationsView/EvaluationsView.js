@@ -5,7 +5,7 @@
  * 2.0.
  */
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   EuiButton,
   EuiCallOut,
@@ -46,14 +46,8 @@ const EvaluationsView = () => {
   const [strategyInFocus, setStrategyInFocus] = useState(null)
   const [isFlyoutRuntimeOpen, setIsFlyoutRuntimeOpen] = useState(false)
   const [metricOpen, setMetricOpen] = useState(false)
-  const [metricOptions, setMetricOptions] = useState([
-    { _id: 'ndcg', label: 'NDCG', checked: 'on' },
-    { _id: 'precision', label: 'Precision' },
-    { _id: 'recall', label: 'Recall' },
-  ])
-  const [metricSelected, setMetricSelected] = useState({
-    _id: 'ndcg', label: 'NDCG', checked: 'on'
-  })
+  const [metricOptions, setMetricOptions] = useState([])
+  const [metricSelected, setMetricSelected] = useState(null)
   const [xGroupByOpen, setXGroupByOpen] = useState(false)
   const [xGroupByOptions, setXGroupByOptions] = useState([
     { _id: 'scenario_id', label: 'Scenario', checked: 'on' },
@@ -82,6 +76,39 @@ const EvaluationsView = () => {
     _id: { by: 'value', order: 'asc' }, label: 'Metric', checked: 'on'
   })
 
+  // Metrics derived from benchmark
+  const labelForMetric = (id) => {
+    const map = { ndcg: 'NDCG', mrr: 'MRR', precision: 'Precision', recall: 'Recall' }
+    return map[id?.toLowerCase?.()] ?? (id ? String(id).toUpperCase() : '')
+  }
+
+  const normalizedBenchmarkMetrics = useMemo(() => {
+    // Accept strings or objects; keep order from benchmark
+    const list = (benchmark?.task?.metrics ?? []).map((m) => {
+      if (typeof m === 'string') return m.toLowerCase()
+      if (m?._id) return String(m._id).toLowerCase()
+      if (m?.id) return String(m.id).toLowerCase()
+      if (m?.name) return String(m.name).toLowerCase()
+      return null
+    }).filter(Boolean)
+    return [...new Set(list)] // dedupe, preserve order
+  }, [benchmark])
+
+  // Initialize options + selected once benchmark is ready.
+  useEffect(() => {
+    if (!normalizedBenchmarkMetrics.length) return
+    // Don’t overwrite if user already picked one
+    if (metricSelected?._id) return
+    const first = normalizedBenchmarkMetrics[0]
+    const opts = normalizedBenchmarkMetrics.map((id, i) => ({
+      _id: id,
+      label: labelForMetric(id),
+      ...(i === 0 ? { checked: 'on' } : {})
+    }))
+    setMetricOptions(opts)
+    setMetricSelected({ _id: first, label: labelForMetric(first), checked: 'on' })
+  }, [normalizedBenchmarkMetrics])
+
   const downloadEvaluation = () => {
     const blob = new Blob([utils.jsonStringifySortedKeys(evaluation, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -105,7 +132,7 @@ const EvaluationsView = () => {
             onClick={(e) => setMetricOpen(!metricOpen)}
             isSelected={metricOpen}
           >
-            {metricSelected.label}
+            {metricSelected?.label ?? 'Metric'}
           </EuiFilterButton>
         }
         closePopover={(e) => setMetricOpen(false)}
@@ -416,13 +443,15 @@ const EvaluationsView = () => {
                 </EuiFlexItem>
 
                 {/* Scatterplot */}
-                <EuiFlexItem grow={false}>
-                  <EuiPanel hasBorder paddingSize='none'>
-                    <EuiPanel color='subdued'>
-                      <ChartMetricsScatterplot evaluation={evaluation} strategyInFocus={strategyInFocus} />
+                {['ndcg', 'precision', 'recall'].every(metric => benchmark?.task?.metrics?.includes(metric)) &&
+                  <EuiFlexItem grow={false}>
+                    <EuiPanel hasBorder paddingSize='none'>
+                      <EuiPanel color='subdued'>
+                        <ChartMetricsScatterplot evaluation={evaluation} strategyInFocus={strategyInFocus} />
+                      </EuiPanel>
                     </EuiPanel>
-                  </EuiPanel>
-                </EuiFlexItem>
+                  </EuiFlexItem>
+                }
               </EuiFlexGroup>
             </EuiPanel>
           </EuiPanel>
@@ -444,13 +473,15 @@ const EvaluationsView = () => {
               <>
                 {renderHeatmapControls()}
                 <EuiSpacer size='m' />
-                <ChartMetricsHeatmap
-                  evaluation={evaluation}
-                  metric={metricSelected._id}
-                  xGroupBy={xGroupBySelected._id}
-                  yGroupBy={yGroupBySelected._id}
-                  ySortBy={ySortBySelected._id}
-                />
+                {metricSelected &&
+                  <ChartMetricsHeatmap
+                    evaluation={evaluation}
+                    metric={metricSelected._id}
+                    xGroupBy={xGroupBySelected._id}
+                    yGroupBy={yGroupBySelected._id}
+                    ySortBy={ySortBySelected._id}
+                  />
+                }
               </>
             </EuiPanel>
           </EuiPanel>

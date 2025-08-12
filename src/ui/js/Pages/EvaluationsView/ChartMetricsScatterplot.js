@@ -52,9 +52,10 @@ const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategy
       console.log(key)
       const row = {
         label: key,
-        ndcg: evaluation.summary[groupBy][key]._total.metrics.ndcg.avg,
-        precision: evaluation.summary[groupBy][key]._total.metrics.precision.avg,
-        recall: evaluation.summary[groupBy][key]._total.metrics.recall.avg,
+        mrr: evaluation.summary[groupBy][key]?._total?.metrics?.mrr?.avg,
+        ndcg: evaluation.summary[groupBy][key]?._total?.metrics?.ndcg?.avg,
+        precision: evaluation.summary[groupBy][key]?._total?.metrics?.precision?.avg,
+        recall: evaluation.summary[groupBy][key]?._total?.metrics?.recall?.avg,
       }
       _data.push(row)
     }

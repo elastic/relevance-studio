@@ -143,7 +143,7 @@ class TaskCreate(BaseModel):
     model_config = { "extra": "forbid", "strict": True }
     
     # Optional inputs
-    metrics: List[str] = Field(default_factory=lambda: ["ndcg", "precision", "recall"])
+    metrics: List[str] = Field(default_factory=lambda: ["mrr", "ndcg", "precision", "recall"])
     k: StrictInt = Field(default=10, ge=1)
     strategies: TaskStrategiesCreate = Field(default_factory=TaskStrategiesCreate)
     scenarios: TaskScenariosCreate = Field(default_factory=TaskScenariosCreate)

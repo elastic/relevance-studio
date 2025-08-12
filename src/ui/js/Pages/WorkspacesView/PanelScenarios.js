@@ -5,20 +5,27 @@
  * 2.0.
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   EuiBadge,
   EuiInMemoryTable,
   EuiProgress,
   EuiText,
 } from '@elastic/eui'
-import utils from '../../utils'
 
 const PanelScenarios = ({ evaluation, rowOnHover }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [items, setItems] = useState([])
+
+  const sortPriority = ['ndcg', 'precision', 'recall', 'mrr']
+  const metricLabels = {
+    ndcg: 'NDCG',
+    precision: 'Precision',
+    recall: 'Recall',
+    mrr: 'MRR',
+  }
 
 
   ////  Render  ////////////////////////////////////////////////////////////////
@@ -46,74 +53,30 @@ const PanelScenarios = ({ evaluation, rowOnHover }) => {
       },
     },
   ]
-  if ((evaluation.task?.metrics || []).includes('ndcg')) {
-    columns.push({
-      field: 'metrics.ndcg',
-      name: (
-        <>
-          NDCG <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
-        </>
-      ),
-      sortable: true,
-      style: { width: '100px' },
-      render: (name, item) => (
-        <div style={{ position: 'relative', width: '100%' }}>
-          <EuiProgress
-            color={getColorBand(item.metrics.ndcg)}
-            label={item.metrics.ndcg ? item.metrics.ndcg.toFixed(4) : '-'}
-            max={1}
-            size='s'
-            value={item.metrics.ndcg}
-          />
-        </div>
-      )
-    })
-  }
-  if ((evaluation.task?.metrics || []).includes('precision')) {
-    columns.push({
-      field: 'metrics.precision',
-      name: (
-        <>
-          Precision <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
-        </>
-      ),
-      sortable: true,
-      style: { width: '100px' },
-      render: (name, item) => (
-        <div style={{ position: 'relative', width: '100%' }}>
-          <EuiProgress
-            color={getColorBand(item.metrics.precision)}
-            label={item.metrics.precision ? item.metrics.precision.toFixed(4) : '-'}
-            max={1}
-            size='s'
-            value={item.metrics.precision}
-          />
-        </div>
-      )
-    })
-  }
-  if ((evaluation.task?.metrics || []).includes('recall')) {
-    columns.push({
-      field: 'metrics.recall',
-      name: (
-        <>
-          Recall <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
-        </>
-      ),
-      sortable: true,
-      style: { width: '100px' },
-      render: (name, item) => (
-        <div style={{ position: 'relative', width: '100%' }}>
-          <EuiProgress
-            color={getColorBand(item.metrics.recall)}
-            label={item.metrics.recall ? item.metrics.recall.toFixed(4) : '-'}
-            max={1}
-            size='s'
-            value={item.metrics.recall}
-          />
-        </div>
-      )
-    })
+  for (const metric of sortPriority) {
+    if ((evaluation.task?.metrics || []).includes(metric)) {
+      columns.push({
+        field: `metrics.${metric}`,
+        name: (
+          <>
+            {metricLabels[metric]} <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
+          </>
+        ),
+        sortable: true,
+        style: { width: '100px' },
+        render: (name, item) => (
+          <div style={{ position: 'relative', width: '100%' }}>
+            <EuiProgress
+              color={getColorBand(item?.metrics?.[metric])}
+              label={item?.metrics?.[metric] ? item?.metrics?.[metric]?.toFixed(4) : '-'}
+              max={1}
+              size='s'
+              value={item?.metrics?.[metric]}
+            />
+          </div>
+        )
+      })
+    }
   }
 
   return (

@@ -82,12 +82,11 @@ const ChartMetricsHeatmap = (props) => {
       return
     const _data = []
     const summary = { ...evaluation.summary }
-    console.error(summary)
     for (const [yKey, yValue] of Object.entries(summary[yGroupBy])) {
       const total = {
         x: 'Average',
         y: yKey,
-        value: summary[yGroupBy][yKey]._total.metrics[metric].avg,
+        value: summary?.[yGroupBy]?.[yKey]?._total?.metrics?.[metric]?.avg,
       }
       _data.push(total)
       for (const [xKey, xValue] of Object.entries(yValue[`by_${xGroupBy}`])) {
@@ -98,7 +97,7 @@ const ChartMetricsHeatmap = (props) => {
         const row = {
           x: xKey,
           y: yKey,
-          value: xValue.metrics[metric].avg,
+          value: xValue?.metrics?.[metric]?.avg,
         }
         _data.push(row)
       }

@@ -70,7 +70,13 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
 
   const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]
 
-  const sortPriority = ['ndcg', 'precision', 'recall']
+  const sortPriority = ['ndcg', 'precision', 'recall', 'mrr']
+  const metricLabels = {
+    ndcg: 'NDCG',
+    precision: 'Precision',
+    recall: 'Recall',
+    mrr: 'MRR',
+  }
 
   ////  Effects  ///////////////////////////////////////////////////////////////
 
@@ -123,7 +129,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
           overflowHeight={400}
           style={{ width: '100%' }}
         >
-          {runtimeStrategy(item.strategy_id)?.template?.source}
+          {JSON.stringify(JSON.parse(runtimeStrategy(item?.strategy_id)?.template?.source), null, 2)}
         </EuiCodeBlock>
       </EuiPanel>
     )
@@ -146,10 +152,10 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
           <EuiButtonIcon
             onClick={() => toggleDetails(item)}
             aria-label={
-              _itemsToExpandedRows[item.strategy_id] ? 'Collapse' : 'Expand'
+              _itemsToExpandedRows[item?.strategy_id] ? 'Collapse' : 'Expand'
             }
             iconType={
-              _itemsToExpandedRows[item.strategy_id] ? 'arrowDown' : 'arrowRight'
+              _itemsToExpandedRows[item?.strategy_id] ? 'arrowDown' : 'arrowRight'
             }
           />
         )
@@ -159,7 +165,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       field: 'name',
       name: 'Strategy',
       sortable: true,
-      render: (name, item) => item.name
+      render: (name, item) => item?.name
     },
     {
       field: 'tags',
@@ -167,7 +173,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       width: '100px',
       render: (name, item) => {
         const tags = []
-        for (var i in item.tags)
+        for (var i in item?.tags)
           tags.push(
             <EuiBadge color='hollow' key={item.tags[i]}>
               {item.tags[i]}
@@ -177,74 +183,33 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       },
     },
   ]
-  if ((evaluation.task?.metrics || []).includes('ndcg')) {
-    columns.push({
-      field: 'metrics.ndcg.avg',
-      name: (
-        <>
-          NDCG <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
-        </>
-      ),
-      sortable: true,
-      style: { width: '100px' },
-      render: (name, item) => (
-        <div style={{ position: 'relative', width: '100%' }}>
-          <EuiProgress
-            color={getColorBand(item.metrics.ndcg.avg)}
-            label={item.metrics.ndcg.avg ? item.metrics.ndcg.avg.toFixed(4) : '-'}
-            max={1}
-            size='s'
-            value={item.metrics.ndcg.avg}
-          />
-        </div>
-      )
-    })
-  }
-  if ((evaluation.task?.metrics || []).includes('precision')) {
-    columns.push({
-      field: 'metrics.precision.avg',
-      name: (
-        <>
-          Precision <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
-        </>
-      ),
-      sortable: true,
-      style: { width: '100px' },
-      render: (name, item) => (
-        <div style={{ position: 'relative', width: '100%' }}>
-          <EuiProgress
-            color={getColorBand(item.metrics.precision.avg)}
-            label={item.metrics.precision.avg ? item.metrics.precision.avg.toFixed(4) : '-'}
-            max={1}
-            size='s'
-            value={item.metrics.precision.avg}
-          />
-        </div>
-      )
-    })
-  }
-  if ((evaluation.task?.metrics || []).includes('recall')) {
-    columns.push({
-      field: 'metrics.recall.avg',
-      name: (
-        <>
-          Recall <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
-        </>
-      ),
-      sortable: true,
-      style: { width: '100px' },
-      render: (name, item) => (
-        <div style={{ position: 'relative', width: '100%' }}>
-          <EuiProgress
-            color={getColorBand(item.metrics.recall.avg)}
-            label={item.metrics.recall.avg ? item.metrics.recall.avg.toFixed(4) : '-'}
-            max={1}
-            size='s'
-            value={item.metrics.recall.avg}
-          />
-        </div>
-      )
-    })
+  for (const metric of sortPriority) {
+    if ((evaluation.task?.metrics || []).includes(metric)) {
+      columns.push({
+        field: `metrics.${metric}.avg`,
+        name: (
+          <>
+            {metricLabels[metric]} <EuiText component='span' size='xs'><small>(avg)</small></EuiText>
+          </>
+        ),
+        sortable: true,
+        style: { width: '100px' },
+        render: (name, item) => (
+          <div style={{ position: 'relative', width: '100%' }}>
+            {item?.metrics?.[metric]?.avg === undefined
+              ? <EuiText size='s'>-</EuiText>
+              : <EuiProgress
+                color={getColorBand(item.metrics[metric].avg)}
+                label={item.metrics[metric].avg ? item.metrics[metric].avg.toFixed(4) : '-'}
+                max={1}
+                size='s'
+                value={item.metrics[metric].avg}
+              />
+            }
+          </div>
+        )
+      })
+    }
   }
   columns.push({
     field: 'rated_docs.percent',
@@ -258,11 +223,11 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     render: (name, item) => (
       <div style={{ position: 'relative', width: '100%' }}>
         <EuiProgress
-          color={getColorBand(item.rated_docs.percent / 100)}
-          label={item.rated_docs.percent.toFixed(0) + '%'}
+          color={getColorBand(item?.rated_docs?.percent / 100)}
+          label={item?.rated_docs?.percent?.toFixed(0) + '%'}
           max={1}
           size='s'
-          value={item.rated_docs.percent / 100.0}
+          value={item?.rated_docs?.percent / 100.0}
         />
       </div>
     )
@@ -277,7 +242,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         isPrimary: true,
         name: 'Edit',
         onClick: (item) => {
-          history.push({ pathname: `/workspaces/${workspace._id}/strategies/${item.strategy_id}` })
+          history.push({ pathname: `/workspaces/${workspace._id}/strategies/${item?.strategy_id}` })
         },
         type: 'icon'
       },
