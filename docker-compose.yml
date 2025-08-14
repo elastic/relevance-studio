@@ -2,7 +2,7 @@ services:
   esrs-server:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile-server
     ports:
       - 4096:4096
     env_file:
@@ -10,27 +10,26 @@ services:
   esrs-worker:
     build:
       context: .
-      dockerfile: Dockerfile
-    command: ["python", "-m", "server.worker"]
+      dockerfile: Dockerfile-worker
     env_file:
       - .env
     deploy:
       mode: replicated
       replicas: 1
       restart_policy:
-          condition: on-failure
-  esrs-mcp-server:
+        condition: on-failure
+  esrs-server-mcp:
     build:
       context: .
-      dockerfile: Dockerfile-mcp
+      dockerfile: Dockerfile-server-mcp
     ports:
       - 4200:4200
     env_file:
       - .env
-  esrs-mcp-proxy:
+  esrs-proxy-mcp:
     build:
       context: .
-      dockerfile: Dockerfile-mcp
+      dockerfile: Dockerfile-server-mcp
       network: host
     command: ["python", "-m", "server.fastmcp_proxy"]
     stdin_open: true

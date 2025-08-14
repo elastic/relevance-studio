@@ -1,5 +1,11 @@
 elasticsearch==8.18.1
 Flask==3.1.0
 Flask-Cors==5.0.0
+opentelemetry-distro==0.57b0
+opentelemetry-exporter-otlp==1.36.0
+opentelemetry-instrumentation==0.57b0
+opentelemetry-instrumentation-elasticsearch==0.57b0
+opentelemetry-instrumentation-flask==0.57b0
+opentelemetry-instrumentation-wsgi==0.57b0
 pydantic==2.11.7
 python-dotenv==1.1.1

@@ -26,10 +26,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 ####  Run the server  ##########################################################
 
+# Conditionally instrument OpenTelemetry with entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+
 # Set environment variables
 ENV FLASK_APP=server/flask.py
 ENV FLASK_RUN_PORT=4096
 ENV FLASK_ENV=production
+ENV OTEL_SERVICE_NAME=esrs-server
 ENV PYTHONUNBUFFERED=1
 ENV STATIC_PATH=/app/server/static
 

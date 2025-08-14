@@ -1,0 +1,24 @@
+####  Build the worker  ########################################################
+
+FROM python:3.10-slim AS server
+WORKDIR /app
+
+# Copy project files
+COPY requirements.txt ./
+COPY src/server ./server
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+####  Run the worker  ##########################################################
+
+# Conditionally instrument OpenTelemetry with entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Set environment variables
+ENV OTEL_SERVICE_NAME=esrs-worker
+
+# Run the server
+CMD ["python", "-m", "server.worker"]

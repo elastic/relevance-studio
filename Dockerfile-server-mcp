@@ -12,10 +12,16 @@ RUN pip install --no-cache-dir -r requirements-mcp.txt
 
 ####  Run the server  ##########################################################
 
+# Conditionally instrument OpenTelemetry with entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+
 # Set environment variables
 ENV FASTMCP_HOST=0.0.0.0
 ENV FASTMCP_PORT=4096
 ENV FASTMCP_SERVER_TRANSPORT=http
+ENV OTEL_SERVICE_NAME=esrs-server-mcp
 
 # Run the MCP server
 CMD ["python", "-m", "server.fastmcp"]

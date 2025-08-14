@@ -5,6 +5,7 @@
 
 # Standard packages
 import base64
+import os
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
