@@ -1,6 +1,6 @@
 # Quickstart
 
-Relevance Studio has a docker compose file so you can see how everything works before planning a production deployment.
+Elasticsearch Relevance Studio has a docker compose file so you can see how everything works before planning a production deployment.
 
 This quickstart guide was tested with macOS 15.5, Docker 27.3.1, and Elasticsearch 9.0.3.
 
@@ -30,7 +30,7 @@ Create your `.env` file from the given `.env-reference` file:
 
 ...then configure your `.env` to use the endpoints and credentials of your Elasticsearch deployment(s).
 
-💡 *Read [roles and permissions](docs/setup/security.md#roles-and-permissions.md) to see the recommended configurations for security.*
+💡 *Read [roles and permissions](docs/reference/security.md#roles-and-permissions) to see the recommended configurations for security.*
 
 #### Step 3. Start Relevance Studio
 
@@ -66,3 +66,11 @@ Verify if things are working by asking Claude:
 *Are you connected to Relevance Studio?*
 
 Enjoy!
+
+---
+
+## Next steps
+
+Relevance engineers should become familiar with the [concepts](docs/guide/concepts.md) and [workflows](docs/guide/workflow.md) of Elasticsearch Relevance Studio.
+
+Administrators can refer to the [architecture](docs/reference/architecture.md) and [security](docs/reference/security.md) documentation to plan a deployment that meets your requirements for infrastructure, scalability, and security.

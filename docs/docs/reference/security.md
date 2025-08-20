@@ -33,6 +33,8 @@ Authentication to the [content deployment](docs/reference/architecture.md#elasti
 
 You can use [role-based access control (RBAC) in Elasticsearch](https://www.elastic.co/docs/deploy-manage/users-roles/cluster-or-deployment-auth/user-roles) scope the permissions of Relevance Studio.
 
+Below are the recommended role configurations for the studio deployment and the content deployment.
+
 ### Studio deployment role configuration
 
 The recommended role for the [studio deployment](docs/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`.

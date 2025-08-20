@@ -38,6 +38,10 @@
       background: #fff;
     }
 
+    i, em {
+      color: inherit!important;
+    }
+
     img {
       max-width: 100%;
       height: auto;
@@ -48,6 +52,24 @@
         max-width: 100%!important;
         height: auto;
       }
+    }
+
+    .screenshot {
+      border: 1px solid #DCE2EA;
+      border-radius: 4px;
+    }
+
+    .screenshot:not(.medium-zoom-image--opened):hover {
+      border: 1px solid #101C3F;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .medium-zoom-image {
+      transition: box-shadow 1s ease;
+    }
+
+    .screenshot:not(.medium-zoom-image--opened) {
+      max-width: 600px;
     }
 
     .sidebar {
@@ -221,7 +243,7 @@
       loadFooter: true,
       loadSidebar: 'docs/README.md',
       name: '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01LjIzNjM5IDE4LjI1OTZDNS4yMzYzOSAyMC44NDA2IDYuMDU1NjcgMjMuMjM0NCA3LjQ0ODQxIDI1LjE5NTRMMTUuNjIxNiAxMy41OTkzTDIwLjY3MzEgMTguMDE2N0wyNi4yNjY4IDEwLjI2MzFDMjQuMDU5NiA3Ljc5MzYgMjAuODQ4OCA2LjIzNjM2IDE3LjI4IDYuMjM2MzZDMTAuNjM4MyA2LjIzNjM2IDUuMjM2MzkgMTEuNjI5OCA1LjIzNjM5IDE4LjI1OTZaTTE2LjAyNDggMTguMDE2N0w5LjQ1MjA0IDI3LjM4OEMxMS41NTg2IDI5LjE5MDMgMTQuMjk0IDMwLjI4MDQgMTcuMjggMzAuMjgwNEMyMC4wMjIgMzAuMjgwNCAyMi41NTI2IDI5LjM2MTEgMjQuNTc5MSAyNy44MTUzTDI4LjYwMTkgMzEuMjU0NUwzMiAyNy40NzQ3TDI3Ljg4MzkgMjMuOTU1QzI4LjgwMjEgMjIuMjU4OSAyOS4zMjM2IDIwLjMxODggMjkuMzIzNiAxOC4yNTk2QzI5LjMyMzYgMTYuMzAyOSAyOC44NTMgMTQuNDUzOCAyOC4wMTg5IDEyLjgxOTRMMjEuMDY4NiAyMi40MzY5TDE2LjAyNDggMTguMDE2N1oiIGZpbGw9IiMwMkJDQjciLz4KPHBhdGggZD0iTTMwLjcxNzggNC4wOTMzN0wyMC42NzMxIDE4LjAxNjdMMTUuNjIxNiAxMy41OTkzTDMuMjM4MTMgMzEuMTY5QzEuMzg5MTQgMzAuNzgzOSAwIDI5LjE0NTEgMCAyNy4xODE4VjUuMDcyNzNDMCAyLjgyMzQyIDEuODIzNDIgMSA0LjA3MjczIDFIMjYuNzYzNkMyOC42NzUzIDEgMzAuMjc5NCAyLjMxNzExIDMwLjcxNzggNC4wOTMzN1oiIGZpbGw9IiNGRUM1MTQiLz4KPHBhdGggZD0iTTcuNDQ4NDEgMjUuMTk1NEM2LjA1NTY3IDIzLjIzNDQgNS4yMzYzOSAyMC44NDA2IDUuMjM2MzkgMTguMjU5NkM1LjIzNjM5IDExLjYyOTggMTAuNjM4MyA2LjIzNjM2IDE3LjI4IDYuMjM2MzZDMjAuODQ4OCA2LjIzNjM2IDI0LjA1OTYgNy43OTM2IDI2LjI2NjggMTAuMjYzMUwyMC42NzMxIDE4LjAxNjdMMTUuNjIxNiAxMy41OTkzTDcuNDQ4NDEgMjUuMTk1NFoiIGZpbGw9IiMzNDM3NDEiLz4KPC9zdmc+Cg==" style="margin: 3px 10px -3px 0; width: 18px" />Elasticsearch Relevance Studio',
-      subMaxLevel: 2,
+      subMaxLevel: 1,
       themeColor: '#0B64DD'
     }
   </script>
@@ -232,7 +254,10 @@
   <!-- Docsify plugin for syntax highlighting -->
   <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
   <!-- Docsify plugin for footer -->
-  <script src="//cdn.jsdelivr.net/npm/@alertbox/docsify-footer/dist/docsify-footer.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/@alertbox/docsify-footer/dist/docsify-footer.min.js"></script><!-- index.html -->
+  <!-- Docsify plugin for image zooming -->
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/zoom-image.min.js"></script>
+
 </body>
 
 </html>

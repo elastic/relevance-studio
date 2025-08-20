@@ -6,7 +6,7 @@
 
 <span style="font-size: 18px;">*You know, for search relevance.*</span>
 
-<button class="get-started" onclick="window.location.href='#/docs/setup/quickstart'">Get started</button>
+[<button class="get-started">Get started</button>](docs/guide/quickstart) <span style="margin-left: 15px;">[Learn more](docs/guide/welcome.md)</span>
 
 <h3>Search is more relevant than ever</h3>
 
@@ -17,3 +17,49 @@ Elasticsearch Relevance Studio guides you in the best practices of **search rele
 <h3>AI ready :sparkles:</h3>
 
 Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/reference/architecture.md#recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecyle of search relevance engineering &ndash; scaling up your operations much faster than possible with humans alone.
+
+---
+
+<h4 style="font-size: 48px; font-weight:200; margin-bottom: 30px;">Spotlight</h4>
+
+Let's look at some of the impressive features of Elasticsearch Relevance Studio. Click any image to zoom in.
+
+<h6 style="margin-bottom: 0;">Curating judgements</h6>
+
+<small>*A ground truth data set is your most important asset in measuring search relevance. Elasticsearch Relevance Studio provides an intuitive human interface for judging the relevance of your documents to your search scenarios – and tools that AI agents can use to automate and scale the process. This screenshot shows Claude Desktop working on a set of [judgements](docs/guide/concepts.md#judgements) and a human reviewing its choices in the application.*</small>
+
+<img alt="Judgements" src="https://storage.googleapis.com/esrs-docs/screenshots/judgements-agentic.png" class="screenshot" />
+
+---
+
+<h6 style="margin-bottom: 0;">Building strategies</h6>
+
+<small>*You can build and test the search [strategies](docs/guide/concepts#strategies) that you intend to benchmark and get immediate visual feedback on the quality of their results. As you work on them, you can judge the documents that appear in the search results of a test run for a chosen scenario.*</small>
+
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/strategy.png" class="screenshot" />
+
+---
+
+<h6 style="margin-bottom: 0;">Running benchmarks</h6>
+
+<small>*As you build out your scenarios, judgements, and strategies, you can run [benchmarks](docs/guide/concepts.md#benchmarks) that evaluate the relevance of your strategies. The human interface presents a concise set of analytics that rank your strategies by key relevance metrics such as NCDG, Precision, and Recall. Re-run benchmarks to measure the progress of your strategies as you change them.*</small>
+
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary.png" class="screenshot" />
+
+<small>*Drill down into the performance of strategies by scenarios for a chosen relevance metric. Group the metric by strategy tags and/or scenario tags to get a broader sense of which kinds of strategies perform well with which kinds of scenarios.*</small>
+
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-heatmap.png" class="screenshot" />
+
+<small>*The benchmarks report any unrated documents that matched your strategies and scenarios. This helps you improve the coverage and quality of your ground truth judgements and, by extension, the trustworthiness of your relevance metrics.*</small>
+
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-unrated-docs.png" class="screenshot" />
+
+<small>*You can inspect the state of the indices, strategies, scenarios, and judgements as they existed at runtime. They include deterministic fingerprints for efficient change detection. This helps you find and explain the reasons for changes in relevance metrics between runs.*</small>
+
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-runtime-assets.png" class="screenshot" />
+
+---
+
+## Ready to start?
+
+[<button class="get-started">Get started</button>](docs/guide/quickstart) <span style="margin-left: 15px;">[Learn more](docs/guide/welcome.md)</span>
