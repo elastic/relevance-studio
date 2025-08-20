@@ -10,7 +10,7 @@
 
 <h3>Search is more relevant than ever</h3>
 
-Elasticsearch Relevance Studio guides you in the best practices of **search relevance engineering** so you can deliver amazing search experiences.
+Elasticsearch Relevance Studio manages the lifecycle of **search relevance engineering** so you can deliver amazing search experiences.
 
 <img src="img/process.png" style="max-width: 600px; padding: 20px 0 0 0;" />
 
