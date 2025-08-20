@@ -8,7 +8,7 @@ Elasticsearch Relevance Studio manages the lifecycle of **search relevance engin
 📖  **[Learn more](https://elastic.github.io/relevance-studio/#/docs/guide/welcome)**
 
 
-# Why Elasticsearch Relevance Studio?
+## Why Elasticsearch Relevance Studio?
 
 ### Meet the new demands of search.
 
