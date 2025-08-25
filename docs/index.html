@@ -7,6 +7,30 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
   <meta name="description" content="Elasticsearch Relevance Studio - Docs">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <script>
+    // Disable Google Tag Manager when running docs in development mode
+    window.__enableAnalytics__ = !/^(localhost|127\.0\.0\.1)/.test(location.hostname);
+  </script>
+  <!-- Google Tag Manager -->
+  <script>
+    (function () {
+      if (!window.__enableAnalytics__) return;
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || [];
+        w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+        var f = d.getElementsByTagName(s)[0],
+          j = d.createElement(s),
+          dl = l != 'dataLayer' ? '&l=' + l : '';
+        j.async = true;
+        // Your environment params preserved here:
+        j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl +
+          '&gtm_auth=nPocPUG0wiH68jsVeyRSxA&gtm_preview=env-507&gtm_cookies_win=x';
+        f.parentNode.insertBefore(j, f);
+      })(window, document, 'script', 'dataLayer', 'GTM-KNJMG2M');
+    })();
+  </script>
+
+  <!-- End Google Tag Manager -->
   <!-- Fallback (used if no media query matches or browser doesn't support it) -->
   <link rel="icon"
     href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01LjIzNjM5IDE4LjI1OTZDNS4yMzYzOSAyMC44NDA2IDYuMDU1NjcgMjMuMjM0NCA3LjQ0ODQxIDI1LjE5NTRMMTUuNjIxNiAxMy41OTkzTDIwLjY3MzEgMTguMDE2N0wyNi4yNjY4IDEwLjI2MzFDMjQuMDU5NiA3Ljc5MzYgMjAuODQ4OCA2LjIzNjM2IDE3LjI4IDYuMjM2MzZDMTAuNjM4MyA2LjIzNjM2IDUuMjM2MzkgMTEuNjI5OCA1LjIzNjM5IDE4LjI1OTZaTTE2LjAyNDggMTguMDE2N0w5LjQ1MjA0IDI3LjM4OEMxMS41NTg2IDI5LjE5MDMgMTQuMjk0IDMwLjI4MDQgMTcuMjggMzAuMjgwNEMyMC4wMjIgMzAuMjgwNCAyMi41NTI2IDI5LjM2MTEgMjQuNTc5MSAyNy44MTUzTDI4LjYwMTkgMzEuMjU0NUwzMiAyNy40NzQ3TDI3Ljg4MzkgMjMuOTU1QzI4LjgwMjEgMjIuMjU4OSAyOS4zMjM2IDIwLjMxODggMjkuMzIzNiAxOC4yNTk2QzI5LjMyMzYgMTYuMzAyOSAyOC44NTMgMTQuNDUzOCAyOC4wMTg5IDEyLjgxOTRMMjEuMDY4NiAyMi40MzY5TDE2LjAyNDggMTguMDE2N1oiIGZpbGw9IiMwMkJDQjciLz4KPHBhdGggZD0iTTMwLjcxNzggNC4wOTMzN0wyMC42NzMxIDE4LjAxNjdMMTUuNjIxNiAxMy41OTkzTDMuMjM4MTMgMzEuMTY5QzEuMzg5MTQgMzAuNzgzOSAwIDI5LjE0NTEgMCAyNy4xODE4VjUuMDcyNzNDMCAyLjgyMzQyIDEuODIzNDIgMSA0LjA3MjczIDFIMjYuNzYzNkMyOC42NzUzIDEgMzAuMjc5NCAyLjMxNzExIDMwLjcxNzggNC4wOTMzN1oiIGZpbGw9IiNGRUM1MTQiLz4KPHBhdGggZD0iTTcuNDQ4NDEgMjUuMTk1NEM2LjA1NTY3IDIzLjIzNDQgNS4yMzYzOSAyMC44NDA2IDUuMjM2MzkgMTguMjU5NkM1LjIzNjM5IDExLjYyOTggMTAuNjM4MyA2LjIzNjM2IDE3LjI4IDYuMjM2MzZDMjAuODQ4OCA2LjIzNjM2IDI0LjA1OTYgNy43OTM2IDI2LjI2NjggMTAuMjYzMUwyMC42NzMxIDE4LjAxNjdMMTUuNjIxNiAxMy41OTkzTDcuNDQ4NDEgMjUuMTk1NFoiIGZpbGw9IiMzNDM3NDEiLz4KPC9zdmc+Cg=="
@@ -229,6 +253,14 @@
 </head>
 
 <body>
+  <!-- Google Tag Manager (noscript) -->
+  <noscript>
+    <iframe
+      src="https://www.googletagmanager.com/ns.html?id=GTM-KNJMG2M&amp;gtm_auth=nPocPUG0wiH68jsVeyRSxA&amp;gtm_preview=env-507&amp;gtm_cookies_win=x"
+      height="0" width="0" style="display:none;visibility:hidden">
+    </iframe>
+  </noscript>
+  <!-- End Google Tag Manager (noscript) -->
   <div id="app"></div>
   <script>
     window.$docsify = {
@@ -244,7 +276,23 @@
       loadSidebar: 'docs/README.md',
       name: '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01LjIzNjM5IDE4LjI1OTZDNS4yMzYzOSAyMC44NDA2IDYuMDU1NjcgMjMuMjM0NCA3LjQ0ODQxIDI1LjE5NTRMMTUuNjIxNiAxMy41OTkzTDIwLjY3MzEgMTguMDE2N0wyNi4yNjY4IDEwLjI2MzFDMjQuMDU5NiA3Ljc5MzYgMjAuODQ4OCA2LjIzNjM2IDE3LjI4IDYuMjM2MzZDMTAuNjM4MyA2LjIzNjM2IDUuMjM2MzkgMTEuNjI5OCA1LjIzNjM5IDE4LjI1OTZaTTE2LjAyNDggMTguMDE2N0w5LjQ1MjA0IDI3LjM4OEMxMS41NTg2IDI5LjE5MDMgMTQuMjk0IDMwLjI4MDQgMTcuMjggMzAuMjgwNEMyMC4wMjIgMzAuMjgwNCAyMi41NTI2IDI5LjM2MTEgMjQuNTc5MSAyNy44MTUzTDI4LjYwMTkgMzEuMjU0NUwzMiAyNy40NzQ3TDI3Ljg4MzkgMjMuOTU1QzI4LjgwMjEgMjIuMjU4OSAyOS4zMjM2IDIwLjMxODggMjkuMzIzNiAxOC4yNTk2QzI5LjMyMzYgMTYuMzAyOSAyOC44NTMgMTQuNDUzOCAyOC4wMTg5IDEyLjgxOTRMMjEuMDY4NiAyMi40MzY5TDE2LjAyNDggMTguMDE2N1oiIGZpbGw9IiMwMkJDQjciLz4KPHBhdGggZD0iTTMwLjcxNzggNC4wOTMzN0wyMC42NzMxIDE4LjAxNjdMMTUuNjIxNiAxMy41OTkzTDMuMjM4MTMgMzEuMTY5QzEuMzg5MTQgMzAuNzgzOSAwIDI5LjE0NTEgMCAyNy4xODE4VjUuMDcyNzNDMCAyLjgyMzQyIDEuODIzNDIgMSA0LjA3MjczIDFIMjYuNzYzNkMyOC42NzUzIDEgMzAuMjc5NCAyLjMxNzExIDMwLjcxNzggNC4wOTMzN1oiIGZpbGw9IiNGRUM1MTQiLz4KPHBhdGggZD0iTTcuNDQ4NDEgMjUuMTk1NEM2LjA1NTY3IDIzLjIzNDQgNS4yMzYzOSAyMC44NDA2IDUuMjM2MzkgMTguMjU5NkM1LjIzNjM5IDExLjYyOTggMTAuNjM4MyA2LjIzNjM2IDE3LjI4IDYuMjM2MzZDMjAuODQ4OCA2LjIzNjM2IDI0LjA1OTYgNy43OTM2IDI2LjI2NjggMTAuMjYzMUwyMC42NzMxIDE4LjAxNjdMMTUuNjIxNiAxMy41OTkzTDcuNDQ4NDEgMjUuMTk1NFoiIGZpbGw9IiMzNDM3NDEiLz4KPC9zdmc+Cg==" style="margin: 3px 10px -3px 0; width: 18px" />Elasticsearch Relevance Studio',
       subMaxLevel: 1,
-      themeColor: '#0B64DD'
+      themeColor: '#0B64DD',
+      plugins: [
+        function (hook, vm) {
+          // Push a virtual pageview as a custom event for each docsify render
+          hook.doneEach(function () {
+            if (!window.__enableAnalytics__ || !window.dataLayer) return;
+            var pagePath = location.pathname + location.hash;
+            var pageTitle = document.title;
+            console.log(pageTitle)
+            window.dataLayer.push({
+              event: 'docsify_virtual_pageview',
+              page_path: pagePath,
+              page_title: pageTitle
+            });
+          });
+        }
+      ]
     }
   </script>
   <!-- Docsify v4 -->
