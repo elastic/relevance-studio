@@ -15,18 +15,11 @@
   <script>
     (function () {
       if (!window.__enableAnalytics__) return;
-      (function (w, d, s, l, i) {
-        w[l] = w[l] || [];
-        w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
-        var f = d.getElementsByTagName(s)[0],
-          j = d.createElement(s),
-          dl = l != 'dataLayer' ? '&l=' + l : '';
-        j.async = true;
-        // Your environment params preserved here:
-        j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl +
-          '&gtm_auth=nPocPUG0wiH68jsVeyRSxA&gtm_preview=env-507&gtm_cookies_win=x';
-        f.parentNode.insertBefore(j, f);
-      })(window, document, 'script', 'dataLayer', 'GTM-KNJMG2M');
+      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+      })(window,document,'script','dataLayer','GTM-KNJMG2M');
     })();
   </script>
 
@@ -281,10 +274,9 @@
         function (hook, vm) {
           // Push a virtual pageview as a custom event for each docsify render
           hook.doneEach(function () {
-            if (!window.__enableAnalytics__ || !window.dataLayer) return;
+            if (!window.__enableAnalytics__) return;
             var pagePath = location.pathname + location.hash;
             var pageTitle = document.title;
-            console.log(pageTitle)
             window.dataLayer.push({
               event: 'docsify_virtual_pageview',
               page_path: pagePath,
