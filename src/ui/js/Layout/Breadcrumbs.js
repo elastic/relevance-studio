@@ -121,7 +121,8 @@ const Breadcrumbs = () => {
         }
         crumbs.push(crumb)
       } else {
-        const label = part.charAt(0).toUpperCase() + part.slice(1)
+        const underscored = part.startsWith('_')
+        let label = part.charAt(underscored ? 1 : 0).toUpperCase() + part.slice(underscored ? 2 : 1)
         const crumb = { text: label }
         if (i + 1 < parts.length) {
           accumulated += `/${part}`

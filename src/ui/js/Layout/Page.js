@@ -24,7 +24,7 @@ import { useAppContext } from '../Contexts/AppContext'
 import Breadcrumbs from './Breadcrumbs'
 import SideNav from './SideNav'
 
-const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' }) => {
+const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l', mainRef }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -181,7 +181,7 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
         }
 
         {/* Main (separately scrollable from sidebar) */}
-        <div style={{ height: 'calc(100vh - 48px)', overflow: 'scroll' }}>
+        <div style={{ height: 'calc(100vh - 48px)', overflow: 'scroll' }} ref={mainRef}>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
             {/* Header */}

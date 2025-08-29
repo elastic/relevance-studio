@@ -55,6 +55,10 @@ const Routes = () => {
           document.title = `Workspaces - ${title}`
           return <Pages.Workspaces />
         }} />
+        <RouteWithSetupCheck path='/workspaces/_create' exact render={(r) => {
+          document.title = `Create Workspace - ${title}`
+          return <Pages.WorkspacesCreate />
+        }} />
 
         {/* Resource routes - wrap only the ones that need resources */}
         <RouteWithSetupCheck path='/workspaces/:workspace_id' exact render={(r) => {

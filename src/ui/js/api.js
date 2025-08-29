@@ -316,12 +316,22 @@ api.evaluations_delete = async (workspace_id, benchmark_id, evaluation_id) => {
 
 api.content_search = async (index_pattern, body, params) => {
   validateArgs('api.content_search', { index_pattern, body, })
-  return await client.post(`/api/content/_search/${index_pattern}`, { data: body, param: params })
+  return await client.post(`/api/content/${index_pattern}/_search`, { data: body, param: params })
+}
+
+api.content_fields = async (index_pattern, params) => {
+  validateArgs('api.content_fields', { index_pattern, })
+  return await client.get(`/api/content/${index_pattern}/_fields`, { param: params })
+}
+
+api.content_resolve = async (index_pattern, params) => {
+  validateArgs('api.content_resolve', { index_pattern, })
+  return await client.get(`/api/content/${index_pattern}/_resolve`, { param: params })
 }
 
 api.content_mappings_browse = async (index_pattern) => {
   validateArgs('api.content_mappings_browse', { index_pattern, })
-  return await client.get(`/api/content/mappings/${index_pattern}`)
+  return await client.get(`/api/content/${index_pattern}/_mappings`)
 }
 
 

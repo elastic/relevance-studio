@@ -395,13 +395,21 @@ def evaluations_delete(_id: str) -> Dict[str, Any]:
 
 ####  API: Content  ############################################################
 
+@mcp.tool(description=api.content.fields.__doc__)
+def content_fields(index_patterns: str) -> Dict[str, Any]:
+    return dict(api.content.fields(index_patterns))
+
+@mcp.tool(description=api.content.mappings.__doc__)
+def content_mappings(index_patterns: str) -> Dict[str, Any]:
+    return dict(api.content.mappings(index_patterns))
+
+@mcp.tool(description=api.content.resolve.__doc__)
+def content_resolve(index_patterns: str) -> Dict[str, Any]:
+    return dict(api.content.resolve(index_patterns))
+
 @mcp.tool(description=api.content.search.__doc__)
 def content_search(index_patterns: str, body: Dict[str, Any]) -> Dict[str, Any]:
     return dict(api.content.search(index_patterns, body))
-
-@mcp.tool(description=api.content.mappings_browse.__doc__)
-def content_mappings_browse(index_patterns: str) -> Dict[str, Any]:
-    return dict(api.content.mappings_browse(index_patterns))
     
     
 ####  API: Setup  ##############################################################

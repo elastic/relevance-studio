@@ -314,14 +314,22 @@ def evaluations_delete(workspace_id, benchmark_id, _id):
 
 ####  API: Content  ############################################################
 
-@api_route("/api/content/_search/<string:index_patterns>", methods=["POST"])
+@api_route("/api/content/<string:index_patterns>/_fields", methods=["GET"])
+def content_fields(index_patterns):
+    return api.content.fields(index_patterns)
+
+@api_route("/api/content/<string:index_patterns>/_mappings", methods=["GET"])
+def content_mappings(index_patterns):
+    return api.content.mappings(index_patterns)
+
+@api_route("/api/content/<string:index_patterns>/_resolve", methods=["GET"])
+def content_resolve(index_patterns):
+    return api.content.resolve(index_patterns)
+
+@api_route("/api/content/<string:index_patterns>/_search", methods=["POST"])
 def content_search(index_patterns):
     body = request.get_json()
     return api.content.search(index_patterns, body)
-
-@api_route("/api/content/mappings/<string:index_patterns>", methods=["GET"])
-def content_mappings_browse(index_patterns):
-    return api.content.mappings_browse(index_patterns)
     
     
 ####  API: Setup  ##############################################################

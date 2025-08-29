@@ -54,7 +54,32 @@ def get(index_patterns: str) -> Dict[str, Any]:
         return {}
     return response.body
 
-def mappings_browse(index_patterns: str) -> Dict[str, Any]:
+def fields(index_patterns: str) -> Dict[str, Any]:
+    """
+    Given a comma-separated string of index patterns for the content deployment,
+    return information about the fields of the matching indices.
+    Uses the Elasticsearch _field_caps API.
+    """
+    response = es("content").options(ignore_status=404).field_caps(index=index_patterns)
+    if response.get("status") == 404:
+        return {}
+    return response
+
+def resolve(index_patterns: str) -> Dict[str, Any]:
+    """
+    Given a comma-separated string of index patterns for the content deployment,
+    return the matching indices, aliases, and data streams.
+    Uses the Elasticsearch _resolve API.
+    """
+    response = es("content").options(ignore_status=404).indices.resolve_index(
+        name=index_patterns,
+        expand_wildcards="closed,none,open"
+    )
+    if response.get("status") == 404:
+        return {}
+    return response
+
+def mappings(index_patterns: str) -> Dict[str, Any]:
     """
     Given a comma-separated string of index patterns for the content deployment,
     return the matching indices with their fields and types in a flat structure.

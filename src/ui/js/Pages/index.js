@@ -17,6 +17,7 @@ import { Scenarios } from './Scenarios'
 import { Strategies } from './Strategies'
 import { StrategiesEdit } from './StrategiesEdit'
 import { Workspaces } from './Workspaces'
+import { WorkspacesCreate } from './WorkspacesCreate'
 import { WorkspacesView } from './WorkspacesView'
 
 const Pages = ({ children }) => <>{children}</>
@@ -33,6 +34,7 @@ Pages.Scenarios = Scenarios
 Pages.Strategies = Strategies
 Pages.StrategiesEdit = StrategiesEdit
 Pages.Workspaces = Workspaces
+Pages.WorkspacesCreate = WorkspacesCreate
 Pages.WorkspacesView = WorkspacesView
 
 export { Pages }

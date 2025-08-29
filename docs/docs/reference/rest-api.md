@@ -724,7 +724,7 @@ The Content API retrieves documents and other data from the [content deployment]
 
 Search documents in the [content deployment](docs/reference/architecture.md#elasticsearch) by a given index pattern. Accepts any [Elasticsearch Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl) in the request payload.
 
-**`POST /api/content/_search/<index_pattern>`**
+**`POST /api/content/<index_pattern>/_search`**
 
 Example payload:
 
@@ -747,7 +747,7 @@ Example payload:
 
 Retrieve all [mappings](https://www.elastic.co/docs/manage-data/data-store/mapping) from the [content deployment](docs/reference/architecture.md#elasticsearch) that match a given index pattern.
 
-**`GET /api/content/mappings/<index_pattern>`**
+**`GET /api/content/<index_pattern>/_mappings`**
 
 ---
 

@@ -27,10 +27,10 @@ module.exports = {
         test: /\.css$/,
         use: [
           {
-              loader: 'style-loader'
+            loader: 'style-loader'
           },
           {
-              loader: 'css-loader'
+            loader: 'css-loader'
           }
         ]
       },
@@ -46,7 +46,7 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-        template: './src/ui/index.html'
+      template: './src/ui/index.html'
     }),
     new CopyWebpackPlugin({
       patterns: [
@@ -69,6 +69,10 @@ module.exports = {
       directory: path.join(__dirname, 'dist'),
     },
     proxy: [
+      {
+        context: '/api',
+        target: 'http://localhost:4096',
+      },
       {
         context: ['**', '!**.js'],
         target: 'http://localhost:4096',
