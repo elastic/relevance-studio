@@ -274,13 +274,15 @@
         function (hook, vm) {
           // Push a virtual pageview as a custom event for each docsify render
           hook.doneEach(function () {
-            if (!window.__enableAnalytics__) return;
-            var pagePath = location.pathname + location.hash;
-            var pageTitle = document.title;
+            if (!window.__enableAnalytics__ || !window.dataLayer) return;
+            var page_location = location.origin + location.pathname + location.search + location.hash;
+            if (window.__lastVirtualPageLocation__ === page_location) return; // prevent duplicates
+            var page_path = location.pathname + location.search + location.hash;
             window.dataLayer.push({
-              event: 'docsify_virtual_pageview',
-              page_path: pagePath,
-              page_title: pageTitle
+              event: 'virtual_pageview',
+              page_location: page_location,
+              page_path: page_path,
+              page_title: document.title
             });
           });
         }
