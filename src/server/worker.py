@@ -27,7 +27,8 @@ from .client import es
 load_dotenv()
 
 # Conditionally instrument OpenTelemetry
-OTEL_ENABLED = bool(os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip())
+OTEL_EXPORTER_OTLP_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip()
+OTEL_ENABLED = bool(OTEL_EXPORTER_OTLP_ENDPOINT)
 if OTEL_ENABLED:
     from opentelemetry import trace
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -39,6 +40,10 @@ if OTEL_ENABLED:
 
     # Set a default service name if not provided
     os.environ.setdefault("OTEL_SERVICE_NAME", "esrs-worker")
+    
+    # Ensure endpoint is correctly configured
+    if not OTEL_EXPORTER_OTLP_ENDPOINT.rstrip("/").endswith("/v1/traces"):
+        OTEL_EXPORTER_OTLP_ENDPOINT = OTEL_EXPORTER_OTLP_ENDPOINT.rstrip("/") + "/v1/traces"
 
     # Create tracer provider with resource attributes
     resource = Resource.create({ "service.name": os.environ["OTEL_SERVICE_NAME"].strip() })
@@ -46,7 +51,7 @@ if OTEL_ENABLED:
 
     # Export traces via OTLP/HTTP
     exporter = OTLPSpanExporter(
-        endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip(),
+        endpoint=OTEL_EXPORTER_OTLP_ENDPOINT,
         headers=dict(
             h.split("=", 1) for h in os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "").strip().split(",", 1) if "=" in h
         )

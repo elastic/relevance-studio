@@ -95,6 +95,7 @@ class Results(BaseModel):
     model_config = { "extra": "forbid", "strict": True }
     strategy_id: str
     searches: List[SearchResult]
+    failures: List[Dict[str, Any]]
 
     @field_validator("strategy_id")
     @classmethod

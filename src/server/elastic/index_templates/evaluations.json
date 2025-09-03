@@ -149,6 +149,10 @@
                   }
                 }
               }
+            },
+            "failures": {
+              "type": "object",
+              "enabled": false
             }
           }
         },

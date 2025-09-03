@@ -10,6 +10,10 @@ import time
 import traceback
 from typing import Any, Dict, List, Optional
 
+# Elastic packages
+from elastic_transport import ConnectionError, ConnectionTimeout
+from elasticsearch import ApiError
+
 # App packages
 from . import benchmarks, content
 from .. import utils
@@ -359,12 +363,17 @@ def run(
                 runtime_judgement[field] = value
             evaluation["runtime"]["judgements"][hit["_id"]] = runtime_judgement
         
-        # Track results by strategy and scenarios
+        # Track results by strategy and scenarios.
+        # Failures are stored at the strategy level because not all errors can
+        # be linked to a specific scenario.
         _results = {}
         for strategy_id in evaluation["strategy_id"]:
-            _results[strategy_id] = {}
+            _results[strategy_id] = {
+                "scenarios": {},
+                "failures": []
+            }
             for scenario_id in evaluation["scenario_id"]:
-                _results[strategy_id][scenario_id] = {
+                _results[strategy_id]["scenarios"][scenario_id] = {
                     "metrics": {},
                     "hits": []
                 }
@@ -495,6 +504,12 @@ def run(
                 # Skip if no valid requests (all scenarios have no ratings)
                 if not _rank_eval["requests"]:
                     continue
+                
+                # Debug: Print request structure
+                print(f"Rank eval request for strategy {template['id']}:")
+                print(f"  Templates: {len(_rank_eval['templates'])}")
+                print(f"  Requests: {len(_rank_eval['requests'])}")
+                print(f"  Metric: {_rank_eval['metric']}")
                     
                 # Run _rank_eval on the content deployment and accumulate the results
                 body = {
@@ -502,24 +517,29 @@ def run(
                     "requests": _rank_eval["requests"],
                     "templates": [ template, ]
                 }
-                
-                # Debug: Print request structure
-                print(f"Rank eval request for strategy {template['id']}:")
-                print(f"  Templates: {len(_rank_eval['templates'])}")
-                print(f"  Requests: {len(_rank_eval['requests'])}")
-                print(f"  Metric: {_rank_eval['metric']}")
-                
-                es_response = es("content").rank_eval(
-                    index=index_pattern,
-                    body=body
-                )
+                es_response = None
+                try:
+                    es_response = es("content").rank_eval(
+                        index=index_pattern,
+                        body=body
+                    )
+                except (ConnectionError, ConnectionTimeout, ApiError) as e:
+                    _results[template["id"]]["failures"].append({
+                        "scenario_id": None,
+                        "metric": m,
+                        "error": {
+                            "type": e.__class__.__name__,
+                            "reason": str(e)
+                        }
+                    })
+                    continue
                 
                 # Store results
                 for request_id, details in es_response.body["details"].items():
                     strategy_id, scenario_id = request_id.split("~", 1)
-                    _results[strategy_id][scenario_id]["metrics"][m] = details["metric_score"]
-                    if not len(_results[strategy_id][scenario_id]["hits"]):
-                        _results[strategy_id][scenario_id]["hits"] = details["hits"]
+                    _results[strategy_id]["scenarios"][scenario_id]["metrics"][m] = details["metric_score"]
+                    if not len(_results[strategy_id]["scenarios"][scenario_id]["hits"]):
+                        _results[strategy_id]["scenarios"][scenario_id]["hits"] = details["hits"]
                         # Find unrated docs
                         for hit in details["hits"]:
                             if hit["rating"] is not None:
@@ -539,16 +559,24 @@ def run(
                             _unrated_docs[_index][_id]["scenarios"].add(scenario_id)
                 
                 # Store failures
-                _results[strategy_id][scenario_id]["failures"] = es_response.body.get("failures") or []
+                if es_response.body.get("failures"):
+                    for request_id, failure in es_response.body["failures"].items():
+                        strategy_id, scenario_id = request_id.split("~", 1)
+                        _results[strategy_id]["failures"].append({
+                            "scenario_id": scenario_id,
+                            "metric": m,
+                            "error": failure.get("error") or failure
+                        })
             
         # Restructure results for response
         evaluation["results"] = []
         for strategy_id, _strategy_results in _results.items():
             strategy_results = {
                 "strategy_id": strategy_id,
-                "searches": []
+                "searches": [],
+                "failures":  _results[strategy_id]["failures"],
             }
-            for scenario_id, _scenario_results in _strategy_results.items():
+            for scenario_id, _scenario_results in _strategy_results["scenarios"].items():
                 scenario_results = {
                     "scenario_id": scenario_id,
                     "metrics": _scenario_results["metrics"],

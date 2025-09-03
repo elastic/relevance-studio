@@ -119,7 +119,8 @@ def mock_input_update():
                         "scenario_id": "f4009386-aa2d-4c84-8f1c-b9dea81489d1"
                     },
                 ],
-                "strategy_id": "cd8e7636-8217-4d7b-9828-49a2e36fc12d"
+                "strategy_id": "cd8e7636-8217-4d7b-9828-49a2e36fc12d",
+                "failures": []
             }
         ],
         "runtime": {

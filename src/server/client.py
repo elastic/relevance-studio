@@ -25,7 +25,8 @@ CONTENT_ELASTICSEARCH_URL = os.getenv("CONTENT_ELASTICSEARCH_URL", "").strip()
 CONTENT_ELASTICSEARCH_API_KEY = os.getenv("CONTENT_ELASTICSEARCH_API_KEY", "").strip()
 CONTENT_ELASTICSEARCH_USERNAME = os.getenv("CONTENT_ELASTICSEARCH_USERNAME", "").strip()
 CONTENT_ELASTICSEARCH_PASSWORD = os.getenv("CONTENT_ELASTICSEARCH_PASSWORD", "").strip()
-ELASTICSEARCH_TIMEOUT = int(os.getenv("ELASTICSEARCH_TIMEOUT", "60000").strip())
+ELASTICSEARCH_MAX_RETRIES = int(os.getenv("ELASTICSEARCH_MAX_RETRIES", "3").strip())
+ELASTICSEARCH_TIMEOUT = int(os.getenv("ELASTICSEARCH_TIMEOUT", "10").strip()) # seconds
 
 # Singleton Elasticsearch clients
 _es_clients = None
@@ -74,9 +75,9 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
             "Accept": "application/vnd.elasticsearch+json; compatible-with=8",
             "Content-Type": "application/vnd.elasticsearch+json; compatible-with=8"
         },
-        "request_timeout": ELASTICSEARCH_TIMEOUT,
-        "max_retries": 4,
-        "retry_on_timeout": True
+        "max_retries": ELASTICSEARCH_MAX_RETRIES,
+        "retry_on_timeout": True,
+        "timeout": ELASTICSEARCH_TIMEOUT
     }
     if ELASTIC_CLOUD_ID:
         es_studio_kwargs["cloud_id"] = ELASTIC_CLOUD_ID
@@ -100,9 +101,9 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
                 "Accept": "application/vnd.elasticsearch+json; compatible-with=8",
                 "Content-Type": "application/vnd.elasticsearch+json; compatible-with=8"
             },
-            "request_timeout": ELASTICSEARCH_TIMEOUT,
-            "max_retries": 4,
-            "retry_on_timeout": True
+            "max_retries": ELASTICSEARCH_MAX_RETRIES,
+            "retry_on_timeout": True,
+            "timeout": ELASTICSEARCH_TIMEOUT
         }
         if CONTENT_ELASTIC_CLOUD_ID:
             es_content_kwargs["cloud_id"] = CONTENT_ELASTIC_CLOUD_ID
