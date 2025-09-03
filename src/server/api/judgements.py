@@ -49,19 +49,19 @@ def search(
     }
     if filter == "rated-human":
         body["query"]["bool"]["must_not"] = {
-            "term": { "@meta.created_by": "ai"}
+            "term": { "@meta.updated_by": "ai"}
         }
     elif filter == "rated-ai":
         body["query"]["bool"]["filter"].append({
-            "term": { "@meta.created_by": "ai"}
+            "term": { "@meta.updated_by": "ai"}
         })
     if sort == "rating-newest":
         body["sort"] = [{
-            "@meta.created_at": "desc"
+            "@meta.updated_at": "desc"
         }]
     elif sort == "rating-oldest":
         body["sort"] = [{
-            "@meta.created_at": "asc"
+            "@meta.updated_at": "asc"
         }]
     es_response = es("studio").search(index="esrs-judgements", body=body)
     for hit in es_response.body.get("hits", {}).get("hits") or []:
@@ -173,8 +173,8 @@ def set(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
                     ctx._source['@meta'] = [
                         'created_at': params.now,
                         'created_by': params.username,
-                        'updated_at': null,
-                        'updated_by': null
+                        'updated_at': params.now,
+                        'updated_by': params.username
                     ];
                 } else {
                     ctx._source.rating = params.rating;
