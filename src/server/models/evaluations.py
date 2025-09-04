@@ -15,7 +15,7 @@ from .benchmarks import TaskCreate
 from .. import utils
 
 class Hit(BaseModel):
-    model_config = { "extra": "forbid", "strict": True }
+    model_config = { "extra": "allow", "strict": True }
     
     # Required fields
     id_: str = Field(alias="_id")
@@ -95,7 +95,7 @@ class Results(BaseModel):
     model_config = { "extra": "forbid", "strict": True }
     strategy_id: str
     searches: List[SearchResult]
-    failures: List[Dict[str, Any]]
+    failures: List[Any]
 
     @field_validator("strategy_id")
     @classmethod
