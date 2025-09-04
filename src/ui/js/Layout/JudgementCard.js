@@ -33,7 +33,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [judgementId, setJudgementId] = useState(props._id)
+  const [judgementId, setJudgementId] = useState(_id)
   const [loadingRating, setLoadingRating] = useState(false)
   const [createdBy, setCreatedBy] = useState(props.createdBy)
   const [updatedBy, setUpdatedBy] = useState(props.updatedBy)

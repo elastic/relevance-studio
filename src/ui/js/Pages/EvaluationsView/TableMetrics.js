@@ -19,6 +19,7 @@ import {
 import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources } from '../../Contexts/ResourceContext'
 import { getHistory } from '../../history'
+import utils from '../../utils'
 
 const TableMetrics = ({ evaluation, rowOnHover }) => {
 
@@ -129,7 +130,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
           overflowHeight={400}
           style={{ width: '100%' }}
         >
-          {JSON.stringify(JSON.parse(runtimeStrategy(item?.strategy_id)?.template?.source), null, 2)}
+          {utils.formatJsonWithMustache(runtimeStrategy(item?.strategy_id)?.template?.source)}
         </EuiCodeBlock>
       </EuiPanel>
     )

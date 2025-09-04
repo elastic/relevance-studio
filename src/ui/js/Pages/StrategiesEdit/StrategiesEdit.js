@@ -68,6 +68,7 @@ const StrategiesEdit = () => {
   const [scenarioSearchString, setScenarioSearchString] = useState('')
   const [sourceFilters, setSourceFilters] = useState([])
   const editorRef = useRef(null)
+  const monacoRef = useRef(null)
 
   ///  Strategy editing  ///////////////////////////////////////////////////////
 
@@ -79,7 +80,7 @@ const StrategiesEdit = () => {
       return
     setLastSavedStrategy(strategy)
     if (strategy.template?.source)
-      setStrategyDraft(JSON.stringify(JSON.parse(strategy.template.source), null, 2))
+      setStrategyDraft(utils.formatJsonWithMustache(strategy.template.source))
   }, [strategy])
 
   /**
@@ -91,7 +92,9 @@ const StrategiesEdit = () => {
     let match
     while ((match = RE_PARAMS.exec(jsonString)) !== null)
       matches.add(match[1])
-    setParams(matches)
+    const arr = Array.from(matches)
+    setParams(arr)
+    return arr
   }
 
   /**
@@ -106,7 +109,7 @@ const StrategiesEdit = () => {
     e?.preventDefault();
 
     try {
-      JSON.parse(strategyDraft)
+      utils.formatJsonWithMustache(strategyDraft)
     } catch (e) {
       return addToast({
         color: 'danger',
@@ -155,7 +158,7 @@ const StrategiesEdit = () => {
    */
   const doesDraftDiffer = () => {
     try {
-      return JSON.stringify(lastSavedStrategy.template?.source || '{}') == JSON.stringify(JSON.parse(strategyDraft || '{}'))
+      return utils.formatJsonWithMustache(lastSavedStrategy.template?.source || '{}') == utils.formatJsonWithMustache(strategyDraft || '{}')
     } catch (e) {
       return undefined
     }
@@ -217,7 +220,8 @@ const StrategiesEdit = () => {
   // Add keyboard shortcuts to monaco editor
   useEffect(() => {
     const editor = editorRef.current
-    if (!editor)
+    const monaco = monacoRef.current
+    if (!editor || !monaco)
       return
     const saveCommand = editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => onSaveStrategy()
@@ -225,14 +229,33 @@ const StrategiesEdit = () => {
     const testCommand = editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onTestStrategy()
     )
-    return () => { }
+    return () => {
+      // Monaco cleans up commands automatically on editor dispose,
+      // so no manual dispose needed here.
+    }
   }, [onSaveStrategy, onTestStrategy])
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
   // Add keyboard shortcuts to monaco editor
-  const handleEditorMount = (editor) => {
+  const handleEditorMount = (editor, monaco) => {
     editorRef.current = editor
+    monacoRef.current = monaco
+
+    // keep indentation/braces, but don’t let the (JSON) formatter fight with {{ }}
+    editor.updateOptions({
+      autoIndent: 'advanced',
+      formatOnPaste: false,
+      formatOnType: false,
+    })
+  }
+
+  const handleBeforeMount = (monaco) => {
+    monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+      validate: false, // turn off JSON syntax validation since Mustache is used
+      allowComments: true,
+      schemas: [],
+    })
   }
 
   /**
@@ -336,7 +359,7 @@ const StrategiesEdit = () => {
                     tags: lastSavedStrategy.tags,
                     params: extractParams(strategyDraft),
                     template: {
-                      source: JSON.parse(strategyDraft)
+                      source: strategyDraft
                     }
                   }
                 }
@@ -543,13 +566,16 @@ const StrategiesEdit = () => {
   const renderEditor = () => {
     return (
       <Editor
+        beforeMount={handleBeforeMount}
         height='100%'
         language='json'
-        onChange={(value, event) => setStrategyDraft(value)}
         onMount={handleEditorMount}
+        onChange={(value) => setStrategyDraft(value)}
         options={{
           folding: true,
           fontSize: 12,
+          formatOnPaste: false, // keep the formatter from mangling Mustache variables {{ }}
+          formatOnType: false,
           insertSpaces: true,
           lineNumbers: 'on',
           minimap: {

@@ -231,6 +231,103 @@ utils.jsonStringifySortedKeysWithTripleQuotes = (obj, replacer = null, space = 2
 }
 
 /**
+ * Validate and format JSON with Mustache.
+ * 
+ * types:
+ *   "string"          -> placeholder: "__MUSTACHE_var__"
+ *   "number"          -> placeholder: 0
+ *   "boolean"         -> placeholder: false
+ *   "null"            -> placeholder: null
+ *   "array"           -> placeholder: []
+ *   "array-string"    -> placeholder: ["__MUSTACHE_var__"]
+ *   "object"          -> placeholder: {}
+ *
+ * Any var not in types -> defaults to null (safe JSON).
+ */
+
+const MUSTACHE_RE = /\{\{\s*([#/>^&!]*)\s*([a-zA-Z0-9._-]+)\s*([^}]*)\}\}/g;
+
+const makePlaceholder = (varName, kind = "null") => {
+  switch (kind) {
+    case "string": return JSON.stringify(`__MUSTACHE_${varName}__`);
+    case "number": return "0";
+    case "boolean": return "false";
+    case "array": return "[]";
+    case "array-string": return `["__MUSTACHE_${varName}__"]`;
+    case "object": return "{}";
+    case "null":
+    default: return "null";
+  }
+}
+
+const sanitizeJsonWithMustache = (src, types = {}) => {
+  // Ignore sections/partials/etc by treating any non-empty sigil as plain placeholder
+  return src.replace(MUSTACHE_RE, (_, sigil, name) => {
+    // If this is a section/partial/inverted/etc (sigil present), default to null
+    if (sigil && sigil !== "") return makePlaceholder(name, types[name] || "null");
+    return makePlaceholder(name, types[name] || "null");
+  });
+}
+
+const restoreMustache = (formatted, original, types = {}) => {
+  // Recreate the exact placeholders we produced in sanitize()
+  // Then replace them back to raw {{ name }} (without quotes if placeholder was non-string)
+  const produced = [];
+  original.replace(MUSTACHE_RE, (_, sigil, name) => {
+    const kind = types[name] || "null";
+    switch (kind) {
+      case "string": {
+        const quoted = JSON.stringify(`__MUSTACHE_${name}__`);
+        produced.push([quoted, `{{ ${name} }}`]); // remove quotes entirely
+        break;
+      }
+      case "array-string": {
+        const arr = `["__MUSTACHE_${name}__"]`;
+        produced.push([arr, `{{ ${name} }}`]); // drop whole token (array) back to mustache
+        break;
+      }
+      case "number":
+      case "boolean":
+      case "array":
+      case "object":
+      case "null":
+      default: {
+        const token = makePlaceholder(name, kind);
+        produced.push([token, `{{ ${name} }}`]);
+      }
+    }
+  });
+
+  // Apply replacements carefully, from longest to shortest token to avoid overlaps
+  produced.sort((a, b) => b[0].length - a[0].length);
+
+  // Replace all occurrences
+  let out = formatted
+  for (const [placeholder, raw] of produced)
+    out = out.split(placeholder).join(raw)
+  return out
+}
+
+/**
+ * Lints + formats. Throws if the JSON (after sanitization) is invalid.
+ * Returns { formatted, errors: [] } on success.
+ */
+utils.formatJsonWithMustache = (source, types = {}) => {
+  const sanitized = sanitizeJsonWithMustache(source, types)
+  let parsed
+  try {
+    parsed = JSON.parse(sanitized)
+  } catch (err) {
+    // Bubble a helpful error that points into the sanitized string
+    err.message = `JSON-with-Mustache validation failed: ${err.message}`
+    throw err
+  }
+  const pretty = JSON.stringify(parsed, null, 2)
+  const restored = restoreMustache(pretty, source, types)
+  return restored
+}
+
+/**
  * Given an Elasticsearch field type, return its corresponding EuiIcon type and color.
  */
 utils.iconTypeFromFieldType = (fieldType) => {
