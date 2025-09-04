@@ -90,14 +90,7 @@ def search(
     }
     if query:
         # From strategy editor UI
-        if "retriever" in query:
-            body["retriever"] = query["retriever"]
-        elif "query" in query:
-            body["query"] = query["query"]
-        elif "knn" in query:
-            body["knn"] = query["knn"]
-        else:
-            raise Exception("Unsupported query syntax")
+        body.update(query)
     else:
         # From judgements search UI
         body["query"] = {

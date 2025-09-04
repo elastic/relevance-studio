@@ -229,9 +229,9 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                     borderRightStyle: 'none',
                     borderTopRightRadius: 0
                   }}>
-                  {!!updatedBy &&
+                  {!!(updatedBy || createdBy) &&
                     <EuiToolTip
-                      content={`Rated by ${updatedBy == 'ai' ? 'AI' : 'human'}`}
+                      content={`Rated by ${(updatedBy || createdBy) == 'ai' ? 'AI' : 'human'}`}
                       anchorProps={{
                         style: {
                           marginLeft: '19px'
@@ -239,11 +239,11 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                       }}
                     >
                       <EuiButtonIcon
-                        aria-label={`Rated by ${updatedBy}`}
-                        color={updatedBy == 'ai' ? 'primary' : 'text'}
-                        display={updatedBy == 'ai' ? 'base' : 'empty'}
+                        aria-label={`Rated by ${(updatedBy || createdBy)}`}
+                        color={(updatedBy || createdBy) == 'ai' ? 'primary' : 'text'}
+                        display={(updatedBy || createdBy) == 'ai' ? 'base' : 'empty'}
                         iconSize='m'
-                        iconType={updatedBy == 'ai' ? 'sparkles' : 'user'}
+                        iconType={(updatedBy || createdBy) == 'ai' ? 'sparkles' : 'user'}
                         onClick={() => { }}
                         size='s'
                         style={{
