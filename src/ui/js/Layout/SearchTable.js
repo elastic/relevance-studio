@@ -32,6 +32,8 @@ const SearchTable = ({
   sortOrder,
   isLoading,
   columns,
+  itemId,
+  itemIdToExpandedRowMap,
   text,
   onChangeText,
   onChangePage,
@@ -100,6 +102,8 @@ const SearchTable = ({
       <EuiBasicTable
         columns={columns}
         items={docs}
+        itemId={itemId}
+        itemIdToExpandedRowMap={itemIdToExpandedRowMap}
         loading={isLoading}
         onChange={({ sort }) => {
           if (sort)

@@ -9,9 +9,12 @@ import { useEffect, useState } from 'react'
 import {
   EuiBadge,
   EuiButton,
+  EuiButtonIcon,
   EuiCallOut,
   EuiCodeBlock,
   EuiLink,
+  EuiPanel,
+  EuiScreenReaderOnly,
   EuiSpacer,
   EuiText,
 } from '@elastic/eui'
@@ -20,6 +23,7 @@ import { useSearchHandler } from '../../Hooks'
 import { ModalDelete, Page, SearchTable } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
 import api from '../../api'
+import utils from '../../utils'
 import { getHistory } from '../../history'
 
 const Scenarios = () => {
@@ -64,6 +68,18 @@ const Scenarios = () => {
   const [searchSortOrder, setSearchSortOrder] = useState("asc")
   const [searchText, setSearchText] = useState("")
   const [searchTotal, setSearchTotal] = useState(null)
+
+  /**
+   * Expanded rows
+   */
+  const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
+  const toggleDetails = (item) => {
+    setItemIdToExpandedRowMap(prev => {
+      const next = { ...prev }
+      next[item._id] ? delete next[item._id] : (next[item._id] = renderDetails(item))
+      return next
+    })
+  }
 
   ////  Effects  ///////////////////////////////////////////////////////////////
 
@@ -110,7 +126,48 @@ const Scenarios = () => {
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
+  const renderDetails = (item) => {
+    return (
+      <EuiPanel color='transparent' paddingSize='none'>
+        <EuiCodeBlock
+          isCopyable
+          language='json'
+          paddingSize='m'
+          overflowHeight={400}
+          style={{ width: '100%' }}
+        >
+          {utils.jsonStringifySortedKeysWithTripleQuotes(item.values)}
+        </EuiCodeBlock>
+      </EuiPanel>
+    )
+  }
+
   const columns = [
+    {
+      align: 'left',
+      width: '40px',
+      isExpander: true,
+      name: (
+        <EuiScreenReaderOnly>
+          <span>Expand row</span>
+        </EuiScreenReaderOnly>
+      ),
+      mobileOptions: { header: false },
+      render: (item) => {
+        const _itemsToExpandedRows = { ...itemsToExpandedRows }
+        return (
+          <EuiButtonIcon
+            onClick={() => toggleDetails(item)}
+            aria-label={
+              _itemsToExpandedRows[item._id] ? 'Collapse' : 'Expand'
+            }
+            iconType={
+              _itemsToExpandedRows[item._id] ? 'arrowDown' : 'arrowRight'
+            }
+          />
+        )
+      },
+    },
     {
       field: 'name',
       name: 'Scenario',
@@ -124,11 +181,16 @@ const Scenarios = () => {
       name: 'Values',
       render: (name, doc) => {
         return (
-          <div style={{ width: '100%' }}>
+          <div style={{ overflow: 'hidden', width: '100%' }}>
             <EuiCodeBlock
               language='json'
               paddingSize='s'
-              style={{ fontSize: '11px' }}
+              style={{
+                display: 'block',
+                fontSize: '11px',
+                whiteSpace: 'nowrap',
+                width: '1px',
+              }}
               transparentBackground
             >
               {JSON.stringify(doc.values)}
@@ -274,6 +336,8 @@ const Scenarios = () => {
               sortOrder={searchSortOrder}
               isLoading={isSearchLoading}
               columns={columns}
+              itemId='_id'
+              itemIdToExpandedRowMap={itemsToExpandedRows}
               searchText={searchText}
               onChangeText={setSearchText}
               onChangePage={setSearchPage}
