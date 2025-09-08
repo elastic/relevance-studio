@@ -16,7 +16,7 @@ Elasticsearch Relevance Studio manages the lifecycle of **search relevance engin
 
 <h3>AI ready :sparkles:</h3>
 
-Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/reference/architecture.md#recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecyle of search relevance engineering &ndash; scaling up your operations much faster than possible with humans alone.
+Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/reference/architecture.md#recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecycle of search relevance engineering &ndash; scaling up your operations much faster than possible with humans alone.
 
 ---
 

@@ -68,7 +68,7 @@ Search is dynamic. Content and behaviors can change over time. The search strate
 
 ### AI ready :sparkles:
 
-Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/reference/architecture.md#recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecyle of search relevance engineering: reviewing your content, defining scenarios, judging documents, building strategies, learning from benchmarks, and iterating to optimize performance.
+Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/reference/architecture.md#recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecycle of search relevance engineering: reviewing your content, defining scenarios, judging documents, building strategies, learning from benchmarks, and iterating to optimize performance.
 
 ### Scale up your operations.
 
