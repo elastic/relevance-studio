@@ -324,7 +324,9 @@ Example payload that searches all judgements in the workspace:
 
 ```json
 {
-  "query_string": "*"
+  "scenario_id": "b6c4f886-e367-4a84-98c6-b8dc31e20a7b",
+  "index_pattern": "demo",
+  "query_string": "*",
 }
 ```
 
@@ -332,6 +334,8 @@ Example payload with all optional fields:
 
 ```json
 {
+  "scenario_id": "b6c4f886-e367-4a84-98c6-b8dc31e20a7b",
+  "index_pattern": "demo",
   "query_string": "demo",
   "filters": [
     {

@@ -4,7 +4,7 @@
 # 2.0.
 
 # Standard packages
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 # App packages
 from .. import utils
@@ -22,7 +22,7 @@ def search(
         query_string: str = "*",
         filter: str = None, # options: "rated", "rated-ai", "rated-human", "unrated" (or omitted for no filter)
         sort: str = None, # options: "match", "rating-newest", "rating-oldest"
-        _source: Dict[str, Any] = None
+        _source: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
     """
     Get documents from the content deployment with ratings joined to them.
