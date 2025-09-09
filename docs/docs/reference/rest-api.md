@@ -324,7 +324,7 @@ Example payload that searches all judgements in the workspace:
 
 ```json
 {
-  "text": "*"
+  "query_string": "*"
 }
 ```
 
@@ -332,7 +332,7 @@ Example payload with all optional fields:
 
 ```json
 {
-  "text": "demo",
+  "query_string": "demo",
   "filters": [
     {
       "term": {
