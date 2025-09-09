@@ -84,10 +84,7 @@ def search(
         if _source.get("excludes"):
             for field in _source["excludes"]:
                 body["_source"]["excludes"].append(field)
-    body = {
-        "size": 48,
-        "_source": _source
-    }
+    body["size"] = 48
     if query:
         # From strategy editor UI
         body.update(query)
