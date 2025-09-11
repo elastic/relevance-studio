@@ -5,7 +5,7 @@ from pydantic import ValidationError
 # App packages
 from server.models.judgements import JudgementCreate
 from tests.utils import (
-    assert_valid_meta_for_create,
+    assert_valid_meta_for_create_request,
     invalid_values_for,
     mock_context,
 )
@@ -117,7 +117,7 @@ def test_create_handles_invalid_inputs_for_rating(value):
 
 def test_create_computes_meta():
     model = JudgementCreate.model_validate(mock_input_create(), context=mock_context())
-    assert_valid_meta_for_create(model.meta, mock_context()["user"])
+    assert_valid_meta_for_create_request(model.meta, mock_context()["user"])
     
 ####  Test Serialization  ######################################################
     
@@ -137,4 +137,4 @@ def test_create_serialization_has_all_given_inputs():
     
     # Test that @meta fields were properly serialized
     assert "@meta" in serialized and "meta" not in serialized
-    assert_valid_meta_for_create(serialized.get("@meta"), mock_context()["user"])
+    assert_valid_meta_for_create_request(serialized.get("@meta"), mock_context()["user"])

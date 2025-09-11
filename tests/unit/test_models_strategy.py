@@ -5,8 +5,8 @@ from pydantic import ValidationError
 # App packages
 from server.models.strategies import StrategyCreate, StrategyUpdate
 from tests.utils import (
-    assert_valid_meta_for_create,
-    assert_valid_meta_for_update,
+    assert_valid_meta_for_create_request,
+    assert_valid_meta_for_update_request,
     invalid_values_for,
     mock_context,
 )
@@ -214,11 +214,11 @@ def test_update_handles_invalid_inputs_for_template(value):
 
 def test_create_computes_meta():
     model = StrategyCreate.model_validate(mock_input_create(), context=mock_context())
-    assert_valid_meta_for_create(model.meta, mock_context()["user"])
+    assert_valid_meta_for_create_request(model.meta, mock_context()["user"])
 
 def test_update_computes_meta():
     model = StrategyUpdate.model_validate(mock_input_update(), context=mock_context())
-    assert_valid_meta_for_update(model.meta, mock_context()["user"])
+    assert_valid_meta_for_update_request(model.meta, mock_context()["user"])
 
 def test_create_computes_params_from_template():
     
@@ -249,7 +249,7 @@ def test_create_serialization_has_all_given_inputs():
     
     # Test that @meta fields were properly serialized
     assert "@meta" in serialized and "meta" not in serialized
-    assert_valid_meta_for_create(serialized.get("@meta"), mock_context()["user"])
+    assert_valid_meta_for_create_request(serialized.get("@meta"), mock_context()["user"])
     
 def test_create_serialization_initializes_omitted_optional_inputs():
     
@@ -290,7 +290,7 @@ def test_update_serialization_has_all_given_inputs():
     
     # Test that @meta fields were properly serialized
     assert "@meta" in serialized and "meta" not in serialized
-    assert_valid_meta_for_update(serialized.get("@meta"), mock_context()["user"])
+    assert_valid_meta_for_update_request(serialized.get("@meta"), mock_context()["user"])
 
 def test_update_serialization_omits_omitted_optional_inputs():
     
@@ -310,4 +310,4 @@ def test_update_serialization_omits_omitted_optional_inputs():
     
     # Test that @meta fields were properly serialized
     assert "@meta" in serialized and "meta" not in serialized
-    assert_valid_meta_for_update(serialized.get("@meta"), mock_context()["user"])
+    assert_valid_meta_for_update_request(serialized.get("@meta"), mock_context()["user"])

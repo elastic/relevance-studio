@@ -1,26 +1,11 @@
 services:
-  
-  esrs-test-server:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    depends_on:
-      esrs-test-es:
-        condition: service_healthy
-    ports:
-      - "4096:4096"
-    environment:
-      - ELASTICSEARCH_URL=http://esrs-test-es:9200
-    networks:
-      - esrs-test
-  
-  esrs-test-es:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.18.2
+  es-content:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.3
     user: elasticsearch
     environment:
       - action.destructive_requires_name=false
       - bootstrap.memory_lock=true
-      - cluster.name=esrs-test-cluster
+      - cluster.name=es-content
       - cluster.routing.allocation.disk.threshold_enabled=false
       - discovery.type=single-node
       - xpack.monitoring.collection.enabled=false
@@ -28,9 +13,9 @@ services:
       - xpack.watcher.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m -ea"
     ports:
-      - "9200:9200"
+      - 9200:9200
     healthcheck:
-      test: curl -f -u elastic:esrstests http://esrs-test-es:9200 || exit 1
+      test: curl -f http://es-content:9200/_cluster/health || exit 1
       interval: 5s
       timeout: 5s
       retries: 20
@@ -40,7 +25,36 @@ services:
         hard: -1
     networks:
       - esrs-test
-
+  esrs-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile-server
+    depends_on:
+      es-content:
+        condition: service_healthy
+    ports:
+      - 4196:4196
+    environment:
+      - ELASTICSEARCH_URL=http://es-content:9200
+      - FLASK_RUN_PORT=4196
+    networks:
+      - esrs-test
+  esrs-worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile-worker
+    depends_on:
+      es-content:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_URL=http://es-content:9200
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    networks:
+      - esrs-test
 networks:
   esrs-test:
     driver: bridge

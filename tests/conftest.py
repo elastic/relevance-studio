@@ -14,7 +14,7 @@ from elasticsearch import Elasticsearch, ConnectionError
 # Config
 DOCKER_COMPOSE_FILE = os.path.join("tests", "docker-compose.yml")
 ES_URL = "http://localhost:9200"
-ESRS_URL = "http://localhost:4096"
+ESRS_URL = "http://localhost:4196"
 ESRS_INDICES = [
     "esrs-workspaces",
     "esrs-displays",
@@ -58,14 +58,14 @@ def services() -> Generator[Dict[str, Union[Elasticsearch, str]], None, None]:
     Setup and teardown the Elasticsearch Relevance Studio test server and the
     Elasticsearch test cluster with docker compose.
     """
-    subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "relevance-studio-tests", "up", "--build", "-d"], check=True)
+    subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d"], check=True)
     try:
         yield {
             "es": wait_for_es(ES_URL),
             "esrs": wait_for_esrs(ESRS_URL),
         }
     finally:
-        subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE,  "-p", "relevance-studio-tests", "down", "-v"], check=True)
+        subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE,  "-p", "esrs-tests", "down", "-v"], check=True)
         
 @pytest.fixture(scope="session")
 def constants() -> Dict[str, Any]:
@@ -73,7 +73,8 @@ def constants() -> Dict[str, Any]:
     Constant values available to each test. 
     """
     return {
-        "index_templates": ESRS_INDICES
+        "index_templates": ESRS_INDICES,
+        "indices": ESRS_INDICES
     }
     
 def delete_index_templates(es, index_templates):

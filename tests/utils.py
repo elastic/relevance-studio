@@ -1,7 +1,7 @@
 # Standard packages
 import uuid
 
-def assert_valid_meta_for_create(meta, created_by: str = "unknown"):
+def assert_valid_meta_for_create_request(meta, created_by: str = "unknown"):
     assert meta is not None
     assert meta.get("created_at") is not None
     assert meta.get("created_by") == created_by
@@ -10,10 +10,24 @@ def assert_valid_meta_for_create(meta, created_by: str = "unknown"):
     assert "updated_by" in meta
     assert meta["updated_by"] is None
 
-def assert_valid_meta_for_update(meta, updated_by: str = "unknown"):
+def assert_valid_meta_for_update_request(meta, updated_by: str = "unknown"):
     assert meta is not None
     assert "created_at" not in meta
     assert "created_by" not in meta
+    assert meta.get("updated_at") is not None
+    assert meta.get("updated_by") == updated_by
+
+def assert_valid_meta_for_create_response(meta, created_by: str = "unknown"):
+    assert meta is not None
+    assert meta.get("created_at") is not None
+    assert meta.get("created_by") == created_by
+    assert meta.get("updated_at") is None
+    assert meta.get("updated_by") is None
+
+def assert_valid_meta_for_update_response(meta, created_by: str = "unknown", updated_by: str = "unknown"):
+    assert meta is not None
+    assert meta.get("created_at") is not None
+    assert meta.get("created_by") == created_by
     assert meta.get("updated_at") is not None
     assert meta.get("updated_by") == updated_by
     

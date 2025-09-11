@@ -77,14 +77,16 @@ def search(
         
     # Search docs on the content deployment
     # Exclude fields that exist only for searchability
-    body["_source"] = { "excludes": [ "_search" ]}
+    body = {
+        "size": 48
+    }
     if _source:
+        body["_source"] = {}
         if _source.get("includes"):
             body["_source"]["includes"] = _source["includes"]
         if _source.get("excludes"):
             for field in _source["excludes"]:
                 body["_source"]["excludes"].append(field)
-    body["size"] = 48
     if query:
         # From strategy editor UI
         body.update(query)
