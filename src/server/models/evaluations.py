@@ -21,7 +21,7 @@ class Hit(BaseModel):
     id_: str = Field(alias="_id")
     index_: str = Field(alias="_index")
     score_: Optional[float] = Field(alias="_score", default=None)
-    ignored_: Optional[str] = Field(alias="_ignored", default=None)
+    ignored_: Optional[List[str]] = Field(alias="_ignored", default=None)
 
     @field_validator("id_")
     @classmethod
