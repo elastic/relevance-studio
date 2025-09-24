@@ -8,6 +8,7 @@ import itertools
 import time
 import traceback
 from typing import Any, Dict, List, Optional
+import logging
 
 # Elastic packages
 from elastic_transport import ConnectionError, ConnectionTimeout
@@ -27,6 +28,8 @@ from ..models import (
 INDEX_NAME = "esrs-evaluations"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("evaluations")
 VALID_METRICS = set([ "mrr", "ndcg", "precision", "recall" ])
+
+logger = logging.getLogger(__name__)
 
 def _generate_summary_metrics(searches_list):
     """
@@ -622,7 +625,7 @@ def run(
     
     # Mark evaluation as "failed" on exception
     except Exception as e:
-        print(e)
+        logger.exception(e)
         stopped_at = time.time()
         evaluation["took"] = int(( stopped_at - started_at) * 1000)
         evaluation["error"] = {
