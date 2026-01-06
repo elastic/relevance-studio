@@ -61,4 +61,5 @@ Ask Cursor:
 | **Scenario** | User search query | A query you want to evaluate (e.g., "brown oxfords"). |
 | **Judgement** | Relevance rating | Human assessment of how relevant a result is for a scenario (0-4 scale). |
 | **Strategy** | Elasticsearch query | The actual ES query (DSL) being tested. |
-| **Benchmark** | Evaluation | Running strategies against scenarios + judgements to measure quality. |
+| **Benchmark** | Test plan | A reusable definition of what to test: which strategies, which scenarios, what metrics (NDCG, precision, etc.). |
+| **Evaluation** | Test run | The actual execution of a benchmark that produces results and metrics. |
