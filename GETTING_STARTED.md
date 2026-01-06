@@ -38,7 +38,7 @@ ELASTICSEARCH_PASSWORD=changeme
 docker compose up --build
 ```
 
-> **Note:** If Cursor shows the MCP server as unavailable, toggle it off and on in Cursor Settings → MCP.
+> **Note:** If Cursor shows the MCP server as unavailable, toggle it off and on in Cursor Settings → MCP. You may also need to install `uv` for the MCP integration to run. Install it from [https://github.com/astral-sh/uv](https://github.com/astral-sh/uv).
 
 ## First time only
 
