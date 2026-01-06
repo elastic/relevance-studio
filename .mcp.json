@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "relevance-studio": {
+      "command": "uvx",
+      "args": ["--with", "fastmcp", "fastmcp", "run", "http://127.0.0.1:4200/mcp/"]
+    }
+  }
+}
