@@ -2,9 +2,16 @@
 
 Relevance Studio is a tool for evaluating search quality by running Elasticsearch queries (strategies) against test cases (scenarios) using relevance labels (judgements).
 
-Get Relevance Studio running with Cursor in 2 steps.
+Get Relevance Studio running with Cursor in 3 steps.
 
-## 1. Create `.env`
+## 1. Clone the repo
+
+```bash
+git clone https://github.com/vitalsource/relevance-studio.git
+cd relevance-studio
+```
+
+## 2. Create `.env`
 
 ```bash
 cp .env-reference .env
@@ -25,7 +32,7 @@ ELASTICSEARCH_USERNAME=elastic
 ELASTICSEARCH_PASSWORD=changeme
 ```
 
-## 2. Start it
+## 3. Start it
 
 ```bash
 docker compose up --build
