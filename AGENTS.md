@@ -13,4 +13,4 @@
 
 ## Workspace Handling
 
-- store workspace IDs in `local/workspace_ids.txt` as you work
+- store IDs of workspace, scenarios, judgements, strategies, benchmarks, evaluations in `local/current_ids.txt` as you work
