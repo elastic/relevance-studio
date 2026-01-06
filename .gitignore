@@ -27,3 +27,6 @@ venv/
 
 # Logs
 *.log
+
+# Local results and files
+local/
