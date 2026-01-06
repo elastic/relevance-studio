@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "relevance-studio": {
+      "url": "http://localhost:4200/mcp/"
+    }
+  }
+}
