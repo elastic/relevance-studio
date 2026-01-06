@@ -48,6 +48,8 @@ Open [http://localhost:4096](http://localhost:4096) and click **Setup** to creat
 
 ## Try it out
 
+> **Warning:** Do not use **Composer 1** model when interacting with the MCP server—it doesn't handle the complexity well.
+
 Ask Cursor:
 
 > "Using the relevance-studio integration tell me about the tests, etc. we have?"
