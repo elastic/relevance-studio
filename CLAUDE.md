@@ -1,1 +1,1 @@
-Look at AGENTS.md for the instructions to the agent.
+Look at `AGENTS.md` for the instructions to the agent.
