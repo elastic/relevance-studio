@@ -28,11 +28,8 @@ These appear in the MCP client UI and can be discovered via `ListMcpResourcesToo
 | URI | Description |
 |-----|-------------|
 | `workspaces://list` | List all workspaces (_id, name, index_pattern, params, rating_scale, tags) |
-| `displays://list` | List all displays (_id, workspace_id, index_pattern, template) |
-| `scenarios://list` | List all scenarios (_id, workspace_id, name, values, tags) |
-| `strategies://list` | List all strategies (_id, workspace_id, name, tags) |
-| `benchmarks://list` | List all benchmarks (_id, workspace_id, name, description, tags) |
-| `evaluations://list` | List all evaluations (_id, workspace_id, benchmark_id, status, started_at, took) |
+
+> **Note:** Only `workspaces://list` is available as a static resource. All other asset types require a `workspace_id` - use the resource templates below.
 
 ### Resource Templates (Require Known URIs)
 
@@ -85,12 +82,11 @@ Use ReadMcpResourceTool with:
 
 ### Typical Workflow
 
-1. **Browse all evaluations:** Read `evaluations://list` (static, discoverable)
-2. **Check status:** Read `evaluations://{_id}/status`
-3. **Get summary:** Read `evaluations://{_id}/summary`
-4. **Drill into strategy:** Read `evaluations://{_id}/results/{strategy_id}`
-
-All six `://list` resources are static and discoverable in Cursor/Claude Code UI.
+1. **Get workspaces:** Read `workspaces://list` or use `workspaces_list()` tool
+2. **Browse evaluations:** Read `evaluations://{workspace_id}/list` or use `evaluations_list(workspace_id)` tool
+3. **Check status:** Read `evaluations://{_id}/status` or use `evaluation_status(_id)` tool
+4. **Get summary:** Read `evaluations://{_id}/summary` or use `evaluation_summary(_id)` tool
+5. **Drill into strategy:** Read `evaluations://{_id}/results/{strategy_id}` or use `evaluation_results_for_strategy(_id, strategy_id)` tool
 
 ### Token Comparison
 

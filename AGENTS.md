@@ -16,7 +16,8 @@
 ## Fast Data Access
 
 **Claude Code:** Use MCP Resources (fastest) via `ReadMcpResourceTool`:
-- `workspaces://list`, `scenarios://list`, `evaluations://list`, etc.
+- `workspaces://list` (only static resource - others require workspace_id)
+- `scenarios://{workspace_id}/list`, `evaluations://{workspace_id}/list`, etc.
 - `evaluations://{_id}/status`, `evaluations://{_id}/summary`
 - See [MCP_RESOURCES.md](MCP_RESOURCES.md) for all URI patterns
 
