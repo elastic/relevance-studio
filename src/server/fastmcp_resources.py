@@ -29,6 +29,7 @@ from starlette.responses import JSONResponse
 
 # App packages
 from . import api
+from .client import es
 from .models import *
 
 ####  Configuration  ###########################################################
@@ -435,28 +436,31 @@ def benchmark_task(_id: str) -> dict:
 
 ####  Resources: Evaluations  ##################################################
 
-def _get_evaluations_list(workspace_id: str = "") -> dict:
-    """Internal helper for evaluations list."""
-    es_response = api.evaluations.search(workspace_id, "", "", [], {}, 1000, 1, False)
+def _get_evaluations_list(workspace_id: str) -> dict:
+    """Internal helper for evaluations list.
+
+    Note: Uses direct ES query because api.evaluations.search requires benchmark_id
+    and always filters by it, making workspace-only queries impossible.
+    """
+    body = {
+        "query": {"bool": {"filter": [{"term": {"workspace_id": workspace_id}}]}},
+        "size": 1000,
+        "_source": {"excludes": ["_search", "results", "summary"]},
+    }
+    es_response = es("studio").search(index="esrs-evaluations", body=body)
     hits = es_response.body.get("hits", {}).get("hits", [])
     evaluations = []
     for hit in hits:
         source = hit.get("_source", {})
         meta = source.get("@meta", {})
-        item = {
+        evaluations.append({
             "_id": hit.get("_id"),
             "benchmark_id": source.get("benchmark_id"),
             "status": meta.get("status"),
             "started_at": meta.get("started_at"),
             "took": source.get("took"),
-        }
-        if not workspace_id:
-            item["workspace_id"] = source.get("workspace_id")
-        evaluations.append(item)
-    result = {"count": len(evaluations), "evaluations": evaluations}
-    if workspace_id:
-        result["workspace_id"] = workspace_id
-    return result
+        })
+    return {"count": len(evaluations), "evaluations": evaluations, "workspace_id": workspace_id}
 
 
 @mcp.resource("evaluations://{workspace_id}/list")
@@ -714,7 +718,7 @@ def workspaces_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
     return dict(api.workspaces.create(doc, _id, user="ai"))
 
 @mcp.tool(description=api.workspaces.update.__doc__ + f"""\n
-JSON schema for doc_partial:\n\n{DisplayCreate.model_input_json_schema()}
+JSON schema for doc_partial:\n\n{WorkspaceUpdate.model_input_json_schema()}
 """)
 def workspaces_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
     return dict(api.workspaces.update(_id, doc_partial, user="ai"))
@@ -749,7 +753,7 @@ def displays_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
     return dict(api.displays.create(doc, _id, user="ai"))
 
 @mcp.tool(description=api.displays.update.__doc__ + f"""\n
-JSON schema for doc_partia:\n\n{DisplayUpdate.model_input_json_schema()}
+JSON schema for doc_partial:\n\n{DisplayUpdate.model_input_json_schema()}
 """)
 def displays_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
     return dict(api.displays.update(_id, doc_partial, user="ai"))

@@ -67,7 +67,7 @@ These require you to know the URI pattern. Replace `{_id}`, `{workspace_id}`, et
 | `evaluations://{_id}/summary` | Get summary metrics only (lightweight) |
 | `evaluations://{_id}/task` | Get the task definition |
 | `evaluations://{_id}/results/{strategy_id}` | Get results for a specific strategy |
-| `evaluations://{_id}/unrated` | Get scenarios with unrated results |
+| `evaluations://{_id}/unrated` | Get documents with unrated results |
 | `evaluations://{_id}/strategies` | List strategies in the evaluation |
 
 ## Usage Examples
