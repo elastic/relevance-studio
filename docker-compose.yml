@@ -26,6 +26,14 @@ services:
       - 4200:4200
     env_file:
       - .env
+  esrs-server-mcp-resources:
+    build:
+      context: .
+      dockerfile: Dockerfile-server-mcp-resources
+    ports:
+      - 4201:4201
+    env_file:
+      - .env
   esrs-proxy-mcp:
     build:
       context: .

@@ -1,0 +1,28 @@
+####  Build the MCP server with Resources  #####################################
+
+FROM python:3.10-slim AS server-mcp-resources
+WORKDIR /app
+
+# Copy project files
+COPY requirements.txt requirements-mcp.txt ./
+COPY src/server ./server
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements-mcp.txt
+
+####  Run the server  ##########################################################
+
+# Conditionally instrument OpenTelemetry with entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Set environment variables
+ENV FASTMCP_HOST=0.0.0.0
+ENV FASTMCP_PORT=4201
+ENV FASTMCP_SERVER_TRANSPORT=http
+ENV OTEL_SERVICE_NAME=esrs-server-mcp-resources
+
+# Run the MCP server with resources
+CMD ["python", "-m", "server.fastmcp_resources"]
+EXPOSE 4201
