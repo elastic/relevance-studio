@@ -744,9 +744,9 @@ def workspaces_search(
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
-        size: Optional[int] = 10,
-        page: Optional[int] = 1,
-        aggs: Optional[bool] = False,
+        size: Any = 10,
+        page: Any = 1,
+        aggs: Any = False,
     ) -> Dict[str, Any]:
     return dict(api.workspaces.search(text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
 
@@ -779,9 +779,9 @@ def displays_search(
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
-        size: Optional[int] = 10,
-        page: Optional[int] = 1,
-        aggs: Optional[bool] = False,
+        size: Any = 10,
+        page: Any = 1,
+        aggs: Any = False,
     ) -> Dict[str, Any]:
     return dict(api.displays.search(workspace_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
 
@@ -814,9 +814,9 @@ def scenarios_search(
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
-        size: Optional[int] = 10,
-        page: Optional[int] = 1,
-        aggs: Optional[bool] = False,
+        size: Any = 10,
+        page: Any = 1,
+        aggs: Any = False,
     ) -> Dict[str, Any]:
     return dict(api.scenarios.search(workspace_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
 
@@ -879,9 +879,9 @@ def strategies_search(
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
-        size: Optional[int] = 10,
-        page: Optional[int] = 1,
-        aggs: Optional[bool] = False,
+        size: Any = 10,
+        page: Any = 1,
+        aggs: Any = False,
     ) -> Dict[str, Any]:
     return dict(api.strategies.search(workspace_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
 
@@ -918,9 +918,9 @@ def benchmarks_search(
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
-        size: Optional[int] = 10,
-        page: Optional[int] = 1,
-        aggs: Optional[bool] = False,
+        size: Any = 10,
+        page: Any = 1,
+        aggs: Any = False,
     ) -> Dict[str, Any]:
     return dict(api.benchmarks.search(workspace_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
 
@@ -962,9 +962,9 @@ def evaluations_search(
         text: Optional[str] = "",
         filters: Optional[List[Dict[str, Any]]] = [],
         sort: Dict[str, Any] = {},
-        size: Optional[int] = 10,
-        page: Optional[int] = 1,
-        aggs: Optional[bool] = False,
+        size: Any = 10,
+        page: Any = 1,
+        aggs: Any = False,
     ) -> Dict[str, Any]:
     return dict(api.evaluations.search(workspace_id, benchmark_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
 
