@@ -211,12 +211,8 @@ mcp = FastMCP(name="Relevance Studio (Resources)", instructions=instructions)
 
 ####  Resources: Workspaces  ###################################################
 
-@mcp.resource("workspaces://list")
-def workspaces_list() -> dict:
-    """
-    Get a lightweight list of all workspaces.
-    Returns just _id, name, index_pattern, params, and rating_scale.
-    """
+def _get_workspaces_list() -> dict:
+    """Internal helper for workspaces list."""
     es_response = api.workspaces.search(size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
     workspaces = []
@@ -230,10 +226,13 @@ def workspaces_list() -> dict:
             "rating_scale": source.get("rating_scale"),
             "tags": source.get("tags", []),
         })
-    return {
-        "count": len(workspaces),
-        "workspaces": workspaces,
-    }
+    return {"count": len(workspaces), "workspaces": workspaces}
+
+
+@mcp.resource("workspaces://list")
+def workspaces_list_all() -> dict:
+    """Get a lightweight list of all workspaces."""
+    return _get_workspaces_list()
 
 
 ####  Resources: Displays  #####################################################
@@ -286,52 +285,38 @@ def displays_list(workspace_id: str) -> dict:
 
 ####  Resources: Scenarios  ####################################################
 
-@mcp.resource("scenarios://list")
-def scenarios_list_all() -> dict:
-    """
-    Get a lightweight list of all scenarios across all workspaces.
-    Returns _id, workspace_id, name, values, and tags.
-    """
-    es_response = api.scenarios.search(workspace_id="", size=1000)
-    hits = es_response.body.get("hits", {}).get("hits", [])
-    scenarios = []
-    for hit in hits:
-        source = hit.get("_source", {})
-        scenarios.append({
-            "_id": hit.get("_id"),
-            "workspace_id": source.get("workspace_id"),
-            "name": source.get("name"),
-            "values": source.get("values", {}),
-            "tags": source.get("tags", []),
-        })
-    return {
-        "count": len(scenarios),
-        "scenarios": scenarios,
-    }
-
-
-@mcp.resource("scenarios://{workspace_id}/list")
-def scenarios_list_by_workspace(workspace_id: str) -> dict:
-    """
-    Get a lightweight list of all scenarios in a workspace.
-    Returns just _id, name, values, and tags.
-    """
+def _get_scenarios_list(workspace_id: str = "") -> dict:
+    """Internal helper for scenarios list."""
     es_response = api.scenarios.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
     scenarios = []
     for hit in hits:
         source = hit.get("_source", {})
-        scenarios.append({
+        item = {
             "_id": hit.get("_id"),
             "name": source.get("name"),
             "values": source.get("values", {}),
             "tags": source.get("tags", []),
-        })
-    return {
-        "workspace_id": workspace_id,
-        "count": len(scenarios),
-        "scenarios": scenarios,
-    }
+        }
+        if not workspace_id:
+            item["workspace_id"] = source.get("workspace_id")
+        scenarios.append(item)
+    result = {"count": len(scenarios), "scenarios": scenarios}
+    if workspace_id:
+        result["workspace_id"] = workspace_id
+    return result
+
+
+@mcp.resource("scenarios://list")
+def scenarios_list_all() -> dict:
+    """Get a lightweight list of all scenarios across all workspaces."""
+    return _get_scenarios_list()
+
+
+@mcp.resource("scenarios://{workspace_id}/list")
+def scenarios_list_by_workspace(workspace_id: str) -> dict:
+    """Get a lightweight list of all scenarios in a workspace."""
+    return _get_scenarios_list(workspace_id)
 
 
 @mcp.resource("scenarios://{workspace_id}/by-tag/{tag}")
@@ -364,50 +349,37 @@ def scenarios_by_tag(workspace_id: str, tag: str) -> dict:
 
 ####  Resources: Strategies  ###################################################
 
-@mcp.resource("strategies://list")
-def strategies_list_all() -> dict:
-    """
-    Get a lightweight list of all strategies across all workspaces.
-    Returns _id, workspace_id, name, and tags - not the full template source.
-    """
-    es_response = api.strategies.search(workspace_id="", size=1000)
-    hits = es_response.body.get("hits", {}).get("hits", [])
-    strategies = []
-    for hit in hits:
-        source = hit.get("_source", {})
-        strategies.append({
-            "_id": hit.get("_id"),
-            "workspace_id": source.get("workspace_id"),
-            "name": source.get("name"),
-            "tags": source.get("tags", []),
-        })
-    return {
-        "count": len(strategies),
-        "strategies": strategies,
-    }
-
-
-@mcp.resource("strategies://{workspace_id}/list")
-def strategies_list_by_workspace(workspace_id: str) -> dict:
-    """
-    Get a lightweight list of all strategies in a workspace.
-    Returns just _id, name, and tags - not the full template source.
-    """
+def _get_strategies_list(workspace_id: str = "") -> dict:
+    """Internal helper for strategies list."""
     es_response = api.strategies.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
     strategies = []
     for hit in hits:
         source = hit.get("_source", {})
-        strategies.append({
+        item = {
             "_id": hit.get("_id"),
             "name": source.get("name"),
             "tags": source.get("tags", []),
-        })
-    return {
-        "workspace_id": workspace_id,
-        "count": len(strategies),
-        "strategies": strategies,
-    }
+        }
+        if not workspace_id:
+            item["workspace_id"] = source.get("workspace_id")
+        strategies.append(item)
+    result = {"count": len(strategies), "strategies": strategies}
+    if workspace_id:
+        result["workspace_id"] = workspace_id
+    return result
+
+
+@mcp.resource("strategies://list")
+def strategies_list_all() -> dict:
+    """Get a lightweight list of all strategies across all workspaces."""
+    return _get_strategies_list()
+
+
+@mcp.resource("strategies://{workspace_id}/list")
+def strategies_list_by_workspace(workspace_id: str) -> dict:
+    """Get a lightweight list of all strategies in a workspace."""
+    return _get_strategies_list(workspace_id)
 
 
 @mcp.resource("strategies://{workspace_id}/by-tag/{tag}")
@@ -454,52 +426,38 @@ def strategy_template(_id: str) -> dict:
 
 ####  Resources: Benchmarks  ###################################################
 
-@mcp.resource("benchmarks://list")
-def benchmarks_list_all() -> dict:
-    """
-    Get a lightweight list of all benchmarks across all workspaces.
-    Returns _id, workspace_id, name, description, and tags - not the full task definition.
-    """
-    es_response = api.benchmarks.search(workspace_id="", size=1000)
-    hits = es_response.body.get("hits", {}).get("hits", [])
-    benchmarks = []
-    for hit in hits:
-        source = hit.get("_source", {})
-        benchmarks.append({
-            "_id": hit.get("_id"),
-            "workspace_id": source.get("workspace_id"),
-            "name": source.get("name"),
-            "description": source.get("description"),
-            "tags": source.get("tags", []),
-        })
-    return {
-        "count": len(benchmarks),
-        "benchmarks": benchmarks,
-    }
-
-
-@mcp.resource("benchmarks://{workspace_id}/list")
-def benchmarks_list_by_workspace(workspace_id: str) -> dict:
-    """
-    Get a lightweight list of all benchmarks in a workspace.
-    Returns just _id, name, description, and tags - not the full task definition.
-    """
+def _get_benchmarks_list(workspace_id: str = "") -> dict:
+    """Internal helper for benchmarks list."""
     es_response = api.benchmarks.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
     benchmarks = []
     for hit in hits:
         source = hit.get("_source", {})
-        benchmarks.append({
+        item = {
             "_id": hit.get("_id"),
             "name": source.get("name"),
             "description": source.get("description"),
             "tags": source.get("tags", []),
-        })
-    return {
-        "workspace_id": workspace_id,
-        "count": len(benchmarks),
-        "benchmarks": benchmarks,
-    }
+        }
+        if not workspace_id:
+            item["workspace_id"] = source.get("workspace_id")
+        benchmarks.append(item)
+    result = {"count": len(benchmarks), "benchmarks": benchmarks}
+    if workspace_id:
+        result["workspace_id"] = workspace_id
+    return result
+
+
+@mcp.resource("benchmarks://list")
+def benchmarks_list_all() -> dict:
+    """Get a lightweight list of all benchmarks across all workspaces."""
+    return _get_benchmarks_list()
+
+
+@mcp.resource("benchmarks://{workspace_id}/list")
+def benchmarks_list_by_workspace(workspace_id: str) -> dict:
+    """Get a lightweight list of all benchmarks in a workspace."""
+    return _get_benchmarks_list(workspace_id)
 
 
 @mcp.resource("benchmarks://{_id}/task")
@@ -518,64 +476,44 @@ def benchmark_task(_id: str) -> dict:
 
 ####  Resources: Evaluations  ##################################################
 
-@mcp.resource("evaluations://list")
-def evaluations_list_all() -> dict:
-    """
-    Get a lightweight list of all evaluations across all workspaces.
-    Returns _id, workspace_id, benchmark_id, status, and timing info.
-    """
-    es_response = api.evaluations.search(workspace_id="", size=1000)
-    hits = es_response.body.get("hits", {}).get("hits", [])
-    evaluations = []
-    for hit in hits:
-        source = hit.get("_source", {})
-        meta = source.get("@meta", {})
-        evaluations.append({
-            "_id": hit.get("_id"),
-            "workspace_id": source.get("workspace_id"),
-            "benchmark_id": source.get("benchmark_id"),
-            "status": meta.get("status"),
-            "started_at": meta.get("started_at"),
-            "took": source.get("took"),
-        })
-    return {
-        "count": len(evaluations),
-        "evaluations": evaluations,
-    }
-
-
-@mcp.resource("evaluations://{workspace_id}/list")
-def evaluations_list_by_workspace(workspace_id: str) -> dict:
-    """
-    Get a lightweight list of all evaluations in a workspace.
-    Returns just _id, benchmark_id, status, and timing info.
-    """
+def _get_evaluations_list(workspace_id: str = "") -> dict:
+    """Internal helper for evaluations list."""
     es_response = api.evaluations.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
     evaluations = []
     for hit in hits:
         source = hit.get("_source", {})
         meta = source.get("@meta", {})
-        evaluations.append({
+        item = {
             "_id": hit.get("_id"),
             "benchmark_id": source.get("benchmark_id"),
             "status": meta.get("status"),
             "started_at": meta.get("started_at"),
             "took": source.get("took"),
-        })
-    return {
-        "workspace_id": workspace_id,
-        "count": len(evaluations),
-        "evaluations": evaluations,
-    }
+        }
+        if not workspace_id:
+            item["workspace_id"] = source.get("workspace_id")
+        evaluations.append(item)
+    result = {"count": len(evaluations), "evaluations": evaluations}
+    if workspace_id:
+        result["workspace_id"] = workspace_id
+    return result
 
 
-@mcp.resource("evaluations://{_id}/status")
-def evaluation_status_resource(_id: str) -> dict:
-    """
-    Get just the status and metadata of an evaluation.
-    Use this to check if an evaluation is complete before fetching results.
-    """
+@mcp.resource("evaluations://list")
+def evaluations_list_all() -> dict:
+    """Get a lightweight list of all evaluations across all workspaces."""
+    return _get_evaluations_list()
+
+
+@mcp.resource("evaluations://{workspace_id}/list")
+def evaluations_list_by_workspace(workspace_id: str) -> dict:
+    """Get a lightweight list of all evaluations in a workspace."""
+    return _get_evaluations_list(workspace_id)
+
+
+def _get_evaluation_status(_id: str) -> dict:
+    """Internal helper for evaluation status."""
     es_response = api.evaluations.get(_id)
     source = es_response.body.get("_source", {})
     meta = source.get("@meta", {})
@@ -589,13 +527,8 @@ def evaluation_status_resource(_id: str) -> dict:
     }
 
 
-@mcp.resource("evaluations://{_id}/summary")
-def evaluation_summary_resource(_id: str) -> dict:
-    """
-    Get just the summary metrics of a completed evaluation.
-    This is the most useful view for comparing strategy performance.
-    Contains aggregated metrics by strategy_id and strategy_tag.
-    """
+def _get_evaluation_summary(_id: str) -> dict:
+    """Internal helper for evaluation summary."""
     es_response = api.evaluations.get(_id)
     source = es_response.body.get("_source", {})
     return {
@@ -606,35 +539,12 @@ def evaluation_summary_resource(_id: str) -> dict:
     }
 
 
-@mcp.resource("evaluations://{_id}/task")
-def evaluation_task(_id: str) -> dict:
-    """
-    Get the task definition of an evaluation.
-    Shows which metrics, strategies, and scenarios were configured.
-    """
-    es_response = api.evaluations.get(_id)
-    source = es_response.body.get("_source", {})
-    return {
-        "_id": _id,
-        "workspace_id": source.get("workspace_id"),
-        "benchmark_id": source.get("benchmark_id"),
-        "task": source.get("task", {}),
-        "strategy_id": source.get("strategy_id", []),
-        "scenario_id": source.get("scenario_id", []),
-    }
-
-
-@mcp.resource("evaluations://{_id}/results/{strategy_id}")
-def evaluation_results_by_strategy(_id: str, strategy_id: str) -> dict:
-    """
-    Get results for a specific strategy from an evaluation.
-    Returns searches (metrics + hits per scenario) and failures for that strategy.
-    """
+def _get_evaluation_results_by_strategy(_id: str, strategy_id: str) -> dict:
+    """Internal helper for evaluation results by strategy."""
     es_response = api.evaluations.get(_id)
     source = es_response.body.get("_source", {})
     results = source.get("results", [])
 
-    # Find the results for the requested strategy
     strategy_results = None
     for r in results:
         if r.get("strategy_id") == strategy_id:
@@ -655,6 +565,39 @@ def evaluation_results_by_strategy(_id: str, strategy_id: str) -> dict:
         "searches": strategy_results.get("searches", []),
         "failures": strategy_results.get("failures", []),
     }
+
+
+@mcp.resource("evaluations://{_id}/status")
+def evaluation_status_resource(_id: str) -> dict:
+    """Get just the status and metadata of an evaluation."""
+    return _get_evaluation_status(_id)
+
+
+@mcp.resource("evaluations://{_id}/summary")
+def evaluation_summary_resource(_id: str) -> dict:
+    """Get just the summary metrics of a completed evaluation."""
+    return _get_evaluation_summary(_id)
+
+
+@mcp.resource("evaluations://{_id}/task")
+def evaluation_task(_id: str) -> dict:
+    """Get the task definition of an evaluation."""
+    es_response = api.evaluations.get(_id)
+    source = es_response.body.get("_source", {})
+    return {
+        "_id": _id,
+        "workspace_id": source.get("workspace_id"),
+        "benchmark_id": source.get("benchmark_id"),
+        "task": source.get("task", {}),
+        "strategy_id": source.get("strategy_id", []),
+        "scenario_id": source.get("scenario_id", []),
+    }
+
+
+@mcp.resource("evaluations://{_id}/results/{strategy_id}")
+def evaluation_results_by_strategy(_id: str, strategy_id: str) -> dict:
+    """Get results for a specific strategy from an evaluation."""
+    return _get_evaluation_results_by_strategy(_id, strategy_id)
 
 
 @mcp.resource("evaluations://{_id}/unrated")
@@ -712,7 +655,7 @@ def workspaces_list() -> Dict[str, Any]:
     Returns just _id, name, index_pattern, params, rating_scale, and tags.
     Faster than workspaces_search - use this for browsing.
     """
-    return workspaces_list_all()
+    return _get_workspaces_list()
 
 
 @mcp.tool()
@@ -722,7 +665,7 @@ def scenarios_list(workspace_id: str) -> Dict[str, Any]:
     Returns just _id, name, values, and tags.
     Faster than scenarios_search - use this for browsing.
     """
-    return scenarios_list_by_workspace(workspace_id)
+    return _get_scenarios_list(workspace_id)
 
 
 @mcp.tool()
@@ -732,7 +675,7 @@ def strategies_list(workspace_id: str) -> Dict[str, Any]:
     Returns just _id, name, and tags - not the full template source.
     Faster than strategies_search - use this for browsing.
     """
-    return strategies_list_by_workspace(workspace_id)
+    return _get_strategies_list(workspace_id)
 
 
 @mcp.tool()
@@ -742,7 +685,7 @@ def benchmarks_list(workspace_id: str) -> Dict[str, Any]:
     Returns just _id, name, description, and tags.
     Faster than benchmarks_search - use this for browsing.
     """
-    return benchmarks_list_by_workspace(workspace_id)
+    return _get_benchmarks_list(workspace_id)
 
 
 @mcp.tool()
@@ -752,7 +695,7 @@ def evaluations_list(workspace_id: str) -> Dict[str, Any]:
     Returns just _id, benchmark_id, status, started_at, and took.
     Faster than evaluations_search - use this for browsing.
     """
-    return evaluations_list_by_workspace(workspace_id)
+    return _get_evaluations_list(workspace_id)
 
 
 @mcp.tool()
@@ -762,7 +705,7 @@ def evaluation_status(_id: str) -> Dict[str, Any]:
     Use this to check if an evaluation is complete before fetching full results.
     Much smaller than evaluations_get.
     """
-    return evaluation_status_resource(_id)
+    return _get_evaluation_status(_id)
 
 
 @mcp.tool()
@@ -772,7 +715,7 @@ def evaluation_summary(_id: str) -> Dict[str, Any]:
     Contains aggregated metrics by strategy_id and strategy_tag.
     Much smaller than evaluations_get (2KB vs 100KB).
     """
-    return evaluation_summary_resource(_id)
+    return _get_evaluation_summary(_id)
 
 
 @mcp.tool()
@@ -782,7 +725,7 @@ def evaluation_results_for_strategy(_id: str, strategy_id: str) -> Dict[str, Any
     Returns searches (metrics + hits per scenario) for just that strategy.
     Much smaller than evaluations_get.
     """
-    return evaluation_results_by_strategy(_id, strategy_id)
+    return _get_evaluation_results_by_strategy(_id, strategy_id)
 
 
 ################################################################################
