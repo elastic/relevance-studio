@@ -237,29 +237,6 @@ def workspaces_list_all() -> dict:
 
 ####  Resources: Displays  #####################################################
 
-@mcp.resource("displays://list")
-def displays_list_all() -> dict:
-    """
-    Get a lightweight list of all displays across all workspaces.
-    Returns _id, workspace_id, index_pattern, and template.
-    """
-    es_response = api.displays.search(size=1000)
-    hits = es_response.body.get("hits", {}).get("hits", [])
-    displays = []
-    for hit in hits:
-        source = hit.get("_source", {})
-        displays.append({
-            "_id": hit.get("_id"),
-            "workspace_id": source.get("workspace_id"),
-            "index_pattern": source.get("index_pattern"),
-            "template": source.get("template"),
-        })
-    return {
-        "count": len(displays),
-        "displays": displays,
-    }
-
-
 @mcp.resource("displays://{workspace_id}/list")
 def displays_list(workspace_id: str) -> dict:
     """
@@ -305,12 +282,6 @@ def _get_scenarios_list(workspace_id: str = "") -> dict:
     if workspace_id:
         result["workspace_id"] = workspace_id
     return result
-
-
-@mcp.resource("scenarios://list")
-def scenarios_list_all() -> dict:
-    """Get a lightweight list of all scenarios across all workspaces."""
-    return _get_scenarios_list()
 
 
 @mcp.resource("scenarios://{workspace_id}/list")
@@ -368,12 +339,6 @@ def _get_strategies_list(workspace_id: str = "") -> dict:
     if workspace_id:
         result["workspace_id"] = workspace_id
     return result
-
-
-@mcp.resource("strategies://list")
-def strategies_list_all() -> dict:
-    """Get a lightweight list of all strategies across all workspaces."""
-    return _get_strategies_list()
 
 
 @mcp.resource("strategies://{workspace_id}/list")
@@ -448,12 +413,6 @@ def _get_benchmarks_list(workspace_id: str = "") -> dict:
     return result
 
 
-@mcp.resource("benchmarks://list")
-def benchmarks_list_all() -> dict:
-    """Get a lightweight list of all benchmarks across all workspaces."""
-    return _get_benchmarks_list()
-
-
 @mcp.resource("benchmarks://{workspace_id}/list")
 def benchmarks_list_by_workspace(workspace_id: str) -> dict:
     """Get a lightweight list of all benchmarks in a workspace."""
@@ -498,12 +457,6 @@ def _get_evaluations_list(workspace_id: str = "") -> dict:
     if workspace_id:
         result["workspace_id"] = workspace_id
     return result
-
-
-@mcp.resource("evaluations://list")
-def evaluations_list_all() -> dict:
-    """Get a lightweight list of all evaluations across all workspaces."""
-    return _get_evaluations_list()
 
 
 @mcp.resource("evaluations://{workspace_id}/list")
