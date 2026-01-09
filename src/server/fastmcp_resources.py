@@ -478,7 +478,7 @@ def benchmark_task(_id: str) -> dict:
 
 def _get_evaluations_list(workspace_id: str = "") -> dict:
     """Internal helper for evaluations list."""
-    es_response = api.evaluations.search(workspace_id=workspace_id, size=1000)
+    es_response = api.evaluations.search(workspace_id, "", "", [], {}, 1000, 1, False)
     hits = es_response.body.get("hits", {}).get("hits", [])
     evaluations = []
     for hit in hits:
