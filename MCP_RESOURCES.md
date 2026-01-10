@@ -77,7 +77,7 @@ These require you to know the URI pattern. Replace `{_id}`, `{workspace_id}`, et
 
 ```
 Use ReadMcpResourceTool with:
-- server: "relevance-studio"
+- server: "<your-mcp-server-name>"  # The name you used in your MCP config
 - uri: "evaluations://abc123/summary"
 ```
 

@@ -1189,9 +1189,12 @@ def get_base64_image_from_url(url: str, max_size: Any = 50) -> str:
     image.save(buffer, format=img_format)
     buffer.seek(0)
 
+    # Build content-type from the actual format used (not original response)
+    mime_type = f"image/{img_format.lower()}"
+
     # Encode as base64
     encoded = base64.b64encode(buffer.read()).decode("utf-8")
-    return f"data:{content_type_base};base64,{encoded}"
+    return f"data:{mime_type};base64,{encoded}"
 
 
 ####  Health checks  ###########################################################
