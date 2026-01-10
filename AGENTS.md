@@ -32,6 +32,7 @@
 | `evaluations_list` | `evaluations_search` | ~10x smaller |
 | `evaluation_status` | `evaluations_get` | ~1000x smaller |
 | `evaluation_summary` | `evaluations_get` | ~50x smaller |
+| `latest_evaluation_summary` | evaluations_list + evaluation_summary | Single call |
 
 ## Workspace Handling
 

@@ -685,6 +685,47 @@ def evaluation_results_for_strategy(_id: str, strategy_id: str) -> Dict[str, Any
     return _get_evaluation_results_by_strategy(_id, strategy_id)
 
 
+@mcp.tool()
+def latest_evaluation_summary(workspace_id: str) -> Dict[str, Any]:
+    """
+    Get the summary of the most recent completed evaluation in a workspace.
+    Combines evaluations_list + evaluation_summary into a single call.
+    Returns the evaluation _id, status, took, and summary metrics.
+    If no completed evaluation exists, returns an error message.
+    """
+    # Get all evaluations sorted by started_at
+    body = {
+        "query": {"bool": {"filter": [{"term": {"workspace_id": workspace_id}}]}},
+        "size": 100,
+        "sort": [{"@meta.started_at": {"order": "desc"}}],
+        "_source": ["@meta", "took", "benchmark_id", "summary"],
+    }
+    es_response = es("studio").search(index="esrs-evaluations", body=body)
+    hits = es_response.body.get("hits", {}).get("hits", [])
+
+    # Find the most recent completed evaluation
+    for hit in hits:
+        source = hit.get("_source", {})
+        meta = source.get("@meta", {})
+        if meta.get("status") == "completed":
+            return {
+                "_id": hit.get("_id"),
+                "workspace_id": workspace_id,
+                "benchmark_id": source.get("benchmark_id"),
+                "status": "completed",
+                "started_at": meta.get("started_at"),
+                "took": source.get("took"),
+                "summary": source.get("summary", {}),
+            }
+
+    # No completed evaluation found
+    return {
+        "workspace_id": workspace_id,
+        "error": "No completed evaluation found in this workspace",
+        "total_evaluations": len(hits),
+    }
+
+
 ################################################################################
 #                                                                              #
 #                                MCP TOOLS                                     #

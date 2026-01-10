@@ -18,6 +18,7 @@ These tools return filtered data and work everywhere, including Cursor:
 | `evaluation_status(_id)` | Check if evaluation is complete |
 | `evaluation_summary(_id)` | Get aggregated metrics (2KB vs 100KB) |
 | `evaluation_results_for_strategy(_id, strategy_id)` | Get results for one strategy |
+| `latest_evaluation_summary(workspace_id)` | Get summary of most recent completed evaluation |
 
 ## Available Resources
 
@@ -87,6 +88,10 @@ Use ReadMcpResourceTool with:
 3. **Check status:** Read `evaluations://{_id}/status` or use `evaluation_status(_id)` tool
 4. **Get summary:** Read `evaluations://{_id}/summary` or use `evaluation_summary(_id)` tool
 5. **Drill into strategy:** Read `evaluations://{_id}/results/{strategy_id}` or use `evaluation_results_for_strategy(_id, strategy_id)` tool
+
+### Quick Access to Latest Results
+
+Use `latest_evaluation_summary(workspace_id)` to get the most recent completed evaluation's summary in a single call. This combines steps 2-4 above.
 
 ### Token Comparison
 
