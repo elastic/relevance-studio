@@ -13,6 +13,20 @@
 - Only use `evaluations_get` if you need the full results (50-100KB+, can grow to MBs)
 - For per-strategy details, use `evaluation_results_for_strategy`
 
+## Large Response Handling
+
+**CRITICAL:** Some tools can return responses large enough to blow your context window:
+- `evaluations_get` - 50KB-MBs depending on scenarios/strategies
+- `content_search` - unbounded, depends on query
+- `judgements_search` - unbounded, depends on query
+
+**If you must call these tools:**
+1. Stream the response to a file on disk first
+2. Parse the file incrementally or extract only the fields you need
+3. Never load the full response directly into context
+
+**Prefer lightweight alternatives** that return bounded, small responses (see table below).
+
 ## Fast Data Access
 
 **Claude Code:** Use MCP Resources (fastest) via `ReadMcpResourceTool`:

@@ -183,6 +183,23 @@ selective access to large objects, dramatically reducing response sizes.
 2. Once complete, read `evaluations://{_id}/summary` for metrics
 3. Only fetch detailed results with `evaluations://{_id}/results/{strategy_id}` if needed
 
+### CRITICAL: Avoid large responses that blow your context
+
+Some tools can return responses large enough to exhaust your context window:
+- `evaluations_get` - 50KB to MBs depending on scenarios/strategies
+- `content_search` - unbounded, depends on query
+- `judgements_search` - unbounded, depends on query
+
+**Always prefer lightweight tools** that return bounded, small responses:
+- `evaluation_status` (~500 bytes) instead of `evaluations_get`
+- `evaluation_summary` (~2KB) instead of `evaluations_get`
+- `evaluation_results_for_strategy` (per-strategy) instead of `evaluations_get`
+- `latest_evaluation_summary` (single call for most recent results)
+- `*_list` tools instead of `*_search` tools
+
+**If you must call a large-response tool**, stream the response to a file on disk
+first, then parse incrementally. Never load the full response directly into context.
+
 ### Analyze images when judging documents
 
 When judging documents that have a display template, check to see if the

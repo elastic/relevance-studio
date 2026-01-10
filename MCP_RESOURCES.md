@@ -97,6 +97,15 @@ Use `latest_evaluation_summary(workspace_id)` to get the most recent completed e
 
 | Approach | Typical Size |
 |----------|--------------|
-| `evaluations_get` tool | 50-100KB |
+| `evaluations_get` tool | 50-100KB+ (can grow to MBs) |
 | `evaluations://{_id}/summary` resource | 1-2KB |
+
+## Large Response Warning
+
+**CRITICAL:** Some tools can return responses large enough to blow your context window:
+- `evaluations_get` - 50KB-MBs depending on scenarios/strategies
+- `content_search` - unbounded, depends on query
+- `judgements_search` - unbounded, depends on query
+
+**If you must call these tools**, stream the response to disk first, then parse incrementally. **Prefer the lightweight tools above** which return bounded, small responses.
 
