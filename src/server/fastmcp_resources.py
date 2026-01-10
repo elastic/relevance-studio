@@ -258,12 +258,8 @@ def workspaces_list_all() -> dict:
 
 ####  Resources: Displays  #####################################################
 
-@mcp.resource("displays://{workspace_id}/list")
-def displays_list(workspace_id: str) -> dict:
-    """
-    Get a lightweight list of all displays in a workspace.
-    Returns _id, index_pattern, and template for each display.
-    """
+def _get_displays_list(workspace_id: str) -> dict:
+    """Internal helper for displays list."""
     es_response = api.displays.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
     displays = []
@@ -274,11 +270,20 @@ def displays_list(workspace_id: str) -> dict:
             "index_pattern": source.get("index_pattern"),
             "template": source.get("template"),
         })
-    return {
+    result = {
         "workspace_id": workspace_id,
         "count": len(displays),
         "displays": displays,
     }
+    if len(displays) == 1000:
+        result["_warning"] = "Results truncated at 1000. More displays may exist."
+    return result
+
+
+@mcp.resource("displays://{workspace_id}/list")
+def displays_list_resource(workspace_id: str) -> dict:
+    """Get a lightweight list of all displays in a workspace."""
+    return _get_displays_list(workspace_id)
 
 
 ####  Resources: Scenarios  ####################################################
@@ -667,6 +672,18 @@ def workspaces_list() -> Dict[str, Any]:
 
 
 @mcp.tool()
+def displays_list(workspace_id: str) -> Dict[str, Any]:
+    """
+    Get a lightweight list of all displays in a workspace.
+    Returns just _id, index_pattern, and template.
+    Faster than displays_search - use this for browsing.
+    """
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
+    return _get_displays_list(workspace_id)
+
+
+@mcp.tool()
 def scenarios_list(workspace_id: str) -> Dict[str, Any]:
     """
     Get a lightweight list of all scenarios in a workspace.
@@ -752,6 +769,9 @@ def latest_evaluation_summary(workspace_id: str) -> Dict[str, Any]:
     Returns the evaluation _id, status, took, and summary metrics.
     If no completed evaluation exists, returns an error message.
     """
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
+
     # Query for completed evaluations only, sorted by most recent
     body = {
         "query": {"bool": {"filter": [
@@ -1156,8 +1176,9 @@ def _validate_image_url(url: str) -> None:
 
 @mcp.tool(description="Get the base64 encoding of an image URL.")
 def get_base64_image_from_url(url: str, max_size: Any = 50) -> str:
-    # Coerce max_size in case MCP client sends string
+    # Coerce max_size in case MCP client sends string, clamp to valid range
     max_size = _int(max_size, 50)
+    max_size = max(1, min(max_size, 500))  # Clamp to 1-500
 
     # Validate URL to prevent SSRF
     _validate_image_url(url)

@@ -11,6 +11,7 @@ These tools return filtered data and work everywhere, including Cursor:
 | Tool | Description |
 |------|-------------|
 | `workspaces_list` | List all workspaces (_id, name, index_pattern, params, rating_scale, tags) |
+| `displays_list(workspace_id)` | List displays (_id, index_pattern, template) |
 | `scenarios_list(workspace_id)` | List scenarios (_id, name, values, tags) |
 | `strategies_list(workspace_id)` | List strategies (_id, name, tags) |
 | `benchmarks_list(workspace_id)` | List benchmarks (_id, name, description, tags) |
