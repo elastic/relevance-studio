@@ -100,7 +100,7 @@ Here is the typical workflow of the application:
     - "template.image.url" is an image for the document. It might contain mustache variables, which should be replaced by their respective values from "fields".
 3. Define a diverse set of scenarios that are representative of the use case.
 4. Curate judgements for each scenario using the workspace rating scale.
-    - "rating_scale_max" represents superb relevance.
+    - "rating_scale.max" represents superb relevance.
     - "rating_scale.min" represents complete irrelevance.
     - "index" in judgements is the index of the doc being rated.
     - "doc_id" in judgements is the _id of the doc being rated.
@@ -151,7 +151,7 @@ the content deployment. Use the display whose index_pattern best matches the
 index of the documents that you will be searching or judging. If there is a
 matching display, use the values of its "fields" as the values of
 _source.includes in your searches. This will make searching much more efficient.
-If thers is no matching display, then don't set the value of _source.includes
+If there is no matching display, then don't set the value of _source.includes
 in your searches.
 
 In other words, always ensure you have tried fetching displays with the
@@ -165,23 +165,23 @@ judgements_search tool.
 This server exposes **MCP Resources** in addition to tools. Resources provide
 selective access to large objects, dramatically reducing response sizes.
 
-**Evaluation resources** (use instead of evaluations_get which returns 100KB+):
-- `evaluations://{id}/status` - Check if complete (status, took, error)
-- `evaluations://{id}/summary` - Aggregated metrics by strategy
-- `evaluations://{id}/task` - What was configured
-- `evaluations://{id}/results/{strategy_id}` - Detailed results for one strategy
-- `evaluations://{id}/unrated` - Documents needing judgements
+**Evaluation resources** (use instead of evaluations_get which returns 50-100KB):
+- `evaluations://{_id}/status` - Check if complete (status, took, error)
+- `evaluations://{_id}/summary` - Aggregated metrics by strategy
+- `evaluations://{_id}/task` - What was configured
+- `evaluations://{_id}/results/{strategy_id}` - Detailed results for one strategy
+- `evaluations://{_id}/unrated` - Documents needing judgements
 
 **Listing resources** (lightweight overviews):
-- `workspaces://list` - All workspaces (_id, name, index_pattern, params)
+- `workspaces://list` - All workspaces (_id, name, index_pattern, params, rating_scale, tags)
 - `strategies://{workspace_id}/list` - All strategies (_id, name, tags)
 - `scenarios://{workspace_id}/list` - All scenarios (_id, name, values, tags)
 - `benchmarks://{workspace_id}/list` - All benchmarks (_id, name, description, tags)
 
 **Preferred workflow for evaluations:**
-1. After running an evaluation, read `evaluations://{id}/status` to check completion
-2. Once complete, read `evaluations://{id}/summary` for metrics
-3. Only fetch detailed results with `evaluations://{id}/results/{strategy_id}` if needed
+1. After running an evaluation, read `evaluations://{_id}/status` to check completion
+2. Once complete, read `evaluations://{_id}/summary` for metrics
+3. Only fetch detailed results with `evaluations://{_id}/results/{strategy_id}` if needed
 
 ### Analyze images when judging documents
 
@@ -1013,29 +1013,39 @@ def setup_run() -> Dict[str, Any]:
 MAX_IMAGE_RESPONSE_SIZE = 10 * 1024 * 1024
 
 @mcp.tool(description="Get the base64 encoding of an image URL.")
-def get_base64_image_from_url(url: str, max_size: int = 50) -> str:
+def get_base64_image_from_url(url: str, max_size: Any = 50) -> str:
+    # Coerce max_size in case MCP client sends string
+    max_size = _int(max_size, 50)
+
     # Fetch with timeout and size limit
     response = requests.get(url, timeout=30, stream=True)
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
 
-    # Check content length before downloading
-    content_length = response.headers.get("Content-Length")
-    if content_length and int(content_length) > MAX_IMAGE_RESPONSE_SIZE:
-        raise ValueError(f"Image too large: {content_length} bytes (max {MAX_IMAGE_RESPONSE_SIZE})")
+        # Check content length before downloading (safely parse)
+        content_length = response.headers.get("Content-Length")
+        if content_length:
+            try:
+                if int(content_length) > MAX_IMAGE_RESPONSE_SIZE:
+                    raise ValueError(f"Image too large: {content_length} bytes (max {MAX_IMAGE_RESPONSE_SIZE})")
+            except (ValueError, TypeError):
+                pass  # Invalid Content-Length header, continue with streaming check
 
-    # Download with size limit
-    content = b""
-    for chunk in response.iter_content(chunk_size=8192):
-        content += chunk
-        if len(content) > MAX_IMAGE_RESPONSE_SIZE:
-            raise ValueError(f"Image too large (exceeded {MAX_IMAGE_RESPONSE_SIZE} bytes)")
+        # Download with size limit
+        content = b""
+        for chunk in response.iter_content(chunk_size=8192):
+            content += chunk
+            if len(content) > MAX_IMAGE_RESPONSE_SIZE:
+                raise ValueError(f"Image too large (exceeded {MAX_IMAGE_RESPONSE_SIZE} bytes)")
 
-    # Validate content type
-    content_type = response.headers.get("Content-Type", "")
-    # Strip parameters like "; charset=binary"
-    content_type_base = content_type.split(";")[0].strip()
-    if not content_type_base.startswith("image/"):
-        raise ValueError(f"URL does not point to an image. Content-Type: {content_type}")
+        # Validate content type
+        content_type = response.headers.get("Content-Type", "")
+        # Strip parameters like "; charset=binary"
+        content_type_base = content_type.split(";")[0].strip()
+        if not content_type_base.startswith("image/"):
+            raise ValueError(f"URL does not point to an image. Content-Type: {content_type}")
+    finally:
+        response.close()
 
     # Resize image
     image = Image.open(BytesIO(content))

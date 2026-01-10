@@ -10,7 +10,7 @@
 - After calling `evaluations_run`, the MCP call may timeout but the evaluation continues on the server
 - Use `evaluation_status` to check if complete (returns ~500 bytes)
 - Use `evaluation_summary` to get metrics (returns ~2KB)
-- Only use `evaluations_get` if you need the full results (can be MBs)
+- Only use `evaluations_get` if you need the full results (50-100KB+, can grow to MBs)
 - For per-strategy details, use `evaluation_results_for_strategy`
 
 ## Fast Data Access
