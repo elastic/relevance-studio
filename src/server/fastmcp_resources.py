@@ -605,6 +605,7 @@ def evaluation_unrated_docs(_id: str) -> dict:
 def evaluation_strategies(_id: str) -> dict:
     """
     Get list of strategy IDs that were evaluated, with their summary metrics.
+    For running/failed evaluations without summary, falls back to task or results.
     """
     es_response = api.evaluations.get(_id)
     source = es_response.body.get("_source", {})
@@ -612,12 +613,32 @@ def evaluation_strategies(_id: str) -> dict:
     strategy_summaries = summary.get("strategy_id", {})
 
     strategies = []
-    for strategy_id, metrics in strategy_summaries.items():
-        total = metrics.get("_total", {}).get("metrics", {})
-        strategies.append({
-            "strategy_id": strategy_id,
-            "metrics": {k: v.get("avg") for k, v in total.items()},
-        })
+
+    if strategy_summaries:
+        # Completed evaluation with summary metrics
+        for strategy_id, metrics in strategy_summaries.items():
+            total = metrics.get("_total", {}).get("metrics", {})
+            strategies.append({
+                "strategy_id": strategy_id,
+                "metrics": {k: v.get("avg") for k, v in total.items()},
+            })
+    else:
+        # Fallback for running/failed evaluations: check results then task
+        results = source.get("results", [])
+        if results:
+            for r in results:
+                strategies.append({
+                    "strategy_id": r.get("strategy_id"),
+                    "metrics": None,  # Not yet available
+                })
+        else:
+            # Fall back to task definition
+            strategy_ids = source.get("strategy_id", [])
+            for strategy_id in strategy_ids:
+                strategies.append({
+                    "strategy_id": strategy_id,
+                    "metrics": None,
+                })
 
     return {
         "_id": _id,
@@ -652,6 +673,8 @@ def scenarios_list(workspace_id: str) -> Dict[str, Any]:
     Returns just _id, name, values, and tags.
     Faster than scenarios_search - use this for browsing.
     """
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     return _get_scenarios_list(workspace_id)
 
 
@@ -662,6 +685,8 @@ def strategies_list(workspace_id: str) -> Dict[str, Any]:
     Returns just _id, name, and tags - not the full template source.
     Faster than strategies_search - use this for browsing.
     """
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     return _get_strategies_list(workspace_id)
 
 
@@ -672,6 +697,8 @@ def benchmarks_list(workspace_id: str) -> Dict[str, Any]:
     Returns just _id, name, description, and tags.
     Faster than benchmarks_search - use this for browsing.
     """
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     return _get_benchmarks_list(workspace_id)
 
 
@@ -682,6 +709,8 @@ def evaluations_list(workspace_id: str) -> Dict[str, Any]:
     Returns just _id, benchmark_id, status, started_at, and took.
     Faster than evaluations_search - use this for browsing.
     """
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     return _get_evaluations_list(workspace_id)
 
 
