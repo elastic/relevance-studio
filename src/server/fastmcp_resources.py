@@ -812,6 +812,8 @@ def displays_search(
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     return dict(api.displays.search(workspace_id, text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.displays.get.__doc__)
@@ -912,6 +914,8 @@ def strategies_search(
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     return dict(api.strategies.search(workspace_id, text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.strategies.tags.__doc__)
@@ -951,6 +955,8 @@ def benchmarks_search(
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     return dict(api.benchmarks.search(workspace_id, text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.benchmarks.tags.__doc__)
@@ -995,6 +1001,8 @@ def evaluations_search(
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     return dict(api.evaluations.search(workspace_id, benchmark_id, text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.evaluations.get.__doc__)
@@ -1049,7 +1057,10 @@ Image.MAX_IMAGE_PIXELS = 100_000_000
 
 def _validate_image_url(url: str) -> None:
     """Validate URL to prevent SSRF attacks."""
+    import ipaddress
+    import socket
     from urllib.parse import urlparse
+
     parsed = urlparse(url)
 
     # Only allow https (not http, file, ftp, etc.)
@@ -1071,9 +1082,47 @@ def _validate_image_url(url: str) -> None:
         if pattern in hostname_lower:
             raise ValueError(f"URL hostname not allowed: {hostname}")
 
-    # Block private IP ranges (basic check)
-    if hostname_lower.startswith("10.") or hostname_lower.startswith("192.168."):
-        raise ValueError(f"Private IP addresses not allowed: {hostname}")
+    def _is_blocked_ip(ip: str) -> bool:
+        """Check if an IP address is in a blocked private/internal range."""
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return False  # Not a valid IP, will be caught elsewhere
+
+        if addr.version == 4:
+            blocked_v4 = (
+                ipaddress.ip_network("10.0.0.0/8"),
+                ipaddress.ip_network("172.16.0.0/12"),
+                ipaddress.ip_network("192.168.0.0/16"),
+                ipaddress.ip_network("100.64.0.0/10"),  # Carrier-grade NAT
+                ipaddress.ip_network("127.0.0.0/8"),  # Loopback
+                ipaddress.ip_network("169.254.0.0/16"),  # Link-local
+            )
+            return any(addr in net for net in blocked_v4)
+        else:
+            blocked_v6 = (
+                ipaddress.ip_network("fc00::/7"),  # ULA (Unique Local Address)
+                ipaddress.ip_network("fe80::/10"),  # Link-local
+                ipaddress.ip_network("::1/128"),  # Loopback
+            )
+            return any(addr in net for net in blocked_v6)
+
+    # Check if hostname is an IP literal
+    try:
+        if _is_blocked_ip(hostname_lower):
+            raise ValueError(f"Private IP addresses not allowed: {hostname}")
+    except ValueError as e:
+        if "Private IP" in str(e):
+            raise
+        # Not an IP literal; resolve DNS and check all A/AAAA records
+        try:
+            addrinfo = socket.getaddrinfo(hostname, None)
+        except socket.gaierror as exc:
+            raise ValueError(f"Could not resolve hostname: {hostname}") from exc
+        for _family, _socktype, _proto, _canonname, sockaddr in addrinfo:
+            ip = sockaddr[0]
+            if _is_blocked_ip(ip):
+                raise ValueError(f"DNS resolved to a private IP address: {ip}")
 
 
 @mcp.tool(description="Get the base64 encoding of an image URL.")
