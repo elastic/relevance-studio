@@ -30,7 +30,7 @@ These appear in the MCP client UI and can be discovered via `ListMcpResourcesToo
 |-----|-------------|
 | `workspaces://list` | List all workspaces (_id, name, index_pattern, params, rating_scale, tags) |
 
-> **Note:** Only `workspaces://list` is available as a static resource. All other asset types require a `workspace_id` - use the resource templates below.
+> **Note:** Only `workspaces://list` is available as a static resource. Other resources require either a `workspace_id` (for listing) or an `_id` (for accessing specific items) - see the resource templates below.
 
 ### Resource Templates (Require Known URIs)
 

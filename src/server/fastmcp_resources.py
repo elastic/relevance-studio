@@ -244,7 +244,10 @@ def _get_workspaces_list() -> dict:
             "rating_scale": source.get("rating_scale"),
             "tags": source.get("tags", []),
         })
-    return {"count": len(workspaces), "workspaces": workspaces}
+    result = {"count": len(workspaces), "workspaces": workspaces}
+    if len(workspaces) == 1000:
+        result["_warning"] = "Results truncated at 1000. More workspaces may exist."
+    return result
 
 
 @mcp.resource("workspaces://list")
@@ -299,6 +302,8 @@ def _get_scenarios_list(workspace_id: str = "") -> dict:
     result = {"count": len(scenarios), "scenarios": scenarios}
     if workspace_id:
         result["workspace_id"] = workspace_id
+    if len(scenarios) == 1000:
+        result["_warning"] = "Results truncated at 1000. More scenarios may exist."
     return result
 
 
@@ -356,6 +361,8 @@ def _get_strategies_list(workspace_id: str = "") -> dict:
     result = {"count": len(strategies), "strategies": strategies}
     if workspace_id:
         result["workspace_id"] = workspace_id
+    if len(strategies) == 1000:
+        result["_warning"] = "Results truncated at 1000. More strategies may exist."
     return result
 
 
@@ -428,6 +435,8 @@ def _get_benchmarks_list(workspace_id: str = "") -> dict:
     result = {"count": len(benchmarks), "benchmarks": benchmarks}
     if workspace_id:
         result["workspace_id"] = workspace_id
+    if len(benchmarks) == 1000:
+        result["_warning"] = "Results truncated at 1000. More benchmarks may exist."
     return result
 
 
@@ -458,11 +467,12 @@ def _get_evaluations_list(workspace_id: str) -> dict:
 
     Note: Uses direct ES query because api.evaluations.search requires benchmark_id
     and always filters by it, making workspace-only queries impossible.
+    Uses _source includes (not excludes) to ensure only lightweight fields are fetched.
     """
     body = {
         "query": {"bool": {"filter": [{"term": {"workspace_id": workspace_id}}]}},
         "size": 1000,
-        "_source": {"excludes": ["_search", "results", "summary"]},
+        "_source": ["@meta.status", "@meta.started_at", "benchmark_id", "took"],
     }
     es_response = es("studio").search(index="esrs-evaluations", body=body)
     hits = es_response.body.get("hits", {}).get("hits", [])
@@ -477,7 +487,10 @@ def _get_evaluations_list(workspace_id: str) -> dict:
             "started_at": meta.get("started_at"),
             "took": source.get("took"),
         })
-    return {"count": len(evaluations), "evaluations": evaluations, "workspace_id": workspace_id}
+    result = {"count": len(evaluations), "evaluations": evaluations, "workspace_id": workspace_id}
+    if len(evaluations) == 1000:
+        result["_warning"] = "Results truncated at 1000. More evaluations may exist."
+    return result
 
 
 @mcp.resource("evaluations://{workspace_id}/list")
@@ -710,36 +723,37 @@ def latest_evaluation_summary(workspace_id: str) -> Dict[str, Any]:
     Returns the evaluation _id, status, took, and summary metrics.
     If no completed evaluation exists, returns an error message.
     """
-    # Get all evaluations sorted by started_at
+    # Query for completed evaluations only, sorted by most recent
     body = {
-        "query": {"bool": {"filter": [{"term": {"workspace_id": workspace_id}}]}},
-        "size": 100,
+        "query": {"bool": {"filter": [
+            {"term": {"workspace_id": workspace_id}},
+            {"term": {"@meta.status": "completed"}},
+        ]}},
+        "size": 1,  # Only need the most recent
         "sort": [{"@meta.started_at": {"order": "desc"}}],
         "_source": ["@meta", "took", "benchmark_id", "summary"],
     }
     es_response = es("studio").search(index="esrs-evaluations", body=body)
     hits = es_response.body.get("hits", {}).get("hits", [])
 
-    # Find the most recent completed evaluation
-    for hit in hits:
+    if hits:
+        hit = hits[0]
         source = hit.get("_source", {})
         meta = source.get("@meta", {})
-        if meta.get("status") == "completed":
-            return {
-                "_id": hit.get("_id"),
-                "workspace_id": workspace_id,
-                "benchmark_id": source.get("benchmark_id"),
-                "status": "completed",
-                "started_at": meta.get("started_at"),
-                "took": source.get("took"),
-                "summary": source.get("summary", {}),
-            }
+        return {
+            "_id": hit.get("_id"),
+            "workspace_id": workspace_id,
+            "benchmark_id": source.get("benchmark_id"),
+            "status": "completed",
+            "started_at": meta.get("started_at"),
+            "took": source.get("took"),
+            "summary": source.get("summary", {}),
+        }
 
     # No completed evaluation found
     return {
         "workspace_id": workspace_id,
         "error": "No completed evaluation found in this workspace",
-        "total_evaluations": len(hits),
     }
 
 
@@ -1029,14 +1043,54 @@ def setup_run() -> Dict[str, Any]:
 # Max response size for image fetching (10MB)
 MAX_IMAGE_RESPONSE_SIZE = 10 * 1024 * 1024
 
+# Pillow decompression bomb protection (100 megapixels)
+Image.MAX_IMAGE_PIXELS = 100_000_000
+
+
+def _validate_image_url(url: str) -> None:
+    """Validate URL to prevent SSRF attacks."""
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+
+    # Only allow https (not http, file, ftp, etc.)
+    if parsed.scheme != "https":
+        raise ValueError(f"Only HTTPS URLs are allowed, got: {parsed.scheme}")
+
+    # Block obviously internal hostnames
+    hostname = parsed.hostname or ""
+    blocked_patterns = [
+        "localhost",
+        "127.0.0.1",
+        "0.0.0.0",
+        "169.254.169.254",  # AWS metadata
+        "metadata.google.internal",  # GCP metadata
+        "[::1]",  # IPv6 localhost
+    ]
+    hostname_lower = hostname.lower()
+    for pattern in blocked_patterns:
+        if pattern in hostname_lower:
+            raise ValueError(f"URL hostname not allowed: {hostname}")
+
+    # Block private IP ranges (basic check)
+    if hostname_lower.startswith("10.") or hostname_lower.startswith("192.168."):
+        raise ValueError(f"Private IP addresses not allowed: {hostname}")
+
+
 @mcp.tool(description="Get the base64 encoding of an image URL.")
 def get_base64_image_from_url(url: str, max_size: Any = 50) -> str:
     # Coerce max_size in case MCP client sends string
     max_size = _int(max_size, 50)
 
-    # Fetch with timeout and size limit
-    response = requests.get(url, timeout=30, stream=True)
+    # Validate URL to prevent SSRF
+    _validate_image_url(url)
+
+    # Fetch with timeout, size limit, and no redirects to prevent SSRF via redirect
+    response = requests.get(url, timeout=30, stream=True, allow_redirects=False)
     try:
+        # Check for redirects - reject them to prevent SSRF
+        if response.status_code in (301, 302, 303, 307, 308):
+            raise ValueError(f"Redirects not allowed (status {response.status_code})")
+
         response.raise_for_status()
 
         # Check content length before downloading (safely parse)
@@ -1048,12 +1102,14 @@ def get_base64_image_from_url(url: str, max_size: Any = 50) -> str:
             except (ValueError, TypeError):
                 pass  # Invalid Content-Length header, continue with streaming check
 
-        # Download with size limit
-        content = b""
+        # Download with size limit using bytearray for O(1) appends
+        chunks = bytearray()
+        total_size = 0
         for chunk in response.iter_content(chunk_size=8192):
-            content += chunk
-            if len(content) > MAX_IMAGE_RESPONSE_SIZE:
+            total_size += len(chunk)
+            if total_size > MAX_IMAGE_RESPONSE_SIZE:
                 raise ValueError(f"Image too large (exceeded {MAX_IMAGE_RESPONSE_SIZE} bytes)")
+            chunks.extend(chunk)
 
         # Validate content type
         content_type = response.headers.get("Content-Type", "")
@@ -1064,8 +1120,8 @@ def get_base64_image_from_url(url: str, max_size: Any = 50) -> str:
     finally:
         response.close()
 
-    # Resize image
-    image = Image.open(BytesIO(content))
+    # Resize image (MAX_IMAGE_PIXELS set globally protects against decompression bombs)
+    image = Image.open(BytesIO(chunks))
     image.thumbnail((max_size, max_size), Image.LANCZOS)
     buffer = BytesIO()
 

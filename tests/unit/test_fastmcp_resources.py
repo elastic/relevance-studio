@@ -903,39 +903,28 @@ class TestEdgeCases:
 ################################################################################
 
 class TestLatestEvaluationSummary:
-    """Tests for latest_evaluation_summary tool."""
+    """Tests for latest_evaluation_summary tool.
+
+    Note: The implementation queries ES for completed evaluations only (with filter),
+    sorted by started_at desc, with size=1. The mock should return what ES would return.
+    """
 
     @patch('server.fastmcp_resources.es')
     def test_returns_most_recent_completed(self, mock_es):
         """Should return the most recent completed evaluation."""
         from server.fastmcp_resources import latest_evaluation_summary
 
+        # ES query filters for completed only, so mock returns only completed evals
         mock_es.return_value.search.return_value = MagicMock(body={
             "hits": {
                 "hits": [
                     {
-                        "_id": "eval-3",  # Most recent but pending
-                        "_source": {
-                            "@meta": {"status": "pending", "started_at": "2024-01-03T00:00:00Z"},
-                            "benchmark_id": "bm-1",
-                        }
-                    },
-                    {
-                        "_id": "eval-2",  # Second most recent, completed
+                        "_id": "eval-2",  # Most recent completed (ES filtered + sorted)
                         "_source": {
                             "@meta": {"status": "completed", "started_at": "2024-01-02T00:00:00Z"},
                             "benchmark_id": "bm-1",
                             "took": 5000,
                             "summary": {"strategy_id": {"str-1": {}}}
-                        }
-                    },
-                    {
-                        "_id": "eval-1",  # Oldest, completed
-                        "_source": {
-                            "@meta": {"status": "completed", "started_at": "2024-01-01T00:00:00Z"},
-                            "benchmark_id": "bm-1",
-                            "took": 3000,
-                            "summary": {}
                         }
                     }
                 ]
@@ -945,7 +934,7 @@ class TestLatestEvaluationSummary:
         # Access underlying function via .fn attribute (bypasses FunctionTool wrapper)
         result = latest_evaluation_summary.fn("ws-1")
 
-        assert result["_id"] == "eval-2"  # Should be the most recent COMPLETED
+        assert result["_id"] == "eval-2"
         assert result["workspace_id"] == "ws-1"
         assert result["status"] == "completed"
         assert result["took"] == 5000
@@ -956,32 +945,15 @@ class TestLatestEvaluationSummary:
         """Should return error when no completed evaluations exist."""
         from server.fastmcp_resources import latest_evaluation_summary
 
+        # ES query filters for completed, returns empty when none exist
         mock_es.return_value.search.return_value = MagicMock(body={
-            "hits": {
-                "hits": [
-                    {
-                        "_id": "eval-1",
-                        "_source": {
-                            "@meta": {"status": "pending"},
-                            "benchmark_id": "bm-1",
-                        }
-                    },
-                    {
-                        "_id": "eval-2",
-                        "_source": {
-                            "@meta": {"status": "failed"},
-                            "benchmark_id": "bm-1",
-                        }
-                    }
-                ]
-            }
+            "hits": {"hits": []}
         })
 
         result = latest_evaluation_summary.fn("ws-1")
 
         assert "error" in result
         assert result["workspace_id"] == "ws-1"
-        assert result["total_evaluations"] == 2
 
     @patch('server.fastmcp_resources.es')
     def test_empty_workspace(self, mock_es):
@@ -995,11 +967,11 @@ class TestLatestEvaluationSummary:
         result = latest_evaluation_summary.fn("ws-empty")
 
         assert "error" in result
-        assert result["total_evaluations"] == 0
+        assert result["workspace_id"] == "ws-empty"
 
     @patch('server.fastmcp_resources.es')
-    def test_uses_correct_sort_order(self, mock_es):
-        """Should query with descending started_at sort."""
+    def test_uses_correct_query_and_sort(self, mock_es):
+        """Should query for completed evaluations with descending started_at sort."""
         from server.fastmcp_resources import latest_evaluation_summary
 
         mock_es.return_value.search.return_value = MagicMock(body={
@@ -1010,7 +982,13 @@ class TestLatestEvaluationSummary:
 
         call_kwargs = mock_es.return_value.search.call_args
         body = call_kwargs.kwargs["body"]
+        # Should filter for completed status
+        filters = body["query"]["bool"]["filter"]
+        assert {"term": {"@meta.status": "completed"}} in filters
+        # Should sort by started_at desc
         assert body["sort"] == [{"@meta.started_at": {"order": "desc"}}]
+        # Should only fetch 1 result
+        assert body["size"] == 1
 
 
 ################################################################################
