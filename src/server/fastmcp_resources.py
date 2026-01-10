@@ -242,7 +242,7 @@ def workspaces_list_all() -> dict:
 def displays_list(workspace_id: str) -> dict:
     """
     Get a lightweight list of all displays in a workspace.
-    Returns _id, index_pattern, and field names.
+    Returns _id, index_pattern, and template for each display.
     """
     es_response = api.displays.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
@@ -740,13 +740,13 @@ def latest_evaluation_summary(workspace_id: str) -> Dict[str, Any]:
 @mcp.tool(description=api.workspaces.search.__doc__)
 def workspaces_search(
         text: Optional[str] = "",
-        filters: Optional[List[Dict[str, Any]]] = [],
-        sort: Dict[str, Any] = {},
+        filters: Optional[List[Dict[str, Any]]] = None,
+        sort: Optional[Dict[str, Any]] = None,
         size: Any = 10,
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
-    return dict(api.workspaces.search(text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
+    return dict(api.workspaces.search(text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.workspaces.get.__doc__)
 def workspaces_get(_id: str) -> Dict[str, Any]:
@@ -775,13 +775,13 @@ def workspaces_delete(_id: str) -> Dict[str, Any]:
 def displays_search(
         workspace_id: str = "",
         text: Optional[str] = "",
-        filters: Optional[List[Dict[str, Any]]] = [],
-        sort: Dict[str, Any] = {},
+        filters: Optional[List[Dict[str, Any]]] = None,
+        sort: Optional[Dict[str, Any]] = None,
         size: Any = 10,
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
-    return dict(api.displays.search(workspace_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
+    return dict(api.displays.search(workspace_id, text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.displays.get.__doc__)
 def displays_get(_id: str) -> Dict[str, Any]:
@@ -810,13 +810,13 @@ def displays_delete(_id: str) -> Dict[str, Any]:
 def scenarios_search(
         workspace_id: str,
         text: Optional[str] = "",
-        filters: Optional[List[Dict[str, Any]]] = [],
-        sort: Dict[str, Any] = {},
+        filters: Optional[List[Dict[str, Any]]] = None,
+        sort: Optional[Dict[str, Any]] = None,
         size: Any = 10,
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
-    return dict(api.scenarios.search(workspace_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
+    return dict(api.scenarios.search(workspace_id, text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.scenarios.tags.__doc__)
 def scenarios_tags(workspace_id: str) -> Dict[str, Any]:
@@ -850,13 +850,13 @@ def judgements_search(
         workspace_id: str,
         scenario_id: str,
         index_pattern: str,
-        query: Dict[str, Any] = {},
+        query: Optional[Dict[str, Any]] = None,
         query_string: str = "*",
         filter: str = None,
         sort: str = None,
-        _source: Dict[str, Any] = None
+        _source: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-    return dict(api.judgements.search(workspace_id, scenario_id, index_pattern, query, query_string, filter, sort, _source))
+    return dict(api.judgements.search(workspace_id, scenario_id, index_pattern, query or {}, query_string, filter, sort, _source))
 
 @mcp.tool(description=api.judgements.set.__doc__ + f"""\n
 JSON schema for doc:\n\n{JudgementCreate.model_input_json_schema()}
@@ -875,13 +875,13 @@ def judgements_unset(_id: str) -> Dict[str, Any]:
 def strategies_search(
         workspace_id: str = "",
         text: Optional[str] = "",
-        filters: Optional[List[Dict[str, Any]]] = [],
-        sort: Dict[str, Any] = {},
+        filters: Optional[List[Dict[str, Any]]] = None,
+        sort: Optional[Dict[str, Any]] = None,
         size: Any = 10,
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
-    return dict(api.strategies.search(workspace_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
+    return dict(api.strategies.search(workspace_id, text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.strategies.tags.__doc__)
 def strategies_tags(workspace_id: str) -> Dict[str, Any]:
@@ -914,13 +914,13 @@ def strategies_delete(_id: str) -> Dict[str, Any]:
 def benchmarks_search(
         workspace_id: str = "",
         text: Optional[str] = "",
-        filters: Optional[List[Dict[str, Any]]] = [],
-        sort: Dict[str, Any] = {},
+        filters: Optional[List[Dict[str, Any]]] = None,
+        sort: Optional[Dict[str, Any]] = None,
         size: Any = 10,
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
-    return dict(api.benchmarks.search(workspace_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
+    return dict(api.benchmarks.search(workspace_id, text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.benchmarks.tags.__doc__)
 def benchmarks_tags(workspace_id: str) -> Dict[str, Any]:
@@ -958,13 +958,13 @@ def evaluations_search(
         workspace_id: str = "",
         benchmark_id: str = "",
         text: Optional[str] = "",
-        filters: Optional[List[Dict[str, Any]]] = [],
-        sort: Dict[str, Any] = {},
+        filters: Optional[List[Dict[str, Any]]] = None,
+        sort: Optional[Dict[str, Any]] = None,
         size: Any = 10,
         page: Any = 1,
         aggs: Any = False,
     ) -> Dict[str, Any]:
-    return dict(api.evaluations.search(workspace_id, benchmark_id, text, filters, sort, _int(size, 10), _int(page, 1), _bool(aggs)))
+    return dict(api.evaluations.search(workspace_id, benchmark_id, text, filters or [], sort or {}, _int(size, 10), _int(page, 1), _bool(aggs)))
 
 @mcp.tool(description=api.evaluations.get.__doc__)
 def evaluations_get(_id: str) -> Dict[str, Any]:
@@ -1009,32 +1009,62 @@ def setup_run() -> Dict[str, Any]:
 
 ####  Utils  ###################################################################
 
+# Max response size for image fetching (10MB)
+MAX_IMAGE_RESPONSE_SIZE = 10 * 1024 * 1024
+
 @mcp.tool(description="Get the base64 encoding of an image URL.")
 def get_base64_image_from_url(url: str, max_size: int = 50) -> str:
-    response = requests.get(url)
+    # Fetch with timeout and size limit
+    response = requests.get(url, timeout=30, stream=True)
     response.raise_for_status()
+
+    # Check content length before downloading
+    content_length = response.headers.get("Content-Length")
+    if content_length and int(content_length) > MAX_IMAGE_RESPONSE_SIZE:
+        raise ValueError(f"Image too large: {content_length} bytes (max {MAX_IMAGE_RESPONSE_SIZE})")
+
+    # Download with size limit
+    content = b""
+    for chunk in response.iter_content(chunk_size=8192):
+        content += chunk
+        if len(content) > MAX_IMAGE_RESPONSE_SIZE:
+            raise ValueError(f"Image too large (exceeded {MAX_IMAGE_RESPONSE_SIZE} bytes)")
+
+    # Validate content type
     content_type = response.headers.get("Content-Type", "")
-    if not content_type.startswith("image/"):
+    # Strip parameters like "; charset=binary"
+    content_type_base = content_type.split(";")[0].strip()
+    if not content_type_base.startswith("image/"):
         raise ValueError(f"URL does not point to an image. Content-Type: {content_type}")
 
     # Resize image
-    image = Image.open(BytesIO(response.content))
+    image = Image.open(BytesIO(content))
     image.thumbnail((max_size, max_size), Image.LANCZOS)
     buffer = BytesIO()
-    format = image.format or content_type.split("/")[1].upper()
-    if format == "JPG":
-        format = "JPEG" # pillow expects "JPEG"
-    image.save(buffer, format=format)
+
+    # Determine format safely
+    img_format = image.format
+    if not img_format:
+        # Extract from content type (e.g., "image/jpeg" -> "JPEG")
+        type_parts = content_type_base.split("/")
+        if len(type_parts) == 2:
+            img_format = type_parts[1].upper()
+        else:
+            img_format = "PNG"  # Safe fallback
+    if img_format == "JPG":
+        img_format = "JPEG"  # Pillow expects "JPEG"
+
+    image.save(buffer, format=img_format)
     buffer.seek(0)
 
     # Encode as base64
     encoded = base64.b64encode(buffer.read()).decode("utf-8")
-    return f"data:{content_type};base64,{encoded}"
+    return f"data:{content_type_base};base64,{encoded}"
 
 
 ####  Health checks  ###########################################################
 
-@mcp.tool
+@mcp.tool()
 def healthz_mcp() -> Dict[str, Any]:
     """
     Test if application is running.

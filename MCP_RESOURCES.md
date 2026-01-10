@@ -10,11 +10,11 @@ These tools return filtered data and work everywhere, including Cursor:
 
 | Tool | Description |
 |------|-------------|
-| `workspaces_list` | List all workspaces (_id, name, index_pattern, params, tags) |
+| `workspaces_list` | List all workspaces (_id, name, index_pattern, params, rating_scale, tags) |
 | `scenarios_list(workspace_id)` | List scenarios (_id, name, values, tags) |
 | `strategies_list(workspace_id)` | List strategies (_id, name, tags) |
 | `benchmarks_list(workspace_id)` | List benchmarks (_id, name, description, tags) |
-| `evaluations_list(workspace_id)` | List evaluations (_id, benchmark_id, status, took) |
+| `evaluations_list(workspace_id)` | List evaluations (_id, benchmark_id, status, started_at, took) |
 | `evaluation_status(_id)` | Check if evaluation is complete |
 | `evaluation_summary(_id)` | Get aggregated metrics (2KB vs 100KB) |
 | `evaluation_results_for_strategy(_id, strategy_id)` | Get results for one strategy |
