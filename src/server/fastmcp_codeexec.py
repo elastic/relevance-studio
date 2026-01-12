@@ -264,7 +264,7 @@ instructions = FASTMCP_INSTRUCTIONS + f"""
 ## Code Execution
 
 This server provides CODE EXECUTION for Relevance Studio. Write Python code that:
-1. Fetches data using the `api` module
+1. Fetches data using `helpers` (preferred) or `api` (for full control)
 2. Processes/filters it locally (data stays in sandbox, not in your context)
 3. Sets `result` to return only what you need
 
@@ -272,45 +272,74 @@ This server provides CODE EXECUTION for Relevance Studio. Write Python code that
 
 **IMPORTANT: `import` statements are NOT allowed.** The following are pre-loaded:
 
-- `api` - Full Relevance Studio API (api.workspaces.search, api.evaluations.get, etc.)
-- `helpers` - Lightweight convenience functions:
-  - `helpers.workspaces_list()` - list all workspaces
-  - `helpers.displays_list(workspace_id)` - list displays
-  - `helpers.scenarios_list(workspace_id)` - list scenarios
-  - `helpers.scenarios_by_tag(workspace_id, tag)` - filter scenarios by tag
-  - `helpers.strategies_list(workspace_id)` - list strategies
-  - `helpers.strategies_by_tag(workspace_id, tag)` - filter strategies by tag
-  - `helpers.strategy_template(_id)` - get strategy template source
-  - `helpers.benchmarks_list(workspace_id)` - list benchmarks
-  - `helpers.benchmark_task(_id)` - get benchmark task definition
-  - `helpers.evaluations_list(workspace_id)` - list evaluations
-  - `helpers.evaluation_status(_id)` - just status/metadata
-  - `helpers.evaluation_summary(_id)` - just metrics summary
-  - `helpers.evaluation_task(_id)` - get evaluation task definition
-  - `helpers.evaluation_results_for_strategy(_id, strategy_id)` - results for one strategy
-  - `helpers.evaluation_unrated_docs(_id)` - unrated docs from evaluation
-  - `helpers.evaluation_strategies(_id)` - strategies with metrics from evaluation
-  - `helpers.latest_evaluation_summary(workspace_id)` - most recent completed
-  - `helpers.judgements_count_by_scenario(workspace_id)` - count per scenario
+#### helpers (USE FIRST for reading data)
+
+**Prefer `helpers` over `api` for listing and fetching.** Helpers return clean data structures directly - no `.body["hits"]["hits"]` parsing needed. They also have simpler signatures (e.g., `evaluations_list(workspace_id)` vs `api.evaluations.search(workspace_id, benchmark_id, ...)`).
+
+```python
+# Listing resources (returns list of dicts with _id, name, tags, etc.)
+helpers.workspaces_list()                          # all workspaces
+helpers.scenarios_list(workspace_id)               # scenarios in workspace
+helpers.strategies_list(workspace_id)              # strategies in workspace
+helpers.benchmarks_list(workspace_id)              # benchmarks in workspace
+helpers.evaluations_list(workspace_id)             # evaluations in workspace
+helpers.displays_list(workspace_id)                # displays in workspace
+
+# Filtering by tag
+helpers.scenarios_by_tag(workspace_id, tag)        # scenarios with tag
+helpers.strategies_by_tag(workspace_id, tag)       # strategies with tag
+
+# Getting specific data
+helpers.strategy_template(_id)                     # just the template source string
+helpers.benchmark_task(_id)                        # just the task definition
+helpers.evaluation_status(_id)                     # just status/metadata
+helpers.evaluation_summary(_id)                    # just metrics summary
+helpers.evaluation_task(_id)                       # just the task definition
+helpers.evaluation_results_for_strategy(_id, strategy_id)  # results for one strategy
+helpers.evaluation_unrated_docs(_id)               # unrated docs from evaluation
+helpers.evaluation_strategies(_id)                 # strategies with metrics
+helpers.latest_evaluation_summary(workspace_id)    # most recent completed eval
+helpers.judgements_count_by_scenario(workspace_id) # judgement counts
+```
+
+#### api (USE for create/update/delete or complex queries)
+
+Use `api` when you need to create, update, or delete resources, or when you need full Elasticsearch query control. Returns raw Elasticsearch responses - access via `.body`.
+
+#### Other pre-loaded modules
+
 - `json`, `re`, `math` - Standard modules
 - `collections`, `itertools`, `functools` - Data utilities
 - `datetime`, `date`, `timedelta` - Date/time handling
 - All Python builtins (dict, list, max, min, sorted, len, sum, etc.)
 
-### Example
+### Examples
 
+**Using helpers (preferred for reading):**
 ```python
-# Fetch large evaluation (100KB) - stays in sandbox
-response = api.evaluations.get("abc123")
-summary = response.body["_source"]["summary"]
+# Get all scenarios in a workspace - clean list returned directly
+scenarios = helpers.scenarios_list(workspace_id)
+result = [{{"_id": s["_id"], "name": s["name"]}} for s in scenarios]
+```
 
-# Process locally
-strategies = summary["strategy_id"]
-best = max(strategies.items(),
+**Using helpers for evaluation analysis:**
+```python
+# Get evaluation summary - returns just the summary dict
+summary = helpers.evaluation_summary(eval_id)
+best = max(summary["strategy_id"].items(),
            key=lambda x: x[1]["_total"]["metrics"]["ndcg"]["avg"])
-
-# Only this goes back to you
 result = {{"best_strategy": best[0], "ndcg": best[1]["_total"]["metrics"]["ndcg"]["avg"]}}
+```
+
+**Using api (for create/update/delete):**
+```python
+# Create a new scenario - requires api
+response = api.scenarios.create({{
+    "workspace_id": workspace_id,
+    "name": "red shoes",
+    "values": {{"query": "red shoes"}}
+}})
+result = {{"created": response.body["_id"]}}
 ```
 
 ## API Reference
@@ -449,4 +478,4 @@ def healthz_http(request: Request) -> JSONResponse:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http", port=4202, log_level="debug")
+    mcp.run(transport="http", port=4201, log_level="debug")
