@@ -270,7 +270,19 @@ This server provides CODE EXECUTION for Relevance Studio. Write Python code that
 
 ### Sandbox Environment
 
-**IMPORTANT: `import` statements are NOT allowed.** The following are pre-loaded:
+**DO NOT USE `import` STATEMENTS. They will fail.** All modules are pre-loaded and ready to use:
+
+```python
+# WRONG - will fail with ImportError:
+import api
+import helpers
+
+# CORRECT - just use them directly:
+scenarios = helpers.scenarios_list(workspace_id)
+response = api.scenarios.create(doc)
+```
+
+The following are pre-loaded:
 
 #### helpers (USE FIRST for reading data)
 
