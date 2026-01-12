@@ -47,7 +47,7 @@ def workspaces_list() -> Dict[str, Any]:
 def displays_list(workspace_id: str) -> Dict[str, Any]:
     """
     Lightweight list of displays in a workspace.
-    Returns {count, displays: [{_id, index_pattern, template}, ...]}
+    Returns {workspace_id, count, displays: [{_id, index_pattern, template}, ...]}
     """
     es_response = api.displays.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
@@ -70,7 +70,7 @@ def displays_list(workspace_id: str) -> Dict[str, Any]:
 def scenarios_list(workspace_id: str) -> Dict[str, Any]:
     """
     Lightweight list of scenarios in a workspace.
-    Returns {count, scenarios: [{_id, name, values, tags}, ...]}
+    Returns {workspace_id, count, scenarios: [{_id, name, values, tags}, ...]}
     """
     es_response = api.scenarios.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
@@ -122,7 +122,7 @@ def scenarios_by_tag(workspace_id: str, tag: str) -> Dict[str, Any]:
 def strategies_list(workspace_id: str) -> Dict[str, Any]:
     """
     Lightweight list of strategies in a workspace.
-    Returns {count, strategies: [{_id, name, tags}, ...]}
+    Returns {workspace_id, count, strategies: [{_id, name, tags}, ...]}
     """
     es_response = api.strategies.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
@@ -187,7 +187,7 @@ def strategy_template(_id: str) -> Dict[str, Any]:
 def benchmarks_list(workspace_id: str) -> Dict[str, Any]:
     """
     Lightweight list of benchmarks in a workspace.
-    Returns {count, benchmarks: [{_id, name, description, tags}, ...]}
+    Returns {workspace_id, count, benchmarks: [{_id, name, description, tags}, ...]}
     """
     es_response = api.benchmarks.search(workspace_id=workspace_id, size=1000)
     hits = es_response.body.get("hits", {}).get("hits", [])
@@ -226,7 +226,7 @@ def benchmark_task(_id: str) -> Dict[str, Any]:
 def evaluations_list(workspace_id: str) -> Dict[str, Any]:
     """
     Lightweight list of evaluations in a workspace.
-    Returns {count, evaluations: [{_id, benchmark_id, status, started_at, took}, ...]}
+    Returns {workspace_id, count, evaluations: [{_id, benchmark_id, status, started_at, took}, ...]}
     """
     body = {
         "query": {"bool": {"filter": [{"term": {"workspace_id": workspace_id}}]}},
@@ -293,7 +293,7 @@ def evaluation_summary(_id: str) -> Dict[str, Any]:
 def latest_evaluation_summary(workspace_id: str) -> Dict[str, Any]:
     """
     Get the summary of the most recent completed evaluation in a workspace.
-    Returns {_id, status, took, summary} or {error} if none found.
+    Returns {_id, workspace_id, benchmark_id, status, took, summary} or {error, workspace_id} if none found.
     """
     body = {
         "query": {"bool": {"filter": [
@@ -312,6 +312,7 @@ def latest_evaluation_summary(workspace_id: str) -> Dict[str, Any]:
     source = hit.get("_source", {})
     return {
         "_id": hit.get("_id"),
+        "workspace_id": workspace_id,
         "benchmark_id": source.get("benchmark_id"),
         "status": source.get("@meta", {}).get("status"),
         "took": source.get("took"),
@@ -440,7 +441,7 @@ def evaluation_strategies(_id: str) -> Dict[str, Any]:
 def judgements_count_by_scenario(workspace_id: str) -> Dict[str, Any]:
     """
     Count judgements per scenario in a workspace.
-    Returns {total, scenarios: [{scenario_id, count}, ...]} sorted by count descending.
+    Returns {workspace_id, total, scenarios: [{scenario_id, count}, ...]} sorted by count descending.
     """
     body = {
         "size": 0,
