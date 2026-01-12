@@ -206,7 +206,7 @@ def execute_in_sandbox(code: str) -> Dict[str, Any]:
 
 
 def _generate_api_signatures() -> str:
-    """Generate API signatures from introspection at startup."""
+    """Generate API signatures with full docstrings from introspection at startup."""
     import inspect
     import types
 
@@ -221,12 +221,11 @@ def _generate_api_signatures() -> str:
             if isinstance(obj, types.FunctionType) and obj.__module__ == module.__name__:
                 sig = inspect.signature(obj)
                 doc = inspect.getdoc(obj)
-                func_line = f"  {name}{sig}"
+                funcs.append(f"  {name}{sig}")
                 if doc:
-                    # Add first line of docstring as comment
-                    first_line = doc.split('\n')[0]
-                    func_line += f"  # {first_line}"
-                funcs.append(func_line)
+                    # Indent each line of docstring
+                    for doc_line in doc.split('\n'):
+                        funcs.append(f"    {doc_line}")
         if funcs:
             lines.append(f"api.{module_name}:")
             lines.extend(funcs)
@@ -288,8 +287,7 @@ response = es("studio").search(index="esrs-evaluations", body=body)
 
 ## Tools
 
-- `execute_code(code)` - Run Python code
-- `api_describe(module, function)` - Get detailed function signature
+- `execute_code(code)` - Run Python code in sandbox
 - `model_schema(model_name)` - Get Pydantic schema for create/update (e.g., "WorkspaceCreate")
 """
 
@@ -323,65 +321,6 @@ def execute_code(code: str) -> Dict[str, Any]:
         }
     """
     return execute_in_sandbox(code)
-
-
-@mcp.tool()
-def api_describe(module: str, function: str = None) -> Dict[str, Any]:
-    """
-    Get detailed signature and documentation for an API module or function.
-
-    Args:
-        module: Module name (e.g., "workspaces", "evaluations")
-        function: Optional function name. If omitted, describes all functions.
-
-    Returns:
-        Function signatures, parameter types, and docstrings.
-    """
-    import inspect
-
-    if module not in api.__all__:
-        return {"error": f"Unknown module: {module}. Available: {api.__all__}"}
-
-    mod = getattr(api, module)
-
-    def describe_function(fn):
-        sig = inspect.signature(fn)
-        params = {}
-        for name, param in sig.parameters.items():
-            param_info = {"kind": str(param.kind).split(".")[-1]}
-            if param.annotation != inspect.Parameter.empty:
-                param_info["type"] = str(param.annotation)
-            if param.default != inspect.Parameter.empty:
-                param_info["default"] = repr(param.default)
-            params[name] = param_info
-
-        return_annotation = sig.return_annotation
-        return {
-            "signature": str(sig),
-            "docstring": inspect.getdoc(fn),
-            "parameters": params,
-            "returns": str(return_annotation) if return_annotation != inspect.Signature.empty else None
-        }
-
-    if function:
-        if not hasattr(mod, function):
-            return {"error": f"Unknown function: {module}.{function}"}
-        fn = getattr(mod, function)
-        return {module: {function: describe_function(fn)}}
-
-    # Describe all functions in module
-    import types
-    type_names = {"Any", "Dict", "List", "Optional", "Set", "Tuple", "Union"}
-
-    functions = {}
-    for name in dir(mod):
-        if name.startswith("_") or name in type_names:
-            continue
-        obj = getattr(mod, name)
-        if isinstance(obj, types.FunctionType) and obj.__module__ == mod.__name__:
-            functions[name] = describe_function(obj)
-
-    return {module: functions}
 
 
 @mcp.tool()
