@@ -170,12 +170,13 @@ def strategies_by_tag(workspace_id: str, tag: str) -> Dict[str, Any]:
 def strategy_template(_id: str) -> Dict[str, Any]:
     """
     Get just the template source for a specific strategy.
-    Returns {_id, name, template: {lang, source}}
+    Returns {_id, workspace_id, name, template: {lang, source}}
     """
     es_response = api.strategies.get(_id)
     source = es_response.body.get("_source", {})
     return {
         "_id": _id,
+        "workspace_id": source.get("workspace_id"),
         "name": source.get("name"),
         "template": source.get("template", {}),
     }
@@ -208,12 +209,13 @@ def benchmarks_list(workspace_id: str) -> Dict[str, Any]:
 def benchmark_task(_id: str) -> Dict[str, Any]:
     """
     Get the task definition for a specific benchmark.
-    Returns {_id, name, task: {metrics, k, strategies, scenarios}}
+    Returns {_id, workspace_id, name, task: {metrics, k, strategies, scenarios}}
     """
     es_response = api.benchmarks.get(_id)
     source = es_response.body.get("_source", {})
     return {
         "_id": _id,
+        "workspace_id": source.get("workspace_id"),
         "name": source.get("name"),
         "task": source.get("task", {}),
     }
@@ -253,13 +255,15 @@ def evaluations_list(workspace_id: str) -> Dict[str, Any]:
 def evaluation_status(_id: str) -> Dict[str, Any]:
     """
     Get just the status and metadata of an evaluation.
-    Returns {_id, status, started_at, started_by, took, error}
+    Returns {_id, workspace_id, benchmark_id, status, started_at, started_by, took, error}
     """
     es_response = api.evaluations.get(_id)
     source = es_response.body.get("_source", {})
     meta = source.get("@meta", {})
     return {
         "_id": _id,
+        "workspace_id": source.get("workspace_id"),
+        "benchmark_id": source.get("benchmark_id"),
         "status": meta.get("status"),
         "started_at": meta.get("started_at"),
         "started_by": meta.get("started_by"),
@@ -271,13 +275,14 @@ def evaluation_status(_id: str) -> Dict[str, Any]:
 def evaluation_summary(_id: str) -> Dict[str, Any]:
     """
     Get just the summary metrics of a completed evaluation.
-    Returns {_id, benchmark_id, status, took, summary} where summary contains metrics by strategy_id/tag.
+    Returns {_id, workspace_id, benchmark_id, status, took, summary} where summary contains metrics by strategy_id/tag.
     Much smaller than the full evaluation (2KB vs 100KB).
     """
     es_response = api.evaluations.get(_id)
     source = es_response.body.get("_source", {})
     return {
         "_id": _id,
+        "workspace_id": source.get("workspace_id"),
         "benchmark_id": source.get("benchmark_id"),
         "status": source.get("@meta", {}).get("status"),
         "took": source.get("took"),
@@ -334,7 +339,7 @@ def evaluation_task(_id: str) -> Dict[str, Any]:
 def evaluation_results_for_strategy(_id: str, strategy_id: str) -> Dict[str, Any]:
     """
     Get results for a specific strategy from an evaluation.
-    Returns {_id, strategy_id, searches, failures} or {error} if not found.
+    Returns {_id, workspace_id, benchmark_id, strategy_id, searches, failures} or {error} if not found.
     Much smaller than full evaluation.
     """
     es_response = api.evaluations.get(_id)
@@ -350,6 +355,8 @@ def evaluation_results_for_strategy(_id: str, strategy_id: str) -> Dict[str, Any
     if strategy_results is None:
         return {
             "_id": _id,
+            "workspace_id": source.get("workspace_id"),
+            "benchmark_id": source.get("benchmark_id"),
             "strategy_id": strategy_id,
             "error": f"Strategy {strategy_id} not found in evaluation results",
             "available_strategies": [r.get("strategy_id") for r in results]
@@ -357,6 +364,8 @@ def evaluation_results_for_strategy(_id: str, strategy_id: str) -> Dict[str, Any
 
     return {
         "_id": _id,
+        "workspace_id": source.get("workspace_id"),
+        "benchmark_id": source.get("benchmark_id"),
         "strategy_id": strategy_id,
         "searches": strategy_results.get("searches", []),
         "failures": strategy_results.get("failures", []),
@@ -367,12 +376,14 @@ def evaluation_unrated_docs(_id: str) -> Dict[str, Any]:
     """
     Get the list of unrated documents found during an evaluation.
     Useful for identifying which documents need judgements.
-    Returns {_id, unrated_docs: [...]}
+    Returns {_id, workspace_id, benchmark_id, unrated_docs: [...]}
     """
     es_response = api.evaluations.get(_id)
     source = es_response.body.get("_source", {})
     return {
         "_id": _id,
+        "workspace_id": source.get("workspace_id"),
+        "benchmark_id": source.get("benchmark_id"),
         "unrated_docs": source.get("unrated_docs", []),
     }
 
@@ -381,7 +392,7 @@ def evaluation_strategies(_id: str) -> Dict[str, Any]:
     """
     Get list of strategy IDs that were evaluated, with their summary metrics.
     For running/failed evaluations without summary, falls back to task or results.
-    Returns {_id, strategies: [{strategy_id, metrics}, ...]}
+    Returns {_id, workspace_id, benchmark_id, strategies: [{strategy_id, metrics}, ...]}
     """
     es_response = api.evaluations.get(_id)
     source = es_response.body.get("_source", {})
@@ -418,6 +429,8 @@ def evaluation_strategies(_id: str) -> Dict[str, Any]:
 
     return {
         "_id": _id,
+        "workspace_id": source.get("workspace_id"),
+        "benchmark_id": source.get("benchmark_id"),
         "strategies": strategies,
     }
 
