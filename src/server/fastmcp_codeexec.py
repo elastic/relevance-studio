@@ -179,6 +179,25 @@ def execute_in_sandbox(code: str) -> Dict[str, Any]:
 
     namespace["__builtins__"] = {**SAFE_BUILTINS, "print": capturing_print}
 
+    # Strip redundant imports for pre-loaded modules (LLMs often add these)
+    preloaded = {'api', 'helpers', 'json', 're', 'math', 'collections',
+                 'itertools', 'functools', 'datetime', 'date', 'timedelta'}
+    clean_lines = []
+    for line in code.split('\n'):
+        stripped = line.strip()
+        # Skip "import x" or "import x, y" for preloaded modules
+        if stripped.startswith('import '):
+            modules = [m.strip() for m in stripped[7:].split(',')]
+            if all(m in preloaded for m in modules):
+                continue
+        # Skip "from x import y" for preloaded modules
+        if stripped.startswith('from ') and ' import ' in stripped:
+            module = stripped[5:stripped.index(' import ')].strip()
+            if module in preloaded:
+                continue
+        clean_lines.append(line)
+    code = '\n'.join(clean_lines)
+
     try:
         with timeout_context(EXECUTION_TIMEOUT):
             # Execute the code
@@ -270,19 +289,7 @@ This server provides CODE EXECUTION for Relevance Studio. Write Python code that
 
 ### Sandbox Environment
 
-**DO NOT USE `import` STATEMENTS. They will fail.** All modules are pre-loaded and ready to use:
-
-```python
-# WRONG - will fail with ImportError:
-import api
-import helpers
-
-# CORRECT - just use them directly:
-scenarios = helpers.scenarios_list(workspace_id)
-response = api.scenarios.create(doc)
-```
-
-The following are pre-loaded:
+The following modules are pre-loaded and ready to use:
 
 #### helpers (USE FIRST for reading data)
 

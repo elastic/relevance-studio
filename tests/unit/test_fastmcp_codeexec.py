@@ -236,15 +236,35 @@ result = delta.total_seconds()
 class TestSandboxSecurity:
     """Tests for sandbox security restrictions."""
 
-    def test_import_blocked(self):
-        """Import statements should fail."""
+    def test_preloaded_import_stripped(self):
+        """Import of preloaded modules should be silently stripped."""
+        code = "import api\nimport helpers\nresult = hasattr(api, 'workspaces')"
+        output = execute_in_sandbox(code)
+        assert output["success"] is True
+        assert output["result"] is True
+
+    def test_preloaded_import_json_stripped(self):
+        """Import of preloaded json module should be silently stripped."""
+        code = 'import json\nresult = json.dumps({"a": 1})'
+        output = execute_in_sandbox(code)
+        assert output["success"] is True
+        assert output["result"] == '{"a": 1}'
+
+    def test_preloaded_from_import_stripped(self):
+        """From import of preloaded modules should be silently stripped."""
+        code = "from datetime import datetime\nresult = True"
+        output = execute_in_sandbox(code)
+        assert output["success"] is True
+
+    def test_non_preloaded_import_blocked(self):
+        """Import of non-preloaded modules should fail."""
         code = "import os"
         output = execute_in_sandbox(code)
         assert output["success"] is False
         # Import fails because __import__ is not in SAFE_BUILTINS
 
-    def test_from_import_blocked(self):
-        """From imports should fail."""
+    def test_non_preloaded_from_import_blocked(self):
+        """From imports of non-preloaded modules should fail."""
         code = "from os import path"
         output = execute_in_sandbox(code)
         assert output["success"] is False
