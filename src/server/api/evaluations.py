@@ -645,7 +645,7 @@ def run(
     
 def search(
         workspace_id: str,
-        benchmark_id: str,
+        benchmark_id: str = "",
         text: str = "",
         filters: List[Dict[str, Any]] = [],
         sort: Dict[str, Any] = {},
@@ -656,7 +656,8 @@ def search(
     """
     Search for evaluations.
     """
-    filters = [{ "term": { "benchmark_id": benchmark_id }}]
+    if benchmark_id:
+        filters = filters + [{ "term": { "benchmark_id": benchmark_id }}]
     response = utils.search_assets(
         "evaluations", workspace_id, text, filters, sort, size, page
     )
