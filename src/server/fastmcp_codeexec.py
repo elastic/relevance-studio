@@ -39,7 +39,6 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from . import api
-from .client import es
 from . import models
 from .fastmcp import instructions as FASTMCP_INSTRUCTIONS
 
@@ -156,7 +155,6 @@ def execute_in_sandbox(code: str) -> Dict[str, Any]:
     namespace = {
         "__builtins__": SAFE_BUILTINS,
         "api": api,
-        "es": es,  # Direct ES client access for advanced queries
         "result": None,  # User sets this to return data
         # Pre-loaded modules (imports are NOT allowed in sandbox)
         "json": json,
@@ -273,7 +271,6 @@ This server provides CODE EXECUTION for Relevance Studio. Write Python code that
 **IMPORTANT: `import` statements are NOT allowed.** The following are pre-loaded:
 
 - `api` - Relevance Studio API (api.workspaces, api.scenarios, api.evaluations, etc.)
-- `es("studio")` / `es("content")` - Direct Elasticsearch client access
 - `json`, `re`, `math` - Standard modules
 - `collections`, `itertools`, `functools` - Data utilities
 - `datetime`, `date`, `timedelta` - Date/time handling
@@ -301,20 +298,6 @@ All functions return Elasticsearch responses. Access data via `.body`.
 
 ```
 {API_SIGNATURES}
-```
-
-## Direct Elasticsearch Access
-
-```python
-es("studio")  # Studio deployment (workspaces, evaluations, etc.)
-es("content") # Content deployment (searchable documents)
-
-# Example: Find latest completed evaluation
-body = {{"query": {{"bool": {{"filter": [
-    {{"term": {{"workspace_id": workspace_id}}}},
-    {{"term": {{"@meta.status": "completed"}}}}
-]}}}}, "size": 1, "sort": [{{"@meta.started_at": {{"order": "desc"}}}}]}}
-response = es("studio").search(index="esrs-evaluations", body=body)
 ```
 
 ## Tools
