@@ -41,6 +41,7 @@ from starlette.responses import JSONResponse
 from . import api
 from .client import es
 from . import models
+from .fastmcp import instructions as FASTMCP_INSTRUCTIONS
 
 # Parse environment variables
 load_dotenv()
@@ -239,15 +240,17 @@ API_SIGNATURES = _generate_api_signatures()
 
 
 # MCP Server setup
-instructions = f"""
-You are an expert in Elasticsearch and search relevance engineering.
+instructions = FASTMCP_INSTRUCTIONS + f"""
+---
+
+## Code Execution
 
 This server provides CODE EXECUTION for Relevance Studio. Write Python code that:
 1. Fetches data using the `api` module
 2. Processes/filters it locally (data stays in sandbox, not in your context)
 3. Sets `result` to return only what you need
 
-## Example
+### Example
 
 ```python
 # Fetch large evaluation (100KB) - stays in sandbox
