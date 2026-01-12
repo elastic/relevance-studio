@@ -271,13 +271,14 @@ def evaluation_status(_id: str) -> Dict[str, Any]:
 def evaluation_summary(_id: str) -> Dict[str, Any]:
     """
     Get just the summary metrics of a completed evaluation.
-    Returns {_id, status, took, summary} where summary contains metrics by strategy_id/tag.
+    Returns {_id, benchmark_id, status, took, summary} where summary contains metrics by strategy_id/tag.
     Much smaller than the full evaluation (2KB vs 100KB).
     """
     es_response = api.evaluations.get(_id)
     source = es_response.body.get("_source", {})
     return {
         "_id": _id,
+        "benchmark_id": source.get("benchmark_id"),
         "status": source.get("@meta", {}).get("status"),
         "took": source.get("took"),
         "summary": source.get("summary", {}),
