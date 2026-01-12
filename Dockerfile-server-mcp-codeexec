@@ -19,10 +19,10 @@ ENTRYPOINT ["/entrypoint.sh"]
 
 # Set environment variables
 ENV FASTMCP_HOST=0.0.0.0
-ENV FASTMCP_PORT=4202
+ENV FASTMCP_PORT=4201
 ENV FASTMCP_SERVER_TRANSPORT=http
 ENV OTEL_SERVICE_NAME=esrs-server-mcp-codeexec
 
 # Run the MCP Code Execution server
 CMD ["python", "-m", "server.fastmcp_codeexec"]
-EXPOSE 4202
+EXPOSE 4201

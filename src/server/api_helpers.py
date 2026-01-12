@@ -7,7 +7,6 @@
 Convenience functions for the code execution sandbox.
 
 These provide lightweight access to common data without the full ES response overhead.
-Extracted from fastmcp_resources.py for use in the code execution sandbox.
 """
 
 from typing import Any, Dict

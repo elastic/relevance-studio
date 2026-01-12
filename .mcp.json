@@ -3,10 +3,6 @@
     "relevance-studio": {
       "command": "uvx",
       "args": ["--with", "fastmcp", "fastmcp", "run", "http://127.0.0.1:4201/mcp/"]
-    },
-    "relevance-studio-codeexec": {
-      "command": "uvx",
-      "args": ["--with", "fastmcp", "fastmcp", "run", "http://127.0.0.1:4202/mcp/"]
     }
   }
 }
