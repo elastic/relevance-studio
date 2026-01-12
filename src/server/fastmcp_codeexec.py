@@ -144,12 +144,30 @@ def execute_in_sandbox(code: str) -> Dict[str, Any]:
     Returns:
         Dict with 'success', 'result' or 'error', and 'output' (print statements)
     """
-    # Create restricted namespace
+    # Create restricted namespace with pre-loaded safe modules
+    import json
+    import re
+    import math
+    import collections
+    import itertools
+    import functools
+    from datetime import datetime, date, timedelta
+
     namespace = {
         "__builtins__": SAFE_BUILTINS,
         "api": api,
         "es": es,  # Direct ES client access for advanced queries
         "result": None,  # User sets this to return data
+        # Pre-loaded modules (imports are NOT allowed in sandbox)
+        "json": json,
+        "re": re,
+        "math": math,
+        "collections": collections,
+        "itertools": itertools,
+        "functools": functools,
+        "datetime": datetime,
+        "date": date,
+        "timedelta": timedelta,
     }
 
     # Capture print output
@@ -249,6 +267,17 @@ This server provides CODE EXECUTION for Relevance Studio. Write Python code that
 1. Fetches data using the `api` module
 2. Processes/filters it locally (data stays in sandbox, not in your context)
 3. Sets `result` to return only what you need
+
+### Sandbox Environment
+
+**IMPORTANT: `import` statements are NOT allowed.** The following are pre-loaded:
+
+- `api` - Relevance Studio API (api.workspaces, api.scenarios, api.evaluations, etc.)
+- `es("studio")` / `es("content")` - Direct Elasticsearch client access
+- `json`, `re`, `math` - Standard modules
+- `collections`, `itertools`, `functools` - Data utilities
+- `datetime`, `date`, `timedelta` - Date/time handling
+- All Python builtins (dict, list, max, min, sorted, len, sum, etc.)
 
 ### Example
 
