@@ -89,6 +89,34 @@ def scenarios_list(workspace_id: str) -> Dict[str, Any]:
     return result
 
 
+def scenarios_by_tag(workspace_id: str, tag: str) -> Dict[str, Any]:
+    """
+    Get scenarios filtered by a specific tag.
+    Returns {workspace_id, tag, count, scenarios: [{_id, name, values, tags}, ...]}
+    """
+    es_response = api.scenarios.search(
+        workspace_id=workspace_id,
+        filters=[{"term": {"tags": tag}}],
+        size=1000
+    )
+    hits = es_response.body.get("hits", {}).get("hits", [])
+    scenarios = []
+    for hit in hits:
+        source = hit.get("_source", {})
+        scenarios.append({
+            "_id": hit.get("_id"),
+            "name": source.get("name"),
+            "values": source.get("values", {}),
+            "tags": source.get("tags", []),
+        })
+    return {
+        "workspace_id": workspace_id,
+        "tag": tag,
+        "count": len(scenarios),
+        "scenarios": scenarios,
+    }
+
+
 # Strategies
 
 def strategies_list(workspace_id: str) -> Dict[str, Any]:
@@ -110,6 +138,47 @@ def strategies_list(workspace_id: str) -> Dict[str, Any]:
     if len(strategies) == 1000:
         result["_warning"] = "Results truncated at 1000."
     return result
+
+
+def strategies_by_tag(workspace_id: str, tag: str) -> Dict[str, Any]:
+    """
+    Get strategies filtered by a specific tag.
+    Returns {workspace_id, tag, count, strategies: [{_id, name, tags}, ...]}
+    """
+    es_response = api.strategies.search(
+        workspace_id=workspace_id,
+        filters=[{"term": {"tags": tag}}],
+        size=1000
+    )
+    hits = es_response.body.get("hits", {}).get("hits", [])
+    strategies = []
+    for hit in hits:
+        source = hit.get("_source", {})
+        strategies.append({
+            "_id": hit.get("_id"),
+            "name": source.get("name"),
+            "tags": source.get("tags", []),
+        })
+    return {
+        "workspace_id": workspace_id,
+        "tag": tag,
+        "count": len(strategies),
+        "strategies": strategies,
+    }
+
+
+def strategy_template(_id: str) -> Dict[str, Any]:
+    """
+    Get just the template source for a specific strategy.
+    Returns {_id, name, template: {lang, source}}
+    """
+    es_response = api.strategies.get(_id)
+    source = es_response.body.get("_source", {})
+    return {
+        "_id": _id,
+        "name": source.get("name"),
+        "template": source.get("template", {}),
+    }
 
 
 # Benchmarks
@@ -134,6 +203,20 @@ def benchmarks_list(workspace_id: str) -> Dict[str, Any]:
     if len(benchmarks) == 1000:
         result["_warning"] = "Results truncated at 1000."
     return result
+
+
+def benchmark_task(_id: str) -> Dict[str, Any]:
+    """
+    Get the task definition for a specific benchmark.
+    Returns {_id, name, task: {metrics, k, strategies, scenarios}}
+    """
+    es_response = api.benchmarks.get(_id)
+    source = es_response.body.get("_source", {})
+    return {
+        "_id": _id,
+        "name": source.get("name"),
+        "task": source.get("task", {}),
+    }
 
 
 # Evaluations
@@ -227,6 +310,114 @@ def latest_evaluation_summary(workspace_id: str) -> Dict[str, Any]:
         "status": source.get("@meta", {}).get("status"),
         "took": source.get("took"),
         "summary": source.get("summary", {}),
+    }
+
+
+def evaluation_task(_id: str) -> Dict[str, Any]:
+    """
+    Get the task definition of an evaluation.
+    Returns {_id, workspace_id, benchmark_id, task, strategy_id, scenario_id}
+    """
+    es_response = api.evaluations.get(_id)
+    source = es_response.body.get("_source", {})
+    return {
+        "_id": _id,
+        "workspace_id": source.get("workspace_id"),
+        "benchmark_id": source.get("benchmark_id"),
+        "task": source.get("task", {}),
+        "strategy_id": source.get("strategy_id", []),
+        "scenario_id": source.get("scenario_id", []),
+    }
+
+
+def evaluation_results_for_strategy(_id: str, strategy_id: str) -> Dict[str, Any]:
+    """
+    Get results for a specific strategy from an evaluation.
+    Returns {_id, strategy_id, searches, failures} or {error} if not found.
+    Much smaller than full evaluation.
+    """
+    es_response = api.evaluations.get(_id)
+    source = es_response.body.get("_source", {})
+    results = source.get("results", [])
+
+    strategy_results = None
+    for r in results:
+        if r.get("strategy_id") == strategy_id:
+            strategy_results = r
+            break
+
+    if strategy_results is None:
+        return {
+            "_id": _id,
+            "strategy_id": strategy_id,
+            "error": f"Strategy {strategy_id} not found in evaluation results",
+            "available_strategies": [r.get("strategy_id") for r in results]
+        }
+
+    return {
+        "_id": _id,
+        "strategy_id": strategy_id,
+        "searches": strategy_results.get("searches", []),
+        "failures": strategy_results.get("failures", []),
+    }
+
+
+def evaluation_unrated_docs(_id: str) -> Dict[str, Any]:
+    """
+    Get the list of unrated documents found during an evaluation.
+    Useful for identifying which documents need judgements.
+    Returns {_id, unrated_docs: [...]}
+    """
+    es_response = api.evaluations.get(_id)
+    source = es_response.body.get("_source", {})
+    return {
+        "_id": _id,
+        "unrated_docs": source.get("unrated_docs", []),
+    }
+
+
+def evaluation_strategies(_id: str) -> Dict[str, Any]:
+    """
+    Get list of strategy IDs that were evaluated, with their summary metrics.
+    For running/failed evaluations without summary, falls back to task or results.
+    Returns {_id, strategies: [{strategy_id, metrics}, ...]}
+    """
+    es_response = api.evaluations.get(_id)
+    source = es_response.body.get("_source", {})
+    summary = source.get("summary", {})
+    strategy_summaries = summary.get("strategy_id", {})
+
+    strategies = []
+
+    if strategy_summaries:
+        # Completed evaluation with summary metrics
+        for strategy_id, metrics in strategy_summaries.items():
+            total = metrics.get("_total", {}).get("metrics", {})
+            strategies.append({
+                "strategy_id": strategy_id,
+                "metrics": {k: v.get("avg") for k, v in total.items()},
+            })
+    else:
+        # Fallback for running/failed evaluations: check results then task
+        results = source.get("results", [])
+        if results:
+            for r in results:
+                strategies.append({
+                    "strategy_id": r.get("strategy_id"),
+                    "metrics": None,  # Not yet available
+                })
+        else:
+            # Fall back to task definition
+            strategy_ids = source.get("strategy_id", [])
+            for strategy_id in strategy_ids:
+                strategies.append({
+                    "strategy_id": strategy_id,
+                    "metrics": None,
+                })
+
+    return {
+        "_id": _id,
+        "strategies": strategies,
     }
 
 

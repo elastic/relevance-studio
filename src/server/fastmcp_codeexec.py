@@ -275,15 +275,23 @@ This server provides CODE EXECUTION for Relevance Studio. Write Python code that
 - `api` - Full Relevance Studio API (api.workspaces.search, api.evaluations.get, etc.)
 - `helpers` - Lightweight convenience functions:
   - `helpers.workspaces_list()` - list all workspaces
+  - `helpers.displays_list(workspace_id)` - list displays
   - `helpers.scenarios_list(workspace_id)` - list scenarios
+  - `helpers.scenarios_by_tag(workspace_id, tag)` - filter scenarios by tag
   - `helpers.strategies_list(workspace_id)` - list strategies
+  - `helpers.strategies_by_tag(workspace_id, tag)` - filter strategies by tag
+  - `helpers.strategy_template(_id)` - get strategy template source
   - `helpers.benchmarks_list(workspace_id)` - list benchmarks
+  - `helpers.benchmark_task(_id)` - get benchmark task definition
   - `helpers.evaluations_list(workspace_id)` - list evaluations
   - `helpers.evaluation_status(_id)` - just status/metadata
   - `helpers.evaluation_summary(_id)` - just metrics summary
+  - `helpers.evaluation_task(_id)` - get evaluation task definition
+  - `helpers.evaluation_results_for_strategy(_id, strategy_id)` - results for one strategy
+  - `helpers.evaluation_unrated_docs(_id)` - unrated docs from evaluation
+  - `helpers.evaluation_strategies(_id)` - strategies with metrics from evaluation
   - `helpers.latest_evaluation_summary(workspace_id)` - most recent completed
   - `helpers.judgements_count_by_scenario(workspace_id)` - count per scenario
-  - `helpers.displays_list(workspace_id)` - list displays
 - `json`, `re`, `math` - Standard modules
 - `collections`, `itertools`, `functools` - Data utilities
 - `datetime`, `date`, `timedelta` - Date/time handling
