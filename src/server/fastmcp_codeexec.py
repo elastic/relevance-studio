@@ -39,6 +39,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from . import api
+from . import api_helpers as helpers
 from . import models
 from .fastmcp import instructions as FASTMCP_INSTRUCTIONS
 
@@ -155,6 +156,7 @@ def execute_in_sandbox(code: str) -> Dict[str, Any]:
     namespace = {
         "__builtins__": SAFE_BUILTINS,
         "api": api,
+        "helpers": helpers,  # Convenience functions for common operations
         "result": None,  # User sets this to return data
         # Pre-loaded modules (imports are NOT allowed in sandbox)
         "json": json,
@@ -270,7 +272,18 @@ This server provides CODE EXECUTION for Relevance Studio. Write Python code that
 
 **IMPORTANT: `import` statements are NOT allowed.** The following are pre-loaded:
 
-- `api` - Relevance Studio API (api.workspaces, api.scenarios, api.evaluations, etc.)
+- `api` - Full Relevance Studio API (api.workspaces.search, api.evaluations.get, etc.)
+- `helpers` - Lightweight convenience functions:
+  - `helpers.workspaces_list()` - list all workspaces
+  - `helpers.scenarios_list(workspace_id)` - list scenarios
+  - `helpers.strategies_list(workspace_id)` - list strategies
+  - `helpers.benchmarks_list(workspace_id)` - list benchmarks
+  - `helpers.evaluations_list(workspace_id)` - list evaluations
+  - `helpers.evaluation_status(_id)` - just status/metadata
+  - `helpers.evaluation_summary(_id)` - just metrics summary
+  - `helpers.latest_evaluation_summary(workspace_id)` - most recent completed
+  - `helpers.judgements_count_by_scenario(workspace_id)` - count per scenario
+  - `helpers.displays_list(workspace_id)` - list displays
 - `json`, `re`, `math` - Standard modules
 - `collections`, `itertools`, `functools` - Data utilities
 - `datetime`, `date`, `timedelta` - Date/time handling
