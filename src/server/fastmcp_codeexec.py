@@ -317,6 +317,52 @@ result = {{"best_strategy": best[0], "ndcg": best[1]["_total"]["metrics"]["ndcg"
 
 All functions return Elasticsearch responses. Access data via `.body`.
 
+### Response Patterns
+
+**Search responses** (workspaces, scenarios, strategies, benchmarks, evaluations):
+```python
+response = api.workspaces.search(size=10)
+for hit in response.body["hits"]["hits"]:
+    _id = hit["_id"]
+    name = hit["_source"]["name"]
+    tags = hit["_source"].get("tags", [])
+```
+
+**Get responses**:
+```python
+response = api.workspaces.get("abc-123")
+doc = response.body["_source"]
+# Access fields directly: doc["name"], doc["index_pattern"], etc.
+```
+
+**Evaluation summary** (most complex structure):
+```python
+response = api.evaluations.get("eval-id")
+summary = response.body["_source"]["summary"]
+
+# Metrics by strategy_id
+for sid, data in summary["strategy_id"].items():
+    metrics = data["_total"]["metrics"]
+    # metrics has: ndcg, mrr, precision, recall (each with "avg", "min", "max")
+    print(f"{{sid}}: ndcg={{metrics['ndcg']['avg']:.3f}}")
+
+# Metrics by strategy_tag
+for tag, data in summary["strategy_tag"].items():
+    metrics = data["_total"]["metrics"]
+    print(f"{{tag}}: mrr={{metrics['mrr']['avg']:.3f}}")
+```
+
+### Document Fields
+
+- **workspace**: name, index_pattern, params, rating_scale, tags
+- **scenario**: workspace_id, name, values, tags
+- **strategy**: workspace_id, name, template (lang, source), tags
+- **benchmark**: workspace_id, name, description, task, tags
+- **evaluation**: workspace_id, benchmark_id, task, summary, results, unrated_docs, @meta (status, created_at, started_at, stopped_at)
+- **judgement**: workspace_id, scenario_id, index, doc_id, rating
+
+### Function Signatures
+
 ```
 {API_SIGNATURES}
 ```
