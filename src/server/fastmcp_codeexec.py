@@ -31,6 +31,7 @@ Example:
 import signal
 import traceback
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Dict
 
 from dotenv import load_dotenv
@@ -48,6 +49,7 @@ load_dotenv()
 
 # Timeout for code execution (seconds)
 EXECUTION_TIMEOUT = 30
+SUCCESS_LOG_RELATIVE_PATH = Path("local") / "codeexec_success.log"
 
 # Safe builtins for the sandbox
 SAFE_BUILTINS = {
@@ -203,6 +205,7 @@ def execute_in_sandbox(code: str) -> Dict[str, Any]:
             # Execute the code
             exec(code, namespace)
 
+        _log_successful_code(code)
         return {
             "success": True,
             "result": namespace.get("result"),
@@ -241,6 +244,18 @@ def execute_in_sandbox(code: str) -> Dict[str, Any]:
             },
             "output": "\n".join(output_lines) if output_lines else None,
         }
+
+
+def _log_successful_code(code: str) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    log_path = repo_root / SUCCESS_LOG_RELATIVE_PATH
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as log_file:
+            log_file.write(code.rstrip())
+            log_file.write("\n\n---\n\n")
+    except OSError:
+        return
 
 
 def _generate_api_signatures() -> str:

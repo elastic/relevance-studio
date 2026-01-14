@@ -30,6 +30,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-server-mcp-codeexec
+    volumes:
+      - ./local:/app/local
     ports:
       - 4201:4201
     env_file:
