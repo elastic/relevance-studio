@@ -71,6 +71,6 @@ Enjoy!
 
 ## Next steps
 
-Relevance engineers should become familiar with the [concepts](docs/guide/concepts.md) and [workflows](docs/guide/workflow.md) of Elasticsearch Relevance Studio.
+Relevance engineers should become familiar with the [concepts](docs/guide/concepts.md) of Elasticsearch Relevance Studio.
 
 Administrators can refer to the [architecture](docs/reference/architecture.md) and [security](docs/reference/security.md) documentation to plan a deployment that meets your requirements for infrastructure, scalability, and security.
