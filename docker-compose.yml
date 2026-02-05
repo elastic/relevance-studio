@@ -30,7 +30,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-server-mcp
-      network: host
     command: ["python", "-m", "server.fastmcp_proxy"]
     stdin_open: true
     tty: true
