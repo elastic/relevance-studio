@@ -13,7 +13,6 @@ import {
   EuiIcon,
   EuiPageTemplate,
   EuiPanel,
-  EuiProvider,
   EuiText,
   EuiToolTip,
 } from '@elastic/eui'
@@ -21,6 +20,7 @@ import {
   IconBrandGithub,
 } from '@tabler/icons-react'
 import { useAppContext } from '../Contexts/AppContext'
+import { useChatContext } from '../Contexts/ChatContext'
 import Breadcrumbs from './Breadcrumbs'
 import SideNav from './SideNav'
 
@@ -35,6 +35,11 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
     setDarkMode,
     setSidebarOpen,
   } = useAppContext()
+
+  const {
+    chatOpen,
+    setChatOpen,
+  } = useChatContext()
 
   const headerSections = [
     {
@@ -109,45 +114,44 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
             />
           </a>
         </EuiToolTip>,
+        <EuiToolTip content={chatOpen ? 'Close AI Agent' : 'Open AI Agent'}>
+          <EuiButton
+            aria-label={chatOpen ? 'Close AI Agent' : 'Open AI Agent'}
+            iconType="productAgent"
+            onClick={() => setChatOpen(!chatOpen)}
+            style={{ height: '32px', marginLeft: '6px', fontWeight: 500 }}
+          >
+            AI Agent
+          </EuiButton>
+        </EuiToolTip>,
       ],
     },
   ]
 
   if (!!deploymentMode) {
     headerSections[1].items.unshift(
-      <EuiToolTip content={
-        deploymentMode === 'serverless'
-          ? 'Running on Elastic Cloud Serverless'
-          : deploymentMode === 'cloud'
-            ? 'Running on Elastic Cloud'
-            : deploymentMode === "standard"
-              ? 'Running on Elasticsearch'
-              : ''
-      }>
-        <EuiBadge
-          color='hollow'
-          iconType={deploymentMode == 'standard' ? 'logoElasticsearch' : 'logoCloud'}
-          style={{
-            display: 'flex',
-            height: '24px',
-            marginLeft: '6px',
-            marginRight: '6px',
-          }}
-        >
-          <EuiText color='subdued' size='xs' style={{ marginLeft: '3px' }}>
-            <small>
-              {
-                deploymentMode === 'serverless'
-                  ? 'Serverless'
-                  : deploymentMode === 'cloud'
-                    ? 'Cloud'
-                    : deploymentMode === 'standard'
-                      ? 'Standard'
-                      : ''
-              }
-            </small>
-          </EuiText>
-        </EuiBadge>
+      <EuiToolTip content={<>
+        <EuiText size="s">
+          {
+            deploymentMode === 'serverless'
+              ? 'Elastic Cloud Serverless'
+              : deploymentMode === 'cloud'
+                ? 'Elastic Cloud Hosted'
+                : deploymentMode === "standard"
+                  ? 'Elasticsearch'
+                  : ''
+          }
+        </EuiText>
+        <EuiText size="xs" color='subdued'>
+          Studio deployment
+        </EuiText>
+      </>}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '38px', width: '38px' }}>
+          <EuiIcon
+            size="m"
+            type={deploymentMode == 'standard' ? 'logoElasticsearch' : 'logoCloud'}
+          />
+        </div>
       </EuiToolTip>
     )
   }
@@ -155,7 +159,7 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
   ////  Render  ////////////////////////////////////////////////////////////////
 
   return (
-    <EuiProvider colorMode={darkMode ? 'dark' : 'light'}>
+    <>
       <EuiHeader position='fixed' sections={headerSections} style={{ paddingLeft: 0 }} />
       <EuiPageTemplate
         bottomBorder='extended'
@@ -214,7 +218,7 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
           </div>
         </div>
       </EuiPageTemplate>
-    </EuiProvider>
+    </>
   )
 }
 

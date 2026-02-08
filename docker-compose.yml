@@ -7,6 +7,8 @@ services:
       - 4096:4096
     env_file:
       - .env
+    environment:
+      - MCP_SERVER_URL=http://esrs-server-mcp:4200/mcp
   esrs-worker:
     build:
       context: .

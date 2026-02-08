@@ -237,8 +237,8 @@ class BenchmarkUpdate(AssetUpdate):
     workspace_id: str
 
     # Optional inputs
-    name: str = None
-    description: str = None
+    name: Optional[str] = None
+    description: Optional[str] = None
     tags: Optional[List[str]] = None
     task: Optional[TaskUpdate] = None
 
@@ -253,9 +253,16 @@ class BenchmarkUpdate(AssetUpdate):
     @classmethod
     def validate_name(cls, value: Optional[str]):
         if value is None:
-            return value
+            raise ValueError("name must be a non-empty string if given")
         if not value.strip():
             raise ValueError("name must be a non-empty string if given")
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: Optional[str]):
+        if value is None:
+            raise ValueError("description must be a string if given")
         return value
 
     @field_validator("tags")

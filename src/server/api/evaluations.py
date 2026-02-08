@@ -32,8 +32,13 @@ VALID_METRICS = set([ "mrr", "ndcg", "precision", "recall" ])
 logger = logging.getLogger(__name__)
 
 def _generate_summary_metrics(searches_list):
-    """
-    Calculate aggregated metrics from a list of search results.
+    """Calculate aggregated metrics from a list of search results.
+
+    Args:
+        searches_list: A list of search result dictionaries containing hits and metrics.
+
+    Returns:
+        A dictionary containing aggregated 'metrics' and 'unrated_docs' statistics.
     """
     metrics = {}
     unrated_count = 0
@@ -76,8 +81,15 @@ def _generate_summary_metrics(searches_list):
     }
 
 def generate_summary(evaluation, strategies: List, scenarios: List):
-    """
-    Generate summary statistics from evaluation results.
+    """Generate summary statistics from evaluation results.
+
+    Args:
+        evaluation: The evaluation data including results.
+        strategies: List of strategies used in the evaluation.
+        scenarios: List of scenarios used in the evaluation.
+
+    Returns:
+        A dictionary containing summary statistics grouped by strategy ID and tag.
     """
     
     # Initialize summary structure
@@ -211,8 +223,18 @@ def run(
         store_results: Optional[bool] = False,
         started_by = "unknown",
     ) -> Dict[str, Any]:
-    """
-    Executes an evaluation for a benchmark.
+    """Execute an evaluation for a benchmark.
+
+    Args:
+        evaluation: The evaluation configuration to run.
+        store_results: Whether to store the results in Elasticsearch.
+        started_by: The username or system that started the evaluation.
+
+    Returns:
+        A dictionary containing the evaluation results and metadata.
+
+    Raises:
+        Exception: If the evaluation fails.
     """
     
     # Start timer
@@ -653,8 +675,20 @@ def search(
         page: int = 1,
         aggs: bool = False,
     ) -> Dict[str, Any]:
-    """
-    Search for evaluations.
+    """Search for evaluations.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        benchmark_id: The UUID of the benchmark.
+        text: Search text for filtering evaluations.
+        filters: List of additional Elasticsearch filters.
+        sort: Sorting configuration for the search.
+        size: Number of evaluations to return per page.
+        page: Page number for pagination.
+        aggs: Whether to include aggregations.
+
+    Returns:
+        A dictionary containing the search results.
     """
     filters = [{ "term": { "benchmark_id": benchmark_id }}]
     response = utils.search_assets(
@@ -663,8 +697,13 @@ def search(
     return response
 
 def get(_id: str) -> Dict[str, Any]:
-    """
-    Get an evaluation by its _id.
+    """Get an evaluation by its _id.
+
+    Args:
+        _id: The UUID of the evaluation.
+
+    Returns:
+        The evaluation document from Elasticsearch.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -679,8 +718,16 @@ def create(
         task: Dict[str, Any],
         user: str = None,
     ) -> Dict[str, Any]:
-    """
-    Create a pending evaluation for a given workspace_id and benchmark_id.
+    """Create a pending evaluation for a given workspace and benchmark.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        benchmark_id: The UUID of the benchmark.
+        task: The evaluation task definition.
+        user: The username of the creator.
+
+    Returns:
+        The response from the Elasticsearch index operation.
     """
     
     # Create, validate, and dump model
@@ -700,8 +747,13 @@ def create(
     return es_response
 
 def delete(_id: str) -> Dict[str, Any]:
-    """
-    Delete an evaluation in Elasticsearch.
+    """Delete an evaluation from Elasticsearch.
+
+    Args:
+        _id: The UUID of the evaluation to delete.
+
+    Returns:
+        The response from the Elasticsearch delete operation.
     """
     es_response = es("studio").delete(
         index=INDEX_NAME,
@@ -711,9 +763,13 @@ def delete(_id: str) -> Dict[str, Any]:
     return es_response
 
 def cleanup(time_ago: str = "2h") -> Dict[str, Any]:
-    """
-    Delete stale evaluations in Elasticsearch, which have had a status of
-    "running" for too long of a time.
+    """Delete stale "running" evaluations from Elasticsearch.
+
+    Args:
+        time_ago: A relative time string (e.g., "2h") defining what is considered stale.
+
+    Returns:
+        The response from the Elasticsearch delete_by_query operation.
     """
     body = {
         "query": {

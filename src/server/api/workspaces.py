@@ -21,8 +21,18 @@ def search(
         page: int = 1,
         aggs: bool = False,
     ) -> Dict[str, Any]:
-    """
-    Search for workspaces.
+    """Search for workspaces.
+
+    Args:
+        text: Search text for filtering workspaces.
+        filters: List of additional Elasticsearch filters.
+        sort: Sorting configuration for the search.
+        size: Number of workspaces to return per page.
+        page: Page number for pagination.
+        aggs: Whether to include aggregations (e.g., asset counts).
+
+    Returns:
+        A dictionary containing the search results.
     """
     response = utils.search_assets(
         "workspaces", None, text, filters, sort, size, page,
@@ -31,15 +41,22 @@ def search(
     return response
 
 def tags() -> Dict[str, Any]:
-    """
-    List all workspace tags (up to 10,000).
+    """List all workspace tags (up to 10,000).
+
+    Returns:
+        The response from Elasticsearch containing tag aggregations.
     """
     es_response = utils.search_tags("workspaces")
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
-    """
-    Get a workspace by its _id.
+    """Get a workspace by its _id.
+
+    Args:
+        _id: The UUID of the workspace.
+
+    Returns:
+        The workspace document from Elasticsearch.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -49,10 +66,15 @@ def get(_id: str) -> Dict[str, Any]:
     return es_response
 
 def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
-    """
-    Create a workspace.
-    
-    Accepts an optional pregenerated _id for idempotence.
+    """Create a workspace.
+
+    Args:
+        doc: The workspace data to create.
+        _id: Optional pregenerated UUID for idempotence.
+        user: The username of the creator.
+
+    Returns:
+        The response from the Elasticsearch index operation.
     """
     
     # Create, validate, and dump model
@@ -71,8 +93,15 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     return es_response
 
 def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
-    """
-    Update a workspace by its _id.
+    """Update a workspace by its _id.
+
+    Args:
+        _id: The UUID of the workspace.
+        doc_partial: The partial workspace data to update.
+        user: The username of the updater.
+
+    Returns:
+        The response from the Elasticsearch update operation.
     """
     
     # Create, validate, and dump model
@@ -91,11 +120,16 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     return es_response
 
 def delete(_id: str) -> Dict[str, Any]:
-    """
-    Delete a workspace by its _id.
-    
-    This also deletes all displays, scenarios, judgements, strategies,
-    benchmarks, and evaluations that share its workspace_id.
+    """Delete a workspace and its associated assets.
+
+    This deletes the workspace and all displays, scenarios, judgements, 
+    strategies, benchmarks, and evaluations linked to it.
+
+    Args:
+        _id: The UUID of the workspace to delete.
+
+    Returns:
+        The response from the Elasticsearch delete_by_query operation.
     """
     body = {
         "query": {

@@ -36,6 +36,7 @@ export const AppProvider = ({ children }) => {
     const val = localStorage.getItem('sidebarOpen')
     return val === null ? false : val === 'true'; // defaults to false
   })
+
   useEffect(() => localStorage.setItem('autoRefresh', autoRefresh), [autoRefresh])
   useEffect(() => localStorage.setItem('darkMode', darkMode), [darkMode])
   useEffect(() => localStorage.setItem('deploymentMode', deploymentMode), [deploymentMode])
@@ -83,8 +84,8 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     const getDeploymentMode = async () => {
       try {
-        const response = await api.mode_get()
-        setDeploymentMode(response.data.mode)
+        const response = await api.setup_check()
+        setDeploymentMode(response.data.deployment?.mode)
       } catch (e) {
         console.error('Failed to load mode:', e)
         setDeploymentMode(null)

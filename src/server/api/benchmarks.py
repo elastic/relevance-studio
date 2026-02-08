@@ -23,8 +23,19 @@ def search(
         page: int = 1,
         aggs: bool = False,
     ) -> Dict[str, Any]:
-    """
-    Search for benchmarks.
+    """Search for benchmarks.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        text: Search text for filtering benchmarks.
+        filters: List of additional Elasticsearch filters.
+        sort: Sorting configuration for the search.
+        size: Number of benchmarks to return per page.
+        page: Page number for pagination.
+        aggs: Whether to include aggregations (e.g., evaluation counts).
+
+    Returns:
+        A dictionary containing the search results.
     """
     response = utils.search_assets(
         "benchmarks", workspace_id, text, filters, sort, size, page,
@@ -33,15 +44,25 @@ def search(
     return response
 
 def tags(workspace_id: str) -> Dict[str, Any]:
-    """
-    List all benchmark tags (up to 10,000).
+    """List all benchmark tags (up to 10,000).
+
+    Args:
+        workspace_id: The UUID of the workspace.
+
+    Returns:
+        The response from Elasticsearch containing tag aggregations.
     """
     es_response = utils.search_tags("benchmarks", workspace_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
-    """
-    Get a benchmark by its _id.
+    """Get a benchmark by its _id.
+
+    Args:
+        _id: The UUID of the benchmark.
+
+    Returns:
+        The benchmark document from Elasticsearch.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -51,10 +72,15 @@ def get(_id: str) -> Dict[str, Any]:
     return es_response
 
 def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
-    """
-    Create a benchmark.
-    
-    Accepts an optional pregenerated _id for idempotence.
+    """Create a benchmark.
+
+    Args:
+        doc: The benchmark data to create.
+        _id: Optional pregenerated UUID for idempotence.
+        user: The username of the creator.
+
+    Returns:
+        The response from the Elasticsearch index operation.
     """
     
     # Create, validate, and serialize model
@@ -73,8 +99,15 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     return es_response
 
 def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
-    """
-    Update a benchmark by its _id.
+    """Update a benchmark by its _id.
+
+    Args:
+        _id: The UUID of the benchmark.
+        doc_partial: The partial benchmark data to update.
+        user: The username of the updater.
+
+    Returns:
+        The response from the Elasticsearch update operation.
     """
     
     # Create, validate, and serialize model
@@ -93,10 +126,13 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     return es_response
 
 def delete(_id: str) -> Dict[str, Any]:
-    """
-    Delete a benchmark by its _id.
-    
-    This also deletes all evaluations that share its benchmark_id.
+    """Delete a benchmark and its associated evaluations.
+
+    Args:
+        _id: The UUID of the benchmark to delete.
+
+    Returns:
+        The response from the Elasticsearch delete_by_query operation.
     """
     body = {
         "query": {
@@ -139,8 +175,16 @@ def fetch_strategies(
         strategy_tags: List[str] = None,
         strategy_ids_excluded: List = None,
     ) -> Dict[str, Set[str]]:
-    """
-    Strategies can be optionally filtered by _ids or tags.
+    """Fetch strategies optionally filtered by IDs or tags.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        strategy_ids: Optional list of strategy UUIDs to include.
+        strategy_tags: Optional list of strategy tags to include.
+        strategy_ids_excluded: Optional list of strategy UUIDs to exclude.
+
+    Returns:
+        A dictionary mapping strategy UUIDs to their source data.
     """
     strategy_ids = strategy_ids or []
     strategy_tags = strategy_tags or []
@@ -199,8 +243,17 @@ def fetch_scenarios(
         sample_size: int = 1000,
         sample_seed: int = None,
     ) -> Dict[str, Any]:
-    """
-    Strategies can be optionally filtered by _ids or tags.
+    """Fetch scenarios optionally filtered by IDs or tags, with random sampling.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        scenario_ids: Optional list of scenario UUIDs to include.
+        scenario_tags: Optional list of scenario tags to include.
+        sample_size: Number of scenarios to randomly sample.
+        sample_seed: Optional seed for the random sampling.
+
+    Returns:
+        A dictionary mapping scenario UUIDs to their source data.
     """
     scenario_ids = scenario_ids or []
     scenario_tags = scenario_tags or []
@@ -297,25 +350,14 @@ def make_candidate_pool(
         workspace_id: str,
         task: Dict[str, Any]
     ) -> Dict[str, Any]:
-    """
-    Structure of the returned object:
-    
-    {
-        "strategies": [
-            {
-                "_id": STRATEGY_ID,
-                "tags": [ STRATEGY_TAG, ... ],
-                "_source": STRATEGY_SOURCE  // if given in task["strategies"]["docs"]
-            }
-        ],
-        "scenarios": [
-            {
-                "_id": SCENARIO_ID,
-                "tags": [ SCENARIO_TAG, ... ]
-            },
-            ...
-        ]
-    }
+    """Identify compatible strategies and scenarios for a benchmark task.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        task: A dictionary defining the benchmark task requirements.
+
+    Returns:
+        A dictionary containing lists of compatible 'strategies' and 'scenarios'.
     """
     
     # Parse and validate task

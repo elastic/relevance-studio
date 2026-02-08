@@ -9,12 +9,11 @@ from typing import Any, Dict, List
 # App packages
 from .. import utils
 from ..client import es
-from ..models import DisplayCreate, DisplayUpdate
+from ..models import ConversationsCreate, ConversationsUpdate
 
-INDEX_NAME = "esrs-displays"
+INDEX_NAME = "esrs-conversations"
 
 def search(
-        workspace_id: str,
         text: str = "",
         filters: List[Dict[str, Any]] = [],
         sort: Dict[str, Any] = {},
@@ -22,14 +21,13 @@ def search(
         page: int = 1,
         aggs: bool = False,
     ) -> Dict[str, Any]:
-    """Search for displays.
+    """Search for conversations.
 
     Args:
-        workspace_id: The UUID of the workspace.
-        text: Search text for filtering displays.
+        text: Search text for filtering conversations.
         filters: List of additional Elasticsearch filters.
         sort: Sorting configuration for the search.
-        size: Number of displays to return per page.
+        size: Number of conversations to return per page.
         page: Page number for pagination.
         aggs: Whether to include aggregations.
 
@@ -37,18 +35,18 @@ def search(
         A dictionary containing the search results.
     """
     response = utils.search_assets(
-        "displays", workspace_id, text, filters, sort, size, page
+        "conversations", None, text, filters, sort, size, page
     )
     return response
 
 def get(_id: str) -> Dict[str, Any]:
-    """Get a display by its _id.
+    """Get a conversation by its _id.
 
     Args:
-        _id: The UUID of the display.
+        _id: The UUID of the conversation.
 
     Returns:
-        The display document from Elasticsearch.
+        The conversation document from Elasticsearch.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -58,10 +56,10 @@ def get(_id: str) -> Dict[str, Any]:
     return es_response
 
 def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
-    """Create a display.
+    """Create a conversation.
 
     Args:
-        doc: The display data to create.
+        doc: The conversation data to create.
         _id: Optional pregenerated UUID for idempotence.
         user: The username of the creator.
 
@@ -69,27 +67,39 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
         The response from the Elasticsearch index operation.
     """
     
+    # Ensure conversation_id is consistent with _id
+    if _id:
+        doc["conversation_id"] = _id
+    elif "conversation_id" in doc:
+        _id = doc["conversation_id"]
+    else:
+        _id = utils.unique_id()
+        doc["conversation_id"] = _id
+
+    # Remove deprecated plain 'id' field if present
+    doc.pop("id", None)
+
     # Create, validate, and dump model
-    doc = DisplayCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = ConversationsCreate.model_validate(doc, context={"user": user}).serialize()
 
     # Copy searchable fields to _search
-    doc = utils.copy_fields_to_search("displays", doc)
+    doc = utils.copy_fields_to_search("conversations", doc)
     
     # Submit
     es_response = es("studio").index(
         index=INDEX_NAME,
-        id=_id or utils.unique_id(),
+        id=_id,
         document=doc,
         refresh=True,
     )
     return es_response
 
 def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
-    """Update a display by its _id.
+    """Update a conversation by its _id.
 
     Args:
-        _id: The UUID of the display.
-        doc_partial: The partial display data to update.
+        _id: The UUID of the conversation.
+        doc_partial: The partial conversation data to update.
         user: The username of the updater.
 
     Returns:
@@ -97,11 +107,10 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     """
     
     # Create, validate, and dump model
-    doc_partial = DisplayUpdate.model_validate(doc_partial, context={"user": user}).serialize()
+    doc_partial = ConversationsUpdate.model_validate(doc_partial, context={"user": user}).serialize()
 
-    
     # Copy searchable fields to _search
-    doc_partial = utils.copy_fields_to_search("displays", doc_partial)
+    doc_partial = utils.copy_fields_to_search("conversations", doc_partial)
     
     # Submit
     es_response = es("studio").update(
@@ -113,10 +122,10 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     return es_response
 
 def delete(_id: str) -> Dict[str, Any]:
-    """Delete a display by its _id.
+    """Delete a conversation by its _id.
 
     Args:
-        _id: The UUID of the display to delete.
+        _id: The UUID of the conversation to delete.
 
     Returns:
         The response from the Elasticsearch delete operation.

@@ -19,6 +19,8 @@ import { getHistory } from './history'
 
 const api = {}
 
+api.isCancel = client.isCancel
+
 /**
  * Template for toasts for error messages.
  */
@@ -57,13 +59,122 @@ const clean = (doc) => {
  * indicating that the index templates and indices aren't setup.
  */
 const responseOrFallbackSetup = (response) => {
-  if (response?.status === 404 && response?.data?.error?.index?.startsWith('esrs-')) {
+  const errorType = response?.data?.error?.type
+  const index = response?.data?.error?.index
+
+  if (response?.status === 404 && errorType === 'index_not_found_exception' && index?.startsWith('esrs-')) {
     const ctx = getAppContext()
     ctx?.setIsSetup?.(false)
     getHistory().push('/')
     throw new SetupIncompleteError()
   }
   return response
+}
+
+////  API: Agent  //////////////////////////////////////////////////////////////
+
+api.chat = async (rounds, inference_id, onChunk, signal, ui_context, id, conversation_id) => {
+  inference_id = inference_id || '.rainbow-sprinkles-elastic'
+  validateArgs('api.chat', { rounds, inference_id, onChunk, })
+  const body = { rounds, inference_id, ui_context, id, conversation_id }
+
+  // We use a local AbortController to manage both the caller's abort signal
+  // and our internal activity timeout.
+  const controller = new AbortController()
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort()
+    } else {
+      signal.addEventListener('abort', () => controller.abort())
+    }
+  }
+
+  // The agent might take a long time to complete a multi-step task, so we don't
+  // want a fixed total timeout. Instead, we reset the timeout every time we
+  // receive a chunk of data. If we don't receive any data for 300 seconds,
+  // we assume the connection has hung and abort it.
+  let timeoutId = null
+  const resetTimeout = () => {
+    if (timeoutId) clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => controller.abort(), 300000)
+  }
+
+  // Set the initial timeout for the connection and first response.
+  resetTimeout()
+
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal
+    })
+    if (!response.ok)
+      throw new Error(`HTTP error! status: ${response.status}`)
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let chunkCount = 0
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done)
+          break
+
+        // Reset the timeout as we successfully received data.
+        resetTimeout()
+
+        chunkCount++
+        const chunk = decoder.decode(value, { stream: true })
+        if (chunk && onChunk)
+          onChunk({ data: chunk })
+      }
+    } finally {
+      reader.releaseLock()
+    }
+    return { status: response.status, data: {} }
+  } finally {
+    // Clear the timeout to prevent it from firing after the request is finished.
+    if (timeoutId) clearTimeout(timeoutId)
+  }
+}
+
+api.chat_endpoints = async () => {
+  validateArgs('api.chat_endpoints', {})
+  const response = await client.get(`/api/chat/endpoints`)
+  return responseOrFallbackSetup(response)
+}
+
+////  API: Conversations  //////////////////////////////////////////////////////
+
+api.conversations_search = async (body) => {
+  const response = await client.post(`/api/conversations/_search`, body ? { data: body } : {})
+  return responseOrFallbackSetup(response)
+}
+
+api.conversations_get = async (conversation_id) => {
+  validateArgs('api.conversations_get', { conversation_id, })
+  const response = await client.get(`/api/conversations/${conversation_id}`)
+  return responseOrFallbackSetup(response)
+}
+
+api.conversations_create = async (doc) => {
+  validateArgs('api.conversations_create', { doc, })
+  const response = await client.post(`/api/conversations`, { data: clean(doc) })
+  return responseOrFallbackSetup(response)
+}
+
+api.conversations_update = async (conversation_id, doc_partial) => {
+  validateArgs('api.conversations_update', { conversation_id, doc_partial, })
+  const response = await client.put(`/api/conversations/${conversation_id}`, { data: clean(doc_partial) })
+  return responseOrFallbackSetup(response)
+}
+
+api.conversations_delete = async (conversation_id) => {
+  validateArgs('api.conversations_delete', { conversation_id, })
+  const response = await client.del(`/api/conversations/${conversation_id}`)
+  return responseOrFallbackSetup(response)
 }
 
 ////  API: Workspaces  /////////////////////////////////////////////////////////

@@ -11,10 +11,17 @@ from .. import utils
 from ..client import es
 
 def _flatten_fields(properties, parent_key=""):
-    """
-    Recursively flattens the field mapping, ignoring multi-fields which
-    aren"t visible in _source and therefore not needed for configuring
-    the display of documents.
+    """Recursively flattens the field mapping, ignoring multi-fields.
+
+    Multi-fields are ignored as they aren't visible in _source and are not needed
+    for configuring document displays in the UX.
+
+    Args:
+        properties: The properties dictionary from the Elasticsearch mapping.
+        parent_key: The parent key for nested fields.
+
+    Returns:
+        A flattened dictionary mapping field names to their types.
     """
     fields = {}
     for key, value in properties.items():
@@ -35,8 +42,14 @@ def _flatten_fields(properties, parent_key=""):
     return fields
 
 def search(index_patterns: str, body: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Submit a search request to the content deployment.
+    """Submit a search request to the content deployment.
+
+    Args:
+        index_patterns: Comma-separated string of index patterns.
+        body: The Elasticsearch search request body.
+
+    Returns:
+        The search response from Elasticsearch.
     """
     es_response = es("content").search(
         index=index_patterns,
@@ -45,9 +58,13 @@ def search(index_patterns: str, body: Dict[str, Any]) -> Dict[str, Any]:
     return es_response
 
 def get(index_patterns: str) -> Dict[str, Any]:
-    """
-    Given a comma-separated string of index patterns for the content deployment,
-    return the matching indices with their settings and mappings.
+    """Retrieve indices with their settings and mappings from the content deployment.
+
+    Args:
+        index_patterns: Comma-separated string of index patterns.
+
+    Returns:
+        A dictionary of indices with their settings and mappings.
     """
     response = es("content").options(ignore_status=404).indices.get(index=index_patterns)
     if response.get("status") == 404:
@@ -55,9 +72,13 @@ def get(index_patterns: str) -> Dict[str, Any]:
     return response.body
 
 def mappings_browse(index_patterns: str) -> Dict[str, Any]:
-    """
-    Given a comma-separated string of index patterns for the content deployment,
-    return the matching indices with their fields and types in a flat structure.
+    """Retrieve flattened index mappings for browsing.
+
+    Args:
+        index_patterns: Comma-separated string of index patterns.
+
+    Returns:
+        A dictionary mapping index names to their flattened fields and types.
     """
     response = es("content").options(ignore_status=404).indices.get_mapping(index=index_patterns)
     if response.get("status") == 404:
@@ -71,45 +92,13 @@ def mappings_browse(index_patterns: str) -> Dict[str, Any]:
     return indices
 
 def make_index_relevance_fingerprints(index_pattern: str) -> Dict[str, Any]:
-    """
-    Generate a relevance fingerprint for all indices in a given index pattern.
-    
-    Structure of the output object:
-    
-    {
-        INDEX_NAME: {
-            "_fingerprint": STRING,
-            "shards": [
-                {
-                    "id": SHARD_ID,
-                    "max_seq_no": MAX_SEQ_NO
-                },
-                ...
-            ],
-            "uuid": INDEX_UUID
-        },
-        ...
-    }
-    
-    Example output for an index pattern "products-*":
-     
-    {
-        "products-2025": {
-            "_fingerprint": "c1d9b14ae26538325d2bb56471497844",
-            "shards": [
-                { "id": 0, "max_seq_no": 111 },
-                { "id": 1, "max_seq_no": 112 }
-            ],
-            "uuid": "abc123..."
-        },
-        "products-2024": {
-            "_fingerprint": "03f758f51a1bae0ce87125ea295785a4",
-            "shards": [
-                { "id": 0, "max_seq_no": 301 }
-            ],
-            "uuid": "def456..."
-        }
-    }
+    """Generate relevance fingerprints for indices in an index pattern.
+
+    Args:
+        index_pattern: The Elasticsearch index pattern to analyze.
+
+    Returns:
+        A dictionary mapping index names to their relevance fingerprints and shard info.
     """
     
     # Create a fingerprint for each index in the given index pattern

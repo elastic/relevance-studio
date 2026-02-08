@@ -677,7 +677,7 @@ const StrategiesEdit = () => {
         {(EuiResizablePanel, EuiResizableButton) => (
           <>
             {/* Editor panel */}
-            <EuiResizablePanel initialSize={40} minSize='300px' paddingSize='s' style={{ overflow: 'visible' }}>
+            <EuiResizablePanel initialSize={40} minSize='300px' paddingSize='s' style={{ overflow: 'hidden' }}>
               <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
                 {renderEditorPanel()}
               </EuiPanel>
@@ -686,7 +686,7 @@ const StrategiesEdit = () => {
             <EuiResizableButton />
 
             {/* Test panel */}
-            <EuiResizablePanel initialSize={60} minSize='300px' paddingSize='s' style={{ overflow: 'visible' }}>
+            <EuiResizablePanel initialSize={60} minSize='300px' paddingSize='s' style={{ overflow: 'hidden' }}>
               <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
                 {renderTestPanel()}
               </EuiPanel>

@@ -66,7 +66,7 @@ const useSearchHandler = ({
     } finally {
       setLoading(false)
       setHasEverSearched(true)
-      setIsIndexEmpty(!searchText && total === 0 ? true : false)
+      setIsIndexEmpty(total === 0 ? true : false)
     }
   }, [
     searchFn,
