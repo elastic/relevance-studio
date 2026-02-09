@@ -442,7 +442,7 @@ const Chat = () => {
   const params = match?.params || {}
   const [isSending, setIsSending] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
-  const [availableEndpoints, setAvailableEndpoints] = useState([])
+  const [availableEndpoints, setAvailableEndpoints] = useState(null)
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
   const [isHistoryPopoverOpen, setIsHistoryPopoverOpen] = useState(false)
   const [historySearchText, setHistorySearchText] = useState('')
@@ -468,9 +468,10 @@ const Chat = () => {
     const fetchEndpoints = async () => {
       try {
         const response = await api.chat_endpoints()
-        setAvailableEndpoints(response.data)
+        setAvailableEndpoints(response.data || [])
       } catch (error) {
         console.error("Error fetching inference endpoints:", error)
+        setAvailableEndpoints([])
       }
     }
     fetchEndpoints()
@@ -810,368 +811,457 @@ const Chat = () => {
         }}
         type="push"
       >
-        <EuiFlyoutHeader hasBorder={false} style={{ padding: '16px' }}>
-          <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" responsive={false} style={{ height: '56px' }}>
-            {/* Left Section: History & New Chat */}
-            <EuiFlexItem grow={false} style={{ width: '80px' }}>
-              <EuiFlexGroup gutterSize="s" alignItems="center" responsive={false}>
+        {availableEndpoints === null ? (
+          <>
+            <EuiFlyoutHeader hasBorder={false} style={{ padding: '16px' }}>
+              <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" responsive={false} style={{ height: '56px' }}>
+                <EuiFlexItem grow={false} style={{ width: '80px' }} />
                 <EuiFlexItem grow={false}>
-                  <EuiPopover
-                    button={
-                      conversationId || conversation.length > 0 ? (
-                        <EuiButtonIcon
-                          color="text"
-                          display="empty"
-                          iconType="clockCounter"
-                          aria-label="Conversations"
-                          onClick={() => setIsHistoryPopoverOpen(!isHistoryPopoverOpen)}
-                        />
-                      ) : (
-                        <EuiButtonEmpty
-                          color="text"
-                          display="empty"
-                          iconType="clockCounter"
-                          onClick={() => setIsHistoryPopoverOpen(!isHistoryPopoverOpen)}
-                          size="s"
-                          style={{ fontWeight: 500 }}
-                        >
-                          Conversations
-                        </EuiButtonEmpty>
-                      )
-                    }
-                    isOpen={isHistoryPopoverOpen}
-                    closePopover={() => setIsHistoryPopoverOpen(false)}
-                    panelPaddingSize="none"
-                    anchorPosition="downLeft"
-                  >
-                    <div style={{ width: '400px' }}>
-                      <div style={{ padding: '8px' }}>
-                        <EuiFieldSearch
-                          placeholder="Search conversations"
-                          fullWidth
-                          compressed
-                          value={historySearchText}
-                          onChange={(e) => setHistorySearchText(e.target.value)}
-                          inputRef={(el) => (historySearchRef.current = el)}
-                        />
-                      </div>
-                      <EuiContextMenuPanel size="s">
-                        {isLoadingHistory ? (
-                          <EuiFlexGroup justifyContent="center" style={{ padding: '16px' }}>
-                            <EuiLoadingSpinner size="m" />
-                          </EuiFlexGroup>
-                        ) : conversations.length > 0 ? (
-                          <>
-                            <EuiHorizontalRule margin="none" />
-                            {conversations.map((conv) => (
-                              <div
-                                key={conv.id || conv._id}
-                                style={{ padding: '0 8px' }}
-                                onMouseEnter={() => setHoveredConvId(conv.id || conv._id)}
-                                onMouseLeave={() => setHoveredConvId(null)}
-                              >
-                                <EuiFlexGroup gutterSize="none" alignItems="center" responsive={false}>
-                                  <EuiFlexItem>
-                                    <EuiContextMenuItem
-                                      size="s"
-                                      onClick={() => handleSelectConversation(conv)}
-                                      style={{ width: '100%' }}
-                                    >
-                                      {conv.title}
-                                    </EuiContextMenuItem>
-                                  </EuiFlexItem>
-                                  <EuiFlexItem grow={false}>
-                                    {hoveredConvId === (conv.id || conv._id) && (
-                                      <EuiButtonIcon
-                                        iconType="trash"
-                                        color="danger"
-                                        size="xs"
-                                        aria-label="Delete conversation"
-                                        onClick={(e) => handleDeleteConversation(e, conv)}
-                                      />
-                                    )}
-                                  </EuiFlexItem>
-                                </EuiFlexGroup>
-                              </div>
-                            ))}
-                          </>
-                        ) : (
-                          <div style={{ padding: '16px', textAlign: 'center', color: 'gray' }}>
-                            No conversations found
-                          </div>
-                        )}
-                      </EuiContextMenuPanel>
-                    </div>
-                  </EuiPopover>
+                  <EuiLoadingSpinner size="m" />
                 </EuiFlexItem>
-                {(conversationId || conversation.length > 0) && (
-                  <EuiFlexItem grow={false}>
-                    <EuiButtonIcon
-                      color="text"
-                      display="empty"
-                      iconType="plus"
-                      aria-label="New conversation"
-                      onClick={handleNewConversation}
-                    />
-                  </EuiFlexItem>
-                )}
-              </EuiFlexGroup>
-            </EuiFlexItem>
-
-            {/* Center Section: Conversation Title */}
-            <EuiFlexItem grow={true}>
-              {(conversation.length > 0 || conversationId) && (
-                <div
-                  style={{ textAlign: 'center' }}
-                  onMouseEnter={() => setIsTitleHovered(true)}
-                  onMouseLeave={() => setIsTitleHovered(false)}
-                >
-                  {isEditingTitle ? (
-                    <EuiFlexGroup gutterSize="s" alignItems="center" justifyContent="center" responsive={false} style={{ height: '32px' }}>
-                      <EuiFlexItem grow={true}>
-                        <EuiFieldText
-                          autoFocus
-                          fullWidth
-                          value={tempTitle}
-                          onChange={(e) => setTempTitle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveRename()
-                            if (e.key === 'Escape') setIsEditingTitle(false)
-                          }}
-                          onBlur={(e) => {
-                            // Only save if we didn't click the cancel button
-                            if (e.relatedTarget?.getAttribute('aria-label') === 'Cancel') return;
-                            handleSaveRename();
-                          }}
-                          compressed
-                        />
-                      </EuiFlexItem>
-                      <EuiFlexItem grow={false}>
-                        <EuiFlexGroup gutterSize="xs" responsive={false}>
-                          <EuiFlexItem grow={false}>
-                            <EuiButtonIcon
-                              iconType="check"
-                              aria-label="Save"
-                              onClick={handleSaveRename}
-                              size="s"
-                              style={{
-                                backgroundColor: '#E1EBF9',
-                                color: '#005BB7',
-                                borderRadius: '4px',
-                                width: '32px',
-                                height: '32px'
-                              }}
-                            />
-                          </EuiFlexItem>
-                          <EuiFlexItem grow={false}>
-                            <EuiButtonIcon
-                              iconType="cross"
-                              aria-label="Cancel"
-                              onClick={() => setIsEditingTitle(false)}
-                              size="s"
-                              style={{
-                                backgroundColor: '#FEEBEC',
-                                color: '#BD271E',
-                                borderRadius: '4px',
-                                width: '32px',
-                                height: '32px'
-                              }}
-                            />
-                          </EuiFlexItem>
-                        </EuiFlexGroup>
-                      </EuiFlexItem>
-                    </EuiFlexGroup>
-                  ) : (
-                    <EuiFlexGroup gutterSize="xs" alignItems="center" justifyContent="center" responsive={false} style={{ height: '32px' }}>
-                      {/* Left Spacer to keep title centered */}
-                      <EuiFlexItem grow={false} style={{ width: '32px' }} />
-
-                      <EuiFlexItem grow={false} style={{ maxWidth: 'calc(100% - 64px)' }}>
-                        <EuiTitle size="xs">
-                          <h2
-                            id="chatFlyoutTitle"
-                            style={{
-                              fontWeight: 500,
-                              textAlign: 'center',
-                              lineHeight: '32px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {conversationTitle}
-                          </h2>
-                        </EuiTitle>
-                      </EuiFlexItem>
-
-                      <EuiFlexItem grow={false} style={{ width: '32px' }}>
-                        <EuiButtonIcon
-                          iconType="pencil"
-                          aria-label="Rename conversation"
-                          onClick={handleStartRename}
-                          size="s"
-                          style={{
-                            opacity: isTitleHovered ? 1 : 0,
-                            pointerEvents: isTitleHovered ? 'auto' : 'none',
-                            transition: 'opacity 150ms ease-in-out'
-                          }}
-                        />
-                      </EuiFlexItem>
-                    </EuiFlexGroup>
-                  )}
-                </div>
-              )}
-            </EuiFlexItem>
-
-            {/* Right Section: More & Close */}
-            <EuiFlexItem grow={false} style={{ width: '80px', textAlign: 'right' }}>
-              <EuiFlexGroup gutterSize="s" alignItems="center" justifyContent="flexEnd" responsive={false}>
-                <EuiFlexItem grow={false}>
-                  <EuiButtonIcon
-                    color="text"
-                    display="empty"
-                    iconType="cross"
-                    onClick={closeFlyout}
-                    aria-label="Close"
-                  />
-                </EuiFlexItem>
-              </EuiFlexGroup>
-            </EuiFlexItem>
-          </EuiFlexGroup>
-        </EuiFlyoutHeader>
-        <EuiFlyoutBody style={{ padding: '0' }}>
-          {isConversationLoading ? (
-            <EuiFlexGroup alignItems="center" justifyContent="center" style={{ height: '100%' }}>
-              <EuiLoadingSpinner size="xl" />
-            </EuiFlexGroup>
-          ) : (
-            <>
-              {conversation.length === 0 && !conversationId && (
-                <EuiFlexGroup alignItems="center" justifyContent="center" style={{ height: '100%' }}>
-                  <EuiFlexItem grow>
-                    <EuiTitle size="m">
-                      <h2 style={{
-                        bottom: '50%',
-                        fontWeight: 400,
-                        position: 'absolute',
-                        textAlign: 'center',
-                        top: '50%',
-                        width: '100%',
-                      }}>
-                        How can I help you?
-                      </h2>
-                    </EuiTitle>
-                  </EuiFlexItem>
-                </EuiFlexGroup>
-              )}
-              <EuiFlexGroup direction="column" gutterSize="l" responsive={false}>
-                {conversation.map((round, index) => (
-                  <RoundItem
-                    key={round.id || index}
-                    round={round}
-                    latestUserMessageRef={index === conversation.length - 1 ? latestUserMessageRef : null}
-                    isSending={isSending && index === conversation.length - 1}
-                  />
-                ))}
-              </EuiFlexGroup>
-            </>
-          )}
-        </EuiFlyoutBody>
-        <EuiFlyoutFooter style={{ backgroundColor: 'transparent', padding: '16px' }}>
-          <form onSubmit={handleSendMessage}>
-            <EuiPanel
-              color="plain"
-              paddingSize="m"
-              style={{
-                borderColor: isFocused ? 'rgb(11, 100, 221)' : 'rgba(0,0,0,0)',
-                borderRadius: '16px',
-                borderStyle: 'solid',
-                borderWidth: '1px',
-                boxShadow: isFocused ? '0 0 10px rgba(0, 0, 0, 0.25)' : undefined,
-                transition: 'all 250ms ease-in-out',
-              }}
-            >
-              <EuiTextArea
-                disabled={isSending || isConversationLoading}
-                fullWidth
-                inputRef={(el) => { textAreaRef.current = el; }}
-                onBlur={() => setIsFocused(false)}
-                onChange={(e) => setCurrentMessage(e.target.value)}
-                onFocus={() => setIsFocused(true)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage(e);
-                  }
-                }}
-                placeholder="Ask anything"
-                resize="none"
-                rows={2}
-                style={{
-                  border: 'none',
-                  boxShadow: 'none',
-                  backgroundColor: 'transparent',
-                  outline: 'none'
-                }}
-                value={currentMessage}
-              />
-              <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" gutterSize="none" responsive={false}>
-                <EuiFlexItem grow={false} style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  <EuiPopover
-                    button={
-                      <EuiButtonEmpty
-                        color="text"
-                        iconType="productML"
-                        onClick={() => setIsPopoverOpen(!isPopoverOpen)}
-                        size="s"
-                        style={{ fontWeight: 500 }}
-                      >
-                        {inferenceId || 'Select model'}
-                      </EuiButtonEmpty>
-                    }
-                    isOpen={isPopoverOpen}
-                    closePopover={() => setIsPopoverOpen(false)}
-                    panelPaddingSize="none"
-                    anchorPosition="upLeft"
-                  >
-                    <EuiContextMenuPanel
-                      size="s"
-                      items={availableEndpoints.map(endpoint => (
-                        <EuiContextMenuItem
-                          icon={inferenceId === endpoint.inference_id ? 'check' : undefined}
-                          key={endpoint.inference_id}
-                          onClick={() => {
-                            setInferenceId(endpoint.inference_id);
-                            setIsPopoverOpen(false);
-                          }}
-                        >
-                          {endpoint.inference_id}
-                        </EuiContextMenuItem>
-                      ))}
-                    />
-                  </EuiPopover>
-                </EuiFlexItem>
-                <EuiFlexItem grow={false}>
-                  <EuiFlexGroup gutterSize="s" alignItems="center" responsive={false}>
+                <EuiFlexItem grow={false} style={{ width: '80px', textAlign: 'right' }}>
+                  <EuiFlexGroup gutterSize="s" alignItems="center" justifyContent="flexEnd" responsive={false}>
                     <EuiFlexItem grow={false}>
                       <EuiButtonIcon
-                        aria-label={isSending ? 'Cancel' : 'Send'}
-                        color={isSending ? 'text' : 'primary'}
-                        display={isSending ? 'base' : 'fill'}
-                        iconType={isSending ? 'stopFill' : 'sortUp'}
-                        isDisabled={isConversationLoading || (isSending ? false : !currentMessage.trim())}
-                        onClick={isSending ? handleCancel : () => { }}
-                        size="s"
-                        style={{ borderRadius: '4px' }}
-                        type={isSending ? "button" : "submit"}
+                        color="text"
+                        display="empty"
+                        iconType="cross"
+                        onClick={closeFlyout}
+                        aria-label="Close"
                       />
                     </EuiFlexItem>
                   </EuiFlexGroup>
                 </EuiFlexItem>
               </EuiFlexGroup>
-            </EuiPanel>
-          </form>
-        </EuiFlyoutFooter>
+            </EuiFlyoutHeader>
+            <EuiFlyoutBody>
+              <EuiFlexGroup alignItems="center" justifyContent="center" style={{ height: '100%' }}>
+                <EuiLoadingSpinner size="xl" />
+              </EuiFlexGroup>
+            </EuiFlyoutBody>
+            <EuiFlyoutFooter style={{ backgroundColor: 'transparent', padding: '16px' }}>
+              <EuiFlexGroup justifyContent="center">
+                <EuiLoadingSpinner size="m" />
+              </EuiFlexGroup>
+            </EuiFlyoutFooter>
+          </>
+        ) : availableEndpoints.length === 0 ? (
+          <>
+            <EuiFlyoutHeader hasBorder={false} style={{ padding: '16px' }}>
+              <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" responsive={false} style={{ height: '56px' }}>
+                <EuiFlexItem grow={false} style={{ width: '80px' }} />
+                <EuiFlexItem grow={false} />
+                <EuiFlexItem grow={false} style={{ width: '80px', textAlign: 'right' }}>
+                  <EuiFlexGroup gutterSize="s" alignItems="center" justifyContent="flexEnd" responsive={false}>
+                    <EuiFlexItem grow={false}>
+                      <EuiButtonIcon
+                        color="text"
+                        display="empty"
+                        iconType="cross"
+                        onClick={closeFlyout}
+                        aria-label="Close"
+                      />
+                    </EuiFlexItem>
+                  </EuiFlexGroup>
+                </EuiFlexItem>
+              </EuiFlexGroup>
+            </EuiFlyoutHeader>
+            <EuiFlyoutBody>
+              <EuiFlexGroup alignItems="center" justifyContent="center" style={{ padding: '32px' }}>
+                <EuiPanel paddingSize="xl" style={{ textAlign: 'center' }}>
+                  <EuiIcon color="subdued" type="plugs" size="l" />
+                  <EuiSpacer size="l" />
+                  <EuiTitle size="m">
+                    <h3>No Inference Endpoints Found</h3>
+                  </EuiTitle>
+                  <EuiSpacer size="l" />
+                  <EuiText size="s">
+                    <p>
+                      AI Agent requires a <span style={{ fontWeight: 500 }}>chat completion inference endpoint</span>.<br />
+                      You can configure this in Kibana or Elasticsearch.
+                    </p>
+                  </EuiText>
+                  <EuiSpacer size="l" />
+                  <EuiButton
+                    href="https://www.elastic.co/docs/explore-analyze/elastic-inference/inference-api"
+                    iconSide="right"
+                    iconSize="s"
+                    iconType="popout"
+                    size="s"
+                    target="_blank"
+                  >
+                    Learn More
+                  </EuiButton>
+                </EuiPanel>
+              </EuiFlexGroup>
+            </EuiFlyoutBody>
+          </>
+        ) : (
+          <>
+            <EuiFlyoutHeader hasBorder={false} style={{ padding: '16px' }}>
+              <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" responsive={false} style={{ height: '56px' }}>
+                {/* Left Section: History & New Chat */}
+                <EuiFlexItem grow={false} style={{ width: '80px' }}>
+                  <EuiFlexGroup gutterSize="s" alignItems="center" responsive={false}>
+                    <EuiFlexItem grow={false}>
+                      <EuiPopover
+                        button={
+                          conversationId || conversation.length > 0 ? (
+                            <EuiButtonIcon
+                              color="text"
+                              display="empty"
+                              iconType="clockCounter"
+                              aria-label="Conversations"
+                              onClick={() => setIsHistoryPopoverOpen(!isHistoryPopoverOpen)}
+                            />
+                          ) : (
+                            <EuiButtonEmpty
+                              color="text"
+                              display="empty"
+                              iconType="clockCounter"
+                              onClick={() => setIsHistoryPopoverOpen(!isHistoryPopoverOpen)}
+                              size="s"
+                              style={{ fontWeight: 500 }}
+                            >
+                              Conversations
+                            </EuiButtonEmpty>
+                          )
+                        }
+                        isOpen={isHistoryPopoverOpen}
+                        closePopover={() => setIsHistoryPopoverOpen(false)}
+                        panelPaddingSize="none"
+                        anchorPosition="downLeft"
+                      >
+                        <div style={{ width: '400px' }}>
+                          <div style={{ padding: '8px' }}>
+                            <EuiFieldSearch
+                              placeholder="Search conversations"
+                              fullWidth
+                              compressed
+                              value={historySearchText}
+                              onChange={(e) => setHistorySearchText(e.target.value)}
+                              inputRef={(el) => (historySearchRef.current = el)}
+                            />
+                          </div>
+                          <EuiContextMenuPanel size="s">
+                            {isLoadingHistory ? (
+                              <EuiFlexGroup justifyContent="center" style={{ padding: '16px' }}>
+                                <EuiLoadingSpinner size="m" />
+                              </EuiFlexGroup>
+                            ) : conversations.length > 0 ? (
+                              <>
+                                <EuiHorizontalRule margin="none" />
+                                {conversations.map((conv) => (
+                                  <div
+                                    key={conv.id || conv._id}
+                                    style={{ padding: '0 8px' }}
+                                    onMouseEnter={() => setHoveredConvId(conv.id || conv._id)}
+                                    onMouseLeave={() => setHoveredConvId(null)}
+                                  >
+                                    <EuiFlexGroup gutterSize="none" alignItems="center" responsive={false}>
+                                      <EuiFlexItem>
+                                        <EuiContextMenuItem
+                                          size="s"
+                                          onClick={() => handleSelectConversation(conv)}
+                                          style={{ width: '100%' }}
+                                        >
+                                          {conv.title}
+                                        </EuiContextMenuItem>
+                                      </EuiFlexItem>
+                                      <EuiFlexItem grow={false}>
+                                        {hoveredConvId === (conv.id || conv._id) && (
+                                          <EuiButtonIcon
+                                            iconType="trash"
+                                            color="danger"
+                                            size="xs"
+                                            aria-label="Delete conversation"
+                                            onClick={(e) => handleDeleteConversation(e, conv)}
+                                          />
+                                        )}
+                                      </EuiFlexItem>
+                                    </EuiFlexGroup>
+                                  </div>
+                                ))}
+                              </>
+                            ) : (
+                              <div style={{ padding: '16px', textAlign: 'center', color: 'gray' }}>
+                                No conversations found
+                              </div>
+                            )}
+                          </EuiContextMenuPanel>
+                        </div>
+                      </EuiPopover>
+                    </EuiFlexItem>
+                    {(conversationId || conversation.length > 0) && (
+                      <EuiFlexItem grow={false}>
+                        <EuiButtonIcon
+                          color="text"
+                          display="empty"
+                          iconType="plus"
+                          aria-label="New conversation"
+                          onClick={handleNewConversation}
+                        />
+                      </EuiFlexItem>
+                    )}
+                  </EuiFlexGroup>
+                </EuiFlexItem>
+
+                {/* Center Section: Conversation Title */}
+                <EuiFlexItem grow={true}>
+                  {(conversation.length > 0 || conversationId) && (
+                    <div
+                      style={{ textAlign: 'center' }}
+                      onMouseEnter={() => setIsTitleHovered(true)}
+                      onMouseLeave={() => setIsTitleHovered(false)}
+                    >
+                      {isEditingTitle ? (
+                        <EuiFlexGroup gutterSize="s" alignItems="center" justifyContent="center" responsive={false} style={{ height: '32px' }}>
+                          <EuiFlexItem grow={true}>
+                            <EuiFieldText
+                              autoFocus
+                              fullWidth
+                              value={tempTitle}
+                              onChange={(e) => setTempTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveRename()
+                                if (e.key === 'Escape') setIsEditingTitle(false)
+                              }}
+                              onBlur={(e) => {
+                                // Only save if we didn't click the cancel button
+                                if (e.relatedTarget?.getAttribute('aria-label') === 'Cancel') return;
+                                handleSaveRename();
+                              }}
+                              compressed
+                            />
+                          </EuiFlexItem>
+                          <EuiFlexItem grow={false}>
+                            <EuiFlexGroup gutterSize="xs" responsive={false}>
+                              <EuiFlexItem grow={false}>
+                                <EuiButtonIcon
+                                  iconType="check"
+                                  aria-label="Save"
+                                  onClick={handleSaveRename}
+                                  size="s"
+                                  style={{
+                                    backgroundColor: '#E1EBF9',
+                                    color: '#005BB7',
+                                    borderRadius: '4px',
+                                    width: '32px',
+                                    height: '32px'
+                                  }}
+                                />
+                              </EuiFlexItem>
+                              <EuiFlexItem grow={false}>
+                                <EuiButtonIcon
+                                  iconType="cross"
+                                  aria-label="Cancel"
+                                  onClick={() => setIsEditingTitle(false)}
+                                  size="s"
+                                  style={{
+                                    backgroundColor: '#FEEBEC',
+                                    color: '#BD271E',
+                                    borderRadius: '4px',
+                                    width: '32px',
+                                    height: '32px'
+                                  }}
+                                />
+                              </EuiFlexItem>
+                            </EuiFlexGroup>
+                          </EuiFlexItem>
+                        </EuiFlexGroup>
+                      ) : (
+                        <EuiFlexGroup gutterSize="xs" alignItems="center" justifyContent="center" responsive={false} style={{ height: '32px' }}>
+                          {/* Left Spacer to keep title centered */}
+                          <EuiFlexItem grow={false} style={{ width: '32px' }} />
+
+                          <EuiFlexItem grow={false} style={{ maxWidth: 'calc(100% - 64px)' }}>
+                            <EuiTitle size="xs">
+                              <h2
+                                id="chatFlyoutTitle"
+                                style={{
+                                  fontWeight: 500,
+                                  textAlign: 'center',
+                                  lineHeight: '32px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                {conversationTitle}
+                              </h2>
+                            </EuiTitle>
+                          </EuiFlexItem>
+
+                          <EuiFlexItem grow={false} style={{ width: '32px' }}>
+                            <EuiButtonIcon
+                              iconType="pencil"
+                              aria-label="Rename conversation"
+                              onClick={handleStartRename}
+                              size="s"
+                              style={{
+                                opacity: isTitleHovered ? 1 : 0,
+                                pointerEvents: isTitleHovered ? 'auto' : 'none',
+                                transition: 'opacity 150ms ease-in-out'
+                              }}
+                            />
+                          </EuiFlexItem>
+                        </EuiFlexGroup>
+                      )}
+                    </div>
+                  )}
+                </EuiFlexItem>
+
+                {/* Right Section: More & Close */}
+                <EuiFlexItem grow={false} style={{ width: '80px', textAlign: 'right' }}>
+                  <EuiFlexGroup gutterSize="s" alignItems="center" justifyContent="flexEnd" responsive={false}>
+                    <EuiFlexItem grow={false}>
+                      <EuiButtonIcon
+                        color="text"
+                        display="empty"
+                        iconType="cross"
+                        onClick={closeFlyout}
+                        aria-label="Close"
+                      />
+                    </EuiFlexItem>
+                  </EuiFlexGroup>
+                </EuiFlexItem>
+              </EuiFlexGroup>
+            </EuiFlyoutHeader>
+            <EuiFlyoutBody style={{ padding: '0' }}>
+              {isConversationLoading ? (
+                <EuiFlexGroup alignItems="center" justifyContent="center" style={{ height: '100%' }}>
+                  <EuiLoadingSpinner size="xl" />
+                </EuiFlexGroup>
+              ) : (
+                <>
+                  {conversation.length === 0 && !conversationId && (
+                    <EuiFlexGroup alignItems="center" justifyContent="center" style={{ height: '100%' }}>
+                      <EuiFlexItem grow>
+                        <EuiTitle size="m">
+                          <h2 style={{
+                            bottom: '50%',
+                            fontWeight: 400,
+                            position: 'absolute',
+                            textAlign: 'center',
+                            top: '50%',
+                            width: '100%',
+                          }}>
+                            How can I help you?
+                          </h2>
+                        </EuiTitle>
+                      </EuiFlexItem>
+                    </EuiFlexGroup>
+                  )}
+                  <EuiFlexGroup direction="column" gutterSize="l" responsive={false}>
+                    {conversation.map((round, index) => (
+                      <RoundItem
+                        key={round.id || index}
+                        round={round}
+                        latestUserMessageRef={index === conversation.length - 1 ? latestUserMessageRef : null}
+                        isSending={isSending && index === conversation.length - 1}
+                      />
+                    ))}
+                  </EuiFlexGroup>
+                </>
+              )}
+            </EuiFlyoutBody>
+            <EuiFlyoutFooter style={{ backgroundColor: 'transparent', padding: '16px' }}>
+              <form onSubmit={handleSendMessage}>
+                <EuiPanel
+                  color="plain"
+                  paddingSize="m"
+                  style={{
+                    borderColor: isFocused ? 'rgb(11, 100, 221)' : 'rgba(0,0,0,0)',
+                    borderRadius: '16px',
+                    borderStyle: 'solid',
+                    borderWidth: '1px',
+                    boxShadow: isFocused ? '0 0 10px rgba(0, 0, 0, 0.25)' : undefined,
+                    transition: 'all 250ms ease-in-out',
+                  }}
+                >
+                  <EuiTextArea
+                    disabled={isSending || isConversationLoading}
+                    fullWidth
+                    inputRef={(el) => { textAreaRef.current = el; }}
+                    onBlur={() => setIsFocused(false)}
+                    onChange={(e) => setCurrentMessage(e.target.value)}
+                    onFocus={() => setIsFocused(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage(e);
+                      }
+                    }}
+                    placeholder="Ask anything"
+                    resize="none"
+                    rows={2}
+                    style={{
+                      border: 'none',
+                      boxShadow: 'none',
+                      backgroundColor: 'transparent',
+                      outline: 'none'
+                    }}
+                    value={currentMessage}
+                  />
+                  <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" gutterSize="none" responsive={false}>
+                    <EuiFlexItem grow={false} style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      <EuiPopover
+                        button={
+                          <EuiButtonEmpty
+                            color="text"
+                            iconType="productML"
+                            onClick={() => setIsPopoverOpen(!isPopoverOpen)}
+                            size="s"
+                            style={{ fontWeight: 500 }}
+                          >
+                            {inferenceId || 'Select model'}
+                          </EuiButtonEmpty>
+                        }
+                        isOpen={isPopoverOpen}
+                        closePopover={() => setIsPopoverOpen(false)}
+                        panelPaddingSize="none"
+                        anchorPosition="upLeft"
+                      >
+                        <EuiContextMenuPanel
+                          size="s"
+                          items={availableEndpoints.map(endpoint => (
+                            <EuiContextMenuItem
+                              icon={inferenceId === endpoint.inference_id ? 'check' : undefined}
+                              key={endpoint.inference_id}
+                              onClick={() => {
+                                setInferenceId(endpoint.inference_id);
+                                setIsPopoverOpen(false);
+                              }}
+                            >
+                              {endpoint.inference_id}
+                            </EuiContextMenuItem>
+                          ))}
+                        />
+                      </EuiPopover>
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                      <EuiFlexGroup gutterSize="s" alignItems="center" responsive={false}>
+                        <EuiFlexItem grow={false}>
+                          <EuiButtonIcon
+                            aria-label={isSending ? 'Cancel' : 'Send'}
+                            color={isSending ? 'text' : 'primary'}
+                            display={isSending ? 'base' : 'fill'}
+                            iconType={isSending ? 'stopFill' : 'sortUp'}
+                            isDisabled={isConversationLoading || (isSending ? false : !currentMessage.trim())}
+                            onClick={isSending ? handleCancel : () => { }}
+                            size="s"
+                            style={{ borderRadius: '4px' }}
+                            type={isSending ? "button" : "submit"}
+                          />
+                        </EuiFlexItem>
+                      </EuiFlexGroup>
+                    </EuiFlexItem>
+                  </EuiFlexGroup>
+                </EuiPanel>
+              </form>
+            </EuiFlyoutFooter>
+          </>
+        )}
       </EuiFlyout>
 
       {conversationToDelete && (
