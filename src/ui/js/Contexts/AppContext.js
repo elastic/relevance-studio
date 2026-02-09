@@ -28,10 +28,9 @@ export const AppProvider = ({ children }) => {
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true' // defaults to false
   })
-  const [deploymentMode, setDeploymentMode] = useState(() => {
-    const stored = localStorage.getItem('deploymentMode')
-    return stored === 'serverless' || stored === 'cloud' || stored === 'standard' ? stored : null // defaults to null
-  })
+  const [deploymentMode, setDeploymentMode] = useState(null)
+  const [licenseType, setLicenseType] = useState(null)
+  const [licenseStatus, setLicenseStatus] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const val = localStorage.getItem('sidebarOpen')
     return val === null ? false : val === 'true'; // defaults to false
@@ -80,18 +79,22 @@ export const AppProvider = ({ children }) => {
     checkSetup()
   }, [])
 
-  // Get deployment mode
+  // Get deployment info
   useEffect(() => {
-    const getDeploymentMode = async () => {
+    const getDeploymentInfo = async () => {
       try {
         const response = await api.setup_check()
         setDeploymentMode(response.data.deployment?.mode)
+        setLicenseType(response.data.deployment?.license?.type)
+        setLicenseStatus(response.data.deployment?.license?.status)
       } catch (e) {
-        console.error('Failed to load mode:', e)
+        console.error('Failed to load deployment info:', e)
         setDeploymentMode(null)
+        setLicenseType(null)
+        setLicenseStatus(null)
       }
     }
-    getDeploymentMode()
+    getDeploymentInfo()
   }, [])
 
   const value = useMemo(() => ({
@@ -99,14 +102,28 @@ export const AppProvider = ({ children }) => {
     autoRefresh,
     darkMode,
     deploymentMode,
+    licenseType,
+    licenseStatus,
     isSetup,
     sidebarOpen,
     setAutoRefresh,
     setDarkMode,
     setDeploymentMode,
+    setLicenseType,
+    setLicenseStatus,
     setIsSetup,
     setSidebarOpen,
-  }), [toasts, isSetup, darkMode, autoRefresh, sidebarOpen])
+  }), [
+    toasts,
+    isSetup,
+    darkMode,
+    autoRefresh,
+    deploymentMode,
+    licenseType,
+    licenseStatus,
+    sidebarOpen,
+    setAutoRefresh,
+  ])
 
   return (
     <AppContext.Provider value={value}>

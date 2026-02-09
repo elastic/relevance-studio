@@ -50,6 +50,15 @@ def is_serverless(cluster_info_body: Dict[str, Any]) -> bool:
     """
     return cluster_info_body.get("version", {}).get("build_flavor") == "serverless"
 
+def get_license_info():
+    """Get license information from Elasticsearch.
+
+    Returns:
+        The response from the Elasticsearch license API.
+    """
+    return es("studio").license.get()
+
+
 def get_cluster_info():
     """Get cluster information from Elasticsearch.
 
@@ -80,6 +89,14 @@ def check():
     # Get deployment info
     cluster_info = get_cluster_info()
     result["deployment"]["cluster_info"] = cluster_info.body
+
+    # Get license info
+    license_info = get_license_info()
+    result["deployment"]["license"] = {
+        "type": license_info.body.get("license", {}).get("type") or "unknown",
+        "status": license_info.body.get("license", {}).get("status") or "unknown"
+    }
+
     if is_serverless(cluster_info.body):
         result["deployment"]["mode"] = "serverless"
     elif is_cloud(cluster_info.meta.headers):

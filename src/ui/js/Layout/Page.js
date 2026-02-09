@@ -5,14 +5,20 @@
  * 2.0.
  */
 
+import { useState } from 'react'
 import {
-  EuiBadge,
   EuiButton,
   EuiButtonIcon,
+  EuiFlexGroup,
+  EuiFlexItem,
   EuiHeader,
   EuiIcon,
+  EuiLink,
   EuiPageTemplate,
   EuiPanel,
+  EuiPopover,
+  EuiPopoverTitle,
+  EuiSpacer,
   EuiText,
   EuiToolTip,
 } from '@elastic/eui'
@@ -26,11 +32,18 @@ import SideNav from './SideNav'
 
 const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' }) => {
 
+  ////  State  /////////////////////////////////////////////////////////////////
+
+  const [isHelpPopoverOpen, setIsHelpPopoverOpen] = useState(false)
+  const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false)
+
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const {
     darkMode,
     deploymentMode,
+    licenseStatus,
+    licenseType,
     sidebarOpen,
     setDarkMode,
     setSidebarOpen,
@@ -40,6 +53,9 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
     chatOpen,
     setChatOpen,
   } = useChatContext()
+
+  const closeHelpPopover = () => setIsHelpPopoverOpen(false)
+  const closeInfoPopover = () => setIsInfoPopoverOpen(false)
 
   const headerSections = [
     {
@@ -80,40 +96,89 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
         <EuiToolTip content={`Switch to ${darkMode ? 'light' : 'dark'} mode`}>
           <EuiButtonIcon
             aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
+            color="text"
             iconType={darkMode ? 'sun' : 'moon'}
             onClick={() => setDarkMode(!darkMode)}
             style={{ height: '38px', marginLeft: '6px', width: '38px' }}
           />
         </EuiToolTip>,
-        <EuiToolTip content={'View on Github'}>
-          <EuiButton
-            aria-label='View on Github'
-            color='text'
-            style={{
-              border: 0,
-              height: '38px',
-              marginLeft: '6px',
-              minWidth: '38px',
-              width: '38px'
-            }}>
-            <a href='https://github.com/elastic/relevance-studio' target='_blank'>
-              <IconBrandGithub
-                stroke={1.5}
-                size={20}
-                style={{ marginTop: '4px' }}
+        <EuiPopover
+          anchorPosition="downCenter"
+          button={
+            <EuiToolTip content='Help'>
+              <EuiButtonIcon
+                aria-label="Help"
+                color="text"
+                iconType="question"
+                onClick={() => setIsHelpPopoverOpen(!isHelpPopoverOpen)}
+                style={{ height: '38px', marginLeft: '6px', width: '38px' }}
               />
-            </a>
-          </EuiButton>
-        </EuiToolTip>,
-        <EuiToolTip content={'Read the docs'}>
-          <a href='https://elastic.github.io/relevance-studio/' target='_blank'>
-            <EuiButtonIcon
-              aria-label={'Read the docs'}
-              iconType={'documentation'}
-              style={{ height: '38px', marginLeft: '6px', width: '38px' }}
-            />
-          </a>
-        </EuiToolTip>,
+            </EuiToolTip>
+          }
+          isOpen={isHelpPopoverOpen}
+          closePopover={closeHelpPopover}
+        >
+          <>
+            <EuiPopoverTitle>Help</EuiPopoverTitle>
+            <EuiLink href='https://elastic.github.io/relevance-studio/' target='_blank' external={false}>
+              <EuiText size="s" style={{ fontWeight: 500 }}>
+                Documentation
+              </EuiText>
+            </EuiLink>
+            <EuiSpacer size="m" />
+            <EuiLink href='https://github.com/elastic/relevance-studio' target='_blank' external={false}>
+              <EuiText size="s" style={{ fontWeight: 500 }}>
+                GitHub
+              </EuiText>
+            </EuiLink>
+          </>
+        </EuiPopover>,
+        <EuiPopover
+          anchorPosition="downCenter"
+          button={
+            <EuiToolTip content='Deployment info'>
+              <EuiButtonIcon
+                aria-label='Deployment info'
+                iconType="logoElastic"
+                onClick={() => setIsInfoPopoverOpen(!isInfoPopoverOpen)}
+                style={{ height: '38px', marginLeft: '6px', width: '38px' }}
+              />
+            </EuiToolTip>
+          }
+          isOpen={isInfoPopoverOpen}
+          closePopover={closeInfoPopover}
+        >
+          <>
+            <EuiPopoverTitle>Studio Deployment Info</EuiPopoverTitle>
+            <EuiFlexGroup alignItems="center">
+              <EuiFlexItem grow={false}>
+                {!deploymentMode && <EuiIcon size="s" type="question" />}
+                {deploymentMode === 'serverless' && <EuiIcon size="s" type="logoElasticCloud" />}
+                {deploymentMode === 'cloud' && <EuiIcon size="s" type="logoElasticCloud" />}
+                {deploymentMode === 'standard' && <EuiIcon size="s" type="logoElasticsearch" />}
+              </EuiFlexItem>
+              <EuiFlexItem grow={true}>
+                <EuiText size="s">
+                  {!deploymentMode && "Unknown"}
+                  {deploymentMode === 'serverless' && "Elastic Cloud Serverless"}
+                  {deploymentMode === 'cloud' && "Elastic Cloud Hosted"}
+                  {deploymentMode === 'standard' && "Self-managed"}
+                </EuiText>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+            <EuiSpacer size="s" />
+            <EuiFlexGroup alignItems="center">
+              <EuiFlexItem grow={false}>
+                <EuiIcon size="s" type="tag" />
+              </EuiFlexItem>
+              <EuiFlexItem grow={true}>
+                <EuiText size="s">
+                  License: <span style={{ fontWeight: 500 }}>{licenseType || 'unknown'}</span> {!!licenseStatus && licenseStatus !== 'unknown' && <EuiText color="subdued" size="xs" component="span"><small>({licenseStatus})</small></EuiText>}
+                </EuiText>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+          </>
+        </EuiPopover>,
         <EuiToolTip content={chatOpen ? 'Close AI Agent' : 'Open AI Agent'}>
           <EuiButton
             aria-label={chatOpen ? 'Close AI Agent' : 'Open AI Agent'}
@@ -127,34 +192,6 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
       ],
     },
   ]
-
-  if (!!deploymentMode) {
-    headerSections[1].items.unshift(
-      <EuiToolTip content={<>
-        <EuiText size="s">
-          {
-            deploymentMode === 'serverless'
-              ? 'Elastic Cloud Serverless'
-              : deploymentMode === 'cloud'
-                ? 'Elastic Cloud Hosted'
-                : deploymentMode === "standard"
-                  ? 'Elasticsearch'
-                  : ''
-          }
-        </EuiText>
-        <EuiText size="xs" color='subdued'>
-          Studio deployment
-        </EuiText>
-      </>}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '38px', width: '38px' }}>
-          <EuiIcon
-            size="m"
-            type={deploymentMode == 'standard' ? 'logoElasticsearch' : 'logoCloud'}
-          />
-        </div>
-      </EuiToolTip>
-    )
-  }
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
