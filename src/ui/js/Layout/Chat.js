@@ -458,6 +458,7 @@ const Chat = () => {
   const historySearchRef = useRef(null)
   const abortControllerRef = useRef(null)
   const conversationRef = useRef(conversation)
+  const lastProcessedInferenceConvId = useRef(null)
   const debouncedIsSending = useDebounce(isSending, 500)
 
   useEffect(() => {
@@ -476,6 +477,43 @@ const Chat = () => {
     }
     fetchEndpoints()
   }, [])
+
+  // Validate and update inferenceId based on available endpoints
+  useEffect(() => {
+    if (availableEndpoints === null)
+      return
+    const validIds = availableEndpoints.map(e => e.inference_id)
+    const isCurrentIdValid = inferenceId && validIds.includes(inferenceId)
+    if (!isCurrentIdValid) {
+      if (validIds.includes('.rainbow-sprinkles-elastic')) {
+        setInferenceId('.rainbow-sprinkles-elastic')
+      } else if (availableEndpoints.length > 0) {
+        setInferenceId(availableEndpoints[0].inference_id)
+      } else {
+        if (inferenceId !== '') setInferenceId('')
+      }
+    }
+  }, [availableEndpoints, inferenceId, setInferenceId])
+
+  // Restore inferenceId from conversation history when loaded
+  useEffect(() => {
+    if (!conversationId || conversation.length === 0 || availableEndpoints === null) {
+      if (!conversationId) lastProcessedInferenceConvId.current = null
+      return
+    }
+
+    if (lastProcessedInferenceConvId.current === conversationId) return
+
+    const lastRoundWithInferenceId = [...conversation].reverse().find(r => r.model_usage?.inference_id)
+    if (lastRoundWithInferenceId) {
+      const lastId = lastRoundWithInferenceId.model_usage.inference_id
+      const isValid = availableEndpoints.some(e => e.inference_id === lastId)
+      if (isValid) {
+        setInferenceId(lastId)
+      }
+    }
+    lastProcessedInferenceConvId.current = conversationId
+  }, [conversationId, conversation, availableEndpoints, setInferenceId])
 
   useEffect(() => {
     if (isHistoryPopoverOpen) {

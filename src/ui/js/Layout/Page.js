@@ -153,8 +153,8 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
             <EuiFlexGroup alignItems="center">
               <EuiFlexItem grow={false}>
                 {!deploymentMode && <EuiIcon size="s" type="question" />}
-                {deploymentMode === 'serverless' && <EuiIcon size="s" type="logoElasticCloud" />}
-                {deploymentMode === 'cloud' && <EuiIcon size="s" type="logoElasticCloud" />}
+                {deploymentMode === 'serverless' && <EuiIcon size="s" type="logoCloud" />}
+                {deploymentMode === 'cloud' && <EuiIcon size="s" type="logoCloud" />}
                 {deploymentMode === 'standard' && <EuiIcon size="s" type="logoElasticsearch" />}
               </EuiFlexItem>
               <EuiFlexItem grow={true}>
