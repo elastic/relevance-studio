@@ -36,7 +36,6 @@ import {
   EuiModalHeaderTitle,
   EuiPanel,
   EuiPopover,
-  EuiPortal,
   EuiSpacer,
   EuiSplitPanel,
   EuiText,
@@ -834,7 +833,7 @@ const Chat = () => {
     return null
 
   return (
-    <EuiPortal>
+    <>
       <EuiFlyout
         aria-labelledby="chatFlyoutTitle"
         className="chat"
@@ -848,7 +847,12 @@ const Chat = () => {
         style={{
           background: darkMode
             ? 'linear-gradient(rgb(11, 22, 40) 21.09%, rgb(7, 16, 31) 51.44%, rgb(11, 22, 40) 87.98%)'
-            : 'linear-gradient(rgb(255, 255, 255) 21.09%, rgb(246, 249, 252) 51.44%, rgb(255, 255, 255) 87.98%)'
+            : 'linear-gradient(rgb(255, 255, 255) 21.09%, rgb(246, 249, 252) 51.44%, rgb(255, 255, 255) 87.98%)',
+          boxShadow: darkMode
+            ? '10px 3px 10px 0px hsla(0,0%,0%,0.52), 14px 6px 14px 0px hsla(0,0%,0%,0.28)'
+            : '2px 0px 2px 0px hsla(216.67,29.51%,23.92%,0.16), 10px 3px 10px 0px hsla(216.67,29.51%,23.92%,0.1), 14px 6px 14px 0px hsla(216.67,29.51%,23.92%,0.06)',
+          clipPath: 'none',
+          margin: '0 8px 8px 0',
         }}
         type="push"
       >
@@ -1032,13 +1036,15 @@ const Chat = () => {
                                     onMouseLeave={() => setHoveredConvId(null)}
                                   >
                                     <EuiFlexGroup gutterSize="none" alignItems="center" responsive={false}>
-                                      <EuiFlexItem>
+                                      <EuiFlexItem style={{ minWidth: 0 }}>
                                         <EuiContextMenuItem
                                           size="s"
                                           onClick={() => handleSelectConversation(conv)}
                                           style={{ width: '100%' }}
                                         >
-                                          {conv.title}
+                                          <span className="eui-textTruncate" title={conv.title} style={{ display: 'block' }}>
+                                            {conv.title}
+                                          </span>
                                         </EuiContextMenuItem>
                                       </EuiFlexItem>
                                       <EuiFlexItem grow={false}>
@@ -1080,7 +1086,7 @@ const Chat = () => {
                 </EuiFlexItem>
 
                 {/* Center Section: Conversation Title */}
-                <EuiFlexItem grow={true}>
+                <EuiFlexItem grow={true} style={{ minWidth: 0 }}>
                   {(conversation.length > 0 || conversationId) && (
                     <div
                       style={{ textAlign: 'center' }}
@@ -1089,7 +1095,7 @@ const Chat = () => {
                     >
                       {isEditingTitle ? (
                         <EuiFlexGroup gutterSize="s" alignItems="center" justifyContent="center" responsive={false} style={{ height: '32px' }}>
-                          <EuiFlexItem grow={true}>
+                          <EuiFlexItem grow={true} style={{ minWidth: 0 }}>
                             <EuiFieldText
                               autoFocus
                               fullWidth
@@ -1352,7 +1358,7 @@ const Chat = () => {
           </p>
         </EuiConfirmModal>
       )}
-    </EuiPortal>
+    </>
   )
 }
 

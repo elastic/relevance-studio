@@ -72,10 +72,8 @@ const Breadcrumbs = () => {
     if (shouldWaitForInitialLoad)
       return
 
-    // Breadcrumbs for the NotFound route
     if (path === '*') {
       setBreadcrumbs([
-        { text: 'Home', href: '#/' },
         { text: 'Not Found' }
       ])
       return
@@ -84,11 +82,7 @@ const Breadcrumbs = () => {
     // Breadcrumbs for all other routes
     const parts = path.split('/').filter(Boolean)
     const urlParts = url.split('/').filter(Boolean)
-    const homeCrumb = { text: 'Home' }
-    if (parts.length > 0) {
-      homeCrumb.href = '#/'
-    }
-    const crumbs = [homeCrumb]
+    const crumbs = []
     let accumulated = '#'
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]

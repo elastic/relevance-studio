@@ -9,7 +9,6 @@ import { useEffect } from 'react'
 import { Router, Route, Switch } from 'react-router-dom'
 import { EuiProvider } from '@elastic/eui'
 import { useAppContext } from './Contexts/AppContext'
-import { useChatContext } from './Contexts/ChatContext'
 import { ResourceProvider } from './Contexts/ResourceContext'
 import { Pages } from './Pages'
 import { Chat } from './Layout'
@@ -45,7 +44,6 @@ const Routes = () => {
 
   const title = 'Elasticsearch Relevance Studio'
   const { darkMode } = useAppContext()
-  const { chatOpen, setChatOpen } = useChatContext()
 
   return (
     <EuiProvider colorMode={darkMode ? 'dark' : 'light'}>
