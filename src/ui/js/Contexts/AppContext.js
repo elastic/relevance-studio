@@ -20,25 +20,28 @@ export const AppProvider = ({ children }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
+  const [deploymentMode, setDeploymentMode] = useState(null)
+  const [hasCheckedSetup, setHasCheckedSetup] = useState(false)
+  const [isCheckingSetup, setIsCheckingSetup] = useState(false)
+  const [isSetup, setIsSetup] = useState(null)
+  const [licenseType, setLicenseType] = useState(null)
+  const [licenseStatus, setLicenseStatus] = useState(null)
+
   // Local storage state
   const [autoRefresh, setAutoRefresh] = useState(() => {
     const val = localStorage.getItem('autoRefresh')
     return val === null ? true : val === 'true' // defaults to true
   })
   const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('darkMode') === 'true' // defaults to false
+    const val = localStorage.getItem('darkMode')
+    return val === null ? false : val === 'true'; // defaults to false
   })
-  const [deploymentMode, setDeploymentMode] = useState(null)
-  const [licenseType, setLicenseType] = useState(null)
-  const [licenseStatus, setLicenseStatus] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const val = localStorage.getItem('sidebarOpen')
     return val === null ? false : val === 'true'; // defaults to false
   })
-
   useEffect(() => localStorage.setItem('autoRefresh', autoRefresh), [autoRefresh])
   useEffect(() => localStorage.setItem('darkMode', darkMode), [darkMode])
-  useEffect(() => localStorage.setItem('deploymentMode', deploymentMode), [deploymentMode])
   useEffect(() => localStorage.setItem('sidebarOpen', sidebarOpen), [sidebarOpen])
 
   // Toasts
@@ -55,46 +58,36 @@ export const AppProvider = ({ children }) => {
     return () => { _appContext = null }
   }, [addToast])
 
-  // Check setup
-  const [isSetup, setIsSetup] = useState(null)
+  // Check setup & deployment info
   useEffect(() => {
-    const checkSetup = async () => {
+    const initApp = async () => {
+      setIsCheckingSetup(true)
       try {
         const response = await api.setup_check()
 
-        // Check deployment mode
-        if (response?.data?.deployment?.mode)
-          setDeploymentMode(response.data.deployment.mode)
+        // Deployment info
+        setDeploymentMode(response?.data?.deployment?.mode)
+        setLicenseType(response?.data?.deployment?.license?.type)
+        setLicenseStatus(response?.data?.deployment?.license?.status)
 
-        // Check if setup is complete
-        if ((response?.data?.setup?.failures ?? 0) > 0)
+        // Setup status
+        if ((response?.data?.setup?.failures ?? 0) > 0) {
           setIsSetup(false)
-        else
+        } else {
           setIsSetup(true)
+        }
       } catch (e) {
-        console.error(e)
+        console.error('Failed to initialize app:', e)
         setIsSetup(false)
-      }
-    }
-    checkSetup()
-  }, [])
-
-  // Get deployment info
-  useEffect(() => {
-    const getDeploymentInfo = async () => {
-      try {
-        const response = await api.setup_check()
-        setDeploymentMode(response.data.deployment?.mode)
-        setLicenseType(response.data.deployment?.license?.type)
-        setLicenseStatus(response.data.deployment?.license?.status)
-      } catch (e) {
-        console.error('Failed to load deployment info:', e)
         setDeploymentMode(null)
         setLicenseType(null)
         setLicenseStatus(null)
+      } finally {
+        setIsCheckingSetup(false)
+        setHasCheckedSetup(true)
       }
     }
-    getDeploymentInfo()
+    initApp()
   }, [])
 
   const value = useMemo(() => ({
@@ -102,6 +95,8 @@ export const AppProvider = ({ children }) => {
     autoRefresh,
     darkMode,
     deploymentMode,
+    hasCheckedSetup,
+    isCheckingSetup,
     licenseType,
     licenseStatus,
     isSetup,
@@ -119,6 +114,8 @@ export const AppProvider = ({ children }) => {
     darkMode,
     autoRefresh,
     deploymentMode,
+    hasCheckedSetup,
+    isCheckingSetup,
     licenseType,
     licenseStatus,
     sidebarOpen,

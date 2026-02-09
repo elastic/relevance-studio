@@ -409,7 +409,7 @@ const useDebounce = (value, delay) => {
 }
 
 const Chat = () => {
-  const { darkMode, addToast } = useAppContext()
+  const { addToast, darkMode, hasCheckedSetup, licenseStatus, licenseType } = useAppContext()
   const {
     inferenceId,
     setInferenceId,
@@ -792,6 +792,9 @@ const Chat = () => {
   if (!isFlyoutOpen)
     return null
 
+  if (!hasCheckedSetup)
+    return null
+
   return (
     <EuiPortal>
       <EuiFlyout
@@ -811,13 +814,14 @@ const Chat = () => {
         }}
         type="push"
       >
-        {availableEndpoints === null ? (
+        {(!hasCheckedSetup || availableEndpoints === null) ? (
           <>
+            {/* Prerequisites of license and chat completion endpoints are still being checked */}
             <EuiFlyoutHeader hasBorder={false} style={{ padding: '16px' }}>
               <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" responsive={false} style={{ height: '56px' }}>
                 <EuiFlexItem grow={false} style={{ width: '80px' }} />
                 <EuiFlexItem grow={false}>
-                  <EuiLoadingSpinner size="m" />
+                  <></>
                 </EuiFlexItem>
                 <EuiFlexItem grow={false} style={{ width: '80px', textAlign: 'right' }}>
                   <EuiFlexGroup gutterSize="s" alignItems="center" justifyContent="flexEnd" responsive={false}>
@@ -841,12 +845,13 @@ const Chat = () => {
             </EuiFlyoutBody>
             <EuiFlyoutFooter style={{ backgroundColor: 'transparent', padding: '16px' }}>
               <EuiFlexGroup justifyContent="center">
-                <EuiLoadingSpinner size="m" />
+                <></>
               </EuiFlexGroup>
             </EuiFlyoutFooter>
           </>
-        ) : availableEndpoints.length === 0 ? (
+        ) : (availableEndpoints?.length === 0 || licenseStatus !== 'active' || licenseType !== 'enterprise') ? (
           <>
+            {/* At least one prerequisites of license or chat completion endpoints are not met. */}
             <EuiFlyoutHeader hasBorder={false} style={{ padding: '16px' }}>
               <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" responsive={false} style={{ height: '56px' }}>
                 <EuiFlexItem grow={false} style={{ width: '80px' }} />
@@ -871,33 +876,63 @@ const Chat = () => {
                 <EuiPanel paddingSize="xl" style={{ textAlign: 'center' }}>
                   <EuiIcon color="subdued" type="plugs" size="l" />
                   <EuiSpacer size="l" />
-                  <EuiTitle size="m">
-                    <h3>No Inference Endpoints Found</h3>
+                  <EuiTitle size="s">
+                    <h3>Agent Not Ready</h3>
                   </EuiTitle>
                   <EuiSpacer size="l" />
-                  <EuiText size="s">
-                    <p>
-                      AI Agent requires a <span style={{ fontWeight: 500 }}>chat completion inference endpoint</span>.<br />
-                      You can configure this in Kibana or Elasticsearch.
-                    </p>
-                  </EuiText>
-                  <EuiSpacer size="l" />
-                  <EuiButton
-                    href="https://www.elastic.co/docs/explore-analyze/elastic-inference/inference-api"
-                    iconSide="right"
-                    iconSize="s"
-                    iconType="popout"
-                    size="s"
-                    target="_blank"
-                  >
-                    Learn More
-                  </EuiButton>
+                  {
+                    licenseStatus === 'active' && licenseType === 'enterprise' &&
+                    <>
+                      <EuiText size="s">
+                        <p>
+                          Agents require a <span style={{ fontWeight: 500 }}>chat completion inference endpoint</span>.<br />
+                          You can configure this in Kibana or Elasticsearch.
+                        </p>
+                      </EuiText>
+                      <EuiSpacer size="l" />
+                      <EuiButton
+                        href="https://www.elastic.co/docs/explore-analyze/elastic-inference/inference-api"
+                        iconSide="right"
+                        iconSize="s"
+                        iconType="popout"
+                        size="s"
+                        target="_blank"
+                      >
+                        Learn More
+                      </EuiButton>
+                    </>
+                  }
+                  {
+                    (licenseStatus !== 'active' || licenseType !== 'enterprise') &&
+                    <>
+                      <EuiText size="s">
+                        <p>
+                          Agents require an active <a href="https://www.elastic.co/docs/deploy-manage/license" target="_blank">enterprise license</a><br />to use the <a href="https://www.elastic.co/docs/explore-analyze/elastic-inference/inference-api" target="_blank">Elasticsearch Inference API</a>.
+                        </p>
+                        <p>
+                          Your license is: <span style={{ fontWeight: 500 }}>{licenseType || 'unknown'}</span> {!!licenseStatus && licenseStatus !== 'unknown' && <EuiText color="subdued" size="xs" component="span"><small>({licenseStatus})</small></EuiText>}
+                        </p>
+                      </EuiText>
+                      <EuiSpacer size="l" />
+                      <EuiButton
+                        href="https://www.elastic.co/subscriptions"
+                        iconSide="right"
+                        iconSize="s"
+                        iconType="popout"
+                        size="s"
+                        target="_blank"
+                      >
+                        Get a license
+                      </EuiButton>
+                    </>
+                  }
                 </EuiPanel>
               </EuiFlexGroup>
             </EuiFlyoutBody>
           </>
         ) : (
           <>
+            {/* All prerequisites of license and chat completion endpoints are met. */}
             <EuiFlyoutHeader hasBorder={false} style={{ padding: '16px' }}>
               <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" responsive={false} style={{ height: '56px' }}>
                 {/* Left Section: History & New Chat */}
