@@ -28,7 +28,7 @@ import { useChatContext } from '../Contexts/ChatContext'
 import Breadcrumbs from './Breadcrumbs'
 import SideNav from './SideNav'
 
-const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' }) => {
+const Page = ({ title, buttons, children }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -80,13 +80,13 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
             />
           </div>
         </a>,
-        <>
+        <div style={{ paddingLeft: '8px' }}>
           {
             path === '/'
               ? <EuiText size='s' style={{ fontWeight: 500 }}>Elasticsearch Relevance Studio</EuiText>
               : <Breadcrumbs />
           }
-        </>,
+        </div>,
       ],
     },
     {
@@ -202,13 +202,17 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
         style={{ height: '48px', paddingLeft: 0 }}
       />
       <EuiPageTemplate
-        bottomBorder={false}
+        contentBorder={false}
         grow={true}
         offset={0}
-        panelled={true}
+        paddingSize='s'
+        panelled={false}
         responsive={[]}
         restrictWidth={false}
-        style={{ height: 'calc(100vh - 48px)', padding: '48px 8px 8px 0' }}
+        style={{
+          height: 'calc(100vh - 48px)',
+          padding: '48px 8px 8px 0'
+        }}
       >
 
         {/* Sidebar (separately scrollable from main content) */}
@@ -223,9 +227,16 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
           <SideNav />
         </EuiPageTemplate.Sidebar>
 
-        {/* Main (separately scrollable from sidebar) */}
-        <div style={{ flex: 1, height: '100%', minWidth: 0, overflowX: 'hidden', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+        {/* Main (separately scrollable from sidebar and chat panel) */}
+        <EuiPanel style={{
+          borderBottomRightRadius: chatOpen ? 0 : undefined,
+          borderTopRightRadius: chatOpen ? 0 : undefined,
+          flex: 1,
+          height: '100%',
+          minWidth: 0,
+          overflow: 'hidden',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
             {/* Header */}
             {title &&
@@ -233,35 +244,35 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
                 bottomBorder={false}
                 pageTitle={title}
                 rightSideItems={buttons || []}
-                style={{ minHeight: '90px' }}
+                style={{ minHeight: '64px' }}
               />
             }
 
             {/* Body */}
-            <section style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <section style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <EuiPanel
                 color={'transparent'}
                 hasBorder={false}
                 hasShadow={false}
-                paddingSize={panelled ? 'm' : paddingSize}
+                paddingSize='s'
                 style={{
                   borderRadius: 0,
                   flex: 1,
-                  display: 'flex'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: 0,
+                  overflow: 'hidden'
                 }}
               >
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                   {children}
                 </div>
               </EuiPanel>
             </section>
 
             {/* Notice */}
-            <div style={{ marginTop: 'auto', padding: '0 8px 8px 8px' }}>
-              <EuiPanel
-                color='transparent'
-                paddingSize='xs'
-              >
+            <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
+              <EuiPanel color='transparent' paddingSize='none'>
                 <EuiText color='subdued' size='xs'>
                   <p style={{ fontWeight: 400, fontSize: '11px', lineHeight: '14px' }}>
                     Elasticsearch Relevance Studio is licensed under <a href="https://github.com/elastic/relevance-studio/blob/main/LICENSE.txt" target='_blank' external={false}>Elastic License 2.0</a>, which permits you to use, modify, and distribute the software at no cost.
@@ -270,7 +281,7 @@ const Page = ({ title, buttons, children, panelled = false, paddingSize = 'l' })
               </EuiPanel>
             </div>
           </div>
-        </div>
+        </EuiPanel>
       </EuiPageTemplate>
     </div>
   )

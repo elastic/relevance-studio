@@ -144,7 +144,7 @@ const Home = () => {
   )
 
   return (
-    <Page panelled>
+    <Page>
       <EuiPanel color='transparent'>
         <div style={{ textAlign: 'center' }}>
           <EuiSpacer />

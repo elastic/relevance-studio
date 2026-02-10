@@ -26,7 +26,6 @@ import {
   EuiFlyoutHeader,
   EuiHorizontalRule,
   EuiIcon,
-  EuiLink,
   EuiLoadingElastic,
   EuiLoadingSpinner,
   EuiMarkdownFormat,
@@ -132,7 +131,7 @@ const UserMessageBubble = ({ content }) => {
 
 // Reasoning Panel Component
 const ReasoningPanel = ({ round, isSending }) => {
-  const { steps = [], model_usage, time_to_last_token } = round || {}
+  const { steps = [], model_usage, time_to_last_token, status } = round || {}
   const [isExpanded, setIsExpanded] = useState(false)
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [expandedToolCallId, setExpandedToolCallId] = useState(null)
@@ -143,11 +142,15 @@ const ReasoningPanel = ({ round, isSending }) => {
   const toggleExpand = () => setIsExpanded(!isExpanded)
 
   const getStatusText = () => {
-    if (round.status === 'completed' || time_to_last_token || (!isSending && round.status !== 'failed'))
+    if (status === 'completed' || time_to_last_token || (!isSending && status !== 'failed'))
       return 'Completed reasoning';
-    if (round.status === 'failed')
-      return 'Failed';
-    if (round.status === 'pending')
+
+    // Check for system errors in steps
+    const errorStep = (steps || []).find(s => s.results?.some(r => r.type === 'error'));
+    if (status === 'failed')
+      return errorStep ? `Failed: ${errorStep.results.find(r => r.type === 'error').data.message}` : 'Failed';
+
+    if (status === 'pending')
       return 'Pending...';
 
     const latestStep = steps && steps.length > 0 ? steps[steps.length - 1] : null;
@@ -165,11 +168,11 @@ const ReasoningPanel = ({ round, isSending }) => {
       {!isExpanded ? (
         <EuiFlexGroup gutterSize="s" alignItems="center" responsive={false} style={{ cursor: 'pointer', maxWidth: '100%' }} onClick={toggleExpand}>
           <EuiFlexItem grow={false}>
-            {round.status === 'failed' ? (
+            {status === 'failed' ? (
               <EuiIcon type="error" size="m" color="danger" />
-            ) : round.status === 'pending' ? (
+            ) : status === 'pending' ? (
               <EuiIcon type="clock" size="m" color="subdued" />
-            ) : (round.status === 'completed' || getStatusText() === 'Completed reasoning') ? (
+            ) : (status === 'completed' || getStatusText() === 'Completed reasoning') ? (
               <EuiIcon type="sparkles" size="m" color="text" />
             ) : (
               <EuiLoadingElastic size="m" />
@@ -190,11 +193,11 @@ const ReasoningPanel = ({ round, isSending }) => {
             <EuiFlexItem grow={false}>
               <EuiFlexGroup gutterSize="s" alignItems="center" responsive={false}>
                 <EuiFlexItem grow={false}>
-                  {round.status === 'failed' ? (
+                  {status === 'failed' ? (
                     <EuiIcon type="error" size="m" color="danger" />
-                  ) : round.status === 'pending' ? (
+                  ) : status === 'pending' ? (
                     <EuiIcon type="clock" size="m" color="subdued" />
-                  ) : (round.status === 'completed' || getStatusText() === 'Completed reasoning') ? (
+                  ) : (status === 'completed' || getStatusText() === 'Completed reasoning') ? (
                     <EuiIcon type="sparkles" size="m" color="text" />
                   ) : (
                     <EuiLoadingElastic size="m" />
@@ -217,58 +220,169 @@ const ReasoningPanel = ({ round, isSending }) => {
                   <EuiFlexGroup gutterSize="s" alignItems="flexStart" responsive={false}>
                     <EuiFlexItem grow={false} style={{ marginTop: '2px' }}>
                       {step.results?.some(r => r.type === 'error') ? (
-                        <EuiIcon type="error" color="danger" size="m" />
+                        <EuiIcon type="cross" color="danger" size="m" />
                       ) : (step.results?.length > 0 || (step.type === 'reasoning' && step.reasoning)) ? (
                         <EuiIcon type="check" color="success" size="m" />
                       ) : (
                         <EuiLoadingSpinner size="s" />
                       )}
                     </EuiFlexItem>
-                    <EuiFlexItem>
+                    <EuiFlexItem style={{ minWidth: 0 }}>
                       {step.type === 'reasoning' ? (
-                        <EuiText size="s" color="subdued">{step.reasoning}</EuiText>
-                      ) : (
-                        <EuiAccordion
-                          id={`step-${step.tool_call_id}`}
-                          arrowDisplay={hasParams ? 'right' : 'none'}
-                          buttonContent={
-                            <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
-                              <EuiFlexItem grow={false}>
-                                <EuiText size="s" color="subdued">Calling tool </EuiText>
-                              </EuiFlexItem>
-                              <EuiFlexItem grow={false}>
-                                <EuiLink size="s" color="subdued">
-                                  {step.tool_id}
-                                </EuiLink>
-                              </EuiFlexItem>
-                              <EuiFlexItem grow={false}>
-                                <EuiIcon type="popout" size="s" color="subdued" />
-                              </EuiFlexItem>
-                            </EuiFlexGroup>
-                          }
-                          paddingSize="none"
-                        >
-                          <div style={{ marginTop: '8px', marginLeft: '4px', paddingBottom: '8px' }}>
-                            {hasParams && (
-                              <EuiSplitPanel.Outer direction="column" hasBorder={true} style={{ marginBottom: '8px' }}>
-                                <EuiSplitPanel.Inner paddingSize="m" color="plain">
-                                  <EuiText size="s"><strong>Parameters</strong></EuiText>
+                        <>
+                          <EuiText size="s" color="subdued">{step.reasoning}</EuiText>
+                          {step.results?.map((result, i) => {
+                            const isError = result.type === 'error';
+                            const title = isError ? 'Error' : 'Results';
+                            let message = result.data?.message;
+                            if (!message && result.data) {
+                              if (result.data.result !== undefined && result.data.result !== null) {
+                                message = typeof result.data.result === 'string'
+                                  ? result.data.result
+                                  : JSON.stringify(result.data.result, null, 2);
+                              } else if (typeof result.data === 'string') {
+                                message = result.data;
+                              } else if (!isError) {
+                                message = JSON.stringify(result.data, null, 2);
+                              }
+                            }
+
+                            if (!message)
+                              return null;
+                            let messageParsed;
+                            let isJson = false;
+                            try {
+                              messageParsed = JSON.stringify(JSON.parse(message), null, 2)
+                              isJson = true;
+                            } catch (e) {
+                              messageParsed = String(message)
+                            }
+
+                            return (
+                              <EuiSplitPanel.Outer key={i} direction="column" hasBorder={true} style={{ marginTop: '8px' }}>
+                                <EuiSplitPanel.Inner
+                                  paddingSize="m"
+                                  color={isError ? 'danger' : 'plain'}
+                                >
+                                  <EuiText size="s">
+                                    <strong>{title}</strong>
+                                  </EuiText>
                                 </EuiSplitPanel.Inner>
                                 <EuiSplitPanel.Inner paddingSize="none" color="transparent">
-                                  <EuiCodeBlock language="json" fontSize="s" paddingSize="m" isCopyable>
-                                    {(() => {
-                                      try {
-                                        const parsed = typeof step.params === 'string' ? JSON.parse(step.params) : step.params
-                                        return JSON.stringify(parsed, null, 2)
-                                      } catch (e) {
-                                        return String(step.params)
-                                      }
-                                    })()}
+                                  <EuiCodeBlock
+                                    fontSize="s"
+                                    isCopyable
+                                    language={isJson ? 'json' : 'text'}
+                                    lineNumbers={true}
+                                    overflowHeight={200}
+                                    paddingSize="m"
+                                    whiteSpace="pre-wrap"
+                                  >
+                                    {messageParsed}
                                   </EuiCodeBlock>
                                 </EuiSplitPanel.Inner>
                               </EuiSplitPanel.Outer>
-                            )}
-                          </div>
+                            );
+                          })}
+                        </>
+                      ) : (
+                        <EuiAccordion
+                          arrowDisplay="right"
+                          id={`step-${step.tool_call_id || idx}`}
+                          initialIsOpen={false}
+                          paddingSize="none"
+                          buttonContent={
+                            <EuiText size="s" color="subdued">Calling tool {step.tool_id}</EuiText>
+                          }
+                        >
+                          <EuiSpacer size="m" />
+                          {hasParams && (
+                            <EuiSplitPanel.Outer direction="column" hasBorder={true} style={{ marginBottom: '8px' }}>
+                              <EuiSplitPanel.Inner paddingSize="m" color="plain">
+                                <EuiText color="subdued" size="s">
+                                  <strong>Parameters</strong>
+                                </EuiText>
+                              </EuiSplitPanel.Inner>
+                              <EuiSplitPanel.Inner paddingSize="none" color="transparent">
+                                <EuiCodeBlock
+                                  fontSize="s"
+                                  isCopyable
+                                  language="json"
+                                  lineNumbers={true}
+                                  overflowHeight={200}
+                                  paddingSize="m"
+                                  whiteSpace="pre-wrap"
+                                >
+                                  {(() => {
+                                    try {
+                                      const parsed = typeof step.params === 'string' ? JSON.parse(step.params) : step.params
+                                      return JSON.stringify(parsed, null, 2)
+                                    } catch (e) {
+                                      return String(step.params)
+                                    }
+                                  })()}
+                                </EuiCodeBlock>
+                              </EuiSplitPanel.Inner>
+                            </EuiSplitPanel.Outer>
+                          )}
+
+                          {step.results?.map((result, i) => {
+                            const isError = result.type === 'error';
+                            const title = isError ? 'Error' : 'Result';
+
+                            // Priority: data.message, then data.result, then data itself
+                            let message = result.data?.message;
+                            if (!message && result.data) {
+                              if (result.data.result !== undefined && result.data.result !== null) {
+                                message = typeof result.data.result === 'string'
+                                  ? result.data.result
+                                  : JSON.stringify(result.data.result, null, 2);
+                              } else if (typeof result.data === 'string') {
+                                message = result.data;
+                              } else if (!isError) {
+                                // For successes, if we have data but no message/result, stringify it
+                                message = JSON.stringify(result.data, null, 2);
+                              }
+                            }
+
+                            if (!message)
+                              return null;
+                            let messageParsed;
+                            let isJson = false;
+                            try {
+                              messageParsed = JSON.stringify(JSON.parse(message), null, 2)
+                              isJson = true;
+                            } catch (e) {
+                              messageParsed = String(message)
+                            }
+
+                            return (
+                              <EuiSplitPanel.Outer key={i} direction="column" hasBorder={true} style={{ marginTop: '8px' }}>
+                                <EuiSplitPanel.Inner
+                                  paddingSize="m"
+                                  color={isError ? 'danger' : 'plain'}
+                                >
+                                  <EuiText color={isError ? 'danger' : 'subdued'} size="s">
+                                    <strong>{title}</strong>
+                                  </EuiText>
+                                </EuiSplitPanel.Inner>
+                                <EuiSplitPanel.Inner paddingSize="none" color="transparent">
+                                  <EuiCodeBlock
+                                    fontSize="s"
+                                    isCopyable
+                                    language={isJson ? 'json' : 'text'}
+                                    lineNumbers={true}
+                                    overflowHeight={200}
+                                    paddingSize="m"
+                                    whiteSpace="pre-wrap"
+                                  >
+                                    {messageParsed}
+                                  </EuiCodeBlock>
+                                </EuiSplitPanel.Inner>
+                              </EuiSplitPanel.Outer>
+                            );
+                          })}
+                          <EuiSpacer size="m" />
                         </EuiAccordion>
                       )}
                     </EuiFlexItem>
@@ -346,7 +460,7 @@ const RoundItem = ({ round, latestUserMessageRef, isSending }) => {
       {/* User Input */}
       <EuiFlexGroup justifyContent="flexEnd" responsive={false}>
         <EuiFlexItem grow={false} style={{ maxWidth: '80%', paddingRight: '8px' }}>
-          <UserMessageBubble content={round.input.message} />
+          <UserMessageBubble content={round?.input?.message} />
         </EuiFlexItem>
       </EuiFlexGroup>
 
@@ -360,7 +474,7 @@ const RoundItem = ({ round, latestUserMessageRef, isSending }) => {
             <ReasoningPanel round={round} isSending={isSending} />
 
             {/* Final Response Message */}
-            {round.response?.message && (
+            {round?.response?.message && (
               <>
                 <EuiMarkdownFormat>
                   {round.response.message}
@@ -607,8 +721,9 @@ const Chat = () => {
     if (!currentMessage.trim() || isSending) return
 
     const ui_context = {
-      ...params,
+      base_url: window.location.origin,
       route: location.pathname,
+      ...params,
     }
 
     const convId = conversationId || crypto.randomUUID()
@@ -693,6 +808,10 @@ const Chat = () => {
                 const newRounds = [...prev]
                 const currentRound = newRounds[newRounds.length - 1]
 
+                if (!currentRound && event !== 'conversation_id_set') {
+                  return newRounds
+                }
+
                 switch (event) {
                   case 'conversation_id_set':
                     if (!conversationId) setConversationId(payload.conversation_id)
@@ -700,6 +819,7 @@ const Chat = () => {
                   case 'reasoning':
                     // Append to last step if it's reasoning, otherwise create new reasoning step
                     {
+                      if (!currentRound.steps) currentRound.steps = []
                       let lastStep = currentRound.steps[currentRound.steps.length - 1]
                       if (lastStep && lastStep.type === 'reasoning') {
                         lastStep.reasoning += payload.reasoning
@@ -710,6 +830,7 @@ const Chat = () => {
                     break
                   case 'tool_call':
                     // If a tool call starts, we just push it
+                    if (!currentRound.steps) currentRound.steps = []
                     currentRound.steps.push({
                       type: 'tool_call',
                       tool_id: payload.tool_id,
@@ -718,15 +839,42 @@ const Chat = () => {
                       results: []
                     })
                     break
+                  case 'step_failure':
+                    {
+                      if (!currentRound.steps) currentRound.steps = []
+                      let lastStep = currentRound.steps[currentRound.steps.length - 1];
+                      if (!lastStep) {
+                        lastStep = { type: 'reasoning', reasoning: '' };
+                        currentRound.steps.push(lastStep);
+                      }
+                      if (!lastStep.results) lastStep.results = [];
+                      lastStep.results.push({
+                        type: 'error',
+                        data: { message: payload.error }
+                      });
+                    }
+                    break;
                   case 'tool_result':
                     {
-                      const toolStep = currentRound.steps.find(s => s.tool_call_id === payload.tool_call_id)
-                      if (toolStep) {
-                        toolStep.results.push({
-                          type: payload.type || 'success',
-                          data: payload.data
-                        })
+                      if (!currentRound.steps) currentRound.steps = []
+                      let toolStep = currentRound.steps.find(s => s.tool_call_id === payload.tool_call_id)
+                      // If no tool step exists for this result (e.g. system error), create one
+                      if (!toolStep) {
+                        toolStep = {
+                          type: 'tool_call',
+                          tool_id: 'system_error',
+                          tool_call_id: payload.tool_call_id,
+                          params: {},
+                          results: []
+                        }
+                        currentRound.steps.push(toolStep)
                       }
+
+                      if (!toolStep.results) toolStep.results = []
+                      toolStep.results.push({
+                        type: payload.type || 'success',
+                        data: payload.data
+                      })
                     }
                     break
                   case 'model_usage':
@@ -737,6 +885,9 @@ const Chat = () => {
                     Object.assign(currentRound, payload)
                     break
                   case 'round':
+                    if (!currentRound.response) currentRound.response = { message: '' }
+                    if (typeof currentRound.response.message !== 'string') currentRound.response.message = ''
+
                     if (needsNewline && currentRound.response.message.length > 0) {
                       currentRound.response.message += '\n\n'
                     }
@@ -746,6 +897,9 @@ const Chat = () => {
                   default:
                     // Handle old format for backward compatibility or unexpected formats
                     if (eventData.choices?.[0]?.delta?.content) {
+                      if (!currentRound.response) currentRound.response = { message: '' }
+                      if (typeof currentRound.response.message !== 'string') currentRound.response.message = ''
+
                       if (needsNewline && currentRound.response.message.length > 0) {
                         currentRound.response.message += '\n\n'
                       }
@@ -848,10 +1002,12 @@ const Chat = () => {
           background: darkMode
             ? 'linear-gradient(rgb(11, 22, 40) 21.09%, rgb(7, 16, 31) 51.44%, rgb(11, 22, 40) 87.98%)'
             : 'linear-gradient(rgb(255, 255, 255) 21.09%, rgb(246, 249, 252) 51.44%, rgb(255, 255, 255) 87.98%)',
+          borderBottomRightRadius: '4px',
+          borderTopRightRadius: '4px',
           boxShadow: darkMode
             ? '10px 3px 10px 0px hsla(0,0%,0%,0.52), 14px 6px 14px 0px hsla(0,0%,0%,0.28)'
-            : '2px 0px 2px 0px hsla(216.67,29.51%,23.92%,0.16), 10px 3px 10px 0px hsla(216.67,29.51%,23.92%,0.1), 14px 6px 14px 0px hsla(216.67,29.51%,23.92%,0.06)',
-          clipPath: 'none',
+            : '0px 0px 2px 0px hsla(216.67,29.51%,23.92%,0.16),0px 3px 10px 0px hsla(216.67,29.51%,23.92%,0.1),0px 6px 14px 0px hsla(216.67,29.51%,23.92%,0.06)',
+          clipPath: 'inset(-100px -100px -100px 0px)',
           margin: '0 8px 8px 0',
         }}
         type="push"

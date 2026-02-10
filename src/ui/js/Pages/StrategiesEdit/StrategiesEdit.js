@@ -81,6 +81,12 @@ const StrategiesEdit = () => {
     setLastSavedStrategy(strategy)
     if (strategy.template?.source)
       setStrategyDraft(utils.formatJsonWithMustache(strategy.template.source))
+
+    // Reset test results when switching strategies
+    setResults([])
+    setResultsRankEval({})
+    setHasSearched(false)
+    setErrorContent(null)
   }, [strategy])
 
   /**
@@ -489,9 +495,10 @@ const StrategiesEdit = () => {
         paddingSize='none'
         style={{
           display: 'flex',
+          flexDirection: 'column',
           flex: 1,
           minHeight: 0,
-          overflow: 'visible',
+          overflow: 'hidden',
           position: 'relative',
         }}>
         {isLoadingResults &&
@@ -512,8 +519,10 @@ const StrategiesEdit = () => {
           color='subdued'
           paddingSize='m'
           style={{
+            flex: 1,
+            minHeight: 0,
             opacity: isLoadingResults ? 0.5 : 1.0,
-            overflow: 'scroll',
+            overflowY: 'auto',
           }}
         >
           {errorContent ? renderError() : renderResults()}
@@ -704,7 +713,7 @@ const StrategiesEdit = () => {
   )
 
   return (
-    <Page panelled={true} title={
+    <Page title={
       <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!strategy &&
           <>Not found</>

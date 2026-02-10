@@ -419,7 +419,7 @@ const Judgements = () => {
   )
 
   return (
-    <Page title='Judgements' color='subdued' panelled={true}>
+    <Page title='Judgements' color='subdued'>
       <EuiFlexGroup gutterSize='m' alignItems='flexStart'>
         <EuiFlexItem grow>
 
@@ -430,7 +430,7 @@ const Judgements = () => {
             style={{
               margin: '-16px -20px 10px -20px',
               position: 'sticky',
-              top: 0,
+              top: '-16px',
               zIndex: 9
             }}
           >

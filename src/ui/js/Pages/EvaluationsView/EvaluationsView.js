@@ -334,7 +334,7 @@ const EvaluationsView = () => {
   )
 
   return (
-    <Page panelled={true} title={
+    <Page title={
       <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!benchmark?.name &&
           <>Not found</>

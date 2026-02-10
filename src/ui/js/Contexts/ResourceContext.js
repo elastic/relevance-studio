@@ -181,9 +181,26 @@ export const ResourceProvider = ({ children }) => {
         }
       })
 
-      // Determine which resources actually need to be loaded (not already available)
+      // Determine which resources actually need to be loaded (not already available or ID mismatch)
       const resourcesToFetch = allResourcesToLoad.filter(resourceType => {
-        return !currentResources[resourceType]
+        const currentResource = currentResources[resourceType]
+        if (!currentResource) return true
+
+        // 1. Check if this specific resource's ID has changed in the URL
+        const idParamName = Object.keys(PARAM_TO_RESOURCE).find(key => PARAM_TO_RESOURCE[key] === resourceType)
+        if (idParamName && params[idParamName] && currentResource._id !== params[idParamName]) {
+          console.debug(`🔄 Resource ${resourceType} ID mismatch: ${currentResource._id} vs ${params[idParamName]}`)
+          return true
+        }
+
+        // 2. Check if any parent resource's ID has changed (e.g., workspace_id)
+        // Most resources depend on workspace_id, so if it changes, we should re-fetch.
+        if (resourceType !== 'workspace' && params.workspace_id && currentResources['workspace']?._id && currentResources['workspace']._id !== params.workspace_id) {
+          console.debug(`🔄 Resource ${resourceType} stale due to workspace change`)
+          return true
+        }
+
+        return false
       })
 
       if (resourcesToFetch.length === 0) {
@@ -198,8 +215,9 @@ export const ResourceProvider = ({ children }) => {
 
       console.debug('🔄 Resources to fetch:', resourcesToFetch)
 
-      // Set loading state for new resources only
+      // Set loading state and clear stale data for resources we're about to fetch
       resourcesToFetch.forEach(resourceType => {
+        delete currentResources[resourceType] // Clear stale data to trigger loading state
         currentLoading[resourceType] = true
         delete currentErrors[resourceType] // Clear any previous errors
       })

@@ -154,7 +154,7 @@ const WorkspacesView = () => {
   )
 
   return (
-    <Page panelled title={
+    <Page title={
       <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!workspace?.name &&
           <>Not found</>
