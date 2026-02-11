@@ -465,13 +465,14 @@ const StrategiesEdit = () => {
       hasShadow={false}
       paddingSize='none'
       style={{
-        height: '100%',
+        flex: 1,
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
       }}
     >
       <EuiPanel color='transparent' grow={false} paddingSize='none'>
-        <EuiFlexGroup gutterSize='m'>
+        <EuiFlexGroup gutterSize='m' responsive={false}>
           <EuiFlexItem grow>
             {renderSelectScenarios()}
           </EuiFlexItem>
@@ -618,7 +619,7 @@ const StrategiesEdit = () => {
       <EuiPanel color='transparent' grow={false} paddingSize='none'>
 
         {/* Buttons */}
-        <EuiFlexGroup gutterSize='m'>
+        <EuiFlexGroup gutterSize='m' responsive={false}>
           <EuiFlexItem grow={false}>
             <EuiButton
               color='primary'
@@ -660,7 +661,7 @@ const StrategiesEdit = () => {
       {/* Display keyboard shortcuts */}
       <div style={{ flexShrink: 0, height: '24px', margin: '5px 0 -10px 0' }}>
         <EuiPanel color='transparent' grow={false} hasBorder={false} hasShadow={false} paddingSize='xs'>
-          <EuiFlexGroup gutterSize='m'>
+          <EuiFlexGroup gutterSize='m' responsive={false}>
             <EuiFlexItem grow={false}>
               <EuiIcon color='subdued' type='keyboard' style={{ margin: '-1px 10px 0 0' }} />
             </EuiFlexItem>
@@ -681,13 +682,19 @@ const StrategiesEdit = () => {
   )
 
   const renderSplitPanels = () => (
-    <EuiPanel paddingSize='s' style={{ height: '100%' }}>
-      <EuiResizableContainer direction='horizontal' style={{ height: '100%' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <EuiResizableContainer direction='horizontal' style={{ flex: 1, minHeight: 0 }}>
         {(EuiResizablePanel, EuiResizableButton) => (
           <>
             {/* Editor panel */}
-            <EuiResizablePanel initialSize={40} minSize='300px' paddingSize='s' style={{ overflow: 'hidden' }}>
-              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
+            <EuiResizablePanel
+              initialSize={40}
+              minSize='300px'
+              paddingSize='s'
+              scrollable={false}
+              style={{ display: 'flex', flexDirection: 'column' }}
+            >
+              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ flex: 1, minHeight: 0 }}>
                 {renderEditorPanel()}
               </EuiPanel>
             </EuiResizablePanel>
@@ -695,15 +702,21 @@ const StrategiesEdit = () => {
             <EuiResizableButton />
 
             {/* Test panel */}
-            <EuiResizablePanel initialSize={60} minSize='300px' paddingSize='s' style={{ overflow: 'hidden' }}>
-              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
+            <EuiResizablePanel
+              initialSize={60}
+              minSize='300px'
+              paddingSize='s'
+              scrollable={false}
+              style={{ display: 'flex', flexDirection: 'column' }}
+            >
+              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 {renderTestPanel()}
               </EuiPanel>
             </EuiResizablePanel>
           </>
         )}
       </EuiResizableContainer>
-    </EuiPanel>
+    </div>
   )
 
   const renderButtonHelp = () => (
@@ -713,7 +726,7 @@ const StrategiesEdit = () => {
   )
 
   return (
-    <Page title={
+    <Page paddingSize='none' title={
       <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!strategy &&
           <>Not found</>
@@ -724,7 +737,9 @@ const StrategiesEdit = () => {
       </EuiSkeletonTitle>
     } buttons={[renderButtonHelp()]}>
       {showHelp && <FlyoutHelp onClose={() => setShowHelp(false)} />}
-      {renderSplitPanels()}
+      <div style={{ height: 'calc(100vh - 180px)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {renderSplitPanels()}
+      </div>
     </Page>
   )
 }

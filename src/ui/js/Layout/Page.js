@@ -28,7 +28,7 @@ import { useChatContext } from '../Contexts/ChatContext'
 import Breadcrumbs from './Breadcrumbs'
 import SideNav from './SideNav'
 
-const Page = ({ title, buttons, children }) => {
+const Page = ({ title, buttons, paddingSize = 's', children, }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -243,8 +243,9 @@ const Page = ({ title, buttons, children }) => {
               <EuiPageTemplate.Header
                 bottomBorder={false}
                 pageTitle={title}
+                responsive={false}
                 rightSideItems={buttons || []}
-                style={{ minHeight: '64px' }}
+                style={{ minHeight: '64px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
               />
             }
 
@@ -254,7 +255,7 @@ const Page = ({ title, buttons, children }) => {
                 color={'transparent'}
                 hasBorder={false}
                 hasShadow={false}
-                paddingSize='s'
+                paddingSize={paddingSize}
                 style={{
                   borderRadius: 0,
                   flex: 1,
@@ -273,7 +274,7 @@ const Page = ({ title, buttons, children }) => {
             <div style={{ flexShrink: 0, marginTop: 'auto', paddingTop: '8px' }}>
               <EuiPanel color='transparent' paddingSize='none'>
                 <EuiText color='subdued' size='xs'>
-                  <p style={{ fontWeight: 400, fontSize: '11px', lineHeight: '14px' }}>
+                  <p style={{ fontWeight: 400, fontSize: '11px', lineHeight: '14px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                     Elasticsearch Relevance Studio is licensed under <a href="https://github.com/elastic/relevance-studio/blob/main/LICENSE.txt" target='_blank' external={false}>Elastic License 2.0</a>, which permits you to use, modify, and distribute the software at no cost.
                   </p>
                 </EuiText>
