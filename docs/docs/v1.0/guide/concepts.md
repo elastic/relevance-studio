@@ -15,8 +15,8 @@ A workspace also enforces consistency in the assets you create:
 
 See also:
 
-- [Workspaces data model](docs/reference/data-model.md#workspaces)
-- [Workspaces API](docs/reference/rest-api.md#workspaces-api)
+- [Workspaces data model](docs/{{VERSION}}/reference/data-model.md#workspaces)
+- [Workspaces API](docs/{{VERSION}}/reference/rest-api.md#workspaces-api)
 
 ---
 
@@ -37,8 +37,8 @@ And here's how the same document can look with a display:
 
 See also:
 
-- [Displays data model](docs/reference/data-model.md#displays)
-- [Displays API](docs/reference/rest-api.md#displays-api)
+- [Displays data model](docs/{{VERSION}}/reference/data-model.md#displays)
+- [Displays API](docs/{{VERSION}}/reference/rest-api.md#displays-api)
 
 ---
 
@@ -52,8 +52,8 @@ Scenarios can be tagged. This is a good way to categorize scenarios, such as `"h
 
 See also:
 
-- [Scenarios data model](docs/reference/data-model.md#scenarios)
-- [Scenarios API](docs/reference/rest-api.md#scenarios-api)
+- [Scenarios data model](docs/{{VERSION}}/reference/data-model.md#scenarios)
+- [Scenarios API](docs/{{VERSION}}/reference/rest-api.md#scenarios-api)
 
 ---
 
@@ -69,8 +69,8 @@ Here's an example of a highly rated judgement for a document in a product catalo
 
 See also:
 
-- [Judgements data model](docs/reference/data-model.md#judgements)
-- [Judgements API](docs/reference/rest-api.md#judgements-api)
+- [Judgements data model](docs/{{VERSION}}/reference/data-model.md#judgements)
+- [Judgements API](docs/{{VERSION}}/reference/rest-api.md#judgements-api)
 
 ---
 
@@ -127,8 +127,8 @@ Here's an example of a strategy that accepts a variable `text` parameter from sc
 
 See also:
 
-- [Strategies data model](docs/reference/data-model.md#strategies)
-- [Strategies API](docs/reference/rest-api.md#strategies-api)
+- [Strategies data model](docs/{{VERSION}}/reference/data-model.md#strategies)
+- [Strategies API](docs/{{VERSION}}/reference/rest-api.md#strategies-api)
 
 ---
 
@@ -144,8 +144,8 @@ Here's an example of a benchmark that measures NDCG, Precision, and Recall for s
 
 See also:
 
-- [Benchmarks data model](docs/reference/data-model.md#benchmarks)
-- [Benchmarks API](docs/reference/rest-api.md#benchmarks-api)
+- [Benchmarks data model](docs/{{VERSION}}/reference/data-model.md#benchmarks)
+- [Benchmarks API](docs/{{VERSION}}/reference/rest-api.md#benchmarks-api)
 
 ---
 
@@ -161,8 +161,8 @@ An evaluation is the output of a [benchmark](#benchmark) run. It has the task de
 
 See also:
 
-- [Evaluations data model](docs/reference/data-model.md#evaluations)
-- [Evaluations API](docs/reference/rest-api.md#evaluations-api)
+- [Evaluations data model](docs/{{VERSION}}/reference/data-model.md#evaluations)
+- [Evaluations API](docs/{{VERSION}}/reference/rest-api.md#evaluations-api)
 
 ---
 

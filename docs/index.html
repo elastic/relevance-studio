@@ -7,8 +7,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
   <meta name="title" property="og:title" content="Elasticsearch Relevance Studio" />
   <meta name="type" property="og:type" content="website" />
-  <meta name="image" property="og:image" content="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary.png" />
-  <meta name="description" property="og:description" content="Elasticsearch Relevance Studio manages the lifecycle of search relevance engineering so you can deliver amazing search experiences." />
+  <meta name="image" property="og:image"
+    content="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary.png" />
+  <meta name="description" property="og:description"
+    content="Elasticsearch Relevance Studio manages the lifecycle of search relevance engineering so you can deliver amazing search experiences." />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
   <script>
     // Disable Google Tag Manager when running docs in development mode
@@ -18,11 +20,14 @@
   <script>
     (function () {
       if (!window.__enableAnalytics__) return;
-      (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-      new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-      j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-      'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-      })(window,document,'script','dataLayer','GTM-KNJMG2M');
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || []; w[l].push({
+          'gtm.start':
+            new Date().getTime(), event: 'gtm.js'
+        }); var f = d.getElementsByTagName(s)[0],
+          j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+            'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+      })(window, document, 'script', 'dataLayer', 'GTM-KNJMG2M');
     })();
   </script>
 
@@ -58,8 +63,43 @@
       background: #fff;
     }
 
-    i, em {
-      color: inherit!important;
+    @media print {
+      body {
+        visibility: hidden;
+      }
+
+      .markdown-section,
+      #main {
+        visibility: visible !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        background: #fff !important;
+      }
+
+      .markdown-section *,
+      #main * {
+        visibility: visible !important;
+      }
+
+      /* Reset positioning of ancestors to allow absolute positioning relative to body */
+      #app, main, .content {
+        position: static !important;
+        visibility: hidden;
+      }
+
+      #main footer {
+        display: none !important;
+      }
+    }
+
+    i,
+    em {
+      color: inherit !important;
     }
 
     img {
@@ -69,7 +109,7 @@
 
     @media (max-width: 767px) {
       img {
-        max-width: 100%!important;
+        max-width: 100% !important;
         height: auto;
       }
     }
@@ -259,7 +299,16 @@
   <!-- End Google Tag Manager (noscript) -->
   <div id="app"></div>
   <script>
+
+    // Latest version of application and docs
+    const latest = 'v1.0';
+
+    // Docsify configuration
     window.$docsify = {
+      alias: {
+        '/docs/latest/(.*)': `/docs/${latest}/$1`,
+        '/.*/_sidebar.md': `/docs/${latest}/README.md`
+      },
       auto2top: true,
       breadcrumb: {
         casing: 'capitalize',
@@ -269,11 +318,175 @@
         size: 'medium',
       },
       loadFooter: true,
-      loadSidebar: 'docs/README.md',
+      loadSidebar: true,
       name: '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik01LjIzNjM5IDE4LjI1OTZDNS4yMzYzOSAyMC44NDA2IDYuMDU1NjcgMjMuMjM0NCA3LjQ0ODQxIDI1LjE5NTRMMTUuNjIxNiAxMy41OTkzTDIwLjY3MzEgMTguMDE2N0wyNi4yNjY4IDEwLjI2MzFDMjQuMDU5NiA3Ljc5MzYgMjAuODQ4OCA2LjIzNjM2IDE3LjI4IDYuMjM2MzZDMTAuNjM4MyA2LjIzNjM2IDUuMjM2MzkgMTEuNjI5OCA1LjIzNjM5IDE4LjI1OTZaTTE2LjAyNDggMTguMDE2N0w5LjQ1MjA0IDI3LjM4OEMxMS41NTg2IDI5LjE5MDMgMTQuMjk0IDMwLjI4MDQgMTcuMjggMzAuMjgwNEMyMC4wMjIgMzAuMjgwNCAyMi41NTI2IDI5LjM2MTEgMjQuNTc5MSAyNy44MTUzTDI4LjYwMTkgMzEuMjU0NUwzMiAyNy40NzQ3TDI3Ljg4MzkgMjMuOTU1QzI4LjgwMjEgMjIuMjU4OSAyOS4zMjM2IDIwLjMxODggMjkuMzIzNiAxOC4yNTk2QzI5LjMyMzYgMTYuMzAyOSAyOC44NTMgMTQuNDUzOCAyOC4wMTg5IDEyLjgxOTRMMjEuMDY4NiAyMi40MzY5TDE2LjAyNDggMTguMDE2N1oiIGZpbGw9IiMwMkJDQjciLz4KPHBhdGggZD0iTTMwLjcxNzggNC4wOTMzN0wyMC42NzMxIDE4LjAxNjdMMTUuNjIxNiAxMy41OTkzTDMuMjM4MTMgMzEuMTY5QzEuMzg5MTQgMzAuNzgzOSAwIDI5LjE0NTEgMCAyNy4xODE4VjUuMDcyNzNDMCAyLjgyMzQyIDEuODIzNDIgMSA0LjA3MjczIDFIMjYuNzYzNkMyOC42NzUzIDEgMzAuMjc5NCAyLjMxNzExIDMwLjcxNzggNC4wOTMzN1oiIGZpbGw9IiNGRUM1MTQiLz4KPHBhdGggZD0iTTcuNDQ4NDEgMjUuMTk1NEM2LjA1NTY3IDIzLjIzNDQgNS4yMzYzOSAyMC44NDA2IDUuMjM2MzkgMTguMjU5NkM1LjIzNjM5IDExLjYyOTggMTAuNjM4MyA2LjIzNjM2IDE3LjI4IDYuMjM2MzZDMjAuODQ4OCA2LjIzNjM2IDI0LjA1OTYgNy43OTM2IDI2LjI2NjggMTAuMjYzMUwyMC42NzMxIDE4LjAxNjdMMTUuNjIxNiAxMy41OTkzTDcuNDQ4NDEgMjUuMTk1NFoiIGZpbGw9IiMzNDM3NDEiLz4KPC9zdmc+Cg==" style="margin: 3px 10px -3px 0; width: 18px" />Elasticsearch Relevance Studio',
       subMaxLevel: 1,
       themeColor: '#0B64DD',
       plugins: [
+        // Version selector in sidebar
+        function (hook, vm) {
+          hook.mounted(function () {
+            const versions = [
+              { value: 'latest', label: 'Latest (v1.0)' },
+              { value: 'v1.0', label: 'v1.0' }
+              // Add more versions as you release them
+            ];
+
+            // Determine current version from URL
+            const hash = window.location.hash;
+            let currentVersion = 'latest';
+            const versionMatch = hash.match(/#\/docs\/(v[\d.]+|latest)\//);
+            if (versionMatch) {
+              currentVersion = versionMatch[1];
+            }
+
+            // Create version selector HTML
+            const selectorHTML = `
+      <div style="padding: 0 15px 15px 15px;">
+        <select id="version-select" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;">
+          ${versions.map(v => `
+            <option value="${v.value}" ${v.value === currentVersion ? 'selected' : ''}>
+              ${v.label}
+            </option>
+          `).join('')}
+        </select>
+      </div>
+    `;
+            // Insert after the sidebar name/logo
+            const sidebarName = document.querySelector('.sidebar .app-name');
+            if (sidebarName) {
+              sidebarName.insertAdjacentHTML('afterend', selectorHTML);
+            } else {
+              // Fallback: insert at top of sidebar
+              const sidebar = document.querySelector('.sidebar');
+              if (sidebar) {
+                sidebar.insertAdjacentHTML('afterbegin', selectorHTML);
+              }
+            }
+
+            // Handle version changes
+            const versionSelect = document.getElementById('version-select');
+            if (versionSelect) {
+              versionSelect.addEventListener('change', function (e) {
+                const newVersion = e.target.value;
+                const currentHash = window.location.hash;
+
+                // Replace version in URL
+                let newHash;
+                if (currentHash.match(/#\/docs\/(v[\d.]+|latest)\//)) {
+                  newHash = currentHash.replace(/(#\/docs\/)(v[\d.]+|latest)(\/.*)/, `$1${newVersion}$3`);
+                } else {
+                  // If no version in URL, add it
+                  newHash = currentHash.replace(/#\/docs\//, `#/docs/${newVersion}/`);
+                }
+
+                window.location.hash = newHash;
+              });
+            }
+          });
+        },
+        // Redirect old unversioned URLs to latest
+        function (hook, vm) {
+          // Handle initial page load
+          hook.init(function () {
+            checkAndRedirect();
+          });
+
+          // Handle hash changes from internal links
+          hook.doneEach(function () {
+            // Set up listener only once
+            if (!window.__docsifyVersionRedirectListener) {
+              window.__docsifyVersionRedirectListener = true;
+              window.addEventListener('hashchange', function () {
+                checkAndRedirect();
+              });
+            }
+          });
+
+          function checkAndRedirect() {
+            const hash = window.location.hash;
+
+            // Match /docs/something (but not /docs/v... or /docs/latest/)
+            if (hash.startsWith('#/docs/') &&
+              !hash.startsWith('#/docs/v') &&
+              !hash.startsWith('#/docs/latest/')) {
+
+              const newHash = hash.replace('#/docs/', '#/docs/latest/');
+              console.log('Redirecting to:', newHash);
+              window.location.hash = newHash;
+            }
+          }
+        },
+        // Hide version breadcrumb with CSS and fix Docs link
+        function (hook, vm) {
+          hook.init(function () {
+            const style = document.createElement('style');
+            style.textContent = `
+      /* Hide the 3rd breadcrumb item (version) */
+      .breadcrumb li:nth-child(3) {
+        display: none !important;
+      }
+    `;
+            document.head.appendChild(style);
+          });
+
+          hook.doneEach(function () {
+            setTimeout(function () {
+              // Get current version from URL
+              const versionMatch = window.location.hash.match(/#\/docs\/(v[\d.]+|latest)\//);
+              const version = versionMatch ? versionMatch[1] : 'latest';
+
+              // Fix "Docs" link to include version
+              const docsLink = document.querySelector('.breadcrumb a[href="#/docs/"]');
+              if (docsLink) {
+                docsLink.href = `#/docs/${version}/`;
+              }
+            }, 0);
+          });
+        },
+        // Replace {{VERSION}} with current version from URL
+        function (hook, vm) {
+          hook.beforeEach(function (content) {
+            // Extract version from current route
+            const versionMatch = window.location.hash.match(/#\/docs\/(v[\d.]+|latest)\//);
+            const version = versionMatch ? versionMatch[1] : 'latest';
+            return content.replace(/\{\{VERSION\}\}/g, version);
+          });
+
+          // Replace in sidebar using MutationObserver
+          hook.doneEach(function () {
+            const replaceSidebarVersion = function () {
+              const versionMatch = window.location.hash.match(/#\/docs\/(v[\d.]+|latest)\//);
+              const version = versionMatch ? versionMatch[1] : 'latest';
+
+              const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
+              sidebarLinks.forEach(function (link) {
+                if (link.href.includes('{{VERSION}}')) {
+                  link.href = link.href.replace(/\{\{VERSION\}\}/g, version);
+                }
+                if (link.textContent.includes('{{VERSION}}')) {
+                  link.textContent = link.textContent.replace(/\{\{VERSION\}\}/g, version);
+                }
+              });
+            };
+
+            // Replace immediately
+            setTimeout(replaceSidebarVersion, 0);
+
+            // Watch for sidebar changes
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar) {
+              const observer = new MutationObserver(replaceSidebarVersion);
+              observer.observe(sidebar, { childList: true, subtree: true });
+
+              // Disconnect after a short time to avoid infinite loops
+              setTimeout(function () {
+                observer.disconnect();
+              }, 1000);
+            }
+          });
+        },
+        // Analytics
         function (hook, vm) {
           // Push a virtual pageview as a custom event for each docsify render
           hook.doneEach(function () {

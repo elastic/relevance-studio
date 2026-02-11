@@ -28,14 +28,14 @@ Search relevance engineering is an area of constant research and innovation, as 
 
 **Elasticsearch Relevance Studio** establishes a framework built on generally accepted concepts and best practices found in many search relevance engineering operations.
 
-- Concepts – [Scenarios](docs/guide/concepts.md#scenario), [Judgements](docs/guide/concepts.md#judgement), [Strategies](docs/guide/concepts.md#strategy)
+- Concepts – [Scenarios](docs/{{VERSION}}/guide/concepts.md#scenario), [Judgements](docs/{{VERSION}}/guide/concepts.md#judgement), [Strategies](docs/{{VERSION}}/guide/concepts.md#strategy)
 - Metrics – [NDCG](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-rank-eval#_discounted_cumulative_gain_dcg), [Precision](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-rank-eval#k-precision), [Recall](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-rank-eval#k-recall), [MRR](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-rank-eval#_mean_reciprocal_rank)
 - Technology – [Elasticsearch](https://www.elastic.co/elasticsearch), [Search API](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-search), [Search templates](https://www.elastic.co/docs/solutions/search/search-templates), [MCP](https://modelcontextprotocol.io/docs/getting-started/intro)
 - Monitoring – [OpenTelemetry](https://opentelemetry.io/)
 
 ### Manage your ground truth data with ease.
 
-Search relevance engineering relies on a carefully curated set of [judgements](docs/guide/concepts#judgement) that represent the ground truth for what is (or is not) relevant to your search scenarios. This can be *extremely* tedious and time consuming without a platform to make it intuitive.
+Search relevance engineering relies on a carefully curated set of [judgements](docs/{{VERSION}}/guide/concepts#judgement) that represent the ground truth for what is (or is not) relevant to your search scenarios. This can be *extremely* tedious and time consuming without a platform to make it intuitive.
 
 **Elasticsearch Relevance Studio** lets you judge documents efficiently with your intuition: browse for candidates, see the details that matter, drag a rating slider, and repeat. This interface accelerates your ability to judge by an order of magnitude. Using AI agents? The same interface lets you review and adjust any judgements made by AI.
 
@@ -57,7 +57,7 @@ With your ground truth judgements in place, you can get immediate relevance feed
 
 Search is dynamic. Content and behaviors can change over time. The search strategies you deployed yesterday can silently degrade tomorrow. This is **model drift**. As you adapt to change, the optimizations you make for one set of scenarios might negatively affect ones you haven't tested. These are **regressions**.
 
-**Elasticsearch Relevance Studio** can surface model drift and regressions before they impact your users. Schedule [benchmarks](docs/guide/concepts.md#benchmark) with your latest data to detect drift in your search strategies. Run benchmarks from your CI/CD pipeline to prevent regressions from reaching production. And find root causes in the analytics interface – or let AI find them for you.
+**Elasticsearch Relevance Studio** can surface model drift and regressions before they impact your users. Schedule [benchmarks](docs/{{VERSION}}/guide/concepts.md#benchmark) with your latest data to detect drift in your search strategies. Run benchmarks from your CI/CD pipeline to prevent regressions from reaching production. And find root causes in the analytics interface – or let AI find them for you.
 
 
 <img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary.png" class="screenshot" />
@@ -68,7 +68,7 @@ Search is dynamic. Content and behaviors can change over time. The search strate
 
 ### AI ready :sparkles:
 
-Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/reference/architecture.md#recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecycle of search relevance engineering: reviewing your content, defining scenarios, judging documents, building strategies, learning from benchmarks, and iterating to optimize performance.
+Elasticsearch Relevance Studio is equipped with an [MCP Server](docs/{{VERSION}}/reference/architecture.md#recommended-setup-with-mcp) to enable Agentic AI workflows. This means you can automate the entire lifecycle of search relevance engineering: reviewing your content, defining scenarios, judging documents, building strategies, learning from benchmarks, and iterating to optimize performance.
 
 ### Scale up your operations.
 
@@ -82,4 +82,4 @@ With an opinionated framework, intuitive human interface, and integration with A
 
 ## Ready to start?
 
-[<button class="get-started">Get started</button>](docs/guide/quickstart)
+[<button class="get-started">Get started</button>](docs/{{VERSION}}/guide/quickstart)

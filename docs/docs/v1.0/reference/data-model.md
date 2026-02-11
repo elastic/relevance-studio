@@ -184,7 +184,7 @@ Elasticsearch index template: [esrs-benchmarks](https://github.com/elastic/relev
 - **`task.metrics`** - The names of the metrics to include. Supports `"ndcg"`, `"precision"`, `"recall"`, and `"mrr"`.
 - **`task.strategies._ids`** - The `_id` fields of [strategy](#strategies) documents to include in [evaluations](#evaluations).
 - **`task.strategies.tags`** - The `tags` of [strategies](#strategies) to include in [evaluations](#evaluations).
-- **`task.strategies.docs`** - The `_source` of [strategy](#strategies) documents to include in [evaluations](#evaluations). Primarily intended to be used by the strategy testing components of the [UI](docs/reference/architecture.md#application).
+- **`task.strategies.docs`** - The `_source` of [strategy](#strategies) documents to include in [evaluations](#evaluations). Primarily intended to be used by the strategy testing components of the [UI](docs/{{VERSION}}/reference/architecture.md#application).
 - **`task.scenarios._ids`** - The `_id` fields of [scenario](#scenarios) documents to include in [evaluations](#evaluations).
 - **`task.scenarios.tags`** - The `tags` of [scenarios](#scenarios) to include in [evaluations](#evaluations).
 - **`task.scenarios.sample_size`** - The sample size of scenarios to use for large evaluations. Defaults to `1000`. Allows a maximum of `10000`.
@@ -259,4 +259,4 @@ Elasticsearch index template: [esrs-evaluations](https://github.com/elastic/rele
 |**`took`**|-|Forbidden|-|Auto-generated|
 |**`_search`**|Object|Forbidden|-|Auto-generated|
 
-*Note: Evaluations don't have an Update API. [Workers](docs/reference/architecture.md#application) handle the updates automatically.*
+*Note: Evaluations don't have an Update API. [Workers](docs/{{VERSION}}/reference/architecture.md#application) handle the updates automatically.*
