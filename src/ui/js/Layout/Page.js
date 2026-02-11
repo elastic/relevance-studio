@@ -236,7 +236,7 @@ const Page = ({ title, buttons, children }) => {
           minWidth: 0,
           overflow: 'hidden',
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
 
             {/* Header */}
             {title &&
@@ -249,7 +249,7 @@ const Page = ({ title, buttons, children }) => {
             }
 
             {/* Body */}
-            <section style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            <section style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
               <EuiPanel
                 color={'transparent'}
                 hasBorder={false}
@@ -261,17 +261,16 @@ const Page = ({ title, buttons, children }) => {
                   display: 'flex',
                   flexDirection: 'column',
                   minHeight: 0,
-                  overflow: 'hidden'
                 }}
               >
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                   {children}
                 </div>
               </EuiPanel>
             </section>
 
             {/* Notice */}
-            <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
+            <div style={{ flexShrink: 0, marginTop: 'auto', paddingTop: '8px' }}>
               <EuiPanel color='transparent' paddingSize='none'>
                 <EuiText color='subdued' size='xs'>
                   <p style={{ fontWeight: 400, fontSize: '11px', lineHeight: '14px' }}>
