@@ -1113,7 +1113,7 @@ const Chat = () => {
                       </EuiText>
                       <EuiSpacer size="l" />
                       <EuiButton
-                        href="https://cloud.elastic.co/registration"
+                        href="https://cloud.elastic.co/registration?utm_source=relevance-studio"
                         iconSide="right"
                         iconSize="s"
                         iconType="popout"
