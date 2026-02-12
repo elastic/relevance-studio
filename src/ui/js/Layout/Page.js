@@ -276,7 +276,7 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
               <EuiPanel color='transparent' paddingSize='none'>
                 <EuiText color='subdued' size='xs'>
                   <p style={{ fontWeight: 400, fontSize: '11px', lineHeight: '14px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  <EuiIcon type="heart" size="s" style={{ margin: '-2px 6px 0 0' }} />Elasticsearch Relevance Studio is licensed under <a href="https://github.com/elastic/relevance-studio/blob/main/LICENSE.txt" target='_blank' external={false}>Elastic License 2.0</a>, which permits you to use, modify, and distribute the software at no cost.
+                    <EuiIcon type="heart" size="s" style={{ margin: '-2px 6px 0 0' }} />Elasticsearch Relevance Studio is licensed under <a href="https://github.com/elastic/relevance-studio/blob/main/LICENSE.txt" target='_blank' external={false}>Elastic License 2.0</a>, which permits you to use, modify, and distribute the software at no cost.
                   </p>
                 </EuiText>
               </EuiPanel>
