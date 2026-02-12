@@ -234,9 +234,10 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
           flex: 1,
           height: '100%',
           minWidth: 0,
-          overflow: 'hidden',
+          overflowY: 'auto',
+          paddingSize: 'none',
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
 
             {/* Header */}
             {title &&
