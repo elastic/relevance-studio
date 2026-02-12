@@ -36,7 +36,7 @@ def search(
             Options: "rated", "rated-ai", "rated-human", "unrated".
         sort: Sorting criteria for the results.
             Options: "match" (BM25 score), "rating-newest", "rating-oldest".
-        _source: Source filtering configuration with 'includes' and 'excludes'.
+        _source: Source filtering configuration with 'includes' and 'excludes'. Searches should set "_source.includes" as the value of "fields" from a display.
 
     Returns:
         A dictionary containing "hits" from Elasticsearch, where each hit has 

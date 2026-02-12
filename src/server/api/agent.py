@@ -166,6 +166,13 @@ When you have access to IDs (like `workspace_id`, `strategy_id`, etc.) from the 
 
 **Example**:
 "I've finished running the [benchmark]({base_url}/#/workspaces/123/benchmarks/456/evaluations/789)."
+
+## Images
+
+When including images in Markdown, use URL references rather than base64 data URIs. Examples:
+
+✓ ![alt](https://example.com/image.png)
+✗ ![alt](data:image/png;base64,iVBORw0KGgo...)
  
 """
 
@@ -923,6 +930,8 @@ async def _agent_loop_stream(
             
             for attempt in range(max_retries + 1):
                 try:
+                    import json
+                    print(json.dumps(messages, indent=2))
                     es_response = _chat_stream(messages, inference_id, tools if tools else None)
                     break # Success
                 except requests.exceptions.HTTPError as e:
@@ -1125,6 +1134,61 @@ def _run_sync_generator_from_async(async_gen_func) -> Generator[Any, None, None]
         loop.close()
 
 
+def _sanitize_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Sanitize messages by filtering invalid roles and fields.
+    
+    Args:
+        messages: List of message dictionaries.
+        
+    Returns:
+        List[Dict[str, Any]]: List of sanitized messages.
+    """
+    sanitized = []
+    for msg in messages:
+        role = msg.get("role")
+        if role not in ("user", "assistant", "tool"):
+            continue
+            
+        new_msg = {"role": role}
+        
+        if role == "user":
+            if "content" in msg:
+                new_msg["content"] = msg["content"]
+            if "name" in msg:
+                new_msg["name"] = msg["name"]
+                
+        elif role == "assistant":
+            if "content" in msg:
+                new_msg["content"] = msg["content"]
+            if "tool_calls" in msg:
+                new_tool_calls = []
+                for tc in msg["tool_calls"]:
+                    new_tc = {}
+                    if "id" in tc:
+                        new_tc["id"] = tc["id"]
+                    if "type" in tc:
+                        new_tc["type"] = tc["type"]
+                    if "function" in tc:
+                        new_func = {}
+                        if "name" in tc["function"]:
+                            new_func["name"] = tc["function"]["name"]
+                        if "arguments" in tc["function"]:
+                            new_func["arguments"] = tc["function"]["arguments"]
+                        new_tc["function"] = new_func
+                    new_tool_calls.append(new_tc)
+                new_msg["tool_calls"] = new_tool_calls
+
+        elif role == "tool":
+            if "content" in msg:
+                new_msg["content"] = msg["content"]
+            if "tool_call_id" in msg:
+                new_msg["tool_call_id"] = msg["tool_call_id"]
+                
+        sanitized.append(new_msg)
+        
+    return sanitized
+
+
 def chat(text: str = "", rounds: List[Dict[str, Any]] = None, inference_id=".rainbow-sprinkles-elastic", ui_context: Optional[Dict[str, Any]] = None, id: str = None, conversation_id: str = None) -> Generator[str, None, None]:
     """Perform a streaming chat completion with agentic behavior and MCP tool calling.
 
@@ -1144,7 +1208,8 @@ def chat(text: str = "", rounds: List[Dict[str, Any]] = None, inference_id=".rai
         messages = [{"role": "user", "content": text}]
     
     # Filter out any messages where role is neither "user" nor "assistant" nor "tool"
-    messages = [m for m in messages if m.get("role") in ("user", "assistant", "tool")]
+    # and filter out fields that aren't valid for each role.
+    messages = _sanitize_messages(messages)
     
     # Prepend the system prompt
     full_system_prompt = _prepare_system_prompt(ui_context)
