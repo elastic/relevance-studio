@@ -66,9 +66,9 @@ const Judgements = () => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [filterSelected, setFilterSelected] = useState({ label: 'All docs', value: 'all', checked: 'on' })
+  const [filterSelected, setFilterSelected] = useState({ label: 'Rated docs', value: 'rated', checked: 'on' })
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [filtersOptions, setFiltersOptions] = useState(defaultFilterOptions.map(o => ({ ...o })))
+  const [filtersOptions, setFiltersOptions] = useState(defaultFilterOptions.map(o => ({ ...o, checked: o.value === 'rated' ? 'on' : undefined })))
   const [indexPatternMap, setIndexPatternMap] = useState({})
   const [initialScenarioLoaded, setInitialScenarioLoaded] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
@@ -82,15 +82,15 @@ const Judgements = () => {
   const [scenarioOptions, setScenarioOptions] = useState([])
   const [scenarioSearchString, setScenarioSearchString] = useState('')
   const [sortOpen, setSortOpen] = useState(false)
-  const [sortOptions, setSortOptions] = useState(defaultSortOptions.map(o => ({ ...o })))
-  const [sortSelected, setSortSelected] = useState({ label: 'By match', value: 'match', checked: 'on' })
+  const [sortOptions, setSortOptions] = useState(defaultSortOptions.map(o => ({ ...o, checked: o.value === 'rating-newest' ? 'on' : undefined })))
+  const [sortSelected, setSortSelected] = useState({ label: 'By newest ratings', value: 'rating-newest', checked: 'on' })
   const [sourceFilters, setSourceFilters] = useState([])
 
   // Helper to get URL params
   const getUrlParams = () => {
     const params = new URLSearchParams(location.search)
     return {
-      scenario: params.get('scenario'),
+      scenario: params.get('scenario_id'),
       filter: params.get('filter'),
       sort: params.get('sort'),
       query: params.get('query')
@@ -330,7 +330,7 @@ const Judgements = () => {
       isOpen={isScenariosOpen}
       onChange={(changedOption) => {
         // Update URL, set active scenario, and restore the scenario name in the search field
-        updateUrl({ scenario: changedOption._id })
+        updateUrl({ scenario_id: changedOption._id })
         setScenario(changedOption.checked === 'on' ? changedOption : null)
         setScenarioSearchString(changedOption.checked === 'on' ? changedOption.label : '')
       }}
@@ -349,8 +349,8 @@ const Judgements = () => {
       onChange={(newOptions, event, changedOption) => {
         setFiltersOptions(newOptions)
 
-        // Update URL when user changes filter
-        updateUrl({ filter: changedOption.value !== 'all' ? changedOption.value : null })
+        // Update URL when user changes filter (don't write default value)
+        updateUrl({ filter: changedOption.value !== 'rated' ? changedOption.value : null })
 
         // Filtering by unrated docs requires sorting not by anything with ratings
         if (changedOption.value == 'unrated') {
@@ -386,8 +386,8 @@ const Judgements = () => {
       onChange={(newOptions, event, changedOption) => {
         setSortOptions(newOptions)
 
-        // Update URL when user changes sort
-        updateUrl({ sort: changedOption.value !== 'match' ? changedOption.value : null })
+        // Update URL when user changes sort (don't write default value)
+        updateUrl({ sort: changedOption.value !== 'rating-newest' ? changedOption.value : null })
 
         // Sorting by anything with ratings requires filtering by rated docs
         if (changedOption.value.startsWith('rating') && !filterSelected.value.startsWith('rated')) {

@@ -42,6 +42,7 @@ import {
   EuiTitle,
   EuiToolTip,
 } from '@elastic/eui'
+import { usePageResources } from '../Contexts/ResourceContext'
 
 // Custom User Message component with truncation/expansion
 const UserMessageBubble = ({ content }) => {
@@ -553,6 +554,7 @@ const Chat = () => {
     strict: false
   })
   const params = match?.params || {}
+  const resources = usePageResources()
   const [isSending, setIsSending] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [availableEndpoints, setAvailableEndpoints] = useState(null)
@@ -721,10 +723,18 @@ const Chat = () => {
     if (!currentMessage.trim() || isSending) return
 
     const ui_context = {
-      base_url: window.location.origin,
-      route: location.pathname,
-      ...params,
+      url: {
+        base: window.location.origin, // e.g. "http://localhost:4096"
+        path: location.pathname, // e.g. "/workspaces/123/strategies/456"
+        query: Object.fromEntries(new URLSearchParams(location.search)), // e.g. { scenario_id: "789" }
+      },
+      route: {
+        pattern: match?.path, // e.g. "/workspaces/:workspace_id/strategies/:strategy_id"
+        params: params, // e.g. { workspace_id: "123", strategy_id: "456" }
+      },
+      resources: resources,
     }
+    console.log(ui_context)
 
     const convId = conversationId || crypto.randomUUID()
     const isNew = !conversationId
