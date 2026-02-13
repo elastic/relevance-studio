@@ -16,7 +16,7 @@ import {
 } from '@elastic/charts'
 import '@elastic/charts/dist/theme_only_dark.css'
 import '@elastic/charts/dist/theme_only_light.css'
-import { euiPaletteForStatus } from '@elastic/eui'
+import { euiPaletteColorBlind } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 
 const ChartMetricsHeatmap = (props) => {
@@ -37,28 +37,35 @@ const ChartMetricsHeatmap = (props) => {
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [data, setData] = useState([])
+  const [dataRange, setDataRange] = useState({ min: 0, max: 1 })
 
   /**
-   * Configure color bands
+   * Generate a monochromatic palette using EUI's vis0 color at varying
+   * opacities. This naturally adapts to dark and light mode since the
+   * background shows through at low values, and vis0 at full opacity
+   * is the most intense color for the highest values.
    */
   const numBands = 24
-  const colorBands = euiPaletteForStatus(numBands).reverse()
-  const min = 0.0
-  const max = 1.0
-  const bands = []
-  // Generate non-linear breakpoints using a power curve
-  const skew = 0.5
-  const breakpoints = Array.from({ length: numBands + 1 }, (_, i) => {
-    const t = Math.pow(i / numBands, skew)
-    return min + (max - min) * t
-  })
-  for (let i = 0; i < numBands; i++) {
-    bands.push({
-      color: colorBands[i],
-      start: i === 0 ? -Infinity : breakpoints[i],
-      end: i === numBands - 1 ? Infinity : breakpoints[i + 1],
+  const vis0 = euiPaletteColorBlind()[0]
+  const vis0r = parseInt(vis0.slice(1, 3), 16)
+  const vis0g = parseInt(vis0.slice(3, 5), 16)
+  const vis0b = parseInt(vis0.slice(5, 7), 16)
+
+  const generateMonoPalette = (n) => {
+    return Array.from({ length: n }, (_, i) => {
+      // Cubic curve so only the highest values earn full vis0 intensity.
+      const t = Math.pow(i / (n - 1), 3)
+      const alpha = 0.05 + t * 0.95
+      return `rgba(${vis0r}, ${vis0g}, ${vis0b}, ${alpha.toFixed(3)})`
     })
   }
+  const colorBands = generateMonoPalette(numBands)
+  const range = dataRange.max - dataRange.min || 1
+  const bands = colorBands.map((color, i) => ({
+    color,
+    start: i === 0 ? -Infinity : dataRange.min + (range * i / numBands),
+    end: i === numBands - 1 ? Infinity : dataRange.min + (range * (i + 1) / numBands),
+  }))
 
   const runtimeScenario = (scenarioId) => evaluation.runtime?.scenarios?.[scenarioId]
   const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies?.[strategyId]
@@ -127,6 +134,12 @@ const ChartMetricsHeatmap = (props) => {
     }
     _data.length = 0
     _data.push(...sortedData)
+
+    // Compute data range for relative color scaling
+    const values = _data.map(d => d.value).filter(v => v !== undefined && v !== null)
+    if (values.length > 0) {
+      setDataRange({ min: Math.min(...values), max: Math.max(...values) })
+    }
 
     setData(prev => {
       // Prevent infinite loop

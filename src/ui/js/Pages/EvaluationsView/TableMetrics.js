@@ -16,7 +16,6 @@ import {
   EuiScreenReaderOnly,
   EuiText,
 } from '@elastic/eui'
-import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources } from '../../Contexts/ResourceContext'
 import { getHistory } from '../../history'
 import utils from '../../utils'
@@ -26,7 +25,6 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const history = getHistory()
-  const { darkMode } = useAppContext()
   const { workspace } = usePageResources()
 
   ////  State  /////////////////////////////////////////////////////////////////
@@ -44,29 +42,6 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       next[item.strategy_id] ? delete next[item.strategy_id] : (next[item.strategy_id] = renderDetails(item))
       return next
     })
-  }
-
-  /**
-   * Configure color bands
-   */
-  const numBands = 5
-  const colors = [
-    '#E55940', // Dark Poppy
-    '#FFAD18', // Dark Yellow
-    '#FEC514', // Yellow
-    '#02BCB7', // Teal
-    darkMode ? '#48EFCF' : '#128D91', // Light Teal : Dark Teal
-  ]
-  const min = 0.0
-  const max = 1.0
-  const breakpoints = [min, 0.5, 0.7, 0.9, max]
-  const bands = colors.map((color, i) => ({
-    color,
-    start: i === 0 ? -Infinity : breakpoints[i],
-    end: i === numBands - 1 ? Infinity : breakpoints[i + 1],
-  }))
-  const getColorBand = (value) => {
-    return bands.find(b => value >= b.start && value < b.end)?.color || colors[colors.length - 1]
   }
 
   const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]
@@ -200,7 +175,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
             {item?.metrics?.[metric]?.avg === undefined
               ? <EuiText size='s'>-</EuiText>
               : <EuiProgress
-                color={getColorBand(item.metrics[metric].avg)}
+                color='vis0'
                 label={item.metrics[metric].avg ? item.metrics[metric].avg.toFixed(4) : '-'}
                 max={1}
                 size='s'
@@ -224,7 +199,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     render: (name, item) => (
       <div style={{ position: 'relative', width: '100%' }}>
         <EuiProgress
-          color={getColorBand(item?.rated_docs?.percent / 100)}
+          color='vis0'
           label={item?.rated_docs?.percent?.toFixed(0) + '%'}
           max={1}
           size='s'
