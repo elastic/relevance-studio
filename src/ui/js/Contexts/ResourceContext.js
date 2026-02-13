@@ -149,7 +149,7 @@ export const ResourceProvider = ({ children }) => {
     const loadResources = async () => {
       // Extract query params from URL
       const queryParams = new URLSearchParams(location.search)
-      const scenarioIdFromQuery = queryParams.get('scenario_id') || queryParams.get('scenario')
+      const scenarioIdFromQuery = queryParams.get('scenario_id')
       
       // Merge path params with relevant query params
       const allParams = { ...params }

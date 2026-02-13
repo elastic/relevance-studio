@@ -188,11 +188,9 @@ def judgements_search(
     ) -> Dict[str, Any]:
     return dict(api.judgements.search(workspace_id, scenario_id, index_pattern, query, query_string, filter, sort, _source))
 
-@mcp.tool(description=api.judgements.set.__doc__ + f"""\n
-JSON schema for doc:\n\n{JudgementCreate.model_input_json_schema()}
-""")
-def judgements_set(doc: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.judgements.set(doc, user="ai"))
+@mcp.tool(description=api.judgements.set.__doc__)
+def judgements_set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int) -> Dict[str, Any]:
+    return dict(api.judgements.set(workspace_id, scenario_id, index, doc_id, rating, user="ai"))
 
 @mcp.tool(description=api.judgements.unset.__doc__)
 def judgements_unset(_id: str) -> Dict[str, Any]:

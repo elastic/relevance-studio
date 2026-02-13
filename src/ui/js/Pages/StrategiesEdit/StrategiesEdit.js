@@ -79,7 +79,7 @@ const StrategiesEdit = () => {
   const getUrlParams = () => {
     const params = new URLSearchParams(location.search)
     return {
-      scenario: params.get('scenario'),
+      scenario: params.get('scenario_id'),
     }
   }
 
@@ -499,7 +499,7 @@ const StrategiesEdit = () => {
       isOpen={isScenariosOpen}
       onChange={(changedOption) => {
         // Update URL, set active scenario, and restore the scenario name in the search field
-        updateUrl({ scenario: changedOption._id })
+        updateUrl({ scenario_id: changedOption._id })
         setScenario(changedOption.checked === 'on' ? changedOption : null)
         setScenarioSearchString(changedOption.checked === 'on' ? changedOption.label : '')
       }}

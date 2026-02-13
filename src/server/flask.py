@@ -257,9 +257,14 @@ def judgements_search(workspace_id):
 def judgements_set(workspace_id):
     doc = request.get_json()
     validate_workspace_id_match(doc, workspace_id)
-    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     doc.pop("_id", None) # _id is always generated from body
-    return api.judgements.set(doc)
+    return api.judgements.set(
+        workspace_id=workspace_id,
+        scenario_id=doc["scenario_id"],
+        index=doc["index"],
+        doc_id=doc["doc_id"],
+        rating=doc["rating"],
+    )
 
 @api_route("/api/workspaces/<string:workspace_id>/judgements/<string:_id>", methods=["DELETE"])
 def judgements_unset(workspace_id, _id):

@@ -43,6 +43,11 @@ import {
   EuiToolTip,
 } from '@elastic/eui'
 import { usePageResources } from '../Contexts/ResourceContext'
+import api from '../api'
+import utils from '../utils'
+import history from '../history'
+import { useAppContext } from '../Contexts/AppContext'
+import { useChatContext } from '../Contexts/ChatContext'
 
 // Custom User Message component with truncation/expansion
 const UserMessageBubble = ({ content }) => {
@@ -477,9 +482,33 @@ const RoundItem = ({ round, latestUserMessageRef, isSending }) => {
             {/* Final Response Message */}
             {round?.response?.message && (
               <>
-                <EuiMarkdownFormat>
-                  {round.response.message}
-                </EuiMarkdownFormat>
+                {/* Intercept clicks on internal hash-route links (e.g. /#/workspaces/...)
+                   rendered by EuiMarkdownFormat so they navigate via the app's router
+                   instead of triggering a full page reload. External links are unaffected. */}
+                <div onClick={(e) => {
+                  const anchor = e.target.closest('a')
+                  if (!anchor) return
+                  const href = anchor.getAttribute('href')
+                  if (href) {
+                    if (href.startsWith('/#/') || href.startsWith('#/')) {
+                      e.preventDefault()
+                      const path = href.startsWith('/#/') ? href.slice(2) : href.slice(1)
+                      history.push(path)
+                    } else if (href.startsWith(window.location.origin)) {
+                      try {
+                        const url = new URL(href)
+                        if (url.hash.startsWith('#/')) {
+                          e.preventDefault()
+                          history.push(url.hash.slice(1))
+                        }
+                      } catch (_) { /* ignore malformed URLs */ }
+                    }
+                  }
+                }}>
+                  <EuiMarkdownFormat>
+                    {round.response.message}
+                  </EuiMarkdownFormat>
+                </div>
                 <div style={{ marginTop: '8px' }}>
                   <EuiButtonIcon
                     aria-label="Copy message"
@@ -500,11 +529,6 @@ const RoundItem = ({ round, latestUserMessageRef, isSending }) => {
     </EuiFlexItem>
   )
 }
-
-import api from '../api'
-import utils from '../utils'
-import { useAppContext } from '../Contexts/AppContext'
-import { useChatContext } from '../Contexts/ChatContext'
 
 // Custom useDebounce hook
 const useDebounce = (value, delay) => {

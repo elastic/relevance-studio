@@ -156,14 +156,18 @@ def search(
         response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: hit.get("@meta", {}).get("created_at") or fallback, reverse=reverse)
     return response
 
-def set(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
+def set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int, user: str = None) -> Dict[str, Any]:
     """Create or update a judgement.
     
     Generates a deterministic _id for UX efficiency, and to prevent the creation
     of duplicate judgements for the same combination of scenario, index, and doc.
 
     Args:
-        doc: A dictionary containing the judgement data.
+        workspace_id: The UUID of the workspace.
+        scenario_id: The UUID of the scenario being judged.
+        index: The Elasticsearch index the document belongs to.
+        doc_id: The _id of the document being judged.
+        rating: The relevance rating (integer >= 0, using the workspace's rating scale).
         user: The username of the user performing the operation.
 
     Returns:
@@ -171,7 +175,10 @@ def set(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
     
     # Create, validate, and dump model
-    doc = JudgementCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = JudgementCreate.model_validate(
+        {"workspace_id": workspace_id, "scenario_id": scenario_id, "index": index, "doc_id": doc_id, "rating": rating},
+        context={"user": user}
+    ).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("judgements", doc)
