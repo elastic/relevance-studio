@@ -70,6 +70,7 @@ const Judgements = () => {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filtersOptions, setFiltersOptions] = useState(defaultFilterOptions.map(o => ({ ...o })))
   const [indexPatternMap, setIndexPatternMap] = useState({})
+  const [initialScenarioLoaded, setInitialScenarioLoaded] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
   const [isScenariosOpen, setIsScenariosOpen] = useState(false)
@@ -163,15 +164,15 @@ const Judgements = () => {
     if (!isReady)
       return
 
-    // Only fetch scenarios when dropdown is open, not when options are empty
+    // Only fetch scenarios when dropdown is open, show all scenarios
     if (isScenariosOpen) {
-      onSearchScenarios(`*${scenarioSearchString}*`)
+      onSearchScenarios(`**`)
     }
   }, [isReady, isScenariosOpen])
 
-  // Fetch scenarios with debounce when typing
+  // Fetch scenarios with debounce when typing (only while dropdown is open and user has typed something)
   useEffect(() => {
-    if (!isReady)
+    if (!isReady || !isScenariosOpen || scenarioSearchString === '')
       return
     const debounced = debounce(() => {
       onSearchScenarios(`*${scenarioSearchString}*`)
@@ -181,8 +182,9 @@ const Judgements = () => {
   }, [scenarioSearchString])
 
   useEffect(() => {
-    if (!isReady || !scenarioOptions)
+    if (!isReady || !scenarioOptions || initialScenarioLoaded)
       return
+
     const urlParams = getUrlParams()
 
     // Check if we have a scenario from URL params
@@ -192,6 +194,7 @@ const Judgements = () => {
           option.checked = 'on'
           setScenario(option)
           setScenarioSearchString(option.label)
+          setInitialScenarioLoaded(true)
           return
         }
       }
@@ -202,6 +205,7 @@ const Judgements = () => {
       if (option.checked) {
         setScenario(option)
         setScenarioSearchString(option.checked === 'on' ? option.label : '')
+        setInitialScenarioLoaded(true)
         break
       }
     }
@@ -264,11 +268,11 @@ const Judgements = () => {
     try {
       setIsLoadingScenarios(true)
       const response = await api.scenarios_search(workspace._id, { text })
-      const urlParams = getUrlParams()
+      const selectedId = scenario?._id || getUrlParams().scenario
       const options = response.data.hits.hits.map((doc) => ({
         _id: doc._id,
         label: doc._source.name,
-        checked: (urlParams.scenario === doc._id) ? 'on' : undefined
+        checked: (selectedId === doc._id) ? 'on' : undefined
       }))
       setScenarioOptions(options)
     } catch (e) {
@@ -324,6 +328,12 @@ const Judgements = () => {
       autoFocus={!getUrlParams().scenario}
       isLoading={isLoadingScenarios}
       isOpen={isScenariosOpen}
+      onChange={(changedOption) => {
+        // Update URL, set active scenario, and restore the scenario name in the search field
+        updateUrl({ scenario: changedOption._id })
+        setScenario(changedOption.checked === 'on' ? changedOption : null)
+        setScenarioSearchString(changedOption.checked === 'on' ? changedOption.label : '')
+      }}
       options={scenarioOptions}
       searchString={scenarioSearchString}
       setSearchString={setScenarioSearchString}
