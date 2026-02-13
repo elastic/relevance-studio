@@ -1,0 +1,938 @@
+#!/usr/bin/env bash
+# 
+# Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+# or more contributor license agreements. Licensed under the Elastic License
+# 2.0; you may not use this file except in compliance with the Elastic License
+# 2.0.
+#
+# Elasticsearch Relevance Studio - Quickstart Script
+#
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/elastic/relevance-studio/main/scripts/quickstart.sh | bash
+#   curl -fsSL ... | bash -s -- --version v1.0.0
+#   curl -fsSL ... | bash -s -- --uninstall
+#
+set -euo pipefail
+
+# =============================================================================
+# Configuration
+# =============================================================================
+
+REPO_URL="https://github.com/elastic/relevance-studio.git"
+DEFAULT_DIR="./relevance-studio"
+VERSION="latest"
+UNINSTALL=false
+
+# CLI overrides for .env configuration (empty = prompt interactively)
+ARG_STUDIO_ELASTIC_CLOUD_ID=""
+ARG_STUDIO_ELASTICSEARCH_URL=""
+ARG_STUDIO_ELASTICSEARCH_API_KEY=""
+ARG_STUDIO_ELASTICSEARCH_USERNAME=""
+ARG_STUDIO_ELASTICSEARCH_PASSWORD=""
+ARG_CONTENT_ELASTIC_CLOUD_ID=""
+ARG_CONTENT_ELASTICSEARCH_URL=""
+ARG_CONTENT_ELASTICSEARCH_API_KEY=""
+ARG_CONTENT_ELASTICSEARCH_USERNAME=""
+ARG_CONTENT_ELASTICSEARCH_PASSWORD=""
+ARG_NO_SEPARATE_CONTENT=false
+ARG_NO_START=false
+ARG_OTEL_EXPORTER_OTLP_ENDPOINT=""
+ARG_OTEL_EXPORTER_OTLP_HEADERS=""
+ARG_OTEL_RESOURCE_ATTRIBUTES=""
+
+# =============================================================================
+# Colors and Formatting
+# =============================================================================
+
+if [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]]; then
+  BOLD='\033[1m'
+  DIM='\033[2m'
+  RED='\033[0;91m'
+  PINK='\033[0;95m'
+  GREEN='\033[0;92m'
+  YELLOW='\033[0;93m'
+  BLUE='\033[0;94m'
+  CYAN='\033[0;96m'
+  ITALIC='\033[3m'
+  RESET='\033[0m'
+else
+  BOLD='' DIM='' PINK='' RED='' GREEN='' YELLOW='' BLUE='' CYAN='' ITALIC='' RESET=''
+fi
+
+# =============================================================================
+# Output Helpers
+# =============================================================================
+
+print_header() {
+  echo ""
+  echo -e "${CYAN}┌────────────────────────────────┐${RESET}"
+  echo -e "${CYAN}│${RESET} ${BOLD}Elasticsearch Relevance Studio${RESET} ${CYAN}│${RESET}"
+  echo -e "${CYAN}└────────────────────────────────┘${RESET}"
+  echo ""
+  echo -e "${YELLOW}✨ ${RESET}${ITALIC}You know, for search relevance.${RESET}"
+  echo -e "   ${DIM}https://ela.st/relevance-studio${RESET}"
+  echo ""
+  echo -e "   Licensed under ELv2: use, modify, and distribute at no cost."
+  echo -e "   ${DIM}https://ela.st/relevance-studio-license${RESET}"
+  echo ""
+}
+
+print_step() {
+  echo -e "${BOLD}$1${RESET}"
+}
+
+print_info() {
+  echo -e "  $1"
+}
+
+print_success() {
+  echo -e "  ${GREEN}✓${RESET} $1"
+}
+
+print_warning() {
+  echo -e "  ${YELLOW}!${RESET} $1"
+}
+
+print_error() {
+  echo -e "  ${RED}✗${RESET} $1" >&2
+}
+
+print_divider() {
+  echo -e "  ${DIM}─────────────────────────────────────────${RESET}"
+}
+
+# =============================================================================
+# Utility Functions
+# =============================================================================
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+prompt_value() {
+  local prompt="$1"
+  local default="${2:-}"
+  local value
+  
+  if [[ -n "$default" ]]; then
+    read -rp "  $prompt [$default]: " value
+    echo "${value:-$default}"
+  else
+    read -rp "  $prompt: " value
+    echo "$value"
+  fi
+}
+
+prompt_secret() {
+  local prompt="$1"
+  local value
+  
+  read -rsp "  $prompt: " value
+  echo "" >&2
+  echo "$value"
+}
+
+prompt_yes_no() {
+  local prompt="$1"
+  local default="${2:-n}"
+  local response
+  
+  if [[ "$default" == "y" ]]; then
+    read -rp "  $prompt [Y/n]: " response
+    response="${response:-y}"
+  else
+    read -rp "  $prompt [y/N]: " response
+    response="${response:-n}"
+  fi
+  
+  [[ "$response" =~ ^[Yy]$ ]]
+}
+
+prompt_menu() {
+  local prompt="$1"
+  local option1="$2"
+  local option2="$3"
+  local response
+  
+  echo "  $prompt"
+  echo ""
+  echo "  1. $option1"
+  echo "  2. $option2"
+  echo ""
+  
+  while true; do
+    read -rp "  Enter 1 or 2: " response
+    case "$response" in
+      1) return 0 ;;
+      2) return 1 ;;
+      *) echo "  ${YELLOW}Please enter 1 or 2${RESET}" ;;
+    esac
+  done
+}
+
+# Normalize version string (prepend 'v' if needed, validate format)
+normalize_version() {
+  local version="$1"
+  
+  if [[ "$version" == "latest" ]] || [[ "$version" == "main" ]]; then
+    echo "$version"
+    return
+  fi
+  
+  # Prepend 'v' if not present
+  if [[ ! "$version" =~ ^v ]]; then
+    version="v$version"
+  fi
+  
+  # Validate semver format
+  if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    print_error "Invalid version format: $version"
+    print_error "Expected: v{major}.{minor}.{patch} (e.g., v1.0.0)"
+    exit 1
+  fi
+  
+  echo "$version"
+}
+
+# Get the latest semantic version tag from git
+get_latest_version() {
+  git tag -l 'v*' 2>/dev/null | \
+    grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | \
+    sort -t. -k1,1nr -k2,2nr -k3,3nr | \
+    head -n1 || true
+}
+
+# =============================================================================
+# Argument Parsing
+# =============================================================================
+
+parse_args() {
+  INSTALL_DIR="$DEFAULT_DIR"
+  
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -v|--version)
+        VERSION="$2"
+        shift 2
+        ;;
+      -d|--dir)
+        INSTALL_DIR="$2"
+        shift 2
+        ;;
+      -u|--uninstall)
+        UNINSTALL=true
+        shift
+        ;;
+      -h|--help)
+        print_usage
+        exit 0
+        ;;
+      # Studio deployment
+      --studio-elastic-cloud-id)
+        ARG_STUDIO_ELASTIC_CLOUD_ID="$2"
+        shift 2
+        ;;
+      --studio-elasticsearch-url)
+        ARG_STUDIO_ELASTICSEARCH_URL="$2"
+        shift 2
+        ;;
+      --studio-elasticsearch-api-key)
+        ARG_STUDIO_ELASTICSEARCH_API_KEY="$2"
+        shift 2
+        ;;
+      --studio-elasticsearch-username)
+        ARG_STUDIO_ELASTICSEARCH_USERNAME="$2"
+        shift 2
+        ;;
+      --studio-elasticsearch-password)
+        ARG_STUDIO_ELASTICSEARCH_PASSWORD="$2"
+        shift 2
+        ;;
+      # Content deployment
+      --content-elastic-cloud-id)
+        ARG_CONTENT_ELASTIC_CLOUD_ID="$2"
+        shift 2
+        ;;
+      --content-elasticsearch-url)
+        ARG_CONTENT_ELASTICSEARCH_URL="$2"
+        shift 2
+        ;;
+      --content-elasticsearch-api-key)
+        ARG_CONTENT_ELASTICSEARCH_API_KEY="$2"
+        shift 2
+        ;;
+      --content-elasticsearch-username)
+        ARG_CONTENT_ELASTICSEARCH_USERNAME="$2"
+        shift 2
+        ;;
+      --content-elasticsearch-password)
+        ARG_CONTENT_ELASTICSEARCH_PASSWORD="$2"
+        shift 2
+        ;;
+      --no-separate-content-deployment)
+        ARG_NO_SEPARATE_CONTENT=true
+        shift
+        ;;
+      --no-start)
+        ARG_NO_START=true
+        shift
+        ;;
+      # OpenTelemetry
+      --otel-exporter-otlp-endpoint)
+        ARG_OTEL_EXPORTER_OTLP_ENDPOINT="$2"
+        shift 2
+        ;;
+      --otel-exporter-otlp-headers)
+        ARG_OTEL_EXPORTER_OTLP_HEADERS="$2"
+        shift 2
+        ;;
+      --otel-resource-attributes)
+        ARG_OTEL_RESOURCE_ATTRIBUTES="$2"
+        shift 2
+        ;;
+      *)
+        print_error "Unknown option: $1"
+        print_usage
+        exit 1
+        ;;
+    esac
+  done
+  
+  # Resolve relative path to absolute
+  INSTALL_DIR="$(cd "$(dirname "$INSTALL_DIR")" 2>/dev/null && pwd)/$(basename "$INSTALL_DIR")" || INSTALL_DIR="$(pwd)/$INSTALL_DIR"
+  
+  # Normalize version
+  VERSION="$(normalize_version "$VERSION")"
+  
+  # Validate incompatible argument combinations
+  validate_args
+}
+
+validate_args() {
+  local errors=false
+
+  # Studio: cloud ID and URL are mutually exclusive
+  if [[ -n "$ARG_STUDIO_ELASTIC_CLOUD_ID" ]] && [[ -n "$ARG_STUDIO_ELASTICSEARCH_URL" ]]; then
+    print_error "--studio-elastic-cloud-id and --studio-elasticsearch-url are mutually exclusive"
+    errors=true
+  fi
+
+  # Studio: API key and username/password are mutually exclusive
+  if [[ -n "$ARG_STUDIO_ELASTICSEARCH_API_KEY" ]] && { [[ -n "$ARG_STUDIO_ELASTICSEARCH_USERNAME" ]] || [[ -n "$ARG_STUDIO_ELASTICSEARCH_PASSWORD" ]]; }; then
+    print_error "--studio-elasticsearch-api-key and --studio-elasticsearch-username/--studio-elasticsearch-password are mutually exclusive"
+    errors=true
+  fi
+
+  # Studio: username and password must be provided together
+  if [[ -n "$ARG_STUDIO_ELASTICSEARCH_USERNAME" ]] && [[ -z "$ARG_STUDIO_ELASTICSEARCH_PASSWORD" ]]; then
+    print_error "--studio-elasticsearch-username requires --studio-elasticsearch-password"
+    errors=true
+  fi
+  if [[ -z "$ARG_STUDIO_ELASTICSEARCH_USERNAME" ]] && [[ -n "$ARG_STUDIO_ELASTICSEARCH_PASSWORD" ]]; then
+    print_error "--studio-elasticsearch-password requires --studio-elasticsearch-username"
+    errors=true
+  fi
+
+  # Content: cloud ID and URL are mutually exclusive
+  if [[ -n "$ARG_CONTENT_ELASTIC_CLOUD_ID" ]] && [[ -n "$ARG_CONTENT_ELASTICSEARCH_URL" ]]; then
+    print_error "--content-elastic-cloud-id and --content-elasticsearch-url are mutually exclusive"
+    errors=true
+  fi
+
+  # Content: API key and username/password are mutually exclusive
+  if [[ -n "$ARG_CONTENT_ELASTICSEARCH_API_KEY" ]] && { [[ -n "$ARG_CONTENT_ELASTICSEARCH_USERNAME" ]] || [[ -n "$ARG_CONTENT_ELASTICSEARCH_PASSWORD" ]]; }; then
+    print_error "--content-elasticsearch-api-key and --content-elasticsearch-username/--content-elasticsearch-password are mutually exclusive"
+    errors=true
+  fi
+
+  # Content: username and password must be provided together
+  if [[ -n "$ARG_CONTENT_ELASTICSEARCH_USERNAME" ]] && [[ -z "$ARG_CONTENT_ELASTICSEARCH_PASSWORD" ]]; then
+    print_error "--content-elasticsearch-username requires --content-elasticsearch-password"
+    errors=true
+  fi
+  if [[ -z "$ARG_CONTENT_ELASTICSEARCH_USERNAME" ]] && [[ -n "$ARG_CONTENT_ELASTICSEARCH_PASSWORD" ]]; then
+    print_error "--content-elasticsearch-password requires --content-elasticsearch-username"
+    errors=true
+  fi
+
+  # Content: --no-separate-content-deployment conflicts with any content args
+  if [[ "$ARG_NO_SEPARATE_CONTENT" == true ]]; then
+    if [[ -n "$ARG_CONTENT_ELASTIC_CLOUD_ID" ]] || [[ -n "$ARG_CONTENT_ELASTICSEARCH_URL" ]] || \
+       [[ -n "$ARG_CONTENT_ELASTICSEARCH_API_KEY" ]] || [[ -n "$ARG_CONTENT_ELASTICSEARCH_USERNAME" ]] || \
+       [[ -n "$ARG_CONTENT_ELASTICSEARCH_PASSWORD" ]]; then
+      print_error "--no-separate-content-deployment conflicts with --content-* options"
+      errors=true
+    fi
+  fi
+
+  if [[ "$errors" == true ]]; then
+    echo ""
+    exit 1
+  fi
+}
+
+print_usage() {
+  echo ""
+  echo -e "${BOLD}Usage:${RESET}"
+  echo "  quickstart [options]"
+  echo ""
+  echo -e "${BOLD}General options:${RESET}"
+  echo -e "  -v, --version <version>                 ${DIM}# Version to install (default: latest)${RESET}"
+  echo -e "                                          ${DIM}# Accepts: latest, main, or v{major}.{minor}.{patch}${RESET}"
+  echo -e "  -d, --dir <path>                        ${DIM}# Installation directory (default: ./relevance-studio)${RESET}"
+  echo -e "      --no-start                          ${DIM}# Install and configure only; don't start services${RESET}"
+  echo -e "  -u, --uninstall                         ${DIM}# Remove all locally installed artifacts${RESET}"
+  echo -e "  -h, --help                              ${DIM}# Show this help message${RESET}"
+  echo ""
+  echo -e "${BOLD}Studio deployment config:${RESET}"
+  echo -e "  --studio-elastic-cloud-id <id>          ${DIM}# Elastic Cloud ID for the studio deployment${RESET}"
+  echo -e "  --studio-elasticsearch-url <url>        ${DIM}# Elasticsearch URL for the studio deployment${RESET}"
+  echo -e "  --studio-elasticsearch-api-key <key>    ${DIM}# API key for the studio deployment${RESET}"
+  echo -e "  --studio-elasticsearch-username <usr>   ${DIM}# Username for the studio deployment${RESET}"
+  echo -e "  --studio-elasticsearch-password <pwd>   ${DIM}# Password for the studio deployment${RESET}"
+  echo ""
+  echo -e "${BOLD}Content deployment config:${RESET}"
+  echo -e "  --content-elastic-cloud-id <id>         ${DIM}# Elastic Cloud ID for the content deployment${RESET}"
+  echo -e "  --content-elasticsearch-url <url>       ${DIM}# Elasticsearch URL for the content deployment${RESET}"
+  echo -e "  --content-elasticsearch-api-key <key>   ${DIM}# API key for the content deployment${RESET}"
+  echo -e "  --content-elasticsearch-username <usr>  ${DIM}# Username for the content deploymen${RESET}t"
+  echo -e "  --content-elasticsearch-password <pwd>  ${DIM}# Password for the content deployment${RESET}"
+  echo -e "  --no-separate-content-deployment        ${DIM}# Skip content deployment configuration${RESET}"
+  echo ""
+  echo -e "${BOLD}OpenTelemetry config:${RESET}"
+  echo -e "  --otel-exporter-otlp-endpoint <url>     ${DIM}# OTLP exporter endpoint (leave blank to disable OTel)${RESET}"
+  echo -e "  --otel-exporter-otlp-headers <hdrs>     ${DIM}# OTLP exporter headers${RESET}"
+  echo -e "  --otel-resource-attributes <attrs>      ${DIM}# OTEL resource attributes${RESET}"
+  echo ""
+  echo -e "${BOLD}Example usage:${RESET}"
+  echo -e "  quickstart                              ${DIM}# Interactive setup${RESET}"
+  echo -e "  quickstart --version v1.0.0             ${DIM}# Install specific version${RESET}"
+  echo -e "  quickstart --dir ~/projects/esrs        ${DIM}# Custom directory${RESET}"
+  echo -e "  quickstart --uninstall                  ${DIM}# Remove installation${RESET}"
+  echo ""
+  echo -e "  ${DIM}# Programmatic setup (skip interactive prompts):${RESET}"
+  echo -e "  quickstart \\"
+  echo -e "    --studio-elasticsearch-url http://localhost:9200 \\"
+  echo -e "    --studio-elasticsearch-api-key my-api-key \\"
+  echo -e "    --no-separate-content-deployment"
+  echo ""
+}
+
+# =============================================================================
+# Prerequisites
+# =============================================================================
+
+check_prerequisites() {
+  print_step "Checking prerequisites..."
+  
+  local missing=false
+  
+  if command_exists docker; then
+    print_success "docker"
+  else
+    print_error "docker - not found"
+    print_info "  Install Docker: https://docs.docker.com/get-docker/"
+    missing=true
+  fi
+  
+  if docker compose version >/dev/null 2>&1; then
+    print_success "docker compose"
+  elif command_exists docker-compose; then
+    print_success "docker-compose (legacy)"
+  else
+    print_error "docker compose - not found"
+    missing=true
+  fi
+  
+  if ! docker info >/dev/null 2>&1; then
+    print_error "Docker daemon is not running"
+    print_info "  Start Docker Desktop or the Docker service and try again."
+    missing=true
+  fi
+  
+  if command_exists git; then
+    print_success "git"
+  else
+    print_error "git - not found"
+    missing=true
+  fi
+  
+  if [[ "$missing" == true ]]; then
+    echo ""
+    print_error "Please install missing prerequisites and try again."
+    exit 1
+  fi
+  
+  echo ""
+}
+
+# =============================================================================
+# Uninstall
+# =============================================================================
+
+do_uninstall() {
+  print_step "Uninstalling..."
+  echo ""
+  
+  if [[ -d "$INSTALL_DIR" ]]; then
+    # Stop containers if running
+    if [[ -f "$INSTALL_DIR/docker-compose.yml" ]]; then
+      print_info "Stopping services..."
+      (cd "$INSTALL_DIR" && docker compose down --remove-orphans 2>/dev/null) || true
+      print_success "Services stopped"
+    fi
+    
+    # Remove Docker artifacts
+    print_info "Removing Docker artifacts..."
+    (cd "$INSTALL_DIR" && docker compose down --volumes --rmi local 2>/dev/null) || true
+    print_success "Docker artifacts removed"
+    
+    # Remove directory
+    print_info "Removing installation directory..."
+    rm -rf "$INSTALL_DIR"
+    print_success "Removed $INSTALL_DIR"
+  else
+    print_warning "Installation directory not found: $INSTALL_DIR"
+  fi
+  
+  echo ""
+  print_info "Uninstall complete."
+  print_info ""
+  print_info "${DIM}Note: Your Elasticsearch Studio deployment and its indices (esrs-*) will remain intact.${RESET}"
+  echo ""
+}
+
+# =============================================================================
+# Installation
+# =============================================================================
+
+clone_or_update_repo() {
+  print_step "Installing..."
+  
+  if [[ -d "$INSTALL_DIR/.git" ]]; then
+    print_info "Updating existing installation..."
+    if ! git -C "$INSTALL_DIR" fetch --tags --force >/dev/null 2>&1; then
+      print_error "Failed to fetch updates from repository"
+      exit 1
+    fi
+    print_success "Repository updated"
+  else
+    print_info "Cloning repository..."
+    if ! git clone --quiet "$REPO_URL" "$INSTALL_DIR"; then
+      print_error "Failed to clone repository"
+      exit 1
+    fi
+    print_success "Cloned to $INSTALL_DIR"
+  fi
+  
+  if ! cd "$INSTALL_DIR"; then
+    print_error "Failed to change to installation directory: $INSTALL_DIR"
+    exit 1
+  fi
+  
+  # Checkout appropriate version
+  if [[ "$VERSION" == "latest" ]]; then
+    local latest
+    latest="$(get_latest_version)"
+    if [[ -n "$latest" ]]; then
+      print_info "Checking out $latest..."
+      if ! git checkout --quiet "$latest" 2>/dev/null; then
+        print_error "Failed to checkout version $latest"
+        exit 1
+      fi
+      print_success "Version: $latest"
+    else
+      print_warning "No release tags found, using main branch"
+      if ! git checkout --quiet main 2>/dev/null; then
+        print_error "Failed to checkout main branch"
+        exit 1
+      fi
+      print_success "Version: main (development)"
+    fi
+  elif [[ "$VERSION" == "main" ]]; then
+    if ! git checkout --quiet main 2>/dev/null; then
+      print_error "Failed to checkout main branch"
+      exit 1
+    fi
+    git pull --quiet origin main 2>/dev/null || true
+    print_success "Version: main (development)"
+  else
+    if git rev-parse "$VERSION" >/dev/null 2>&1; then
+      if ! git checkout --quiet "$VERSION" 2>/dev/null; then
+        print_error "Failed to checkout version $VERSION"
+        exit 1
+      fi
+      print_success "Version: $VERSION"
+    else
+      print_error "Version $VERSION not found"
+      print_info "Available versions:"
+      git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -t. -k1,1nr -k2,2nr -k3,3nr | head -5 | while read -r tag; do
+        print_info "  $tag"
+      done
+      exit 1
+    fi
+  fi
+  
+  echo ""
+}
+
+# =============================================================================
+# Configuration
+# =============================================================================
+
+set_env_value() {
+  local key="$1"
+  local value="$2"
+  local env_file="$3"
+  
+  if [[ -n "$value" ]]; then
+    # Try to replace existing line (commented or uncommented)
+    if grep -qE "^#?\s*${key}=" "$env_file"; then
+      sed -i.bak "s|^#*[[:space:]]*${key}=.*|${key}=${value}|" "$env_file"
+    else
+      # Append if not found
+      echo "${key}=${value}" >> "$env_file"
+    fi
+  fi
+}
+
+# Check if any studio connection args were provided via CLI
+has_studio_args() {
+  [[ -n "$ARG_STUDIO_ELASTIC_CLOUD_ID" ]] || [[ -n "$ARG_STUDIO_ELASTICSEARCH_URL" ]] || \
+  [[ -n "$ARG_STUDIO_ELASTICSEARCH_API_KEY" ]] || [[ -n "$ARG_STUDIO_ELASTICSEARCH_USERNAME" ]]
+}
+
+# Check if any content deployment args were provided via CLI
+has_content_args() {
+  [[ -n "$ARG_CONTENT_ELASTIC_CLOUD_ID" ]] || [[ -n "$ARG_CONTENT_ELASTICSEARCH_URL" ]] || \
+  [[ -n "$ARG_CONTENT_ELASTICSEARCH_API_KEY" ]] || [[ -n "$ARG_CONTENT_ELASTICSEARCH_USERNAME" ]]
+}
+
+# Check if any OTEL args were provided via CLI
+has_otel_args() {
+  [[ -n "$ARG_OTEL_EXPORTER_OTLP_ENDPOINT" ]] || [[ -n "$ARG_OTEL_EXPORTER_OTLP_HEADERS" ]] || \
+  [[ -n "$ARG_OTEL_RESOURCE_ATTRIBUTES" ]]
+}
+
+configure_env() {
+  local env_file="$INSTALL_DIR/.env"
+  local env_reference="$INSTALL_DIR/.env-reference"
+  
+  print_step "Configuration"
+  echo ""
+  
+  # Check if .env exists
+  if [[ -f "$env_file" ]]; then
+    if has_studio_args; then
+      # CLI args provided — overwrite without prompting
+      rm "$env_file"
+    elif prompt_yes_no "Existing .env found. Reconfigure?" "n"; then
+      rm "$env_file"
+    else
+      print_success "Using existing configuration"
+      echo ""
+      return
+    fi
+    echo ""
+  fi
+  
+  # Copy reference file
+  if [[ ! -f "$env_reference" ]]; then
+    print_error ".env-reference not found in repository"
+    exit 1
+  fi
+  cp "$env_reference" "$env_file"
+  
+  # --- Studio Deployment ---
+  if has_studio_args; then
+    # Use CLI arguments
+    print_info "Configuring studio deployment from command-line arguments..."
+    if [[ -n "$ARG_STUDIO_ELASTIC_CLOUD_ID" ]]; then
+      set_env_value "ELASTIC_CLOUD_ID" "$ARG_STUDIO_ELASTIC_CLOUD_ID" "$env_file"
+      print_success "Elastic Cloud ID"
+    elif [[ -n "$ARG_STUDIO_ELASTICSEARCH_URL" ]]; then
+      set_env_value "ELASTICSEARCH_URL" "$ARG_STUDIO_ELASTICSEARCH_URL" "$env_file"
+      print_success "Elasticsearch URL: $ARG_STUDIO_ELASTICSEARCH_URL"
+    fi
+    if [[ -n "$ARG_STUDIO_ELASTICSEARCH_API_KEY" ]]; then
+      set_env_value "ELASTICSEARCH_API_KEY" "$ARG_STUDIO_ELASTICSEARCH_API_KEY" "$env_file"
+      print_success "API Key authentication"
+    elif [[ -n "$ARG_STUDIO_ELASTICSEARCH_USERNAME" ]]; then
+      set_env_value "ELASTICSEARCH_USERNAME" "$ARG_STUDIO_ELASTICSEARCH_USERNAME" "$env_file"
+      set_env_value "ELASTICSEARCH_PASSWORD" "$ARG_STUDIO_ELASTICSEARCH_PASSWORD" "$env_file"
+      print_success "Username/password authentication"
+    fi
+    echo ""
+  else
+    # Interactive prompts
+    print_info "You'll need connection and authentication details for Elasticsearch."
+    print_info "These will be saved in: ${CYAN}${env_file}${RESET}"
+    echo ""
+
+    print_divider
+    print_info "${BOLD}Studio Deployment${RESET} ${DIM}(where Relevance Studio stores its artifacts)${RESET}"
+    print_divider
+    echo ""
+    
+    if prompt_menu "How do you want to connect to Elasticsearch?" "Elastic Cloud ID" "Elasticsearch URL"; then
+      set_env_value "ELASTIC_CLOUD_ID" "$(prompt_value "Elastic Cloud ID")" "$env_file"
+    else
+      set_env_value "ELASTICSEARCH_URL" "$(prompt_value "Elasticsearch URL" "http://localhost:9200")" "$env_file"
+    fi
+    
+    echo ""
+    if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
+      set_env_value "ELASTICSEARCH_API_KEY" "$(prompt_secret "API Key")" "$env_file"
+    else
+      set_env_value "ELASTICSEARCH_USERNAME" "$(prompt_value "Username")" "$env_file"
+      set_env_value "ELASTICSEARCH_PASSWORD" "$(prompt_secret "Password")" "$env_file"
+    fi
+    echo ""
+  fi
+  
+  # --- Content Deployment (Optional) ---
+  if [[ "$ARG_NO_SEPARATE_CONTENT" == true ]]; then
+    print_info "Skipping separate content deployment (--no-separate-content-deployment)"
+    echo ""
+  elif has_content_args; then
+    print_info "Configuring content deployment from command-line arguments..."
+    if [[ -n "$ARG_CONTENT_ELASTIC_CLOUD_ID" ]]; then
+      set_env_value "CONTENT_ELASTIC_CLOUD_ID" "$ARG_CONTENT_ELASTIC_CLOUD_ID" "$env_file"
+      print_success "Content Elastic Cloud ID"
+    elif [[ -n "$ARG_CONTENT_ELASTICSEARCH_URL" ]]; then
+      set_env_value "CONTENT_ELASTICSEARCH_URL" "$ARG_CONTENT_ELASTICSEARCH_URL" "$env_file"
+      print_success "Content Elasticsearch URL: $ARG_CONTENT_ELASTICSEARCH_URL"
+    fi
+    if [[ -n "$ARG_CONTENT_ELASTICSEARCH_API_KEY" ]]; then
+      set_env_value "CONTENT_ELASTICSEARCH_API_KEY" "$ARG_CONTENT_ELASTICSEARCH_API_KEY" "$env_file"
+      print_success "Content API Key authentication"
+    elif [[ -n "$ARG_CONTENT_ELASTICSEARCH_USERNAME" ]]; then
+      set_env_value "CONTENT_ELASTICSEARCH_USERNAME" "$ARG_CONTENT_ELASTICSEARCH_USERNAME" "$env_file"
+      set_env_value "CONTENT_ELASTICSEARCH_PASSWORD" "$ARG_CONTENT_ELASTICSEARCH_PASSWORD" "$env_file"
+      print_success "Content username/password authentication"
+    fi
+    echo ""
+  elif ! has_studio_args; then
+    # Only prompt interactively if studio was also interactive
+    print_divider
+    print_info "${BOLD}Content Deployment${RESET} ${DIM}(where your searchable content lives)${RESET}"
+    print_divider
+    echo ""
+    
+    if prompt_yes_no "Is your content stored in a separate Elasticsearch deployment?" "n"; then
+      echo ""
+      
+      if prompt_menu "How do you want to connect to the content deployment?" "Elastic Cloud ID" "Elasticsearch URL"; then
+        set_env_value "CONTENT_ELASTIC_CLOUD_ID" "$(prompt_value "Content Elastic Cloud ID")" "$env_file"
+      else
+        set_env_value "CONTENT_ELASTICSEARCH_URL" "$(prompt_value "Content Elasticsearch URL")" "$env_file"
+      fi
+      
+      echo ""
+      if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
+        set_env_value "CONTENT_ELASTICSEARCH_API_KEY" "$(prompt_secret "Content API Key")" "$env_file"
+      else
+        set_env_value "CONTENT_ELASTICSEARCH_USERNAME" "$(prompt_value "Content Username")" "$env_file"
+        set_env_value "CONTENT_ELASTICSEARCH_PASSWORD" "$(prompt_secret "Content Password")" "$env_file"
+      fi
+    else
+      print_info "Using studio deployment for content."
+    fi
+    echo ""
+  fi
+  
+  # --- OpenTelemetry (Optional) ---
+  if has_otel_args; then
+    print_info "Configuring OpenTelemetry from command-line arguments..."
+    if [[ -n "$ARG_OTEL_EXPORTER_OTLP_ENDPOINT" ]]; then
+      set_env_value "OTEL_EXPORTER_OTLP_ENDPOINT" "$ARG_OTEL_EXPORTER_OTLP_ENDPOINT" "$env_file"
+      print_success "OTLP Endpoint: $ARG_OTEL_EXPORTER_OTLP_ENDPOINT"
+    fi
+    if [[ -n "$ARG_OTEL_EXPORTER_OTLP_HEADERS" ]]; then
+      set_env_value "OTEL_EXPORTER_OTLP_HEADERS" "$ARG_OTEL_EXPORTER_OTLP_HEADERS" "$env_file"
+      print_success "OTLP Headers"
+    fi
+    if [[ -n "$ARG_OTEL_RESOURCE_ATTRIBUTES" ]]; then
+      set_env_value "OTEL_RESOURCE_ATTRIBUTES" "$ARG_OTEL_RESOURCE_ATTRIBUTES" "$env_file"
+      print_success "OTEL Resource Attributes"
+    fi
+    echo ""
+  elif ! has_studio_args; then
+    # Only prompt interactively if studio was also interactive
+    print_divider
+    print_info "${BOLD}Telemetry${RESET} ${DIM}(optional OpenTelemetry instrumentation)${RESET}"
+    print_divider
+    echo ""
+    
+    if prompt_yes_no "Enable OpenTelemetry instrumentation?" "n"; then
+      echo ""
+      set_env_value "OTEL_EXPORTER_OTLP_ENDPOINT" "$(prompt_value "OTLP Endpoint")" "$env_file"
+      
+      if prompt_yes_no "Configure authentication headers?" "n"; then
+        print_info "${DIM}Format: Authorization=ApiKey BASE64_ENCODED_KEY${RESET}"
+        set_env_value "OTEL_EXPORTER_OTLP_HEADERS" "$(prompt_value "OTLP Headers")" "$env_file"
+      fi
+      
+      echo ""
+      print_info "${DIM}Additional OTEL settings can be added to .env after setup.${RESET}"
+    fi
+    echo ""
+  fi
+  
+  # Clean up sed backup files
+  rm -f "$env_file.bak"
+  
+  print_success "Configuration saved to .env"
+  echo ""
+}
+
+# =============================================================================
+# Start Services
+# =============================================================================
+
+start_services() {
+  print_step "Starting services..."
+  echo ""
+  
+  cd "$INSTALL_DIR"
+  
+  # Determine docker compose command
+  local compose_cmd
+  if docker compose version >/dev/null 2>&1; then
+    compose_cmd="docker compose"
+  else
+    compose_cmd="docker-compose"
+  fi
+  
+  # Build and start
+  print_info "Building containers (this may take a few minutes)..."
+  echo ""
+  
+  local build_output
+  if ! build_output=$($compose_cmd up --build -d 2>&1); then
+    print_error "Failed to start services"
+    echo "$build_output" >&2
+    exit 1
+  fi
+  
+  # Wait for services to be healthy
+  print_info "Waiting for services to be ready..."
+  
+  local max_attempts=60
+  local attempt=0
+  local services_ready=false
+  
+  while [[ $attempt -lt $max_attempts ]]; do
+    # Check if containers are running
+    local running
+    running=$($compose_cmd ps --format json 2>/dev/null | grep -c '"running"' || echo "0")
+    local total
+    total=$($compose_cmd ps --format json 2>/dev/null | grep -c '"Name"' || echo "0")
+    
+    # Fallback for older docker compose
+    if [[ "$total" == "0" ]]; then
+      running=$($compose_cmd ps | grep -c "Up" || echo "0")
+      total=$($compose_cmd ps | tail -n +2 | grep -c "" || echo "0")
+    fi
+    
+    if [[ "$running" == "$total" ]] && [[ "$total" != "0" ]]; then
+      # Try to hit the health endpoint
+      if curl -sf http://localhost:4096/healthz >/dev/null 2>&1; then
+        services_ready=true
+        break
+      fi
+    fi
+    
+    sleep 2
+    ((attempt++))
+  done
+  
+  echo ""
+  
+  # Report status
+  if [[ "$services_ready" == true ]]; then
+    print_success "esrs-server"
+    print_success "esrs-worker"
+    print_success "esrs-server-mcp"
+    print_success "esrs-proxy-mcp"
+  else
+    print_warning "Services may still be starting up"
+    print_info "Check status with: docker compose ps"
+  fi
+  
+  echo ""
+}
+
+# =============================================================================
+# Completion
+# =============================================================================
+
+print_completion() {
+  local frontend_url="http://localhost:4096"
+  
+  echo ""
+  print_step "Ready!"
+  print_divider
+  echo ""
+  print_info "Open ${CYAN}${frontend_url}${RESET} to get started"
+  echo ""
+  print_info "${DIM}Useful commands:${RESET}"
+  print_info "  cd $INSTALL_DIR"
+  print_info "  docker compose logs -f      ${DIM}# view logs${RESET}"
+  print_info "  docker compose down         ${DIM}# stop services${RESET}"
+  print_info "  docker compose up -d        ${DIM}# restart services${RESET}"
+  echo ""
+}
+
+print_completion_no_start() {
+  echo ""
+  print_step "Installed!"
+  print_divider
+  echo ""
+  print_info "Installation and configuration complete. Services were not started."
+  echo ""
+  print_info "To start services:"
+  print_info "  cd $INSTALL_DIR"
+  print_info "  docker compose up --build -d"
+  echo ""
+}
+
+# =============================================================================
+# Install
+# =============================================================================
+
+do_install() {
+  print_step "Let's install Elasticsearch Relevance Studio!"
+  echo ""
+
+  check_prerequisites
+  clone_or_update_repo
+  configure_env
+
+  if [[ "$ARG_NO_START" == true ]]; then
+    print_completion_no_start
+  else
+    start_services
+    print_completion
+  fi
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+
+main() {
+  print_header
+  parse_args "$@"
+  
+  if [[ "$UNINSTALL" == true ]]; then
+    do_uninstall
+    exit 0
+  fi
+  
+  do_install
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
