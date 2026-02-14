@@ -24,7 +24,7 @@ import pytest
 
 # Paths relative to repo root
 REPO_ROOT = Path(__file__).resolve().parents[2]
-QUICKSTART_SCRIPT = REPO_ROOT / "scripts" / "quickstart"
+QUICKSTART_SCRIPT = REPO_ROOT / "scripts" / "quickstart.sh"
 ENV_REFERENCE = REPO_ROOT / ".env-reference"
 
 
