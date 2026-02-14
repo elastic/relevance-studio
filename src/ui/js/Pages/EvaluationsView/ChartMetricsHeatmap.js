@@ -134,7 +134,6 @@ const ChartMetricsHeatmap = (props) => {
         return prev
       return _data
     })
-    console.debug('[EvaluationsHeatmap state updated]', { data })
   }, [evaluation, xGroupBy, xSortBy, yGroupBy, ySortBy])
 
   ////  Render  ////////////////////////////////////////////////////////////////

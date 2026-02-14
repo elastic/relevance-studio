@@ -91,7 +91,7 @@ def check():
                 }
             })
         except (ApiError, NotFoundError) as e:
-            result["setup"]["failures]"] += 1
+            result["setup"]["failures"] += 1
             result["setup"]["requests"].append({
                 "index_template": name,
                 "response": {
