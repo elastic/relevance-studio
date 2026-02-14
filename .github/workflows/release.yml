@@ -1,0 +1,27 @@
+# Automatically create GitHub releases when tags are pushed
+name: Release
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on semantic version tags like v1.0.0
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  release:
+    needs: test  # Only run if tests pass
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write  # Required to create releases
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: false

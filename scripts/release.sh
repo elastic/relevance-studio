@@ -126,6 +126,36 @@ print_usage() {
   echo -e "  release.sh 1.1.0          ${DIM}# Minor release (requires docs/docs/v1.1/)${RESET}"
   echo -e "  release.sh v2.0.0         ${DIM}# Major release (requires docs/docs/v2.0/)${RESET}"
   echo ""
+  print_divider
+  echo ""
+  echo -e "${BOLD}What this release script does:${RESET}"
+  echo ""
+  echo -e "  1. Validates prerequisites:"
+  echo -e "     - Must be on main branch"
+  echo -e "     - Working directory must be clean"
+  echo -e "     - Tag v{version} must not already exist"
+  echo -e "     - Local branch release/v{version} must not exist"
+  echo -e "     - Remote branch release/v{version} must not exist"
+  echo ""
+  echo -e "  2. Checks documentation versions (only for new minor/major releases):"
+  echo -e "     - Ensures docs/docs/v{major}.{minor}/ exists"
+  echo ""
+  echo -e "  3. Creates the release branch:"
+  echo -e "     - git checkout -b release/v{version}"
+  echo ""
+  echo -e "  4. Updates version number implementations:"
+  echo -e "     - Updates package.json version field"
+  echo ""
+  echo -e "  5. Commits and tags:"
+  echo -e "     - git commit -m \"Release v{version}\""
+  echo -e "     - git tag -a v{version} -m \"Release v{version}\""
+  echo ""
+  echo -e "  6. Displays next steps for publishing the release (branch/tag push instructions)"
+  echo ""
+  echo -e "  ${DIM}After you push the tag, the release.yml workflow automatically:${RESET}"
+  echo -e "  ${DIM}- Runs unit tests${RESET}"
+  echo -e "  ${DIM}- Creates GitHub release (if tests pass)${RESET}"
+  echo ""
 }
 
 # =============================================================================
@@ -201,6 +231,22 @@ check_prerequisites() {
     errors=true
   else
     print_success "Tag $TAG available"
+  fi
+  
+  # Check if local branch already exists
+  if git rev-parse --verify "$RELEASE_BRANCH" >/dev/null 2>&1; then
+    print_error "Local branch $RELEASE_BRANCH already exists"
+    errors=true
+  else
+    print_success "Local branch $RELEASE_BRANCH available"
+  fi
+  
+  # Check if remote branch already exists
+  if git ls-remote --exit-code --heads origin "$RELEASE_BRANCH" >/dev/null 2>&1; then
+    print_error "Remote branch $RELEASE_BRANCH already exists on origin"
+    errors=true
+  else
+    print_success "Remote branch $RELEASE_BRANCH available"
   fi
   
   if [[ "$errors" == true ]]; then
@@ -351,25 +397,28 @@ print_completion() {
   print_info "${BOLD}Branch:${RESET} $RELEASE_BRANCH"
   print_info "${BOLD}Tag:${RESET}    $TAG"
   echo ""
-  print_info "${DIM}Next steps:${RESET}"
+  print_info "Next steps:"
   echo ""
   print_info "1. Review the changes:"
-  print_info "   ${DIM}git show${RESET}"
+  echo ""
+  print_info "     git show"
   echo ""
   print_info "2. Push the branch and tag:"
-  print_info "   ${DIM}git push -u origin $RELEASE_BRANCH${RESET}"
-  print_info "   ${DIM}git push origin $TAG${RESET}"
   echo ""
-  print_info "3. Create a GitHub release:"
-  print_info "   ${DIM}gh release create $TAG --generate-notes${RESET}"
-  print_info "   ${DIM}https://github.com/elastic/relevance-studio/releases/new?tag=$TAG${RESET}"
+  print_info "     git push -u origin $RELEASE_BRANCH && git push origin $TAG"
   echo ""
-  print_info "4. Return to main for continued development:"
-  print_info "   ${DIM}git checkout main${RESET}"
+  print_info "3.  GitHub Actions will run tests and create a release upon passing."
+  echo ""
+  print_info "     Monitor: https://github.com/elastic/relevance-studio/actions"
+  echo ""
+  print_info "4. Return to the main branch for continued development:"
+  echo ""
+  print_info "     git checkout main"
   echo ""
   print_divider
-  print_info "${DIM}To undo (before pushing):${RESET}"
-  print_info "  ${DIM}git checkout main && git branch -D $RELEASE_BRANCH && git tag -d $TAG${RESET}"
+  print_info "To undo (before pushing):"
+  echo ""
+  print_info "  git checkout main && git branch -D $RELEASE_BRANCH && git tag -d $TAG"
   echo ""
 }
 
