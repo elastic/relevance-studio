@@ -526,12 +526,6 @@ def run(
                 # Skip if no valid requests (all scenarios have no ratings)
                 if not _rank_eval["requests"]:
                     continue
-                
-                # Debug: Print request structure
-                print(f"Rank eval request for strategy {template['id']}:")
-                print(f"  Templates: {len(_rank_eval['templates'])}")
-                print(f"  Requests: {len(_rank_eval['requests'])}")
-                print(f"  Metric: {_rank_eval['metric']}")
                     
                 # Run _rank_eval on the content deployment and accumulate the results
                 body = {
