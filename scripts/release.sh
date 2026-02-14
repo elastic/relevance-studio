@@ -132,7 +132,7 @@ print_usage() {
   echo ""
   echo -e "  1. Validates prerequisites:"
   echo -e "     - Must be on main branch"
-  echo -e "     - Working directory must be clean"
+  echo -e "     - No modified or staged tracked files"
   echo -e "     - Tag v{version} must not already exist"
   echo -e "     - Local branch release/v{version} must not exist"
   echo -e "     - Remote branch release/v{version} must not exist"
@@ -216,13 +216,13 @@ check_prerequisites() {
     print_success "On main branch"
   fi
   
-  # Check for uncommitted changes
-  if [[ -n $(git status --porcelain) ]]; then
-    print_error "Uncommitted changes detected"
-    git status --short | sed 's/^/    /'
+  # Check for modified/staged tracked files (ignore untracked)
+  if git status --porcelain | grep -q '^[MADR]'; then
+    print_error "Modified or staged files detected"
+    git status --short | grep '^[MADR]' | sed 's/^/    /'
     errors=true
   else
-    print_success "Working directory clean"
+    print_success "No modified or staged files"
   fi
   
   # Check if tag already exists
