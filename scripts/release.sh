@@ -77,7 +77,7 @@ command_exists() {
 # Get the latest semantic version tag from git
 get_latest_version() {
   git tag -l 'v*' 2>/dev/null | \
-    grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | \
+    { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; } | \
     sort -t. -k1,1nr -k2,2nr -k3,3nr | \
     head -n1
 }
@@ -328,6 +328,7 @@ check_version_docs() {
 # =============================================================================
 
 update_package_json() {
+  echo ""
   print_step "Updating version numbers..."
   
   local package_json="package.json"
@@ -373,13 +374,14 @@ create_release() {
   update_package_json
   
   # Commit
-  print_info "Committing changes..."
+  print_step "Committing changes..."
   git add -A
   git commit -m "Release ${TAG}" >/dev/null 2>&1
   print_success "Changes committed"
   
   # Tag
-  print_info "Creating tag: $TAG"
+  echo ""
+  print_step "Creating tag: $TAG"
   git tag -a "$TAG" -m "Release ${TAG}"
   print_success "Tag created"
   
@@ -397,23 +399,23 @@ print_completion() {
   print_info "${BOLD}Branch:${RESET} $RELEASE_BRANCH"
   print_info "${BOLD}Tag:${RESET}    $TAG"
   echo ""
-  print_info "Next steps:"
+  print_step "Next steps:"
   echo ""
   print_info "1. Review the changes:"
   echo ""
-  print_info "     git show"
+  print_info "     ${BOLD}git show${RESET}"
   echo ""
   print_info "2. Push the branch and tag:"
   echo ""
-  print_info "     git push -u origin $RELEASE_BRANCH && git push origin $TAG"
+  print_info "     ${BOLD}git push -u origin $RELEASE_BRANCH && git push origin $TAG${RESET}"
   echo ""
   print_info "3.  GitHub Actions will run tests and create a release upon passing."
   echo ""
-  print_info "     Monitor: https://github.com/elastic/relevance-studio/actions"
+  print_info "     ${BOLD}Monitor: https://github.com/elastic/relevance-studio/actions${RESET}"
   echo ""
   print_info "4. Return to the main branch for continued development:"
   echo ""
-  print_info "     git checkout main"
+  print_info "     ${BOLD}git checkout main${RESET}"
   echo ""
   print_divider
   print_info "To undo (before pushing):"
