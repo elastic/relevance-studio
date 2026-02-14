@@ -340,9 +340,12 @@
               currentVersion = versionMatch[1];
             }
 
+            // Resolve version for links (convert "latest" to actual version)
+            const resolvedVersion = currentVersion === 'latest' ? latest : currentVersion;
+
             // Create version selector HTML
             const selectorHTML = `
-      <div style="padding: 0 15px 15px 15px;">
+      <div style="padding: 0 15px 15px 15px; display: flex; align-items: center; gap: 10px;">
         <select id="version-select" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;">
           ${versions.map(v => `
             <option value="${v.value}" ${v.value === currentVersion ? 'selected' : ''}>
@@ -350,6 +353,7 @@
             </option>
           `).join('')}
         </select>
+        <a id="release-notes-link" href="#/docs/${resolvedVersion}/release-notes" style="color: rgb(11, 100, 221); white-space: nowrap;">Release notes</a>
       </div>
     `;
             // Insert after the sidebar name/logo
@@ -366,10 +370,17 @@
 
             // Handle version changes
             const versionSelect = document.getElementById('version-select');
+            const releaseNotesLink = document.getElementById('release-notes-link');
             if (versionSelect) {
               versionSelect.addEventListener('change', function (e) {
                 const newVersion = e.target.value;
                 const currentHash = window.location.hash;
+
+                // Update release notes link
+                const resolvedNew = newVersion === 'latest' ? latest : newVersion;
+                if (releaseNotesLink) {
+                  releaseNotesLink.href = `#/docs/${resolvedNew}/release-notes`;
+                }
 
                 // Replace version in URL
                 let newHash;
