@@ -98,7 +98,7 @@ print_error() {
 }
 
 print_divider() {
-  echo -e "  ${DIM}─────────────────────────────────────────${RESET}"
+  echo -e "  ${DIM}────────────────────────────────────────────────────────────────────────────────${RESET}"
 }
 
 # =============================================================================
@@ -138,10 +138,12 @@ prompt_yes_no() {
   local response
   
   if [[ "$default" == "y" ]]; then
-    read -rp "  $prompt [Y/n]: " response
+    printf "  %b [Y/n]: " "$prompt"
+    read -r response
     response="${response:-y}"
   else
-    read -rp "  $prompt [y/N]: " response
+    printf "  %b [y/N]: " "$prompt"
+    read -r response
     response="${response:-n}"
   fi
   
@@ -154,10 +156,10 @@ prompt_menu() {
   local option2="$3"
   local response
   
-  echo "  $prompt"
+  echo -e "  $prompt"
   echo ""
-  echo "  1. $option1"
-  echo "  2. $option2"
+  echo -e "  1. $option1"
+  echo -e "  2. $option2"
   echo ""
   
   while true; do
@@ -165,7 +167,7 @@ prompt_menu() {
     case "$response" in
       1) return 0 ;;
       2) return 1 ;;
-      *) echo "  ${YELLOW}Please enter 1 or 2${RESET}" ;;
+      *) echo -e "  ${YELLOW}Please enter 1 or 2${RESET}" ;;
     esac
   done
 }
@@ -402,7 +404,7 @@ print_usage() {
   echo -e "${BOLD}OpenTelemetry config:${RESET}"
   echo -e "  --otel-exporter-otlp-endpoint <url>     ${DIM}# OTLP exporter endpoint (leave blank to disable OTel)${RESET}"
   echo -e "  --otel-exporter-otlp-headers <hdrs>     ${DIM}# OTLP exporter headers${RESET}"
-  echo -e "  --otel-resource-attributes <attrs>      ${DIM}# OTEL resource attributes${RESET}"
+  echo -e "  --otel-resource-attributes <attrs>      ${DIM}# OTel resource attributes${RESET}"
   echo ""
   echo -e "${BOLD}Example usage:${RESET}"
   echo -e "  quickstart                              ${DIM}# Interactive setup${RESET}"
@@ -479,20 +481,24 @@ do_uninstall() {
     if [[ -f "$INSTALL_DIR/docker-compose.yml" ]]; then
       print_info "Stopping services..."
       (cd "$INSTALL_DIR" && docker compose down --remove-orphans 2>/dev/null) || true
-      print_success "Services stopped"
+      print_success "${DIM}Services stopped${RESET}"
     fi
     
-    # Remove Docker artifacts
-    print_info "Removing Docker artifacts..."
+    # Remove Docker resources
+    print_info "Removing Docker resources..."
     (cd "$INSTALL_DIR" && docker compose down --volumes --rmi local 2>/dev/null) || true
-    print_success "Docker artifacts removed"
+    print_success "${DIM}Docker resources removed${RESET}"
     
     # Remove directory
     print_info "Removing installation directory..."
     rm -rf "$INSTALL_DIR"
-    print_success "Removed $INSTALL_DIR"
+    print_success "Removed ${CYAN}$INSTALL_DIR${RESET}"
   else
-    print_warning "Installation directory not found: $INSTALL_DIR"
+    print_warning "Installation directory not found: ${CYAN}$INSTALL_DIR${RESET}"
+    echo ""
+    print_info "${DIM}Nothing to uninstall.${RESET}"
+    echo ""
+    return
   fi
   
   echo ""
@@ -522,11 +528,11 @@ clone_or_update_repo() {
       print_error "Failed to clone repository"
       exit 1
     fi
-    print_success "Cloned to $INSTALL_DIR"
+    print_success "Cloned to: ${CYAN}$INSTALL_DIR${RESET}"
   fi
   
   if ! cd "$INSTALL_DIR"; then
-    print_error "Failed to change to installation directory: $INSTALL_DIR"
+    print_error "Failed to change to installation directory: ${CYAN}$INSTALL_DIR${RESET}"
     exit 1
   fi
   
@@ -540,7 +546,7 @@ clone_or_update_repo() {
         print_error "Failed to checkout version $latest"
         exit 1
       fi
-      print_success "Version: $latest"
+      print_success "Version: ${BOLD}$latest${RESET}"
     else
       print_warning "No release tags found, using main branch"
       if ! git checkout --quiet main 2>/dev/null; then
@@ -608,7 +614,7 @@ has_content_args() {
   [[ -n "$ARG_CONTENT_ELASTICSEARCH_API_KEY" ]] || [[ -n "$ARG_CONTENT_ELASTICSEARCH_USERNAME" ]]
 }
 
-# Check if any OTEL args were provided via CLI
+# Check if any OTel args were provided via CLI
 has_otel_args() {
   [[ -n "$ARG_OTEL_EXPORTER_OTLP_ENDPOINT" ]] || [[ -n "$ARG_OTEL_EXPORTER_OTLP_HEADERS" ]] || \
   [[ -n "$ARG_OTEL_RESOURCE_ATTRIBUTES" ]]
@@ -626,7 +632,7 @@ configure_env() {
     if has_studio_args; then
       # CLI args provided — overwrite without prompting
       rm "$env_file"
-    elif prompt_yes_no "Existing .env found. Reconfigure?" "n"; then
+    elif prompt_yes_no "Existing ${BOLD}.env${RESET} found. Reconfigure?" "n"; then
       rm "$env_file"
     else
       print_success "Using existing configuration"
@@ -670,7 +676,7 @@ configure_env() {
     echo ""
 
     print_divider
-    print_info "${BOLD}Studio Deployment${RESET} ${DIM}(where Relevance Studio stores its artifacts)${RESET}"
+    print_info "${BOLD}Studio Deployment${RESET} ${DIM}(where Elasticsearch Relevance Studio stores its artifacts)${RESET}"
     print_divider
     echo ""
     
@@ -749,18 +755,18 @@ configure_env() {
       print_success "OTLP Endpoint: $ARG_OTEL_EXPORTER_OTLP_ENDPOINT"
     fi
     if [[ -n "$ARG_OTEL_EXPORTER_OTLP_HEADERS" ]]; then
-      set_env_value "OTEL_EXPORTER_OTLP_HEADERS" "$ARG_OTEL_EXPORTER_OTLP_HEADERS" "$env_file"
+      set_env_value "OTEL_EXPORTER_OTLP_HEADERS" "\"$ARG_OTEL_EXPORTER_OTLP_HEADERS\"" "$env_file"
       print_success "OTLP Headers"
     fi
     if [[ -n "$ARG_OTEL_RESOURCE_ATTRIBUTES" ]]; then
       set_env_value "OTEL_RESOURCE_ATTRIBUTES" "$ARG_OTEL_RESOURCE_ATTRIBUTES" "$env_file"
-      print_success "OTEL Resource Attributes"
+      print_success "OTel Resource Attributes"
     fi
     echo ""
   elif ! has_studio_args; then
     # Only prompt interactively if studio was also interactive
     print_divider
-    print_info "${BOLD}Telemetry${RESET} ${DIM}(optional OpenTelemetry instrumentation)${RESET}"
+    print_info "${BOLD}OpenTelemetry${RESET} ${DIM}(optional)${RESET}"
     print_divider
     echo ""
     
@@ -770,11 +776,11 @@ configure_env() {
       
       if prompt_yes_no "Configure authentication headers?" "n"; then
         print_info "${DIM}Format: Authorization=ApiKey BASE64_ENCODED_KEY${RESET}"
-        set_env_value "OTEL_EXPORTER_OTLP_HEADERS" "$(prompt_value "OTLP Headers")" "$env_file"
+        set_env_value "OTEL_EXPORTER_OTLP_HEADERS" "\"$(prompt_secret "OTLP Headers")\"" "$env_file"
       fi
       
       echo ""
-      print_info "${DIM}Additional OTEL settings can be added to .env after setup.${RESET}"
+      print_info "${DIM}Additional OTel settings can be added to ${RESET}${BOLD}.env${RESET}${DIM} after setup.${RESET}"
     fi
     echo ""
   fi
@@ -782,7 +788,7 @@ configure_env() {
   # Clean up sed backup files
   rm -f "$env_file.bak"
   
-  print_success "Configuration saved to .env"
+  print_success "Configuration saved to ${BOLD}.env${RESET}"
   echo ""
 }
 
@@ -871,13 +877,19 @@ print_completion() {
   local frontend_url="http://localhost:4096"
   
   echo ""
-  print_step "Ready!"
+  print_step "Ready! ${YELLOW}✨ ${RESET}"
   print_divider
   echo ""
-  print_info "Open ${CYAN}${frontend_url}${RESET} to get started"
+  print_info "Open this page to use Elasticsearch Relevance Studio:"
   echo ""
-  print_info "${DIM}Useful commands:${RESET}"
-  print_info "  cd $INSTALL_DIR"
+  print_info "  ${CYAN}${frontend_url}${RESET}"
+  echo ""
+  print_info "Application files including .${BOLD}env${RESET} and ${BOLD}docker-compose.yml${RESET} are stored here:"
+  echo ""
+  print_info "  ${CYAN}${INSTALL_DIR}${RESET}"
+  echo ""
+  print_info "From ${BOLD}inside${RESET} that directory, you can use these commands to manage the services:"
+  echo ""
   print_info "  docker compose logs -f      ${DIM}# view logs${RESET}"
   print_info "  docker compose down         ${DIM}# stop services${RESET}"
   print_info "  docker compose up -d        ${DIM}# restart services${RESET}"
@@ -892,7 +904,7 @@ print_completion_no_start() {
   print_info "Installation and configuration complete. Services were not started."
   echo ""
   print_info "To start services:"
-  print_info "  cd $INSTALL_DIR"
+  print_info "  cd ${CYAN}$INSTALL_DIR${RESET}"
   print_info "  docker compose up --build -d"
   echo ""
 }

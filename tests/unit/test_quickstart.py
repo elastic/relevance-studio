@@ -142,7 +142,26 @@ def run_quickstart_raw(
 
 
 def read_env(install_dir: Path) -> dict:
-    """Parse the generated .env file into a dict, ignoring comments and blanks."""
+    """Parse the generated .env file into a dict, ignoring comments and blanks.
+    Strips surrounding double quotes from values (matching dotenv behavior)."""
+    env = {}
+    env_file = install_dir / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                value = value.strip()
+                # Strip surrounding double quotes (like dotenv does)
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]
+                env[key.strip()] = value
+    return env
+
+
+def read_env_raw(install_dir: Path) -> dict:
+    """Parse the generated .env file into a dict without stripping quotes.
+    Useful for asserting that specific values are double-quoted in the file."""
     env = {}
     env_file = install_dir / ".env"
     if env_file.exists():
@@ -408,6 +427,20 @@ class TestOtelConfiguration:
         assert env["OTEL_EXPORTER_OTLP_HEADERS"] == "Authorization=ApiKey abc123"
         assert env["OTEL_RESOURCE_ATTRIBUTES"] == "service.name=esrs"
 
+    def test_otel_headers_double_quoted_in_env_file(self, seeded_dir, fake_bin):
+        """OTEL_EXPORTER_OTLP_HEADERS should be double-quoted in the .env file
+        because the value typically contains spaces."""
+        result = run_quickstart([
+            "--studio-elasticsearch-url", "http://localhost:9200",
+            "--studio-elasticsearch-api-key", "key",
+            "--no-separate-content-deployment",
+            "--otel-exporter-otlp-endpoint", "https://otel.example.com:4317",
+            "--otel-exporter-otlp-headers", "Authorization=ApiKey abc123",
+        ], fake_bin, seeded_dir)
+        assert result.returncode == 0
+        raw = read_env_raw(seeded_dir)
+        assert raw["OTEL_EXPORTER_OTLP_HEADERS"] == '"Authorization=ApiKey abc123"'
+
     def test_otel_endpoint_only(self, seeded_dir, fake_bin):
         result = run_quickstart([
             "--studio-elasticsearch-url", "http://localhost:9200",
@@ -444,7 +477,7 @@ class TestOtelConfiguration:
         assert "Configuring OpenTelemetry" in result.stdout
         assert "OTLP Endpoint: https://otel.example.com:4317" in result.stdout
         assert "OTLP Headers" in result.stdout
-        assert "OTEL Resource Attributes" in result.stdout
+        assert "OTel Resource Attributes" in result.stdout
 
 
 # =============================================================================
@@ -824,8 +857,12 @@ class TestSpecialCharacters:
             "--otel-exporter-otlp-headers", headers,
         ], fake_bin, seeded_dir)
         assert result.returncode == 0
+        # read_env strips quotes, so the parsed value should match the input
         env = read_env(seeded_dir)
         assert env["OTEL_EXPORTER_OTLP_HEADERS"] == headers
+        # The raw .env file should have the value double-quoted
+        raw = read_env_raw(seeded_dir)
+        assert raw["OTEL_EXPORTER_OTLP_HEADERS"] == f'"{headers}"'
 
 
 # =============================================================================
@@ -855,6 +892,18 @@ class TestUninstall:
         ], fake_bin)
         assert result.returncode == 0
         assert "not found" in result.stdout
+        assert "Nothing to uninstall" in result.stdout
+
+    def test_uninstall_nonexistent_dir_no_completion_message(self, install_dir, fake_bin):
+        """When the dir doesn't exist, should NOT show the completion message
+        or the note about Elasticsearch indices."""
+        nonexistent = install_dir / "does-not-exist"
+        result = run_quickstart_raw([
+            "--uninstall", "--dir", str(nonexistent),
+        ], fake_bin)
+        assert result.returncode == 0
+        assert "Uninstall complete" not in result.stdout
+        assert "esrs-*" not in result.stdout
 
     def test_uninstall_stdout(self, seeded_dir, fake_bin):
         result = run_quickstart_raw([
@@ -862,3 +911,4 @@ class TestUninstall:
         ], fake_bin)
         assert "Uninstalling" in result.stdout
         assert "Uninstall complete" in result.stdout
+        assert "esrs-*" in result.stdout
