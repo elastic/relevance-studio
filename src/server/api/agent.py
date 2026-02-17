@@ -9,6 +9,7 @@ import json
 import os
 import re
 import time
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
@@ -19,6 +20,7 @@ from fastmcp.client import Client
 # App packages
 from .. import utils
 from ..client import es, ELASTICSEARCH_API_KEY, ELASTICSEARCH_USERNAME, ELASTICSEARCH_PASSWORD
+from . import conversations as api_conversations
 
 # MCP server configuration
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL") or "http://127.0.0.1:4200/mcp"
@@ -27,6 +29,9 @@ MCP_ENABLED = True
 # MCP tools cache
 _tools_cache = None
 _tools_lock = None
+
+# Cancellation token system — tracks sessions that have been cancelled
+_cancellation_tokens = set()  # session_ids
 
 # Agent configuration
 SYSTEM_PROMPT = """
@@ -456,6 +461,185 @@ def _get_es_url_and_auth():
     return base_url, auth, headers
 
 
+####  Cancellation Token System  ##############################################
+
+def check_cancellation(session_id: str) -> bool:
+    """Return True if cancellation has been requested for this session."""
+    return session_id in _cancellation_tokens
+
+def request_cancellation(session_id: str):
+    """Request cancellation for a session."""
+    _cancellation_tokens.add(session_id)
+
+def cleanup_cancellation_token(session_id: str):
+    """Clean up cancellation token after session ends."""
+    _cancellation_tokens.discard(session_id)
+
+
+####  Conversation Persistence  ###############################################
+
+def _apply_stats_to_round(rounds: List[Dict[str, Any]], stats: Dict[str, Any], inference_id: str):
+    """Write accumulated agent stats into the last round dict before saving.
+
+    Args:
+        rounds: The rounds list whose last entry will be updated.
+        stats: The stats dict maintained by the agent loop.
+        inference_id: The inference endpoint ID used for this round.
+    """
+    if not rounds:
+        return
+    last_round = rounds[-1]
+    last_round["model_usage"] = {
+        "inference_id": inference_id,
+        "llm_calls": stats["llm_calls"],
+        "input_tokens": stats["total_input_tokens"],
+        "output_tokens": stats["total_output_tokens"],
+    }
+    if stats.get("first_token_ms") is not None:
+        last_round["time_to_first_token"] = int(stats["first_token_ms"])
+    if stats.get("last_token_ms") is not None:
+        last_round["time_to_last_token"] = int(stats["last_token_ms"])
+
+
+async def _save_conversation_async(conversation_id: str, rounds: List[Dict[str, Any]], final: bool = False):
+    """Asynchronously save conversation state without blocking the agent loop.
+    
+    Args:
+        conversation_id: The conversation ID to update.
+        rounds: The rounds data to save.
+        final: If True, force refresh for immediate searchability. 
+               If False, skip refresh for better performance during streaming.
+    """
+    try:
+        # Run in executor to avoid blocking async loop
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,  # Use default executor
+            lambda: api_conversations.update(
+                conversation_id, 
+                {"rounds": rounds},
+                refresh=final  # Only refresh on final save
+            )
+        )
+    except Exception as e:
+        print(f"Error saving conversation {conversation_id}: {e}")
+        # Don't raise - saving errors shouldn't crash the agent
+
+
+def _update_current_round_from_messages(rounds: List[Dict[str, Any]], messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Update the current (last) round based on new message content.
+    
+    Args:
+        rounds: The original rounds structure.
+        messages: All messages including the new ones (excluding system message).
+    
+    Returns:
+        Updated rounds list with the current round reflecting the message state.
+    """
+    if not rounds or len(rounds) == 0:
+        return rounds
+    
+    # Get the current round (last one)
+    current_round = rounds[-1]
+    
+    # Clear existing steps and response to rebuild from messages
+    current_round["steps"] = []
+    current_round["response"] = {"message": ""}
+    # Don't change status here - let the caller handle it
+    
+    # Find where the current round starts in messages (look for the user message).
+    # Search from the end because the current round is always the last one, and
+    # the user may have sent the same message text in an earlier round — using
+    # the first match would cause all subsequent assistant messages to be
+    # concatenated into this round's response.
+    user_content = current_round["input"]["message"]
+    start_idx = None
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if msg.get("role") == "user" and msg.get("content") == user_content:
+            start_idx = i
+            break
+    
+    if start_idx is None:
+        # Couldn't find the user message, return unchanged
+        return rounds
+    
+    # Process messages from this round
+    reasoning_buffer = []
+    tool_call_map = {}  # Map tool_call_id to step index
+    response_content = []  # Accumulate all assistant responses
+    
+    for msg in messages[start_idx + 1:]:  # Skip the user message itself
+        role = msg.get("role")
+        
+        if role == "assistant":
+            # Accumulate assistant response content
+            if msg.get("content"):
+                response_content.append(msg["content"])
+            
+            # Handle reasoning
+            if msg.get("reasoning"):
+                reasoning_buffer.append(msg["reasoning"])
+            
+            # Handle tool calls
+            if msg.get("tool_calls"):
+                # Add accumulated reasoning first if any
+                if reasoning_buffer:
+                    current_round["steps"].append({
+                        "type": "reasoning",
+                        "reasoning": "".join(reasoning_buffer)
+                    })
+                    reasoning_buffer = []
+                
+                # Add tool call steps
+                for tc in msg["tool_calls"]:
+                    raw_args = tc["function"].get("arguments")
+                    parsed_args = _parse_tool_args(raw_args) if isinstance(raw_args, str) else raw_args
+                    if not isinstance(parsed_args, dict):
+                        parsed_args = {}
+                    step_idx = len(current_round["steps"])
+                    tool_call_map[tc["id"]] = step_idx
+                    current_round["steps"].append({
+                        "type": "tool_call",
+                        "tool_id": tc["function"]["name"],
+                        "tool_call_id": tc["id"],
+                        "params": parsed_args,
+                        "results": []
+                    })
+        
+        elif role == "tool":
+            # Add tool result to the corresponding tool call step
+            tool_call_id = msg.get("tool_call_id")
+            if tool_call_id in tool_call_map:
+                step_idx = tool_call_map[tool_call_id]
+                step = current_round["steps"][step_idx]
+                
+                content = msg.get("content", "")
+                is_error = content.startswith("Error:")
+                
+                if not step.get("results"):
+                    step["results"] = []
+                step["results"].append({
+                    "type": "error" if is_error else "success",
+                    "data": {"message": content}
+                })
+    
+    # Add any remaining reasoning
+    if reasoning_buffer:
+        current_round["steps"].append({
+            "type": "reasoning",
+            "reasoning": "".join(reasoning_buffer)
+        })
+    
+    # Set the accumulated response content
+    if response_content:
+        current_round["response"]["message"] = "\n\n".join(response_content)
+    
+    return rounds
+
+
+####  Chat Streaming and Agent Loop  ##########################################
+
 def _chat_stream(messages: List[Dict[str, Any]], inference_id: str = ".rainbow-sprinkles-elastic", tools: Optional[List[Dict]] = None):
     """Internal function to call ES chat_completion with streaming using requests.
 
@@ -860,7 +1044,8 @@ async def _process_llm_response(
     inference_id: str, 
     stats: Dict[str, Any],
     start_time_ms: float,
-    result_container: Dict[str, Any]
+    result_container: Dict[str, Any],
+    session_id: Optional[str] = None
 ) -> Generator[SseMessage, None, None]:
     """Process streaming response from LLM and update stats.
 
@@ -870,6 +1055,7 @@ async def _process_llm_response(
         stats: Dictionary containing tracking stats for the agent loop.
         start_time_ms: The start time of the agent loop in milliseconds.
         result_container: Dictionary used to store accumulated results (content, reasoning, tool_calls).
+        session_id: Optional session ID used to check for cancellation mid-stream.
 
     Yields:
         SseMessage: SSE data messages representing chunks of the LLM response.
@@ -880,6 +1066,13 @@ async def _process_llm_response(
     
     for line in es_response:
         await asyncio.sleep(0)
+
+        # Check for cancellation on every chunk — this is the only place we can interrupt
+        # a live LLM stream mid-flight.
+        if session_id and check_cancellation(session_id):
+            result_container["cancelled"] = True
+            break
+
         if not line:
             continue
         
@@ -1087,7 +1280,10 @@ async def _agent_loop_stream(
     inference_id: str = ".rainbow-sprinkles-elastic",
     max_turns: int = 200,
     max_retries: int = 3,
-    retry_delay: float = 1.0
+    retry_delay: float = 1.0,
+    session_id: str = None,
+    conversation_id: str = None,
+    original_rounds: List[Dict[str, Any]] = None
 ):
     """Streaming agent loop that handles tool calling and yields response lines.
 
@@ -1097,10 +1293,20 @@ async def _agent_loop_stream(
         max_turns: Maximum number of tool-calling iterations.
         max_retries: Maximum number of retries for transient LLM errors.
         retry_delay: Initial delay between retries in seconds.
+        session_id: Session ID for cancellation tracking.
+        conversation_id: Conversation ID for saving state.
+        original_rounds: Original rounds structure to update (not reconstruct).
 
     Yields:
         str: Raw ES response lines or error events in SSE format.
     """
+    
+    # Keep track of rounds for saving
+    rounds_for_save = original_rounds if original_rounds else []
+    
+    # Set initial status to running if we have rounds
+    if rounds_for_save and len(rounds_for_save) > 0:
+        rounds_for_save[-1]["status"] = "running"
     
     # Get available MCP tools
     tools, load_result = await _load_tools_safe()
@@ -1135,16 +1341,25 @@ async def _agent_loop_stream(
         }
     })
 
+    # Wrap main loop in GeneratorExit handler for client disconnect
+    was_cancelled = False
     try:
         for turn in range(max_turns):
+            # Check for cancellation before each turn
+            if session_id and check_cancellation(session_id):
+                yield SseData({
+                    "event": "reasoning",
+                    "data": {"reasoning": "Agent stopped by user."}
+                })
+                was_cancelled = True
+                break
+            
             # Call LLM with current messages
             stats["llm_calls"] += 1
             es_response = None
             
             for attempt in range(max_retries + 1):
                 try:
-                    import json
-                    print(json.dumps(messages, indent=2))
                     es_response = _chat_stream(messages, inference_id, tools if tools else None)
                     break # Success
                 except requests.exceptions.HTTPError as e:
@@ -1183,8 +1398,18 @@ async def _agent_loop_stream(
                 
             # Process the stream
             result_container = {}
-            async for event in _process_llm_response(es_response, inference_id, stats, start_time_ms, result_container):
+            async for event in _process_llm_response(es_response, inference_id, stats, start_time_ms, result_container, session_id=session_id):
                 yield event
+
+            # If cancelled mid-stream, save state and stop
+            if result_container.get("cancelled"):
+                if conversation_id and rounds_for_save:
+                    rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
+                    rounds_for_save[-1]["status"] = "cancelled"
+                    _apply_stats_to_round(rounds_for_save, stats, inference_id)
+                    await _save_conversation_async(conversation_id, rounds_for_save, final=True)
+                was_cancelled = True
+                break
                 
             accumulated_content = result_container.get("content", [])
             accumulated_reasoning = result_container.get("reasoning", [])
@@ -1201,12 +1426,46 @@ async def _agent_loop_stream(
                     assistant_message["tool_calls"] = tool_calls
                 messages.append(assistant_message)
                 
+                # Save conversation state after LLM response
+                if conversation_id and rounds_for_save:
+                    rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
+                    rounds_for_save[-1]["status"] = "running"  # Still working
+                    _apply_stats_to_round(rounds_for_save, stats, inference_id)
+                    await _save_conversation_async(conversation_id, rounds_for_save, final=False)
+                
             # Execute tool calls
             if tool_calls:
                 try:
                     async for event in _execute_tool_calls(tool_calls, messages):
+                        # Check for cancellation during tool execution
+                        if session_id and check_cancellation(session_id):
+                            yield SseData({
+                                "event": "reasoning",
+                                "data": {"reasoning": "Agent stopped by user."}
+                            })
+                            # Save current state before stopping
+                            if conversation_id and rounds_for_save:
+                                rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
+                                rounds_for_save[-1]["status"] = "cancelled"
+                                _apply_stats_to_round(rounds_for_save, stats, inference_id)
+                                await _save_conversation_async(conversation_id, rounds_for_save, final=True)
+                            return
                         yield event
+                    
+                    # Save conversation state after tool execution
+                    if conversation_id and rounds_for_save:
+                        rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
+                        rounds_for_save[-1]["status"] = "running"  # Still working
+                        _apply_stats_to_round(rounds_for_save, stats, inference_id)
+                        await _save_conversation_async(conversation_id, rounds_for_save, final=False)
+                        
                 except McpConnectionError:
+                    # Save state before returning on connection error
+                    if conversation_id and rounds_for_save:
+                        rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
+                        rounds_for_save[-1]["status"] = "failed"  # Connection error
+                        _apply_stats_to_round(rounds_for_save, stats, inference_id)
+                        await _save_conversation_async(conversation_id, rounds_for_save, final=True)
                     return
             else:
                 # No tool calls, we're done with this round
@@ -1217,6 +1476,17 @@ async def _agent_loop_stream(
                 "event": "reasoning",
                 "data": {"reasoning": f"Agent reached maximum number of turns ({max_turns}) and stopped to prevent a potential loop."}
             })
+    
+    except GeneratorExit:
+        # Client disconnected (user cancelled and aborted the stream)
+        print(f"Client disconnected from session {session_id}, saving state as cancelled...")
+        if conversation_id and rounds_for_save:
+            rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
+            rounds_for_save[-1]["status"] = "cancelled"
+            _apply_stats_to_round(rounds_for_save, stats, inference_id)
+            await _save_conversation_async(conversation_id, rounds_for_save, final=True)
+        raise  # Re-raise to properly close the generator
+        
     except Exception as e:
         # Unexpected error in the loop logic itself
         error_msg = f"Internal Agent Error: {str(e)}"
@@ -1233,7 +1503,7 @@ async def _agent_loop_stream(
         stats["last_token_ms"] = time.time() * 1000 - start_time_ms
 
     round_info = {
-        "status": "completed",
+        "status": "cancelled" if was_cancelled else "completed",
         "time_to_first_token": int(stats["first_token_ms"]) if stats["first_token_ms"] is not None else 0,
         "time_to_last_token": int(stats["last_token_ms"])
     }
@@ -1241,6 +1511,21 @@ async def _agent_loop_stream(
         "event": "round_info",
         "data": round_info
     })
+    
+    # Final save with refresh=True for searchability
+    if conversation_id and rounds_for_save:
+        rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
+        # Set appropriate status based on how the agent finished
+        if was_cancelled:
+            rounds_for_save[-1]["status"] = "cancelled"
+        else:
+            rounds_for_save[-1]["status"] = "completed"
+        _apply_stats_to_round(rounds_for_save, stats, inference_id)
+        await _save_conversation_async(conversation_id, rounds_for_save, final=True)
+    
+    # Clean up cancellation token
+    if session_id:
+        cleanup_cancellation_token(session_id)
 
 def _build_messages_from_rounds(rounds: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Convert conversation rounds into a list of message dictionaries.
@@ -1280,10 +1565,11 @@ def _build_messages_from_rounds(rounds: List[Dict[str, Any]]) -> List[Dict[str, 
         if tool_calls:
             assistant_msg["tool_calls"] = tool_calls
         
-        # Only add assistant message if it has non-empty content, reasoning, or tool_calls
+        # Only add assistant message if it has non-empty content or tool_calls.
+        # Reasoning-only assistant messages are not sent to the Inference API and can
+        # collapse into invalid empty-content assistant turns after sanitization.
         has_content = assistant_msg.get("content") and assistant_msg["content"].strip()
-        has_reasoning = assistant_msg.get("reasoning") and assistant_msg["reasoning"].strip()
-        if has_content or has_reasoning or tool_calls:
+        if has_content or tool_calls:
             messages.append(assistant_msg)
         
         # Add tool results
@@ -1391,6 +1677,13 @@ def _sanitize_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     new_tool_calls.append(new_tc)
                 new_msg["tool_calls"] = new_tool_calls
 
+            # Skip assistant messages that have neither meaningful content nor tool calls.
+            # The Inference API rejects assistant messages with missing/empty content.
+            has_content = isinstance(new_msg.get("content"), str) and bool(new_msg["content"].strip())
+            has_tool_calls = bool(new_msg.get("tool_calls"))
+            if not has_content and not has_tool_calls:
+                continue
+
         elif role == "tool":
             if "content" in msg:
                 new_msg["content"] = msg["content"]
@@ -1402,7 +1695,7 @@ def _sanitize_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sanitized
 
 
-def chat(text: str = "", rounds: List[Dict[str, Any]] = None, inference_id=".rainbow-sprinkles-elastic", ui_context: Optional[Dict[str, Any]] = None, id: str = None, conversation_id: str = None) -> Generator[str, None, None]:
+def chat(text: str = "", rounds: List[Dict[str, Any]] = None, inference_id=".rainbow-sprinkles-elastic", ui_context: Optional[Dict[str, Any]] = None, id: str = None, conversation_id: str = None, session_id: str = None) -> Generator[str, None, None]:
     """Perform a streaming chat completion with agentic behavior and MCP tool calling.
 
     Args:
@@ -1411,10 +1704,15 @@ def chat(text: str = "", rounds: List[Dict[str, Any]] = None, inference_id=".rai
         inference_id: The ID of the inference endpoint to use.
         ui_context: Optional arbitrary dictionary containing UI context.
         conversation_id: Conversation ID (same as id).
+        session_id: Optional session ID for cancellation tracking. Generated if not provided.
 
     Yields:
         Raw ES response lines in SSE format.
     """
+    # Generate session_id if not provided
+    if not session_id:
+        session_id = str(uuid.uuid4())
+    
     if rounds:
         messages = _build_messages_from_rounds(rounds)
     else:
@@ -1429,15 +1727,35 @@ def chat(text: str = "", rounds: List[Dict[str, Any]] = None, inference_id=".rai
     messages.insert(0, {"role": "system", "content": full_system_prompt})
     
     async def run_async_stream():
-        # Emit conversation_id_set event if IDs are provided
-        if conversation_id:
+        try:
+            # Emit session_started event with session_id
             yield SseData({
-                "event": "conversation_id_set",
-                "data": {"conversation_id": conversation_id}
+                "event": "session_started",
+                "data": {"session_id": session_id}
             })
             
-        async for line in _agent_loop_stream(messages, inference_id):
-            yield line
+            # Emit conversation_id_set event if IDs are provided
+            if conversation_id:
+                yield SseData({
+                    "event": "conversation_id_set",
+                    "data": {"conversation_id": conversation_id}
+                })
+            
+            async for line in _agent_loop_stream(
+                messages, 
+                inference_id,
+                session_id=session_id,
+                conversation_id=conversation_id,
+                original_rounds=rounds
+            ):
+                yield line
+        except GeneratorExit:
+            # Client disconnected - cleanup handled in agent loop
+            print(f"Client disconnected from session {session_id}")
+            raise
+        finally:
+            # Always clean up cancellation token
+            cleanup_cancellation_token(session_id)
     
     return _run_sync_generator_from_async(run_async_stream)
 

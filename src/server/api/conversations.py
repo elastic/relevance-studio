@@ -94,13 +94,16 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None, refresh: bool = True) -> Dict[str, Any]:
     """Update a conversation by its _id.
 
     Args:
         _id: The UUID of the conversation.
         doc_partial: The partial conversation data to update.
         user: The username of the updater.
+        refresh: Whether to refresh the index immediately. Default True for 
+                 backward compatibility. Set to False for high-frequency updates
+                 during agent streaming.
 
     Returns:
         The response from the Elasticsearch update operation.
@@ -117,7 +120,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
         index=INDEX_NAME,
         id=_id,
         doc=doc_partial,
-        refresh=True
+        refresh=refresh
     )
     return es_response
 

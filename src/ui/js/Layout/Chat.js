@@ -41,6 +41,7 @@ import {
   EuiTextArea,
   EuiTitle,
   EuiToolTip,
+  useIsWithinBreakpoints,
 } from '@elastic/eui'
 import { usePageResources } from '../Contexts/ResourceContext'
 import api from '../api'
@@ -148,25 +149,33 @@ const ReasoningPanel = ({ round, isSending }) => {
   const toggleExpand = () => setIsExpanded(!isExpanded)
 
   const getStatusText = () => {
-    if (status === 'completed' || time_to_last_token || (!isSending && status !== 'failed'))
+    // Check terminal states first
+    if (status === 'completed' || (time_to_last_token && status !== 'running' && status !== 'pending'))
       return 'Completed reasoning';
+    
+    if (status === 'cancelled')
+      return 'Cancelled';
 
     // Check for system errors in steps
     const errorStep = (steps || []).find(s => s.results?.some(r => r.type === 'error'));
     if (status === 'failed')
       return errorStep ? `Failed: ${errorStep.results.find(r => r.type === 'error').data.message}` : 'Failed';
+    
+    // For 'running', 'pending', or when actively streaming, show dynamic status based on latest step
+    // Check isSending first because it indicates active work even if status hasn't updated yet
+    if (isSending || status === 'running' || status === 'pending') {
+      const latestStep = steps && steps.length > 0 ? steps[steps.length - 1] : null;
+      if (!latestStep)
+        return 'Thinking...';
+      if (latestStep.type === 'reasoning')
+        return latestStep.reasoning || 'Reasoning...';
+      if (latestStep.type === 'tool_call')
+        return `Calling tool ${latestStep.tool_id}...`;
+      return 'Working...';
+    }
 
-    if (status === 'pending')
-      return 'Pending...';
-
-    const latestStep = steps && steps.length > 0 ? steps[steps.length - 1] : null;
-    if (!latestStep)
-      return 'Thinking...';
-    if (latestStep.type === 'reasoning')
-      return latestStep.reasoning || 'Reasoning...';
-    if (latestStep.type === 'tool_call')
-      return `Calling tool ${latestStep.tool_id}...`;
-    return 'Thinking...';
+    // Fallback for unknown states
+    return 'Completed reasoning';
   };
 
   return (
@@ -176,12 +185,14 @@ const ReasoningPanel = ({ round, isSending }) => {
           <EuiFlexItem grow={false}>
             {status === 'failed' ? (
               <EuiIcon type="error" size="m" color="danger" />
-            ) : status === 'pending' ? (
-              <EuiIcon type="clock" size="m" color="subdued" />
-            ) : (status === 'completed' || getStatusText() === 'Completed reasoning') ? (
+            ) : status === 'cancelled' ? (
+              <EuiIcon type="minusInCircle" size="m" color="subdued" />
+            ) : status === 'completed' ? (
               <EuiIcon type="sparkles" size="m" color="text" />
-            ) : (
+            ) : (status === 'running' || status === 'pending' || isSending) ? (
               <EuiLoadingElastic size="m" />
+            ) : (
+              <EuiIcon type="sparkles" size="m" color="text" />
             )}
           </EuiFlexItem>
           <EuiFlexItem grow={false} style={{ minWidth: 0 }}>
@@ -201,12 +212,14 @@ const ReasoningPanel = ({ round, isSending }) => {
                 <EuiFlexItem grow={false}>
                   {status === 'failed' ? (
                     <EuiIcon type="error" size="m" color="danger" />
-                  ) : status === 'pending' ? (
-                    <EuiIcon type="clock" size="m" color="subdued" />
-                  ) : (status === 'completed' || getStatusText() === 'Completed reasoning') ? (
+                  ) : status === 'cancelled' ? (
+                    <EuiIcon type="minusInCircle" size="m" color="subdued" />
+                  ) : status === 'completed' ? (
                     <EuiIcon type="sparkles" size="m" color="text" />
-                  ) : (
+                  ) : (isSending || status === 'running' || status === 'pending') ? (
                     <EuiLoadingElastic size="m" />
+                  ) : (
+                    <EuiIcon type="sparkles" size="m" color="text" />
                   )}
                 </EuiFlexItem>
                 <EuiFlexItem grow={false}><EuiText size="m"><strong>Reasoning</strong></EuiText></EuiFlexItem>
@@ -220,12 +233,18 @@ const ReasoningPanel = ({ round, isSending }) => {
           <EuiFlexGroup direction="column" gutterSize="s">
             {(steps || []).map((step, idx) => {
               const hasParams = step.params && (typeof step.params === 'string' ? step.params.replace(/\s/g, '') !== '{}' : Object.keys(step.params).length > 0)
+              const isCancellationStep =
+                status === 'cancelled' &&
+                step.type === 'reasoning' &&
+                step.reasoning === 'Cancelled by user.'
 
               return (
                 <EuiFlexItem key={idx}>
                   <EuiFlexGroup gutterSize="s" alignItems="flexStart" responsive={false}>
                     <EuiFlexItem grow={false} style={{ marginTop: '2px' }}>
-                      {step.results?.some(r => r.type === 'error') ? (
+                      {isCancellationStep ? (
+                        <EuiIcon type="minusInCircle" size="m" color="subdued" />
+                      ) : step.results?.some(r => r.type === 'error') ? (
                         <EuiIcon type="cross" color="danger" size="m" />
                       ) : (step.results?.length > 0 || (step.type === 'reasoning' && step.reasoning)) ? (
                         <EuiIcon type="check" color="success" size="m" />
@@ -398,50 +417,46 @@ const ReasoningPanel = ({ round, isSending }) => {
             })}
           </EuiFlexGroup>
 
-          {(model_usage || round.time_to_last_token) && (
-            <>
-              <EuiSpacer size="m" />
-              <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '12px' }}>
-                <EuiFlexGroup justifyContent="spaceBetween" alignItems="center">
-                  <EuiFlexItem grow={false}>
-                    <EuiFlexGroup gutterSize="m" alignItems="center" responsive={false}>
-                      {round.time_to_last_token && (
-                        <EuiFlexItem grow={false}>
-                          <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
-                            <EuiIcon type="clock" size="m" color="subdued" />
-                            <EuiText size="xs" color="subdued">{(round.time_to_last_token / 1000).toFixed(1)}s</EuiText>
-                          </EuiFlexGroup>
-                        </EuiFlexItem>
-                      )}
-                      {model_usage && (
-                        <>
-                          <EuiFlexItem grow={false}>
-                            <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
-                              <EuiIcon type="sortUp" size="m" color="subdued" />
-                              <EuiText size="xs" color="subdued">{model_usage.input_tokens?.toLocaleString()} tokens</EuiText>
-                            </EuiFlexGroup>
-                          </EuiFlexItem>
-                          <EuiFlexItem grow={false}>
-                            <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
-                              <EuiIcon type="sortDown" size="m" color="subdued" />
-                              <EuiText size="xs" color="subdued">{model_usage.output_tokens?.toLocaleString()} tokens</EuiText>
-                            </EuiFlexGroup>
-                          </EuiFlexItem>
-                        </>
-                      )}
-                    </EuiFlexGroup>
-                  </EuiFlexItem>
-                  <EuiFlexItem grow={false}>
-                    <EuiButton color="text" display="base" size="s" iconType="code" onClick={() => setIsModalVisible(true)}>
-                      <EuiText size="xs">
-                        View JSON
-                      </EuiText>
-                    </EuiButton>
-                  </EuiFlexItem>
+          <EuiSpacer size="m" />
+          <div style={{ borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '12px' }}>
+            <EuiFlexGroup justifyContent="spaceBetween" alignItems="center">
+              <EuiFlexItem grow={false}>
+                <EuiFlexGroup gutterSize="m" alignItems="center" responsive={false}>
+                  {round.time_to_last_token && (
+                    <EuiFlexItem grow={false}>
+                      <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
+                        <EuiIcon type="clock" size="m" color="subdued" />
+                        <EuiText size="xs" color="subdued">{(round.time_to_last_token / 1000).toFixed(1)}s</EuiText>
+                      </EuiFlexGroup>
+                    </EuiFlexItem>
+                  )}
+                  {model_usage && (
+                    <>
+                      <EuiFlexItem grow={false}>
+                        <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
+                          <EuiIcon type="sortUp" size="m" color="subdued" />
+                          <EuiText size="xs" color="subdued">{model_usage.input_tokens?.toLocaleString()} tokens</EuiText>
+                        </EuiFlexGroup>
+                      </EuiFlexItem>
+                      <EuiFlexItem grow={false}>
+                        <EuiFlexGroup gutterSize="xs" alignItems="center" responsive={false}>
+                          <EuiIcon type="sortDown" size="m" color="subdued" />
+                          <EuiText size="xs" color="subdued">{model_usage.output_tokens?.toLocaleString()} tokens</EuiText>
+                        </EuiFlexGroup>
+                      </EuiFlexItem>
+                    </>
+                  )}
                 </EuiFlexGroup>
-              </div>
-            </>
-          )}
+              </EuiFlexItem>
+              <EuiFlexItem grow={false}>
+                <EuiButton color="text" display="base" size="s" iconType="code" onClick={() => setIsModalVisible(true)}>
+                  <EuiText size="xs">
+                    View JSON
+                  </EuiText>
+                </EuiButton>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+          </div>
         </EuiPanel>
       )}
 
@@ -462,13 +477,15 @@ const ReasoningPanel = ({ round, isSending }) => {
 // Round Component
 const RoundItem = ({ round, latestUserMessageRef, isSending }) => {
   return (
-    <EuiFlexItem grow={false} ref={latestUserMessageRef}>
+    <EuiFlexItem grow={false}>
       {/* User Input */}
-      <EuiFlexGroup justifyContent="flexEnd" responsive={false}>
-        <EuiFlexItem grow={false} style={{ maxWidth: '80%', paddingRight: '8px' }}>
-          <UserMessageBubble content={round?.input?.message} />
-        </EuiFlexItem>
-      </EuiFlexGroup>
+      <div ref={latestUserMessageRef}>
+        <EuiFlexGroup justifyContent="flexEnd" responsive={false}>
+          <EuiFlexItem grow={false} style={{ maxWidth: '80%', paddingRight: '8px' }}>
+            <UserMessageBubble content={round?.input?.message} />
+          </EuiFlexItem>
+        </EuiFlexGroup>
+      </div>
 
       <EuiSpacer size="m" />
 
@@ -547,6 +564,7 @@ const useDebounce = (value, delay) => {
 }
 
 const Chat = () => {
+  const isResponsive = useIsWithinBreakpoints(['xs', 's', 'm'])
   const { addToast, darkMode, hasCheckedSetup, licenseStatus, licenseType } = useAppContext()
   const {
     inferenceId,
@@ -592,13 +610,56 @@ const Chat = () => {
   const [tempTitle, setTempTitle] = useState('')
   const [hoveredConvId, setHoveredConvId] = useState(null)
   const [conversationToDelete, setConversationToDelete] = useState(null)
+  const [cancelState, setCancelState] = useState(null) // null | 'cancelling'
   const latestUserMessageRef = useRef(null)
   const textAreaRef = useRef(null)
   const historySearchRef = useRef(null)
   const abortControllerRef = useRef(null)
+  const sessionIdRef = useRef(null)
+  const userCancelledRef = useRef(false)
   const conversationRef = useRef(conversation)
+  const chatBodyRef = useRef(null)
+  const scrollContainerRef = useRef(null)
+  const [spacerHeight, setSpacerHeight] = useState(0)
   const lastProcessedInferenceConvId = useRef(null)
   const debouncedIsSending = useDebounce(isSending, 500)
+
+  const getScrollContainer = () => {
+    if (scrollContainerRef.current) return scrollContainerRef.current
+    if (!chatBodyRef.current) return null
+
+    let el = chatBodyRef.current.parentElement
+    while (el) {
+      const style = window.getComputedStyle(el)
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+        scrollContainerRef.current = el
+        break
+      }
+      el = el.parentElement
+    }
+    return scrollContainerRef.current
+  }
+
+  const updateStreamingSpacer = () => {
+    if (!chatBodyRef.current || !latestUserMessageRef.current) return
+
+    const scrollContainer = getScrollContainer()
+    if (!scrollContainer) return
+
+    const body = chatBodyRef.current
+    const bodyRect = body.getBoundingClientRect()
+    const anchorRect = latestUserMessageRef.current.getBoundingClientRect()
+    const anchorOffset = Math.max(0, anchorRect.top - bodyRect.top)
+
+    // Compute the natural scroll range without the temporary spacer.
+    const bodyHeightWithoutSpacer = Math.max(0, body.scrollHeight - spacerHeight)
+    const naturalScrollable = Math.max(0, bodyHeightWithoutSpacer - scrollContainer.clientHeight)
+    const requiredSpacer = Math.max(0, anchorOffset - naturalScrollable)
+
+    if (Math.abs(requiredSpacer - spacerHeight) > 1) {
+      setSpacerHeight(requiredSpacer)
+    }
+  }
 
   useEffect(() => {
     conversationRef.current = conversation
@@ -663,6 +724,76 @@ const Chat = () => {
     }
   }, [isHistoryPopoverOpen, historySearchText])
 
+  // Detect if conversation has active rounds and set isSending accordingly
+  useEffect(() => {
+    if (!conversationId || !conversation || conversation.length === 0) return
+
+    // Treat both 'running' and 'pending' as active — 'pending' means a round was just
+    // created by handleSend and the streaming events haven't arrived yet to set it to 'running'
+    const hasActiveRound = conversation.some(round => round.status === 'running' || round.status === 'pending')
+    
+    // If we detect an active round but isSending is false, set it to true
+    // This happens after page refresh when agent is still working in background
+    if (hasActiveRound && !isSending) {
+      setIsSending(true)
+      
+      // Try to restore the session_id from localStorage
+      const storedSessionId = localStorage.getItem(`session_${conversationId}`)
+      if (storedSessionId) {
+        sessionIdRef.current = storedSessionId
+      }
+    }
+    // If no active rounds and we're marked as sending, clear it
+    else if (!hasActiveRound && isSending) {
+      setIsSending(false)
+      // Clean up localStorage
+      localStorage.removeItem(`session_${conversationId}`)
+      sessionIdRef.current = null
+    }
+  }, [conversation, conversationId])
+
+  useEffect(() => {
+    if (!isSending && spacerHeight === 0) return
+    updateStreamingSpacer()
+  }, [isSending, conversation, spacerHeight])
+
+  useEffect(() => {
+    if (!isSending && spacerHeight === 0) return
+    const onResize = () => updateStreamingSpacer()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [isSending, conversation, spacerHeight])
+
+  // Poll for updates when conversation has active rounds (after refresh while agent works in background)
+  useEffect(() => {
+    if (!conversationId) return
+
+    // Check if any round is in 'running' or 'pending' state
+    const hasActiveRound = conversation.some(round => round.status === 'running' || round.status === 'pending')
+    if (!hasActiveRound) return
+
+    // Poll every 2 seconds for updates
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await api.conversations_get(conversationId)
+        if (response.status === 200 && response.data._source) {
+          const latestConversation = response.data._source
+          setConversation(latestConversation.rounds || [])
+          
+          // Stop polling if no more active rounds
+          const stillHasActive = (latestConversation.rounds || []).some(r => r.status === 'running' || r.status === 'pending')
+          if (!stillHasActive) {
+            clearInterval(pollInterval)
+          }
+        }
+      } catch (error) {
+        console.error("Error polling conversation:", error)
+      }
+    }, 2000)
+
+    return () => clearInterval(pollInterval)
+  }, [conversationId, conversation])
+
   const fetchConversations = async () => {
     setIsLoadingHistory(true)
     try {
@@ -680,13 +811,39 @@ const Chat = () => {
   }
 
   const handleSelectConversation = async (conv) => {
-    setConversationId(conv.id || conv._id)
+    const convId = conv.id || conv._id
+    setConversationId(convId)
     setConversationTitle(conv.title)
-    setConversation(conv.rounds || [])
     setIsHistoryPopoverOpen(false)
+    
+    // Fetch the latest version from backend to ensure we have the most up-to-date state
+    // (search results might be stale if conversation was recently updated)
+    try {
+      const response = await api.conversations_get(convId)
+      if (response.status === 200 && response.data._source) {
+        const latestConversation = response.data._source
+        setConversation(latestConversation.rounds || [])
+        // Update title in case it changed
+        if (latestConversation.title) {
+          setConversationTitle(latestConversation.title)
+        }
+      } else {
+        // Fallback to the stale data from search if fetch fails
+        setConversation(conv.rounds || [])
+      }
+    } catch (error) {
+      console.error("Error fetching latest conversation:", error)
+      // Fallback to the stale data from search
+      setConversation(conv.rounds || [])
+    }
   }
 
   const handleNewConversation = () => {
+    // Clean up any stored session for the old conversation
+    if (conversationId) {
+      localStorage.removeItem(`session_${conversationId}`)
+    }
+    
     setConversationId(null)
     setConversationTitle('New conversation')
     setConversation([])
@@ -707,6 +864,8 @@ const Chat = () => {
     const convId = conversationToDelete.id || conversationToDelete._id
     try {
       await api.conversations_delete(convId)
+      // Clean up stored session_id
+      localStorage.removeItem(`session_${convId}`)
       setConversations((prev) => prev.filter((c) => (c.id || c._id) !== convId))
       if (conversationId === convId) {
         handleNewConversation()
@@ -758,7 +917,6 @@ const Chat = () => {
       },
       resources: resources,
     }
-    console.log(ui_context)
 
     const convId = conversationId || crypto.randomUUID()
     const isNew = !conversationId
@@ -776,6 +934,15 @@ const Chat = () => {
     setConversation(updatedRounds)
     setCurrentMessage('')
     setIsSending(true)
+    setCancelState(null)
+    sessionIdRef.current = null
+    userCancelledRef.current = false
+
+    // Add an initial spacer so the latest user bubble can be positioned at the top.
+    const scrollContainer = getScrollContainer()
+    if (scrollContainer) {
+      setSpacerHeight(scrollContainer.clientHeight)
+    }
 
     // If this is a new conversation, create it immediately so it appears in history and has a title
     if (isNew) {
@@ -812,12 +979,16 @@ const Chat = () => {
     // Scroll to the latest user message
     setTimeout(() => {
       latestUserMessageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setTimeout(() => {
+        updateStreamingSpacer()
+      }, 0)
     }, 0)
 
     abortControllerRef.current = new AbortController()
     const signal = abortControllerRef.current.signal
 
     const startTime = Date.now()
+    let wasAborted = false
 
     try {
       let lineBuffer = ''
@@ -838,18 +1009,33 @@ const Chat = () => {
               const eventData = JSON.parse(data)
               const { event, data: payload } = eventData
 
+              // Handle events that don't affect conversation state outside the setState callback
+              if (event === 'session_started') {
+                sessionIdRef.current = payload.session_id
+                // Store session_id in localStorage so it survives page refresh
+                if (conversationId || convId) {
+                  localStorage.setItem(`session_${conversationId || convId}`, payload.session_id)
+                }
+                return  // Don't update conversation state for this event
+              }
+              
+              if (event === 'conversation_id_set') {
+                if (!conversationId) {
+                  setConversationId(payload.conversation_id)
+                }
+                return  // Don't update conversation state for this event
+              }
+
               setConversation((prev) => {
                 const newRounds = [...prev]
                 const currentRound = newRounds[newRounds.length - 1]
 
-                if (!currentRound && event !== 'conversation_id_set') {
+                // For all other events, we need a current round
+                if (!currentRound) {
                   return newRounds
                 }
 
                 switch (event) {
-                  case 'conversation_id_set':
-                    if (!conversationId) setConversationId(payload.conversation_id)
-                    break
                   case 'reasoning':
                     // Append to last step if it's reasoning, otherwise create new reasoning step
                     {
@@ -954,7 +1140,13 @@ const Chat = () => {
 
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.log("Chat aborted")
+        if (userCancelledRef.current) {
+          console.log("Chat aborted by user")
+          wasAborted = true
+        } else {
+          console.warn("Chat stream aborted (timeout/network/transport). Fetching backend state.")
+          wasAborted = false
+        }
       } else {
         console.error("Error in chat:", error)
       }
@@ -962,46 +1154,132 @@ const Chat = () => {
       setIsSending(false)
       abortControllerRef.current = null
 
-      setTimeout(async () => {
-        const finalRounds = [...conversationRef.current]
-
-        try {
-          const response = await api.conversations_update(convId, {
-            rounds: finalRounds
-          })
-
-          if (response.status === 404) {
-            if (!isNew) {
-              addToast({
-                title: 'Conversation not found',
-                text: 'This conversation may have been deleted.',
-                color: 'danger',
-                iconType: 'alert'
-              })
-              handleNewConversation()
-            } else {
-              // Fallback to create if update fails for a new conversation (e.g. initial create failed)
-              const title = newRound.input.message.substring(0, 50) + (newRound.input.message.length > 50 ? '...' : '')
-              await api.conversations_create({
-                id: convId,
-                conversation_id: convId,
-                title,
-                rounds: finalRounds
-              })
+      if (wasAborted) {
+        // User cancelled — local state was already updated by handleCancel.
+        // Don't fetch from backend: the backend may not have saved yet and returning
+        // a 'pending'/'running' round would re-trigger the active-round useEffect.
+        localStorage.removeItem(`session_${convId}`)
+        return
+      }
+      
+      // Fetch the authoritative conversation state from backend after streaming completes
+      // This ensures the UI reflects what was actually saved, even if events were missed
+      if (convId) {
+        setTimeout(async () => {
+          try {
+            const response = await api.conversations_get(convId)
+            if (response.status === 200 && response.data._source) {
+              const savedConversation = response.data._source
+              // Update with the authoritative backend state
+              setConversation(savedConversation.rounds || [])
+              
+              // Also update the title if it was auto-generated and backend might have a better one
+              if (isNew && savedConversation.title) {
+                setConversationTitle(savedConversation.title)
+              }
+              
+              // Clean up session_id from localStorage if conversation is no longer active
+              const stillRunning = (savedConversation.rounds || []).some(r => r.status === 'running' || r.status === 'pending')
+              if (!stillRunning) {
+                localStorage.removeItem(`session_${convId}`)
+              }
             }
+          } catch (error) {
+            console.error("Error fetching conversation after streaming:", error)
+            // Don't disrupt the user experience if fetch fails
           }
-        } catch (saveError) {
-          console.error("Error saving conversation:", saveError)
-        }
-      }, 100)
+        }, 1000) // Delay to ensure backend has completed final save and ES refresh
+      }
     }
   }
 
-  const handleCancel = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
+  const handleCancel = async () => {
+    if (cancelState === 'cancelling') return // already in progress, ignore double-click
+
+    // If no session ID yet, we're still in the initial connection phase — just abort the request
+    if (!sessionIdRef.current) {
+      if (abortControllerRef.current) {
+        const convIdForReconcile = conversationId
+        userCancelledRef.current = true
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+        setConversation(prev => {
+          const newRounds = [...prev]
+          const last = newRounds[newRounds.length - 1]
+          if (last && (last.status === 'pending' || last.status === 'running')) {
+            const cancelledSteps = [...(last.steps || []), { type: 'reasoning', reasoning: 'Cancelled by user.' }]
+            newRounds[newRounds.length - 1] = { ...last, status: 'cancelled', steps: cancelledSteps }
+          }
+          return newRounds
+        })
+        setIsSending(false)
+        setCancelState(null)
+
+        // If the backend session starts just after this local abort, reconcile shortly
+        // so UI state can recover from a pending/running round.
+        if (convIdForReconcile) {
+          setTimeout(async () => {
+            try {
+              const response = await api.conversations_get(convIdForReconcile)
+              if (response.status === 200 && response.data._source) {
+                const savedConversation = response.data._source
+                setConversation(savedConversation.rounds || [])
+              }
+            } catch (error) {
+              console.error("Error reconciling conversation after early cancel:", error)
+            }
+          }, 1000)
+        }
+        return
+      }
+      // No session and no in-flight request — session may have already completed
+      addToast({
+        title: 'Cannot stop this session',
+        text: 'The agent session is no longer available to stop. It may have already completed. Refresh to see the latest progress.',
+        color: 'warning',
+        iconType: 'alert'
+      })
       setIsSending(false)
+      return
     }
+
+    setCancelState('cancelling')
+
+    // Tell the backend to stop immediately
+    try {
+      await api.chat_cancel(sessionIdRef.current)
+    } catch (e) {
+      console.error('Error sending cancel:', e)
+      addToast({
+        title: 'Unable to stop session',
+        text: 'Cancel request failed. The agent is still running; please try again.',
+        color: 'warning',
+        iconType: 'alert'
+      })
+      setCancelState(null)
+      return
+    }
+
+    // Mark as cancelled only after backend acknowledges cancel request.
+    setConversation(prev => {
+      const newRounds = [...prev]
+      const last = newRounds[newRounds.length - 1]
+      if (last && (last.status === 'pending' || last.status === 'running')) {
+        const cancelledSteps = [...(last.steps || []), { type: 'reasoning', reasoning: 'Cancelled by user.' }]
+        newRounds[newRounds.length - 1] = { ...last, status: 'cancelled', steps: cancelledSteps }
+      }
+      return newRounds
+    })
+
+    // Abort the SSE connection
+    if (abortControllerRef.current) {
+      userCancelledRef.current = true
+      abortControllerRef.current.abort()
+    }
+
+    setIsSending(false)
+    setCancelState(null)
+    sessionIdRef.current = null
   }
 
   useEffect(() => {
@@ -1041,7 +1319,7 @@ const Chat = () => {
           boxShadow: darkMode
             ? '10px 3px 10px 0px hsla(0,0%,0%,0.52), 14px 6px 14px 0px hsla(0,0%,0%,0.28)'
             : '0px 0px 2px 0px hsla(216.67,29.51%,23.92%,0.16),0px 3px 10px 0px hsla(216.67,29.51%,23.92%,0.1),0px 6px 14px 0px hsla(216.67,29.51%,23.92%,0.06)',
-          clipPath: 'inset(-100px -100px -100px 0px)',
+          clipPath: isResponsive ? undefined : 'inset(-100px -100px -100px 0px)',
           margin: '0 8px 8px 0',
         }}
         type="push"
@@ -1402,7 +1680,7 @@ const Chat = () => {
                   <EuiLoadingSpinner size="xl" />
                 </EuiFlexGroup>
               ) : (
-                <>
+                <div ref={chatBodyRef}>
                   {conversation.length === 0 && !conversationId && (
                     <EuiFlexGroup alignItems="center" justifyContent="center" style={{ height: '100%' }}>
                       <EuiFlexItem grow>
@@ -1431,7 +1709,13 @@ const Chat = () => {
                       />
                     ))}
                   </EuiFlexGroup>
-                </>
+                  <div
+                    style={{
+                      height: Math.max(0, spacerHeight),
+                      flexShrink: 0,
+                    }}
+                  />
+                </div>
               )}
             </EuiFlyoutBody>
             <EuiFlyoutFooter style={{ backgroundColor: 'transparent', padding: '16px' }}>
@@ -1512,11 +1796,11 @@ const Chat = () => {
                       <EuiFlexGroup gutterSize="s" alignItems="center" responsive={false}>
                         <EuiFlexItem grow={false}>
                           <EuiButtonIcon
-                            aria-label={isSending ? 'Cancel' : 'Send'}
+                            aria-label={isSending ? 'Stop' : 'Send'}
                             color={isSending ? 'text' : 'primary'}
                             display={isSending ? 'base' : 'fill'}
-                            iconType={isSending ? 'stopFill' : 'sortUp'}
-                            isDisabled={isConversationLoading || (isSending ? false : !currentMessage.trim())}
+                            iconType={isSending ? 'stopFilled' : 'sortUp'}
+                            isDisabled={isConversationLoading || (isSending ? cancelState === 'cancelling' : !currentMessage.trim())}
                             onClick={isSending ? handleCancel : () => { }}
                             size="s"
                             style={{ borderRadius: '4px' }}

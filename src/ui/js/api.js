@@ -146,6 +146,12 @@ api.chat_endpoints = async () => {
   return responseOrFallbackSetup(response)
 }
 
+api.chat_cancel = async (session_id) => {
+  validateArgs('api.chat_cancel', { session_id })
+  const response = await client.post(`/api/chat/cancel/${session_id}`)
+  return response
+}
+
 ////  API: Conversations  //////////////////////////////////////////////////////
 
 api.conversations_search = async (body) => {

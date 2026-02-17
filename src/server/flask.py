@@ -125,6 +125,12 @@ def chat():
 def chat_endpoints():
     return api.agent.endpoints()
 
+@app.route("/api/chat/cancel/<string:session_id>", methods=["POST"])
+def chat_cancel(session_id):
+    """Cancel an ongoing chat session."""
+    api.agent.request_cancellation(session_id)
+    return jsonify({"status": "cancellation_requested"})
+
 
 ####  API: Conversations  ######################################################
 
