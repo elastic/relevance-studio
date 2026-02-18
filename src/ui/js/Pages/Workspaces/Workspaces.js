@@ -107,7 +107,13 @@ const Workspaces = () => {
       truncateText: true,
       render: (name, doc) => (
         <EuiLink href={`#/workspaces/${doc._id}`}>
-          <EuiButton fill iconSize='s' iconType='menuRight' size='s'>
+          <EuiButton
+            fill
+            iconSize='s'
+            iconType='menuRight'
+            size='s'
+            contentProps={{ style: { justifyContent: 'flex-start' } }}
+          >
             <small>{doc.name}</small>
           </EuiButton>
         </EuiLink>

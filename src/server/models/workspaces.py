@@ -50,6 +50,7 @@ class WorkspaceCreate(AssetCreate):
     rating_scale: RatingScaleModel
     
     # Optional inputs
+    description: str = ""
     tags: List[str] = Field(default_factory=list)
 
     @field_validator("name")
@@ -80,13 +81,13 @@ class WorkspaceCreate(AssetCreate):
             raise ValueError("tags must be a list of non-empty strings if given")
         return value
 
-
 class WorkspaceUpdate(AssetUpdate):
     
     # Optional inputs
     name: Optional[str] = None
     index_pattern: Optional[str] = None
     params: Optional[List[str]] = None
+    description: Optional[str] = None
     tags: Optional[List[str]] = None
 
     @field_validator("name")

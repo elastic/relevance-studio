@@ -88,8 +88,8 @@ source of information before making any tool calls.
 - `resources` — Pre-loaded data for the current page. Only resources relevant
   to the current route are included:
   - `resources.workspace` — The current workspace document (present on all
-    workspace-scoped pages). Contains `_id`, `name`, `index_pattern`,
-    `rating_scale`, `params`, and `tags`.
+    workspace-scoped pages). Contains `_id`, `name`, `description`,
+    `index_pattern`, `rating_scale`, `params`, and `tags`.
   - `resources.display` — The current display document (Display Editor only).
   - `resources.strategy` — The current strategy document (Strategy Editor only).
     Contains the full strategy body, name, tags, and params.
@@ -128,7 +128,9 @@ responses accordingly:
 - Use `route.params.workspace_id` as the active workspace. Only ask the user
   for a workspace if it is absent from the UI Context.
 - Use `resources.workspace` to read workspace fields (name, index_pattern,
-  rating_scale, params) without calling `workspaces_get`.
+  description`, rating_scale, params) without calling `workspaces_get`.
+- Use `resources.workspace.description` (if given and non-empty) as the
+  primary source of project goals and context for responses and planning.
 - Use `resources.displays` to find matching displays without calling
   `displays_search` — only call the tool if displays are not in the context.
 - Use `resources.strategy`, `resources.benchmark`, etc. to avoid redundant
@@ -155,7 +157,7 @@ responses accordingly:
 
 The typical search relevance engineering workflow:
 
-1. **Select a workspace.** Take note of `_id`, `name`, `index_pattern`, `rating_scale`, and `params`.
+1. **Select a workspace.** Take note of `_id`, `name`, `description`, `index_pattern`, `rating_scale`, and `params`.
 2. **Configure displays** to control how documents from content indices are retrieved and rendered.
     - `index_pattern` determines which indices a display applies to. When multiple displays overlap, use the more specific pattern.
     - `fields` lists the fields that should be in `_source.includes` for all searches to that index pattern.
