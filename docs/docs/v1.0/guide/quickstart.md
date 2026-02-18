@@ -16,7 +16,7 @@ This quickstart guide assumes that you have:
 
 Download and run the quickstart script:
 
-**`curl -fsSL https://ela.st/relevance-studio-quickstart | bash -s -- {{VERSION}}`**
+**`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) {{VERSION}}`**
 
 The script will guide you through the setup process and start the services with Docker Compose.
 
