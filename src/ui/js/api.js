@@ -452,4 +452,8 @@ api.setup_run = async () => {
   return await client.post(`/api/setup`)
 }
 
+api.upgrade_run = async () => {
+  return await client.post(`/api/upgrade`)
+}
+
 export default api

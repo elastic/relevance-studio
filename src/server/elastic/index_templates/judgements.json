@@ -1,6 +1,7 @@
 {
   "_meta": {
-    "description": "Elasticsearch Relevance Studio - Judgements"
+    "description": "Elasticsearch Relevance Studio - Judgements",
+    "version": "1.1.0"
   },
   "index_patterns": [
     "esrs-judgements*"

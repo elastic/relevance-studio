@@ -19,15 +19,19 @@ import history from './history'
  * if setup isn't complete.
  */
 const RouteWithSetupCheck = ({ component: Component, render, ...rest }) => {
-  const { isSetup, addToast } = useAppContext()
-  const shouldRedirect = isSetup === false && history.location.pathname !== '/'
+  const { isSetup, isUpgradeNeeded, addToast } = useAppContext()
+  const shouldRedirect = (isSetup === false || isUpgradeNeeded === true) && history.location.pathname !== '/'
 
   useEffect(() => {
     if (shouldRedirect) {
-      addToast({ color: 'warning', title: `Setup isn't complete` })
+      if (isSetup === false) {
+        addToast({ color: 'warning', title: `Setup isn't complete` })
+      } else {
+        addToast({ color: 'warning', title: 'Upgrade required' })
+      }
       history.push('/')
     }
-  }, [shouldRedirect])
+  }, [shouldRedirect, isSetup])
 
   return (
     <Route

@@ -5,7 +5,7 @@
  * 2.0.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   EuiButton,
   EuiButtonEmpty,
@@ -50,9 +50,6 @@ const WorkspacesView = () => {
   const [isEditingDescription, setIsEditingDescription] = useState(false)
   const [isProcessingDescription, setIsProcessingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
-  const [descriptionEditorHeight, setDescriptionEditorHeight] = useState(320)
-  const descriptionEditContainerRef = useRef(null)
-  const descriptionEditActionsRef = useRef(null)
 
   ////  Effects  ///////////////////////////////////////////////////////////////
 
@@ -60,36 +57,6 @@ const WorkspacesView = () => {
     setIsEditingDescription(false)
     setDescriptionDraft(workspace?.description || '')
   }, [workspace?._id, workspace?.description])
-
-  useLayoutEffect(() => {
-    if (!isEditingDescription)
-      return
-
-    const setEditorHeight = () => {
-      const containerHeight = descriptionEditContainerRef.current?.clientHeight || 0
-      const actionsHeight = descriptionEditActionsRef.current?.offsetHeight || 0
-      const spacerHeight = 16
-      const nextHeight = Math.max(180, containerHeight - actionsHeight - spacerHeight)
-      setDescriptionEditorHeight(nextHeight)
-    }
-
-    setEditorHeight()
-
-    let resizeObserver
-    if (window.ResizeObserver && descriptionEditContainerRef.current) {
-      resizeObserver = new window.ResizeObserver(setEditorHeight)
-      resizeObserver.observe(descriptionEditContainerRef.current)
-    } else {
-      window.addEventListener('resize', setEditorHeight)
-    }
-
-    return () => {
-      if (resizeObserver)
-        resizeObserver.disconnect()
-      else
-        window.removeEventListener('resize', setEditorHeight)
-    }
-  }, [isEditingDescription])
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
@@ -292,17 +259,25 @@ const WorkspacesView = () => {
         }}
       >
         {isEditingDescription && (
-          <div ref={descriptionEditContainerRef} style={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 }}>
-            <div style={{ flex: 1, minHeight: 0 }}>
+          <EuiFlexGroup
+            direction='column'
+            gutterSize='none'
+            responsive={false}
+            style={{ flex: 1, height: '100%', minHeight: 0 }}
+          >
+            <EuiFlexItem grow style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
               <EuiMarkdownEditor
                 aria-label='Workspace description editor'
-                height={descriptionEditorHeight}
+                height='full'
                 onChange={setDescriptionDraft}
                 value={descriptionDraft}
+                style={{ height: '100%', minHeight: 0 }}
               />
-            </div>
-            <EuiSpacer size='m' />
-            <div ref={descriptionEditActionsRef} style={{ flexShrink: 0 }}>
+            </EuiFlexItem>
+            <EuiFlexItem
+              grow={false}
+              style={{ flexShrink: 0, height: '56px', paddingTop: '16px' }}
+            >
               <EuiFlexGroup
                 gutterSize='s'
                 justifyContent='flexEnd'
@@ -327,8 +302,8 @@ const WorkspacesView = () => {
                   </EuiButton>
                 </EuiFlexItem>
               </EuiFlexGroup>
-            </div>
-          </div>
+            </EuiFlexItem>
+          </EuiFlexGroup>
         )}
         {!isEditingDescription && !workspace?.description?.trim() && (
           <>
@@ -350,8 +325,8 @@ const WorkspacesView = () => {
 
   const renderButtonDisplays = () => (
     <EuiButton iconType='palette' onClick={() => {
-        history.push(`/workspaces/${workspace._id}/displays`)
-      }}>
+      history.push(`/workspaces/${workspace._id}/displays`)
+    }}>
       Manage displays
     </EuiButton>
   )
@@ -366,7 +341,7 @@ const WorkspacesView = () => {
           <>{workspace.name}</>
         }
       </EuiSkeletonTitle>
-    } buttons={[ renderButtonDisplays() ]}>
+    } buttons={[renderButtonDisplays()]}>
       <div style={{ display: 'flex', flex: 1, gap: '16px', height: '100%', minHeight: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', flex: 1, minHeight: 0, minWidth: '400px', overflow: 'hidden' }}>
           {renderDescriptionPanel()}

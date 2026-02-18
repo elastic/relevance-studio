@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "versions": [
+    {
+      "version": "1.1.0",
+      "steps": [
+        {
+          "template": "esrs-conversations",
+          "action": "create_template",
+          "requires_reindex": false,
+          "description": "Create the esrs-conversations index template and index."
+        },
+        {
+          "template": "esrs-workspaces",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add workspace description fields to mappings.",
+          "mapping_additions": {
+            "description": {
+              "type": "text"
+            },
+            "_search": {
+              "properties": {
+                "description": {
+                  "type": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

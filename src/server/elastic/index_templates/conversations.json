@@ -1,6 +1,7 @@
 {
   "_meta": {
-    "description": "Elasticsearch Relevance Studio - Conversations"
+    "description": "Elasticsearch Relevance Studio - Conversations",
+    "version": "1.1.0"
   },
   "index_patterns": [
     "esrs-conversations*"

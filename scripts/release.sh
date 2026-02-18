@@ -18,6 +18,7 @@ set -euo pipefail
 # =============================================================================
 
 VERSION=""
+SERVER_VERSION_FILE="src/server/VERSION"
 
 # =============================================================================
 # Colors and Formatting
@@ -145,6 +146,7 @@ print_usage() {
   echo ""
   echo -e "  4. Updates version number implementations:"
   echo -e "     - Updates package.json version field"
+  echo -e "     - Updates src/server/VERSION"
   echo ""
   echo -e "  5. Commits and tags:"
   echo -e "     - git commit -m \"Release v{version}\""
@@ -348,6 +350,10 @@ update_package_json() {
   fi
   
   print_success "package.json"
+
+  # Persist the runtime version for the server API.
+  printf "%s\n" "${VERSION}" > "$SERVER_VERSION_FILE"
+  print_success "$SERVER_VERSION_FILE"
   
   # TODO: Add version to UI
   # Examples:
