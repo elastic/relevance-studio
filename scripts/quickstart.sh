@@ -109,16 +109,41 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+print_non_interactive_config_help() {
+  echo ""
+  print_error "No interactive input detected."
+  print_info "Run quickstart with configuration flags when using non-interactive execution."
+  print_info ""
+  print_info "Example:"
+  print_info "  --studio-elasticsearch-url http://localhost:9200"
+  print_info "  --studio-elasticsearch-api-key <api-key>"
+  print_info "  --no-separate-content-deployment"
+  echo ""
+}
+
+require_interactive_input() {
+  if [[ ! -t 0 ]]; then
+    print_non_interactive_config_help
+    exit 1
+  fi
+}
+
 prompt_value() {
   local prompt="$1"
   local default="${2:-}"
   local value
   
   if [[ -n "$default" ]]; then
-    read -rp "  $prompt [$default]: " value
+    if ! read -rp "  $prompt [$default]: " value; then
+      print_non_interactive_config_help
+      exit 1
+    fi
     echo "${value:-$default}"
   else
-    read -rp "  $prompt: " value
+    if ! read -rp "  $prompt: " value; then
+      print_non_interactive_config_help
+      exit 1
+    fi
     echo "$value"
   fi
 }
@@ -127,7 +152,11 @@ prompt_secret() {
   local prompt="$1"
   local value
   
-  read -rsp "  $prompt: " value
+  if ! read -rsp "  $prompt: " value; then
+    echo "" >&2
+    print_non_interactive_config_help
+    exit 1
+  fi
   echo "" >&2
   echo "$value"
 }
@@ -139,11 +168,17 @@ prompt_yes_no() {
   
   if [[ "$default" == "y" ]]; then
     printf "  %b [Y/n]: " "$prompt"
-    read -r response
+    if ! read -r response; then
+      print_non_interactive_config_help
+      exit 1
+    fi
     response="${response:-y}"
   else
     printf "  %b [y/N]: " "$prompt"
-    read -r response
+    if ! read -r response; then
+      print_non_interactive_config_help
+      exit 1
+    fi
     response="${response:-n}"
   fi
   
@@ -163,7 +198,10 @@ prompt_menu() {
   echo ""
   
   while true; do
-    read -rp "  Enter 1 or 2: " response
+    if ! read -rp "  Enter 1 or 2: " response; then
+      print_non_interactive_config_help
+      exit 1
+    fi
     case "$response" in
       1) return 0 ;;
       2) return 1 ;;
@@ -671,6 +709,7 @@ configure_env() {
     echo ""
   else
     # Interactive prompts
+    require_interactive_input
     print_info "You'll need connection and authentication details for Elasticsearch."
     print_info "These will be saved in: ${CYAN}${env_file}${RESET}"
     echo ""
@@ -945,6 +984,6 @@ main() {
   do_install
 }
 
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+if [[ "${BASH_SOURCE[0]-}" == "${0}" || -z "${BASH_SOURCE[0]-}" ]]; then
   main "$@"
 fi
