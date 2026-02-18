@@ -5,7 +5,7 @@
  * 2.0.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   EuiButton,
   EuiButtonEmpty,
@@ -50,6 +50,9 @@ const WorkspacesView = () => {
   const [isEditingDescription, setIsEditingDescription] = useState(false)
   const [isProcessingDescription, setIsProcessingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
+  const [descriptionEditorHeight, setDescriptionEditorHeight] = useState(320)
+  const descriptionEditContainerRef = useRef(null)
+  const descriptionEditActionsRef = useRef(null)
 
   ////  Effects  ///////////////////////////////////////////////////////////////
 
@@ -57,6 +60,36 @@ const WorkspacesView = () => {
     setIsEditingDescription(false)
     setDescriptionDraft(workspace?.description || '')
   }, [workspace?._id, workspace?.description])
+
+  useLayoutEffect(() => {
+    if (!isEditingDescription)
+      return
+
+    const setEditorHeight = () => {
+      const containerHeight = descriptionEditContainerRef.current?.clientHeight || 0
+      const actionsHeight = descriptionEditActionsRef.current?.offsetHeight || 0
+      const spacerHeight = 16
+      const nextHeight = Math.max(180, containerHeight - actionsHeight - spacerHeight)
+      setDescriptionEditorHeight(nextHeight)
+    }
+
+    setEditorHeight()
+
+    let resizeObserver
+    if (window.ResizeObserver && descriptionEditContainerRef.current) {
+      resizeObserver = new window.ResizeObserver(setEditorHeight)
+      resizeObserver.observe(descriptionEditContainerRef.current)
+    } else {
+      window.addEventListener('resize', setEditorHeight)
+    }
+
+    return () => {
+      if (resizeObserver)
+        resizeObserver.disconnect()
+      else
+        window.removeEventListener('resize', setEditorHeight)
+    }
+  }, [isEditingDescription])
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
@@ -167,9 +200,9 @@ const WorkspacesView = () => {
 
       {/* Header */}
       <EuiPanel color='transparent'>
-        <EuiFlexGroup>
+        <EuiFlexGroup responsive={false}>
           <EuiFlexItem grow>
-            <EuiFlexGroup gutterSize='m'>
+            <EuiFlexGroup gutterSize='m' responsive={false}>
               <EuiFlexItem grow={false}>
                 <div style={{ height: '16px' }}>
                   {renderIcon(assetType)}
@@ -207,77 +240,111 @@ const WorkspacesView = () => {
   )
 
   const renderDescriptionPanel = () => (
-    <EuiPanel color='transparent' paddingSize='m' style={{ height: '100%', minWidth: '400px' }}>
-      <EuiFlexGroup alignItems='center' gutterSize='s' responsive={false}>
-        <EuiFlexItem>
-          <EuiTitle size='xs'>
-            <h2>Workspace description</h2>
-          </EuiTitle>
-        </EuiFlexItem>
-        <EuiFlexItem grow={false}>
-          <EuiToolTip content={isEditingDescription ? 'Cancel' : 'Edit'}>
-            <EuiButtonIcon
-              aria-label={isEditingDescription ? 'Cancel editing workspace description' : 'Edit workspace description'}
-              color='text'
-              display='base'
-              iconType={isEditingDescription ? 'cross' : 'pencil'}
-              onClick={() => {
-                if (isEditingDescription)
-                  onCancelDescriptionEdit()
-                else
-                  setIsEditingDescription(true)
-              }}
-              size='xs'
-            />
-          </EuiToolTip>
-        </EuiFlexItem>
-      </EuiFlexGroup>
-      <EuiSpacer size='m' />
-      {isEditingDescription && (
-        <>
-          <EuiMarkdownEditor
-            aria-label='Workspace description editor'
-            height={460}
-            onChange={setDescriptionDraft}
-            value={descriptionDraft}
-          />
-          <EuiSpacer size='m' />
-          <EuiFlexGroup gutterSize='s' justifyContent='flexEnd' responsive={false}>
-            <EuiFlexItem grow={false}>
-              <EuiButtonEmpty
-                isDisabled={isProcessingDescription}
-                onClick={onCancelDescriptionEdit}
+    <EuiPanel
+      hasBorder={false}
+      color='transparent'
+      paddingSize='none'
+      style={{
+        display: 'flex',
+        flex: 1,
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ flexShrink: 0, padding: '16px 0' }}>
+        <EuiFlexGroup alignItems='center' responsive={false}>
+          <EuiFlexItem grow>
+            <EuiTitle size='xs'>
+              <h2>Workspace description</h2>
+            </EuiTitle>
+          </EuiFlexItem>
+          <EuiFlexItem grow={false}>
+            <EuiToolTip content={isEditingDescription ? 'Cancel' : 'Edit'}>
+              <EuiButtonIcon
+                aria-label={isEditingDescription ? 'Cancel editing workspace description' : 'Edit workspace description'}
+                color='text'
+                display='base'
+                iconSize='m'
+                iconType={isEditingDescription ? 'cross' : 'pencil'}
+                onClick={() => {
+                  if (isEditingDescription)
+                    onCancelDescriptionEdit()
+                  else
+                    setIsEditingDescription(true)
+                }}
+                size='xs'
+              />
+            </EuiToolTip>
+          </EuiFlexItem>
+        </EuiFlexGroup>
+      </div>
+      <EuiHorizontalRule margin='none' />
+      <div
+        style={{
+          display: 'flex',
+          flex: 1,
+          flexDirection: 'column',
+          minHeight: 0,
+          overflowY: isEditingDescription ? 'hidden' : 'auto',
+          padding: '16px 0',
+        }}
+      >
+        {isEditingDescription && (
+          <div ref={descriptionEditContainerRef} style={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <EuiMarkdownEditor
+                aria-label='Workspace description editor'
+                height={descriptionEditorHeight}
+                onChange={setDescriptionDraft}
+                value={descriptionDraft}
+              />
+            </div>
+            <EuiSpacer size='m' />
+            <div ref={descriptionEditActionsRef} style={{ flexShrink: 0 }}>
+              <EuiFlexGroup
+                gutterSize='s'
+                justifyContent='flexEnd'
+                responsive={false}
               >
-                Cancel
-              </EuiButtonEmpty>
-            </EuiFlexItem>
-            <EuiFlexItem grow={false}>
-              <EuiButton
-                fill
-                isDisabled={isProcessingDescription || !doesDescriptionDraftDiffer()}
-                isLoading={isProcessingDescription}
-                onClick={onSaveDescription}
-              >
-                Save description
-              </EuiButton>
-            </EuiFlexItem>
-          </EuiFlexGroup>
-        </>
-      )}
-      {!isEditingDescription && !workspace?.description?.trim() && (
-        <>
-          <EuiText color='subdued' size='s'>
-            Add project goals, content context, and collaboration guidance for humans and AI agents.
-          </EuiText>
-          <EuiSpacer size='m' />
-          <EuiButtonEmpty flush='left' iconType='pencil' onClick={() => setIsEditingDescription(true)}>
-            Add description
-          </EuiButtonEmpty>
-        </>
-      )}
-      {!isEditingDescription && !!workspace?.description?.trim() && (
-        <EuiMarkdownFormat>{workspace.description}</EuiMarkdownFormat>
-      )}
+                <EuiFlexItem grow={false}>
+                  <EuiButtonEmpty
+                    isDisabled={isProcessingDescription}
+                    onClick={onCancelDescriptionEdit}
+                  >
+                    Cancel
+                  </EuiButtonEmpty>
+                </EuiFlexItem>
+                <EuiFlexItem grow={false}>
+                  <EuiButton
+                    fill
+                    isDisabled={isProcessingDescription || !doesDescriptionDraftDiffer()}
+                    isLoading={isProcessingDescription}
+                    onClick={onSaveDescription}
+                  >
+                    Save description
+                  </EuiButton>
+                </EuiFlexItem>
+              </EuiFlexGroup>
+            </div>
+          </div>
+        )}
+        {!isEditingDescription && !workspace?.description?.trim() && (
+          <>
+            <EuiText color='subdued' size='s'>
+              Add project goals, content context, and collaboration guidance for humans and AI agents.
+            </EuiText>
+            <EuiSpacer size='m' />
+            <EuiButtonEmpty flush='left' iconType='pencil' onClick={() => setIsEditingDescription(true)}>
+              Add description
+            </EuiButtonEmpty>
+          </>
+        )}
+        {!isEditingDescription && !!workspace?.description?.trim() && (
+          <EuiMarkdownFormat>{workspace.description.trimStart()}</EuiMarkdownFormat>
+        )}
+      </div>
     </EuiPanel>
   )
 
@@ -300,27 +367,35 @@ const WorkspacesView = () => {
         }
       </EuiSkeletonTitle>
     } buttons={[ renderButtonDisplays() ]}>
-      <EuiFlexGroup alignItems='stretch' gutterSize='m' responsive={true}>
-        <EuiFlexItem grow={1}>
+      <div style={{ display: 'flex', flex: 1, gap: '16px', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flex: 1, minHeight: 0, minWidth: '400px', overflow: 'hidden' }}>
           {renderDescriptionPanel()}
-        </EuiFlexItem>
-        <EuiFlexItem grow={2}>
-          <EuiFlexGrid columns={1} gutterSize='m'>
-            <EuiFlexItem>
-              {renderPanel('Scenarios', 'scenarios', renderScenarios())}
-            </EuiFlexItem>
-            <EuiFlexItem>
-              {renderPanel('Judgements', 'judgements', renderJudgements())}
-            </EuiFlexItem>
-            <EuiFlexItem>
-              {renderPanel('Strategies', 'strategies', renderStrategies())}
-            </EuiFlexItem>
-            <EuiFlexItem>
-              {renderPanel('Benchmarks', 'benchmarks', renderBenchmarks())}
-            </EuiFlexItem>
-          </EuiFlexGrid>
-        </EuiFlexItem>
-      </EuiFlexGroup>
+        </div>
+        <div style={{ display: 'flex', flex: 2, minHeight: 0, overflow: 'hidden' }}>
+          <EuiPanel
+            color='transparent'
+            hasBorder={false}
+            hasShadow={false}
+            paddingSize='none'
+            style={{ display: 'flex', flex: 1, minHeight: 0, overflowY: 'auto' }}
+          >
+            <EuiFlexGrid columns={1} gutterSize='m' style={{ flex: 1, minHeight: 'max-content' }}>
+              <EuiFlexItem>
+                {renderPanel('Scenarios', 'scenarios', renderScenarios())}
+              </EuiFlexItem>
+              <EuiFlexItem>
+                {renderPanel('Judgements', 'judgements', renderJudgements())}
+              </EuiFlexItem>
+              <EuiFlexItem>
+                {renderPanel('Strategies', 'strategies', renderStrategies())}
+              </EuiFlexItem>
+              <EuiFlexItem>
+                {renderPanel('Benchmarks', 'benchmarks', renderBenchmarks())}
+              </EuiFlexItem>
+            </EuiFlexGrid>
+          </EuiPanel>
+        </div>
+      </div>
     </Page>
   )
 }

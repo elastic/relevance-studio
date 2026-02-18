@@ -237,7 +237,7 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
           overflowY: 'auto',
           paddingSize: 'none',
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 
             {/* Header */}
             {title &&
@@ -246,12 +246,19 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
                 pageTitle={title}
                 responsive={false}
                 rightSideItems={buttons || []}
-                style={{ minHeight: '64px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}
+                style={{
+                  flexGrow: 0,
+                  flexShrink: 0,
+                  minHeight: '64px',
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden',
+                  whiteSpace: 'nowrap',
+                }}
               />
             }
 
             {/* Body */}
-            <section style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <section style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
               <EuiPanel
                 color={'transparent'}
                 hasBorder={false}
@@ -270,17 +277,6 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
                 </div>
               </EuiPanel>
             </section>
-
-            {/* Notice */}
-            <div style={{ flexShrink: 0, marginTop: 'auto', paddingTop: '8px' }}>
-              <EuiPanel color='transparent' paddingSize='none'>
-                <EuiText color='subdued' size='xs'>
-                  <p style={{ fontWeight: 400, fontSize: '11px', lineHeight: '14px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                    <EuiIcon type="heart" size="s" style={{ margin: '-2px 6px 0 0' }} />Elasticsearch Relevance Studio is licensed under <a href="https://github.com/elastic/relevance-studio/blob/main/LICENSE.txt" target='_blank' external={false}>Elastic License 2.0</a>, which permits you to use, modify, and distribute the software at no cost.
-                  </p>
-                </EuiText>
-              </EuiPanel>
-            </div>
           </div>
         </EuiPanel>
       </EuiPageTemplate>
