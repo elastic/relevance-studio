@@ -1,8 +1,33 @@
 import json
 
+import pytest
 import requests
 
 from server.api import setup as setup_api
+
+pytestmark = pytest.mark.integration_setup
+
+# Placeholder roadmap for future integration suites.
+# Suggested follow-up files:
+# - tests/integration/test_workspaces_flow.py
+# - tests/integration/test_displays_flow.py
+# - tests/integration/test_scenarios_flow.py
+# - tests/integration/test_strategies_flow.py
+# - tests/integration/test_judgements_flow.py
+# - tests/integration/test_benchmarks_flow.py
+# - tests/integration/test_evaluations_flow.py
+# - tests/integration/test_conversations_flow.py
+#
+# Suggested progression:
+# 1) setup/upgrade (this file)
+# 2) workspaces
+# 3) displays
+# 4) scenarios
+# 5) strategies
+# 6) judgements
+# 7) benchmarks
+# 8) evaluations
+# Parallel from setup: conversations
 
 
 def reset_esrs(es):
