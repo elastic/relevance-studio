@@ -141,6 +141,32 @@ def run_quickstart_raw(
     )
 
 
+def run_quickstart_stdin(
+    args: list,
+    fake_bin: Path,
+    extra_env: dict = None,
+) -> subprocess.CompletedProcess:
+    """
+    Run the quickstart script by piping its contents to bash stdin.
+    This matches `curl ... | bash` behavior where BASH_SOURCE may be unset.
+    """
+    env = os.environ.copy()
+    env["PATH"] = f"{fake_bin}:{env['PATH']}"
+    env["NO_COLOR"] = "1"
+    if extra_env:
+        env.update(extra_env)
+
+    cmd = ["bash", "-s", "--"] + args
+    return subprocess.run(
+        cmd,
+        input=QUICKSTART_SCRIPT.read_text(),
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+
+
 def read_env(install_dir: Path) -> dict:
     """Parse the generated .env file into a dict, ignoring comments and blanks.
     Strips surrounding double quotes from values (matching dotenv behavior)."""
@@ -761,6 +787,11 @@ class TestHelpFlag:
             "--otel-resource-attributes",
         ]:
             assert option in result.stdout, f"--help should list {option}"
+
+    def test_help_via_stdin_exits_zero(self, seeded_dir, fake_bin):
+        result = run_quickstart_stdin(["--help"], fake_bin)
+        assert result.returncode == 0
+        assert "Usage:" in result.stdout
 
 
 # =============================================================================
