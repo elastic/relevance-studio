@@ -517,6 +517,11 @@ def _has_upgrade_only_setup_failures(setup_state: Dict[str, Any], upgrade_state:
 
 
 def check():
+    """Return deployment, setup, and upgrade status for the server.
+
+    This is the status payload shown by setup/upgrade checks and is used by
+    MCP tool metadata for `setup_check`.
+    """
     cluster_info = get_cluster_info()
     license_info = get_license_info()
     deployment_mode = "standard"
@@ -543,8 +548,19 @@ def check():
 
 
 def run():
+    """Create or update required index templates and indices.
+
+    Returns:
+        Dict[str, Any]: A dictionary with setup execution details under `setup`.
+    """
     return {"setup": run_setup()}
 
 
 def upgrade():
+    """Apply additive index-template upgrade steps from the migration manifest.
+
+    Returns:
+        Dict[str, Any]: A dictionary with upgrade execution details under
+        `upgrade`.
+    """
     return run_upgrade(additive_only=True)
