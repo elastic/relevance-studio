@@ -323,6 +323,55 @@ check_version_docs() {
   fi
 }
 
+check_docs_index_wiring() {
+  print_step "Checking docs/index.html version wiring..."
+
+  local docs_index="docs/index.html"
+  local target_version="v${VERSION_MAJOR}.${VERSION_MINOR}"
+
+  if [[ ! -f "$docs_index" ]]; then
+    echo ""
+    print_error "File not found: $docs_index"
+    echo ""
+    exit 1
+  fi
+
+  local latest_value
+  latest_value=$(sed -nE "s/^[[:space:]]*const latest = '([^']+)';/\\1/p" "$docs_index" | head -n1)
+
+  if [[ -z "$latest_value" ]]; then
+    echo ""
+    print_error "Unable to parse docs latest version from $docs_index"
+    print_info "Expected a line like: const latest = 'vX.Y';"
+    echo ""
+    exit 1
+  fi
+
+  if [[ "$latest_value" != "$target_version" ]]; then
+    echo ""
+    print_error "docs latest version mismatch in $docs_index"
+    print_info "Release target: $target_version"
+    print_info "docs/index.html latest: $latest_value"
+    echo ""
+    print_info "Update docs/index.html:"
+    print_info "  ${DIM}const latest = '${target_version}';${RESET}"
+    echo ""
+    exit 1
+  fi
+
+  if ! rg -q "\\{ value: '${target_version}', label:" "$docs_index"; then
+    echo ""
+    print_error "Version selector entry not found for ${target_version} in $docs_index"
+    print_info "Add an entry in the versions array with value '${target_version}'."
+    echo ""
+    exit 1
+  fi
+
+  print_success "docs/index.html latest is ${target_version}"
+  print_success "Version selector includes ${target_version}"
+  echo ""
+}
+
 # =============================================================================
 # Version Updates
 # =============================================================================
@@ -446,6 +495,7 @@ main() {
   # Run checks
   check_prerequisites
   check_version_docs
+  check_docs_index_wiring
   
   # Create the release
   create_release

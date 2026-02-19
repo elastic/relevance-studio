@@ -10,7 +10,7 @@ This quickstart guide assumes that you have:
 
 * [docker](https://docs.docker.com/engine/install/) installed on your machine
 * An Elasticsearch deployment (8.x or higher) where your content is stored
-* An Elasticsearch deployment (8.x or higher) where Elasticsearch Studio will store its assets (this can be the same as your content deployment)
+* An Elasticsearch deployment (8.x or higher) where Elasticsearch Relevance Studio will store its assets (this can be the same as your content deployment)
 
 #### Step 1. Run the Quickstart Script
 
@@ -18,7 +18,15 @@ Download and run the quickstart script:
 
 **`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) {{VERSION}}`**
 
-The script will guide you through the setup process and start the services with Docker Compose.
+The script clones the repository to `./relevance-studio/`, guides you through the setup process, and starts the services with Docker Compose.
+
+You can use `--dir` to install to a different directory:
+
+**`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) {{VERSION}} --dir my-directory`**
+
+Use `--help` to see all available options:
+
+**`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) --help`**
 
 💡 *Read [roles and permissions](docs/{{VERSION}}/reference/security.md#roles-and-permissions) to see the recommended configurations for security.*
 
