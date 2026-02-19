@@ -197,7 +197,7 @@ By default, a benchmark will evaluate every strategy against every scenario. You
 
 Here's an example of a benchmark that measures NDCG, Precision, and Recall for strategies tagged with `bm25`, `elser`, or `signals`, and all scenarios that are compatible with those strategies.
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/benchmark.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/benchmark-v1.1.png" class="screenshot" />
 
 See also:
 
@@ -211,11 +211,11 @@ See also:
 
 An evaluation is the output of a [benchmark](#benchmark) run. It has the task definition, the relevance metrics for each [strategy](#strategy) and [scenario](#scenario) and their tags, the results of the rank evaluation requests, the documents that lacked judgements while appearing in the results, the contents of the index states and [workspace](#workspace) assets used at runtime, and any failures that occurred. Altogether, it's a large document with great explanatory insights into the relevance of the strategies.
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary-v1.1.png" class="screenshot" />
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-heatmap.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-heatmap-v1.1.png" class="screenshot" />
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-runtime-assets.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-runtime-assets-v1.1.png" class="screenshot" />
 
 See also:
 
