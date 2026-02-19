@@ -8,9 +8,9 @@
 import { useState } from 'react'
 import {
   EuiButton,
-  EuiCallOut,
   EuiCode,
   EuiIcon,
+  EuiInMemoryTable,
   EuiPanel,
   EuiProgress,
   EuiSpacer,
@@ -33,14 +33,23 @@ const Home = () => {
     darkMode,
     deploymentMode,
     isCheckingSetup,
+    isUpgradeNeeded,
     isSetup,
     hasCheckedSetup,
     setIsSetup,
+    setIsUpgradeNeeded,
+    setUpgradeState,
+    upgradeState,
   } = useAppContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isUpgrading, setIsUpgrading] = useState(false)
+  const pendingSteps = (upgradeState?.pending_steps || []).map((step, idx) => ({
+    ...step,
+    _rowId: `${step.version}-${step.template}-${idx}`,
+  }))
 
   ////  Handlers  //////////////////////////////////////////////////////////////
 
@@ -49,8 +58,12 @@ const Home = () => {
       setIsProcessing(true)
       const response = await api.setup_run()
 
-      if ((response?.data?.failures ?? 0) === 0) {
+      if ((response?.data?.setup?.failures ?? 0) === 0) {
         setIsSetup(true)
+        const setupResponse = await api.setup_check()
+        const upgrade = setupResponse?.data?.upgrade || {}
+        setIsUpgradeNeeded(Boolean(upgrade?.upgrade_needed))
+        setUpgradeState(upgrade)
         addToast({ color: 'success', title: 'Setup complete!' })
       } else {
         setIsSetup(false)
@@ -72,13 +85,50 @@ const Home = () => {
     }
   }
 
+  const onUpgrade = async () => {
+    try {
+      setIsUpgrading(true)
+      const response = await api.upgrade_run()
+      if ((response?.data?.upgrade?.failures ?? 0) === 0) {
+        addToast({ color: 'success', title: 'Upgrade complete!' })
+      } else {
+        addToast({
+          color: 'warning',
+          title: 'Upgrade partially complete',
+          text: (
+            <EuiText size='xs' color='subdued'>
+              One or more upgrade steps failed. You can safely retry.
+            </EuiText>
+          ),
+        })
+      }
+
+      const latest = await api.setup_check()
+      const upgrade = latest?.data?.upgrade || {}
+      setIsUpgradeNeeded(Boolean(upgrade?.upgrade_needed))
+      setUpgradeState(upgrade)
+    } catch (e) {
+      addToast(api.errorToast(e, { title: 'Failed to run upgrade' }))
+    } finally {
+      setIsUpgrading(false)
+    }
+  }
+
   ////  Render  ////////////////////////////////////////////////////////////////
 
   if (isCheckingSetup)
     return <EuiProgress color='accent' position='fixed' size='s' />
 
-  const renderConnectionFailure = () => (
-    <EuiPanel grow={false} paddingSize='xl' style={{ margin: '0 auto', width: 600, textAlign: 'center' }}>
+  const renderConnectionFailurePrompt = () => (
+    <EuiPanel paddingSize='xl'>
+      <EuiProgress
+        color='subdued'
+        max={100}
+        position='absolute'
+        size="xs"
+        value={100}
+        valueText={false}
+      />
       <EuiIcon color="subdued" type="cloudDrizzle" size="l" />
       <EuiSpacer size="l" />
       <EuiTitle size="m">
@@ -96,83 +146,164 @@ const Home = () => {
   )
 
   const renderSetupPrompt = () => (
-    <EuiPanel grow={false} paddingSize='xs' style={{ margin: '0 auto', width: 600 }}>
-      <EuiCallOut color='primary'>
-        <EuiText>
-          <p>
-            You're almost ready! Just click setup to finish.
-          </p>
-        </EuiText>
-        <EuiSpacer />
-        <EuiButton
-          color='primary'
-          disabled={isProcessing}
-          fill
-          isLoading={isProcessing}
-          onClick={onSetup}
-        >
-          Setup
-        </EuiButton>
-        <EuiSpacer />
-        <EuiText size='xs'>
-          <p>
-            This will create the <EuiCode style={{ padding: '0 2px' }} transparentBackground>esrs-*</EuiCode> index templates and indices.
-          </p>
-        </EuiText>
-      </EuiCallOut>
+    <EuiPanel paddingSize='xl'>
+      <EuiProgress
+        color='warning'
+        max={100}
+        position='absolute'
+        size="xs"
+        value={100}
+        valueText={false}
+      />
+      <EuiIcon color="subdued" type="push" size="l" />
+      <EuiSpacer size="l" />
+      <EuiTitle size="m">
+        <h3>Finish Setup</h3>
+      </EuiTitle>
+      <EuiSpacer size="l" />
+      <EuiText size="s">
+        <p>
+          You're almost ready! Just click setup to finish.<br />
+          This will create the <EuiCode style={{ padding: '0 2px' }} transparentBackground>esrs-*</EuiCode> index templates and indices.
+        </p>
+      </EuiText>
+      <EuiSpacer size="l" />
+      <EuiButton
+        color='primary'
+        disabled={isProcessing}
+        fill
+        isLoading={isProcessing}
+        onClick={onSetup}
+      >
+        Setup
+      </EuiButton>
     </EuiPanel>
   )
 
-  const renderHomePrompt = () => (
-    <EuiPanel grow={false} paddingSize='xs' style={{ margin: '0 auto', width: 600 }}>
-      <EuiCallOut color='primary'>
-        <EuiText>
-          <p>
-            Get started by creating a workspace.
-          </p>
-        </EuiText>
-        <EuiSpacer />
+  const renderUpgradePrompt = () => (
+    <EuiPanel paddingSize='xl'>
+      <EuiProgress
+        color='warning'
+        max={100}
+        position='absolute'
+        size="xs"
+        value={100}
+        valueText={false}
+      />
+      <EuiIcon color="subdued" type="push" size="l" />
+      <EuiSpacer size="l" />
+      <EuiTitle size="m">
+        <h2>Upgrade required</h2>
+      </EuiTitle>
+      <EuiSpacer size='l' />
+      <EuiText style={{ textAlign: 'center' }}>
+        <p>
+          You must upgrade your indices to version <EuiCode>{upgradeState?.target_version || 'unknown'}</EuiCode> to match the server.<br />
+          {upgradeState?.reindex_required
+            ? 'This upgrade has breaking changes that require reindexing.'
+            : 'This upgrade has no breaking changes.'}
+        </p>
+      </EuiText>
+      <EuiSpacer size='xxl' />
+      <EuiTitle size='xs'>
+        <b>Pending changes</b>
+      </EuiTitle>
+      <EuiSpacer size='l' />
+      {pendingSteps.length > 0 && (
+        <EuiInMemoryTable
+          compressed
+          items={pendingSteps}
+          itemId="_rowId"
+          pagination={
+            pendingSteps.length > 5
+              ? { initialPageSize: 5, pageSizeOptions: [5, 10, 50], showPerPageOptions: true }
+              : false
+          }
+          responsiveBreakpoint={false}
+          tableLayout="auto"
+          columns={[
+            {
+              field: 'version',
+              name: 'Version',
+              width: '75px',
+              render: (version) => <EuiCode style={{ padding: 0 }} transparentBackground>{version}</EuiCode>,
+            },
+            {
+              field: 'template',
+              name: 'Index template',
+              width: '150px',
+              render: (template) => <EuiCode style={{ padding: 0 }} transparentBackground>{template}</EuiCode>,
+            },
+            {
+              field: 'description',
+              name: 'Change',
+              render: (description) => description || '-',
+            },
+          ]}
+          style={{ textAlign: 'left' }}
+        />
+      )}
+      <EuiSpacer size='xl' />
+      <div style={{ textAlign: 'center' }}>
         <EuiButton
           color='primary'
           fill
-          onClick={() => history.push('/workspaces')}
+          disabled={isUpgrading}
+          isLoading={isUpgrading}
+          onClick={onUpgrade}
         >
-          Go to workspaces
+          Upgrade
         </EuiButton>
-      </EuiCallOut>
+      </div>
+    </EuiPanel>
+  )
+
+  const renderWelcomePrompt = () => (
+    <EuiPanel color='transparent' paddingSize='xl'>
+      <EuiTitle size='l'>
+        <h1 style={{ fontWeight: 700 }}>
+          <big>Welcome!</big>
+        </h1>
+      </EuiTitle>
+      <EuiSpacer size='l' />
+      <EuiText>
+        <p>
+          Let's create amazing search experiences.
+        </p>
+      </EuiText>
+      <EuiSpacer size='l' />
+      <EuiPanel color='transparent' paddingSize='xl'>
+        <img src={darkMode ? '/img/process-white.png' : '/img/process.png'} width={600} />
+      </EuiPanel>
+      <EuiSpacer size='l' />
+      <EuiButton
+        color='primary'
+        iconType='globe'
+        fill
+        onClick={() => history.push('/workspaces')}
+      >
+        Go to workspaces
+      </EuiButton>
     </EuiPanel>
   )
 
   return (
     <Page>
-      <EuiPanel color='transparent'>
-        <div style={{ textAlign: 'center' }}>
-          <EuiSpacer />
-          {hasCheckedSetup && !deploymentMode && renderConnectionFailure()}
-          {hasCheckedSetup && !!deploymentMode &&
-            <>
-              <EuiTitle size='l'>
-                <h1 style={{ fontWeight: 700 }}>
-                  <big>Welcome!</big>
-                </h1>
-              </EuiTitle>
-              <EuiSpacer />
-              <EuiText>
-                <p>
-                  Let's create amazing search experiences.
-                </p>
-              </EuiText>
-              <EuiSpacer size='l' />
-              <EuiPanel color='transparent' paddingSize='xl'>
-                <img src={darkMode ? '/img/process-white.png' : '/img/process.png'} width={600} />
-              </EuiPanel>
-              <EuiSpacer size='l' />
-              {!isSetup ? renderSetupPrompt() : renderHomePrompt()}
-            </>
-          }
-        </div>
-      </EuiPanel>
-    </Page>
+      <div style={{
+        alignItems: 'center',
+        display: 'flex',
+        height: '100%',
+        justifyContent: 'center',
+        margin: '0 auto',
+        textAlign: 'center',
+        width: 600,
+      }}>
+        {hasCheckedSetup && !deploymentMode && renderConnectionFailurePrompt()}
+        {hasCheckedSetup && deploymentMode && !isSetup && renderSetupPrompt()}
+        {hasCheckedSetup && deploymentMode && isSetup && isUpgradeNeeded && renderUpgradePrompt()}
+        {hasCheckedSetup && deploymentMode && isSetup && !isUpgradeNeeded && renderWelcomePrompt()}
+      </div>
+    </Page >
   )
 }
 

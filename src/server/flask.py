@@ -402,6 +402,10 @@ def setup_check():
 def setup_run():
     return api.setup.run()
 
+@api_route("/api/upgrade", methods=["POST"])
+def upgrade_run():
+    return api.setup.upgrade()
+
 
 ####  Health checks  ###########################################################
 

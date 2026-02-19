@@ -1,6 +1,7 @@
 {
   "_meta": {
-    "description": "Elasticsearch Relevance Studio - Benchmarks"
+    "description": "Elasticsearch Relevance Studio - Benchmarks",
+    "version": "1.1.0"
   },
   "index_patterns": [
     "esrs-benchmarks*"

@@ -1,18 +1,65 @@
-# Reusable workflow for running unit tests
+# Reusable workflow for running tests.
 name: Test
 
 on:
   workflow_call:  # Makes this workflow reusable
+    inputs:
+      run_integration_setup:
+        description: "Run setup/upgrade integration test tier."
+        required: false
+        type: boolean
+        default: false
+      # Placeholders for future integration tiers:
+      # run_integration_workspace:
+      #   description: "Run workspace integration test tier."
+      #   required: false
+      #   type: boolean
+      #   default: false
+      # run_integration_displays:
+      #   description: "Run displays integration test tier."
+      #   required: false
+      #   type: boolean
+      #   default: false
+      # run_integration_scenarios:
+      #   description: "Run scenarios integration test tier."
+      #   required: false
+      #   type: boolean
+      #   default: false
+      # run_integration_strategies:
+      #   description: "Run strategies integration test tier."
+      #   required: false
+      #   type: boolean
+      #   default: false
+      # run_integration_judgements:
+      #   description: "Run judgements integration test tier."
+      #   required: false
+      #   type: boolean
+      #   default: false
+      # run_integration_benchmark:
+      #   description: "Run benchmark integration test tier."
+      #   required: false
+      #   type: boolean
+      #   default: false
+      # run_integration_evaluation:
+      #   description: "Run evaluation integration test tier."
+      #   required: false
+      #   type: boolean
+      #   default: false
+      # run_integration_conversations:
+      #   description: "Run conversations integration test tier."
+      #   required: false
+      #   type: boolean
+      #   default: false
 
 jobs:
-  test:
+  unit:
     runs-on: ubuntu-22.04
     
     steps:
       # Checkout the repository.
       # Uses: https://github.com/actions/checkout
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Setup Python.
       # Uses: https://github.com/actions/setup-python
@@ -40,3 +87,129 @@ jobs:
       # Run unit tests.
       - name: Run unit tests
         run: pytest tests/unit
+
+  integration_setup:
+    name: Integration (setup/upgrade)
+    needs: unit
+    if: ${{ inputs.run_integration_setup }}
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --cache-dir ~/.cache/pip -r requirements-dev.txt
+
+      # Future tiers can chain after this one:
+      # integration_workspace -> integration_displays -> integration_scenarios
+      # -> integration_strategies -> integration_judgements -> integration_benchmark
+      # -> integration_evaluation
+      # Optional parallel branch: integration_conversations
+      - name: Run setup/upgrade integration tests
+        run: pytest tests/integration -m integration_setup
+
+  # Placeholder job for future tier expansion.
+  # integration_workspace:
+  #   name: Integration (workspaces)
+  #   needs: integration_setup
+  #   if: ${{ inputs.run_integration_workspace }}
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.10'
+  #     - name: Install dependencies
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         pip install -r requirements-dev.txt
+  #     - name: Run workspace integration tests
+  #       run: pytest tests/integration -m integration_workspace
+  #
+  # integration_displays:
+  #   name: Integration (displays)
+  #   needs: integration_workspace
+  #   if: ${{ inputs.run_integration_displays }}
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     # mirror setup from integration_workspace
+  #     - name: Run displays integration tests
+  #       run: pytest tests/integration -m integration_displays
+  #
+  # integration_scenarios:
+  #   name: Integration (scenarios)
+  #   needs: integration_displays
+  #   if: ${{ inputs.run_integration_scenarios }}
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     # mirror setup from integration_workspace
+  #     - name: Run scenarios integration tests
+  #       run: pytest tests/integration -m integration_scenarios
+  #
+  # integration_strategies:
+  #   name: Integration (strategies)
+  #   needs: integration_scenarios
+  #   if: ${{ inputs.run_integration_strategies }}
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     # mirror setup from integration_workspace
+  #     - name: Run strategies integration tests
+  #       run: pytest tests/integration -m integration_strategies
+  #
+  # integration_judgements:
+  #   name: Integration (judgements)
+  #   needs: integration_strategies
+  #   if: ${{ inputs.run_integration_judgements }}
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     # mirror setup from integration_workspace
+  #     - name: Run judgements integration tests
+  #       run: pytest tests/integration -m integration_judgements
+  #
+  # integration_benchmark:
+  #   name: Integration (benchmarks)
+  #   needs: integration_judgements
+  #   if: ${{ inputs.run_integration_benchmark }}
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     # mirror setup from integration_workspace
+  #     - name: Run benchmark integration tests
+  #       run: pytest tests/integration -m integration_benchmark
+  #
+  # integration_evaluation:
+  #   name: Integration (evaluations)
+  #   needs: integration_benchmark
+  #   if: ${{ inputs.run_integration_evaluation }}
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     # mirror setup from integration_workspace
+  #     - name: Run evaluation integration tests
+  #       run: pytest tests/integration -m integration_evaluation
+  #
+  # integration_conversations:
+  #   name: Integration (conversations)
+  #   needs: integration_setup
+  #   if: ${{ inputs.run_integration_conversations }}
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     # mirror setup from integration_workspace
+  #     - name: Run conversations integration tests
+  #       run: pytest tests/integration -m integration_conversations

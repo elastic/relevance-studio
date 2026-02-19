@@ -9,5 +9,73 @@ on:
       - '**'
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-22.04
+    outputs:
+      run_integration_setup: ${{ steps.filter.outputs.setup_upgrade }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect setup/upgrade changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            setup_upgrade:
+              - 'src/server/api/setup.py'
+              - 'src/server/flask.py'
+              - 'src/server/elastic/index_templates/**'
+              - 'src/server/elastic/migrations/**'
+              - 'tests/integration/test_setup_upgrade.py'
+              - 'tests/conftest.py'
+              - 'tests/docker-compose.yml'
+              - '.github/workflows/test.yml'
+            # Placeholder filters for future integration tiers.
+            # workspace:
+            #   - 'src/server/api/workspaces.py'
+            #   - 'src/ui/js/Pages/Workspaces/**'
+            #   - 'tests/integration/**workspace**'
+            # displays:
+            #   - 'src/server/api/displays.py'
+            #   - 'src/ui/js/Pages/Displays/**'
+            #   - 'tests/integration/**display**'
+            # scenarios:
+            #   - 'src/server/api/scenarios.py'
+            #   - 'src/ui/js/Pages/Scenarios/**'
+            #   - 'tests/integration/**scenario**'
+            # strategies:
+            #   - 'src/server/api/strategies.py'
+            #   - 'src/ui/js/Pages/Strategies/**'
+            #   - 'tests/integration/**strateg**'
+            # judgements:
+            #   - 'src/server/api/judgements.py'
+            #   - 'src/ui/js/Pages/Judgements/**'
+            #   - 'tests/integration/**judgement**'
+            # benchmark:
+            #   - 'src/server/api/benchmarks.py'
+            #   - 'src/ui/js/Pages/Benchmarks/**'
+            #   - 'tests/integration/**benchmark**'
+            # evaluation:
+            #   - 'src/server/api/evaluations.py'
+            #   - 'src/ui/js/Pages/Evaluations/**'
+            #   - 'tests/integration/**evaluation**'
+            # conversations:
+            #   - 'src/server/api/conversations.py'
+            #   - 'src/ui/js/Layout/Chat.js'
+            #   - 'tests/integration/**conversation**'
+
   test:
+    needs: detect-changes
     uses: ./.github/workflows/test.yml
+    with:
+      run_integration_setup: ${{ needs.detect-changes.outputs.run_integration_setup == 'true' }}
+      # Placeholder future tier toggles.
+      # run_integration_workspace: ${{ needs.detect-changes.outputs.workspace == 'true' }}
+      # run_integration_displays: ${{ needs.detect-changes.outputs.displays == 'true' }}
+      # run_integration_scenarios: ${{ needs.detect-changes.outputs.scenarios == 'true' }}
+      # run_integration_strategies: ${{ needs.detect-changes.outputs.strategies == 'true' }}
+      # run_integration_judgements: ${{ needs.detect-changes.outputs.judgements == 'true' }}
+      # run_integration_benchmark: ${{ needs.detect-changes.outputs.benchmark == 'true' }}
+      # run_integration_evaluation: ${{ needs.detect-changes.outputs.evaluation == 'true' }}
+      # run_integration_conversations: ${{ needs.detect-changes.outputs.conversations == 'true' }}

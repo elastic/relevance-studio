@@ -1,6 +1,7 @@
 {
   "_meta": {
-    "description": "Elasticsearch Relevance Studio - Workspaces"
+    "description": "Elasticsearch Relevance Studio - Workspaces",
+    "version": "1.1.0"
   },
   "index_patterns": [
     "esrs-workspaces*"
