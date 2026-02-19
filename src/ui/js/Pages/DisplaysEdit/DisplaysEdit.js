@@ -36,7 +36,7 @@ import utils from '../../utils'
 const DisplaysEdit = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
-  
+
   const { addToast, darkMode } = useAppContext()
   const { workspace, display } = usePageResources()
   const isReady = useResources().hasResources(['workspace', 'display'])
@@ -93,8 +93,9 @@ const DisplaysEdit = () => {
       setTemplateImagePosition(display.template.image.position)
     if (display.template?.image?.url)
       setTemplateImageUrl(display.template.image.url)
-    if (!sampleDoc)
-      onGetDocRandom()
+
+    // Always fetch a random doc when switching displays to ensure the sample matches the new index pattern
+    onGetDocRandom()
   }, [display])
 
   /**
@@ -290,7 +291,7 @@ const DisplaysEdit = () => {
   }
 
   return (
-    <Page panelled={true} title={
+    <Page title={
       <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!display &&
           <>Not found</>
@@ -363,62 +364,68 @@ const DisplaysEdit = () => {
                   <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none'>
 
                     {/* Image URL */}
-                    <EuiFieldText
-                      aria-label='Image URL'
-                      compressed
-                      fullWidth
-                      onChange={(e) => setTemplateImageUrl(e.target.value)}
-                      placeholder='http://my-image-server/{{ image.path }}'
-                      prepend='Image URL'
-                      value={templateImageUrl}
-                    />
-                    <EuiSpacer size='xs' />
-
-                    {/* Image position */}
-                    {/*<EuiToolTip content='Align left'>
-                    <EuiButton
-                      color='text'
-                      fill={imagePosition == 'left' ? true : false}
-                      onClick={() => setImagePosition('left')}
-                      size='s'
-                      style={{ minWidth: '16px', padding: '8px', borderBottomRightRadius: '0', borderTopRightRadius: '0' }}
-                    >
-                      <IconBoxAlignLeftFilled stroke={1.5} size={16} />
-                    </EuiButton>
-                  </EuiToolTip>*/}
-                    <EuiToolTip content='Align top left'>
-                      <EuiButton
-                        color='text'
-                        fill={templateImagePosition == 'top-left' ? true : false}
-                        onClick={() => setTemplateImagePosition('top-left')}
-                        size='s'
-                        style={{ minWidth: '16px', padding: '8px', /*borderLeft: '0', borderRadius: '0'*/ borderBottomRightRadius: '0', borderTopRightRadius: '0' }}
-                      >
-                        <IconBoxAlignTopLeftFilled stroke={1.5} size={16} />
-                      </EuiButton>
-                    </EuiToolTip>
-                    <EuiToolTip content='Align top right'>
-                      <EuiButton
-                        color='text'
-                        fill={templateImagePosition == 'top-right' ? true : false}
-                        onClick={() => setTemplateImagePosition('top-right')}
-                        size='s'
-                        style={{ minWidth: '16px', padding: '8px', borderLeft: '0', /*borderRadius: '0'*/ borderBottomLeftRadius: '0', borderTopLeftRadius: '0' }}
-                      >
-                        <IconBoxAlignTopRightFilled stroke={1.5} size={16} />
-                      </EuiButton>
-                    </EuiToolTip>
-                    {/*<EuiToolTip content='Align right'>
-                    <EuiButton
-                      color='text'
-                      fill={imagePosition == 'right' ? true : false}
-                      onClick={() => setImagePosition('right')}
-                      size='s'
-                      style={{ minWidth: '16px', padding: '8px', borderLeft: '0', borderBottomLeftRadius: '0', borderTopLeftRadius: '0' }}
-                    >
-                      <IconBoxAlignRightFilled stroke={1.5} size={16} />
-                    </EuiButton>
-                  </EuiToolTip>*/}
+                    <EuiFlexGroup gutterSize='xs'>
+                      <EuiFlexItem grow={true}>
+                        <EuiFieldText
+                          aria-label='Image URL'
+                          compressed
+                          fullWidth
+                          onChange={(e) => setTemplateImageUrl(e.target.value)}
+                          placeholder='http://my-image-server/{{ image.path }}'
+                          prepend='Image URL'
+                          value={templateImageUrl}
+                        />
+                      </EuiFlexItem>
+                      <EuiFlexItem grow={false}>
+                        <div>
+                          {/* Image position */}
+                          {/*<EuiToolTip content='Align left'>
+                          <EuiButton
+                            color='text'
+                            fill={imagePosition == 'left' ? true : false}
+                            onClick={() => setImagePosition('left')}
+                            size='s'
+                            style={{ minWidth: '16px', padding: '8px', borderBottomRightRadius: '0', borderTopRightRadius: '0' }}
+                          >
+                            <IconBoxAlignLeftFilled stroke={1.5} size={16} />
+                          </EuiButton>
+                        </EuiToolTip>*/}
+                          <EuiToolTip content='Align top left'>
+                            <EuiButton
+                              color='text'
+                              fill={templateImagePosition == 'top-left' ? true : false}
+                              onClick={() => setTemplateImagePosition('top-left')}
+                              size='s'
+                              style={{ minWidth: '16px', padding: '8px', /*borderLeft: '0', borderRadius: '0'*/ borderBottomRightRadius: '0', borderTopRightRadius: '0' }}
+                            >
+                              <IconBoxAlignTopLeftFilled stroke={1.5} size={16} />
+                            </EuiButton>
+                          </EuiToolTip>
+                          <EuiToolTip content='Align top right'>
+                            <EuiButton
+                              color='text'
+                              fill={templateImagePosition == 'top-right' ? true : false}
+                              onClick={() => setTemplateImagePosition('top-right')}
+                              size='s'
+                              style={{ minWidth: '16px', padding: '8px', borderLeft: '0', /*borderRadius: '0'*/ borderBottomLeftRadius: '0', borderTopLeftRadius: '0' }}
+                            >
+                              <IconBoxAlignTopRightFilled stroke={1.5} size={16} />
+                            </EuiButton>
+                          </EuiToolTip>
+                          {/*<EuiToolTip content='Align right'>
+                            <EuiButton
+                              color='text'
+                              fill={imagePosition == 'right' ? true : false}
+                              onClick={() => setImagePosition('right')}
+                              size='s'
+                              style={{ minWidth: '16px', padding: '8px', borderLeft: '0', borderBottomLeftRadius: '0', borderTopLeftRadius: '0' }}
+                            >
+                              <IconBoxAlignRightFilled stroke={1.5} size={16} />
+                            </EuiButton>
+                          </EuiToolTip>*/}
+                        </div>
+                      </EuiFlexItem>
+                    </EuiFlexGroup>
                   </EuiPanel>
                 </EuiFormRow>
 

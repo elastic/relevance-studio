@@ -26,6 +26,7 @@ def mock_input_create():
             "min": 0,
             "max": 4,
         },
+        "description": "Project goals and collaboration guidance.",
         "tags": [
             "test",
         ],
@@ -97,6 +98,12 @@ def test_update_is_invalid_with_forbidden_inputs():
 
 def test_create_is_valid_without_optional_inputs():
     
+    # "description" is optional in the input for creates
+    input = mock_input_create()
+    input.pop("description", None)
+    model = WorkspaceCreate.model_validate(input, context=mock_context())
+    assert model.description == ""
+
     # "tags" is optional in the input for creates
     input = mock_input_create()
     input.pop("tags", None)
@@ -127,6 +134,12 @@ def test_update_is_valid_without_optional_inputs():
     input.pop("tags", None)
     model = WorkspaceUpdate.model_validate(input, context=mock_context())
     assert model.tags is None
+
+    # "description" is optional in the input for updates
+    input = mock_input_update()
+    input.pop("description", None)
+    model = WorkspaceUpdate.model_validate(input, context=mock_context())
+    assert model.description is None
     
 def test_create_is_invalid_with_unexpected_inputs():
     input = mock_input_create()
@@ -223,6 +236,20 @@ def test_update_handles_valid_inputs_for_tags(value):
     input = mock_input_update()
     input["tags"] = value
     WorkspaceUpdate(**input)
+
+@pytest.mark.parametrize("value", invalid_values_for("string", allow_empty=True))
+def test_create_handles_invalid_inputs_for_description(value):
+    input = mock_input_create()
+    input["description"] = value
+    with pytest.raises(ValidationError):
+        WorkspaceCreate(**input)
+
+@pytest.mark.parametrize("value", [v for v in invalid_values_for("string", allow_empty=True) if v is not None])
+def test_update_handles_invalid_inputs_for_description(value):
+    input = mock_input_update()
+    input["description"] = value
+    with pytest.raises(ValidationError):
+        WorkspaceUpdate(**input)
     
 ####  Test Creation of Computed Fields  ########################################
 
@@ -249,6 +276,7 @@ def test_create_serialization_has_all_given_inputs():
     assert sorted(serialized["params"]) == sorted(mock_input_create()["params"])
     assert serialized["rating_scale"]["min"] == mock_input_create()["rating_scale"]["min"]
     assert serialized["rating_scale"]["max"] == mock_input_create()["rating_scale"]["max"]
+    assert serialized["description"] == mock_input_create()["description"]
     assert sorted(serialized["tags"]) == sorted(mock_input_create()["tags"])
     
     # Test that @meta fields were properly serialized
@@ -259,12 +287,14 @@ def test_create_serialization_initializes_omitted_optional_inputs():
     
     # Use mock input without optional fields
     input = mock_input_create()
+    input.pop("description", None)
     input.pop("tags", None)
     
     model = WorkspaceCreate.model_validate(input, context=mock_context())
     serialized = model.serialize()
     
     # Test that inputs are in serialized output
+    assert serialized["description"] == ""
     assert sorted(serialized["tags"]) == []
     
 def test_update_serialization_has_all_given_inputs():
@@ -278,6 +308,7 @@ def test_update_serialization_has_all_given_inputs():
     assert serialized["name"] == mock_input_update()["name"]
     assert serialized["index_pattern"] == mock_input_update()["index_pattern"]
     assert sorted(serialized["params"]) == sorted(mock_input_update()["params"])
+    assert serialized["description"] == mock_input_update()["description"]
     assert sorted(serialized["tags"]) == sorted(mock_input_update()["tags"])
     
     # Test that @meta fields were properly serialized
@@ -291,6 +322,7 @@ def test_update_serialization_omits_omitted_optional_inputs():
     input.pop("name", None)
     input.pop("index_pattern", None)
     input.pop("params", None)
+    input.pop("description", None)
     input.pop("tags", None)
     model = WorkspaceUpdate.model_validate(input, context=mock_context())
     serialized = model.serialize()
@@ -298,6 +330,7 @@ def test_update_serialization_omits_omitted_optional_inputs():
     # Test that omitted optional inputs are not in serialized output
     assert "name" not in serialized
     assert "index_pattern" not in serialized
+    assert "description" not in serialized
     assert "tags" not in serialized
     assert "params" not in serialized or serialized["params"] is None
     

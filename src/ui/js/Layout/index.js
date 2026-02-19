@@ -16,8 +16,10 @@ import SearchResultsJudgements from './SearchResultsJudgements'
 import SearchTable from './SearchTable'
 import SelectScenario from './SelectScenario'
 import SideNav from './SideNav'
+import Chat from './Chat'
 export {
   Breadcrumbs,
+  Chat,
   DocCard,
   JudgementCard,
   ModalDelete,
@@ -27,5 +29,5 @@ export {
   SearchResultsJudgements,
   SearchTable,
   SelectScenario,
-  SideNav
+  SideNav,
 }

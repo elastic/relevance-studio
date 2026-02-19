@@ -1,4 +1,5 @@
-elasticsearch==8.18.1
+elasticsearch==8.19.3
+fastmcp==2.14.3
 Flask==3.1.0
 Flask-Cors==5.0.0
 opentelemetry-distro==0.57b0
@@ -7,5 +8,7 @@ opentelemetry-instrumentation==0.57b0
 opentelemetry-instrumentation-elasticsearch==0.57b0
 opentelemetry-instrumentation-flask==0.57b0
 opentelemetry-instrumentation-wsgi==0.57b0
+pillow==11.3.0
 pydantic==2.11.7
 python-dotenv==1.1.1
+requests==2.32.4

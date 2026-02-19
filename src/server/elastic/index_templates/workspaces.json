@@ -47,6 +47,9 @@
         "tags": {
           "type": "keyword"
         },
+        "description": {
+          "type": "text"
+        },
         "_search": {
           "properties": {
             "name": {
@@ -59,6 +62,9 @@
               "type": "text"
             },
             "tags": {
+              "type": "text"
+            },
+            "description": {
               "type": "text"
             }
           }

@@ -22,8 +22,19 @@ def search(
         page: int = 1,
         aggs: bool = False,
     ) -> Dict[str, Any]:
-    """
-    Search for strategies.
+    """Search for strategies.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        text: Search text for filtering strategies.
+        filters: List of additional Elasticsearch filters.
+        sort: Sorting configuration for the search.
+        size: Number of strategies to return per page.
+        page: Page number for pagination.
+        aggs: Whether to include aggregations.
+
+    Returns:
+        A dictionary containing the search results.
     """
     response = utils.search_assets(
         "strategies", workspace_id, text, filters, sort, size, page
@@ -31,15 +42,25 @@ def search(
     return response
 
 def tags(workspace_id: str) -> Dict[str, Any]:
-    """
-    List all strategy tags (up to 10,000).
+    """List all strategy tags (up to 10,000).
+
+    Args:
+        workspace_id: The UUID of the workspace.
+
+    Returns:
+        The response from Elasticsearch containing tag aggregations.
     """
     es_response = utils.search_tags("strategies", workspace_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
-    """
-    Get a strategy by its _id.
+    """Get a strategy by its _id.
+
+    Args:
+        _id: The UUID of the strategy.
+
+    Returns:
+        The strategy document from Elasticsearch.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -49,10 +70,15 @@ def get(_id: str) -> Dict[str, Any]:
     return es_response
 
 def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
-    """
-    Create a strategy.
-    
-    Accepts an optional pregenerated _id for idempotence.
+    """Create a strategy.
+
+    Args:
+        doc: The strategy data to create.
+        _id: Optional pregenerated UUID for idempotence.
+        user: The username of the creator.
+
+    Returns:
+        The response from the Elasticsearch index operation.
     """
     
     # Create, validate, and dump model
@@ -71,8 +97,15 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     return es_response
 
 def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
-    """
-    Update a strategy by its _id.
+    """Update a strategy by its _id.
+
+    Args:
+        _id: The UUID of the strategy.
+        doc_partial: The partial strategy data to update.
+        user: The username of the updater.
+
+    Returns:
+        The response from the Elasticsearch update operation.
     """ 
     
     # Create, validate, and dump model
@@ -91,8 +124,13 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     return es_response
 
 def delete(_id: str) -> Dict[str, Any]:
-    """
-    Delete a strategy by its _id.
+    """Delete a strategy by its _id.
+
+    Args:
+        _id: The UUID of the strategy to delete.
+
+    Returns:
+        The response from the Elasticsearch delete operation.
     """
     es_response = es("studio").delete(
         index=INDEX_NAME,

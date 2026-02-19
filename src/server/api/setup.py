@@ -18,6 +18,7 @@ PATH_BASE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "elastic", "index_templates"
 )
 PATH_INDEX_TEMPLATES = [
+    ( "esrs-conversations", os.path.join(PATH_BASE, "conversations.json") ),
     ( "esrs-workspaces", os.path.join(PATH_BASE, "workspaces.json") ),
     ( "esrs-displays", os.path.join(PATH_BASE, "displays.json") ),
     ( "esrs-scenarios", os.path.join(PATH_BASE, "scenarios.json") ),
@@ -28,27 +29,49 @@ PATH_INDEX_TEMPLATES = [
 ]
 
 def is_cloud(headers: Dict[str, Any]) -> bool:
-    """
-    Given the response headers from Elasticsearch, check if it contains any
-    headers that would indicates that it's from Elastic Cloud.
+    """Check if the Elasticsearch response headers indicate Elastic Cloud.
+
+    Args:
+        headers: A dictionary of response headers from Elasticsearch.
+
+    Returns:
+        True if the headers indicate an Elastic Cloud deployment, False otherwise.
     """
     return any(k.lower().startswith("x-found-") for k in headers)
 
 def is_serverless(cluster_info_body: Dict[str, Any]) -> bool:
-    """
-    Given the contents of es.info().body, check if the deployment is serverless.
+    """Check if the Elasticsearch deployment is serverless.
+
+    Args:
+        cluster_info_body: The body of the Elasticsearch info response.
+
+    Returns:
+        True if the deployment is serverless, False otherwise.
     """
     return cluster_info_body.get("version", {}).get("build_flavor") == "serverless"
 
-def get_cluster_info():
+def get_license_info():
+    """Get license information from Elasticsearch.
+
+    Returns:
+        The response from the Elasticsearch license API.
     """
-    Get cluster info from Elasticsearch.
+    return es("studio").license.get()
+
+
+def get_cluster_info():
+    """Get cluster information from Elasticsearch.
+
+    Returns:
+        The response from the Elasticsearch info API.
     """
     return es("studio").info()
 
 def check():
-    """
-    Check if the esrs-* index templates and indices have been created.
+    """Check if the required index templates and indices have been created.
+
+    Returns:
+        A dictionary containing deployment info and setup status with any failures.
     """
 
     # Initialize result
@@ -66,6 +89,14 @@ def check():
     # Get deployment info
     cluster_info = get_cluster_info()
     result["deployment"]["cluster_info"] = cluster_info.body
+
+    # Get license info
+    license_info = get_license_info()
+    result["deployment"]["license"] = {
+        "type": license_info.body.get("license", {}).get("type") or "unknown",
+        "status": license_info.body.get("license", {}).get("status") or "unknown"
+    }
+
     if is_serverless(cluster_info.body):
         result["deployment"]["mode"] = "serverless"
     elif is_cloud(cluster_info.meta.headers):
@@ -123,33 +154,10 @@ def check():
     return result
 
 def run():
-    """
-    Setup the esrs-* index templates and indices.
-    
-    Structure of the returned object:
-    
-    {
-        "setup": {
-            "failures": NUM_FAILED_REQUESTS,
-            "requests": [
-                {
-                    "index_template": INDEX_TEMPLATE_NAME,
-                    "response": {
-                        "body": HTTP_RESPONSE_BODY,
-                        "status": HTTP_STATUS_CODE
-                    }
-                },
-                {
-                    "index": INDEX_NAME,
-                    "response": {
-                        "body": HTTP_RESPONSE_BODY,
-                        "status": HTTP_STATUS_CODE
-                    }
-                },
-                ...
-            ]
-        }
-    }
+    """Setup the required index templates and indices for Relevance Studio.
+
+    Returns:
+        A dictionary containing the results of each setup request and the failure count.
     """
     
     # Initialize result

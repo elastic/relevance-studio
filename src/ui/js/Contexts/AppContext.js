@@ -20,17 +20,21 @@ export const AppProvider = ({ children }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
+  const [deploymentMode, setDeploymentMode] = useState(null)
+  const [hasCheckedSetup, setHasCheckedSetup] = useState(false)
+  const [isCheckingSetup, setIsCheckingSetup] = useState(false)
+  const [isSetup, setIsSetup] = useState(null)
+  const [licenseType, setLicenseType] = useState(null)
+  const [licenseStatus, setLicenseStatus] = useState(null)
+
   // Local storage state
   const [autoRefresh, setAutoRefresh] = useState(() => {
     const val = localStorage.getItem('autoRefresh')
     return val === null ? true : val === 'true' // defaults to true
   })
   const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('darkMode') === 'true' // defaults to false
-  })
-  const [deploymentMode, setDeploymentMode] = useState(() => {
-    const stored = localStorage.getItem('deploymentMode')
-    return stored === 'serverless' || stored === 'cloud' || stored === 'standard' ? stored : null // defaults to null
+    const val = localStorage.getItem('darkMode')
+    return val === null ? false : val === 'true'; // defaults to false
   })
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const val = localStorage.getItem('sidebarOpen')
@@ -38,7 +42,6 @@ export const AppProvider = ({ children }) => {
   })
   useEffect(() => localStorage.setItem('autoRefresh', autoRefresh), [autoRefresh])
   useEffect(() => localStorage.setItem('darkMode', darkMode), [darkMode])
-  useEffect(() => localStorage.setItem('deploymentMode', deploymentMode), [deploymentMode])
   useEffect(() => localStorage.setItem('sidebarOpen', sidebarOpen), [sidebarOpen])
 
   // Toasts
@@ -55,42 +58,36 @@ export const AppProvider = ({ children }) => {
     return () => { _appContext = null }
   }, [addToast])
 
-  // Check setup
-  const [isSetup, setIsSetup] = useState(null)
+  // Check setup & deployment info
   useEffect(() => {
-    const checkSetup = async () => {
+    const initApp = async () => {
+      setIsCheckingSetup(true)
       try {
         const response = await api.setup_check()
 
-        // Check deployment mode
-        if (response?.data?.deployment?.mode)
-          setDeploymentMode(response.data.deployment.mode)
+        // Deployment info
+        setDeploymentMode(response?.data?.deployment?.mode)
+        setLicenseType(response?.data?.deployment?.license?.type)
+        setLicenseStatus(response?.data?.deployment?.license?.status)
 
-        // Check if setup is complete
-        if ((response?.data?.setup?.failures ?? 0) > 0)
+        // Setup status
+        if ((response?.data?.setup?.failures ?? 0) > 0) {
           setIsSetup(false)
-        else
+        } else {
           setIsSetup(true)
+        }
       } catch (e) {
-        console.error(e)
+        console.error('Failed to initialize app:', e)
         setIsSetup(false)
-      }
-    }
-    checkSetup()
-  }, [])
-
-  // Get deployment mode
-  useEffect(() => {
-    const getDeploymentMode = async () => {
-      try {
-        const response = await api.mode_get()
-        setDeploymentMode(response.data.mode)
-      } catch (e) {
-        console.error('Failed to load mode:', e)
         setDeploymentMode(null)
+        setLicenseType(null)
+        setLicenseStatus(null)
+      } finally {
+        setIsCheckingSetup(false)
+        setHasCheckedSetup(true)
       }
     }
-    getDeploymentMode()
+    initApp()
   }, [])
 
   const value = useMemo(() => ({
@@ -98,14 +95,32 @@ export const AppProvider = ({ children }) => {
     autoRefresh,
     darkMode,
     deploymentMode,
+    hasCheckedSetup,
+    isCheckingSetup,
+    licenseType,
+    licenseStatus,
     isSetup,
     sidebarOpen,
     setAutoRefresh,
     setDarkMode,
     setDeploymentMode,
+    setLicenseType,
+    setLicenseStatus,
     setIsSetup,
     setSidebarOpen,
-  }), [toasts, isSetup, darkMode, autoRefresh, sidebarOpen])
+  }), [
+    toasts,
+    isSetup,
+    darkMode,
+    autoRefresh,
+    deploymentMode,
+    hasCheckedSetup,
+    isCheckingSetup,
+    licenseType,
+    licenseStatus,
+    sidebarOpen,
+    setAutoRefresh,
+  ])
 
   return (
     <AppContext.Provider value={value}>

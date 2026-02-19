@@ -64,7 +64,7 @@ class DisplayUpdate(AssetUpdate):
     workspace_id: str
     
     # Optional inputs
-    index_pattern: str = Field(default=None)
+    index_pattern: Optional[str] = None
     template: Optional[Dict[str, Any]] = None
 
     @field_validator("workspace_id")
@@ -78,7 +78,7 @@ class DisplayUpdate(AssetUpdate):
     @classmethod
     def validate_index_pattern(cls, value: Optional[str]):
         if value is None:
-            return value
+            raise ValueError("index_pattern must be a non-empty string if given")
         if not value.strip():
             raise ValueError("index_pattern must be a non-empty string if given")
         return value

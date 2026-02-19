@@ -1,0 +1,145 @@
+{
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Conversations"
+  },
+  "index_patterns": [
+    "esrs-conversations*"
+  ],
+  "template": {
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            }
+          }
+        },
+        "title": {
+          "type": "keyword"
+        },
+        "conversation_id": {
+          "type": "keyword"
+        },
+        "rounds": {
+          "type": "nested",
+          "properties": {
+            "id": {
+              "type": "keyword"
+            },
+            "status": {
+              "type": "keyword"
+            },
+            "input": {
+              "properties": {
+                "message": {
+                  "type": "text"
+                }
+              }
+            },
+            "steps": {
+              "type": "nested",
+              "properties": {
+                "type": {
+                  "type": "keyword"
+                },
+                "reasoning": {
+                  "type": "text"
+                },
+                "tool_id": {
+                  "type": "keyword"
+                },
+                "params": {
+                  "type": "object",
+                  "enabled": false
+                },
+                "tool_call_id": {
+                  "type": "keyword"
+                },
+                "results": {
+                  "type": "nested",
+                  "properties": {
+                    "type": {
+                      "type": "keyword"
+                    },
+                    "data": {
+                      "type": "object",
+                      "enabled": false
+                    }
+                  }
+                }
+              }
+            },
+            "started_at": {
+              "type": "date"
+            },
+            "time_to_first_token": {
+              "type": "integer"
+            },
+            "time_to_last_token": {
+              "type": "integer"
+            },
+            "model_usage": {
+              "properties": {
+                "inference_id": {
+                  "type": "keyword"
+                },
+                "llm_calls": {
+                  "type": "integer"
+                },
+                "input_tokens": {
+                  "type": "integer"
+                },
+                "output_tokens": {
+                  "type": "integer"
+                }
+              }
+            },
+            "response": {
+              "properties": {
+                "message": {
+                  "type": "text"
+                }
+              }
+            }
+          }
+        },
+        "_search": {
+          "properties": {
+            "title": {
+              "type": "text"
+            },
+            "rounds": {
+              "properties": {
+                "input": {
+                  "properties": {
+                    "message": {
+                      "type": "text"
+                    }
+                  }
+                },
+                "response": {
+                  "properties": {
+                    "message": {
+                      "type": "text"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -6,7 +6,7 @@
  */
 
 import { createContext, useCallback, useContext, useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useLocation } from 'react-router-dom'
 import api from '../api'
 import utils from '../utils'
 
@@ -54,6 +54,7 @@ const PARAM_TO_RESOURCE = {
 
 export const ResourceProvider = ({ children }) => {
   const params = useParams()
+  const location = useLocation()
   const [state, setState] = useState({
     resources: {},
     loading: {},
@@ -146,12 +147,22 @@ export const ResourceProvider = ({ children }) => {
   // Load resources when params change
   useEffect(() => {
     const loadResources = async () => {
-      console.debug('🚀 Params changed:', params)
+      // Extract query params from URL
+      const queryParams = new URLSearchParams(location.search)
+      const scenarioIdFromQuery = queryParams.get('scenario_id')
+      
+      // Merge path params with relevant query params
+      const allParams = { ...params }
+      if (scenarioIdFromQuery) {
+        allParams.scenario_id = scenarioIdFromQuery
+      }
+
+      console.debug('🚀 Params changed:', allParams)
       console.debug('📎 Additional resources requested:', additionalResources)
 
       // Combine URL-based and additional resources
       const urlResources = []
-      Object.keys(params).forEach(paramName => {
+      Object.keys(allParams).forEach(paramName => {
         const resourceType = PARAM_TO_RESOURCE[paramName]
         if (resourceType && RESOURCE_LOADERS[resourceType]) {
           urlResources.push(resourceType)
@@ -181,9 +192,26 @@ export const ResourceProvider = ({ children }) => {
         }
       })
 
-      // Determine which resources actually need to be loaded (not already available)
+      // Determine which resources actually need to be loaded (not already available or ID mismatch)
       const resourcesToFetch = allResourcesToLoad.filter(resourceType => {
-        return !currentResources[resourceType]
+        const currentResource = currentResources[resourceType]
+        if (!currentResource) return true
+
+        // 1. Check if this specific resource's ID has changed in the URL
+        const idParamName = Object.keys(PARAM_TO_RESOURCE).find(key => PARAM_TO_RESOURCE[key] === resourceType)
+        if (idParamName && allParams[idParamName] && currentResource._id !== allParams[idParamName]) {
+          console.debug(`🔄 Resource ${resourceType} ID mismatch: ${currentResource._id} vs ${allParams[idParamName]}`)
+          return true
+        }
+
+        // 2. Check if any parent resource's ID has changed (e.g., workspace_id)
+        // Most resources depend on workspace_id, so if it changes, we should re-fetch.
+        if (resourceType !== 'workspace' && allParams.workspace_id && currentResources['workspace']?._id && currentResources['workspace']._id !== allParams.workspace_id) {
+          console.debug(`🔄 Resource ${resourceType} stale due to workspace change`)
+          return true
+        }
+
+        return false
       })
 
       if (resourcesToFetch.length === 0) {
@@ -198,8 +226,9 @@ export const ResourceProvider = ({ children }) => {
 
       console.debug('🔄 Resources to fetch:', resourcesToFetch)
 
-      // Set loading state for new resources only
+      // Set loading state and clear stale data for resources we're about to fetch
       resourcesToFetch.forEach(resourceType => {
+        delete currentResources[resourceType] // Clear stale data to trigger loading state
         currentLoading[resourceType] = true
         delete currentErrors[resourceType] // Clear any previous errors
       })
@@ -214,8 +243,8 @@ export const ResourceProvider = ({ children }) => {
       const results = await Promise.allSettled(
         resourcesToFetch.map(async (type) => {
           try {
-            console.debug(`🚨 Loading ${type}`, params)
-            const response = await RESOURCE_LOADERS[type](params)
+            console.debug(`🚨 Loading ${type}`, allParams)
+            const response = await RESOURCE_LOADERS[type](allParams)
 
             // Use the appropriate data extractor for this resource type
             const dataExtractor = RESOURCE_DATA_EXTRACTORS[type]
@@ -256,7 +285,7 @@ export const ResourceProvider = ({ children }) => {
     }
 
     loadResources()
-  }, [JSON.stringify(params), JSON.stringify(additionalResources)])
+  }, [JSON.stringify(params), location.search, JSON.stringify(additionalResources)])
 
   const value = {
     ...state,

@@ -10,6 +10,7 @@ import {
   EuiButton,
   EuiCallOut,
   EuiCode,
+  EuiIcon,
   EuiPanel,
   EuiProgress,
   EuiSpacer,
@@ -27,7 +28,15 @@ const Home = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
-  const { addToast, darkMode, isSetup, setIsSetup } = useAppContext()
+  const {
+    addToast,
+    darkMode,
+    deploymentMode,
+    isCheckingSetup,
+    isSetup,
+    hasCheckedSetup,
+    setIsSetup,
+  } = useAppContext()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -65,8 +74,26 @@ const Home = () => {
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  if (isSetup === null)
+  if (isCheckingSetup)
     return <EuiProgress color='accent' position='fixed' size='s' />
+
+  const renderConnectionFailure = () => (
+    <EuiPanel grow={false} paddingSize='xl' style={{ margin: '0 auto', width: 600, textAlign: 'center' }}>
+      <EuiIcon color="subdued" type="cloudDrizzle" size="l" />
+      <EuiSpacer size="l" />
+      <EuiTitle size="m">
+        <h3>Studio Deployment Unreachable</h3>
+      </EuiTitle>
+      <EuiSpacer size="l" />
+      <EuiText size="s">
+        <p>
+          Reload this page after the <span style={{ fontWeight: 500 }}>Studio Deployment</span> is reachable by the <span style={{ fontWeight: 500 }}>Server</span>.
+          <br />
+          Read the <a href="https://elastic.github.io/relevance-studio/#/docs/guide/quickstart" target="_blank">setup</a> and <a href="https://elastic.github.io/relevance-studio/#/docs/reference/architecture" target="_blank">architecture</a> documentation for help.
+        </p>
+      </EuiText>
+    </EuiPanel>
+  )
 
   const renderSetupPrompt = () => (
     <EuiPanel grow={false} paddingSize='xs' style={{ margin: '0 auto', width: 600 }}>
@@ -117,25 +144,32 @@ const Home = () => {
   )
 
   return (
-    <Page panelled>
+    <Page>
       <EuiPanel color='transparent'>
         <div style={{ textAlign: 'center' }}>
           <EuiSpacer />
-          <EuiTitle size='l'>
-            <h1 style={{ fontWeight: 700 }}><big>Welcome!</big></h1>
-          </EuiTitle>
-          <EuiSpacer />
-          <EuiText>
-            <p>
-              Let's create amazing search experiences.
-            </p>
-          </EuiText>
-          <EuiSpacer size='l' />
-          <EuiPanel color='transparent' paddingSize='xl'>
-            <img src={darkMode ? '/img/process-white.png' : '/img/process.png'} width={600} />
-          </EuiPanel>
-          <EuiSpacer size='l' />
-          {isSetup ? renderHomePrompt() : renderSetupPrompt()}
+          {hasCheckedSetup && !deploymentMode && renderConnectionFailure()}
+          {hasCheckedSetup && !!deploymentMode &&
+            <>
+              <EuiTitle size='l'>
+                <h1 style={{ fontWeight: 700 }}>
+                  <big>Welcome!</big>
+                </h1>
+              </EuiTitle>
+              <EuiSpacer />
+              <EuiText>
+                <p>
+                  Let's create amazing search experiences.
+                </p>
+              </EuiText>
+              <EuiSpacer size='l' />
+              <EuiPanel color='transparent' paddingSize='xl'>
+                <img src={darkMode ? '/img/process-white.png' : '/img/process.png'} width={600} />
+              </EuiPanel>
+              <EuiSpacer size='l' />
+              {!isSetup ? renderSetupPrompt() : renderHomePrompt()}
+            </>
+          }
         </div>
       </EuiPanel>
     </Page>

@@ -107,7 +107,13 @@ const Workspaces = () => {
       truncateText: true,
       render: (name, doc) => (
         <EuiLink href={`#/workspaces/${doc._id}`}>
-          <EuiButton fill iconSize='s' iconType='folderOpen' size='s'>
+          <EuiButton
+            fill
+            iconSize='s'
+            iconType='menuRight'
+            size='s'
+            contentProps={{ style: { justifyContent: 'flex-start' } }}
+          >
             <small>{doc.name}</small>
           </EuiButton>
         </EuiLink>
@@ -172,7 +178,7 @@ const Workspaces = () => {
       field: 'rating_scale',
       name: 'Rating scale',
       render: (name, doc) => (<>
-        {doc.rating_scale.min} <span style={{ fontSize: '10px', padding: '0 4px' }}>{'-->'}</span> {doc.rating_scale.max}
+        {doc?.rating_scale?.min?.toString() || 0} <span style={{ fontSize: '10px', padding: '0 4px' }}>{'-->'}</span> {doc?.rating_scale?.max?.toString() || 0}
       </>),
     },
     {

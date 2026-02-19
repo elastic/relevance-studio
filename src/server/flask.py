@@ -9,7 +9,7 @@ from functools import wraps
 
 # Third-party packages
 from dotenv import load_dotenv
-from flask import Flask, current_app, jsonify, request
+from flask import Flask, current_app, jsonify, request, Response, stream_with_context
 from flask_cors import CORS
 from werkzeug.exceptions import BadRequest
 
@@ -31,6 +31,13 @@ DEFAULT_STATIC_PATH = os.path.abspath(os.path.join(__file__, "..", "..", "..", "
 
 app = Flask(__name__, static_folder=os.environ.get("STATIC_PATH") or DEFAULT_STATIC_PATH)
 CORS(app)
+
+# Pre-load MCP tools
+import asyncio
+try:
+    asyncio.run(api.agent._get_mcp_tools())
+except Exception as e:
+    app.logger.error(f"Failed to pre-load MCP tools: {e}")
 
 def handle_response(func):
     """
@@ -63,7 +70,10 @@ def handle_response(func):
         
         # Handle Elasticsearch ApiError
         except ApiError as e:
-            current_app.logger.exception(e)
+            if e.meta.status == 404:
+                current_app.logger.warning(f"Resource not found: {e}")
+            else:
+                current_app.logger.exception(e)
             return jsonify(e.body), e.meta.status
         
         # Handle everything else
@@ -95,6 +105,59 @@ def validate_workspace_id_match(body, workspace_id_from_url):
     if "workspace_id" in body and body["workspace_id"] != workspace_id_from_url:
         raise BadRequest("The workspace_id in the URL must match workspace_id in request body if given.")
     
+
+####  API: Agent  ##############################################################
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    body = request.get_json() or {}
+    return Response(
+        stream_with_context(api.agent.chat(**body)),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+@api_route("/api/chat/endpoints", methods=["GET"])
+def chat_endpoints():
+    return api.agent.endpoints()
+
+@app.route("/api/chat/cancel/<string:session_id>", methods=["POST"])
+def chat_cancel(session_id):
+    """Cancel an ongoing chat session."""
+    api.agent.request_cancellation(session_id)
+    return jsonify({"status": "cancellation_requested"})
+
+
+####  API: Conversations  ######################################################
+
+@api_route("/api/conversations/_search", methods=["POST"])
+def conversations_search():
+    body = request.get_json() or {}
+    return api.conversations.search(**body)
+
+@api_route("/api/conversations/<string:_id>", methods=["GET"])
+def conversations_get(_id):
+    return api.conversations.get(_id)
+
+@api_route("/api/conversations", methods=["POST"])
+def conversations_create():
+    doc = request.get_json()
+    _id = doc.pop("_id", None) # accept an optional _id if given
+    return api.conversations.create(doc, _id)
+
+@api_route("/api/conversations/<string:_id>", methods=["PUT"])
+def conversations_update(_id):
+    doc_partial = request.get_json()
+    return api.conversations.update(_id, doc_partial)
+
+@api_route("/api/conversations/<string:_id>", methods=["DELETE"])
+def conversations_delete(_id):
+    return api.conversations.delete(_id)
+
 
 ####  API: Workspaces  #########################################################
 
@@ -200,9 +263,14 @@ def judgements_search(workspace_id):
 def judgements_set(workspace_id):
     doc = request.get_json()
     validate_workspace_id_match(doc, workspace_id)
-    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     doc.pop("_id", None) # _id is always generated from body
-    return api.judgements.set(doc)
+    return api.judgements.set(
+        workspace_id=workspace_id,
+        scenario_id=doc["scenario_id"],
+        index=doc["index"],
+        doc_id=doc["doc_id"],
+        rating=doc["rating"],
+    )
 
 @api_route("/api/workspaces/<string:workspace_id>/judgements/<string:_id>", methods=["DELETE"])
 def judgements_unset(workspace_id, _id):
