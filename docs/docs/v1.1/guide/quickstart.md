@@ -9,8 +9,8 @@ This quickstart guide was tested with macOS 15.5, Docker 27.3.1, and Elasticsear
 This quickstart guide assumes that you have:
 
 * [docker](https://docs.docker.com/engine/install/) installed on your machine
-* An Elasticsearch deployment (8.x or higher) where your content is stored
-* An Elasticsearch deployment (8.x or higher) where Elasticsearch Relevance Studio will store its assets (this can be the same as your content deployment)
+* An Elasticsearch deployment (8.18 or higher) where your content is stored
+* An Elasticsearch deployment (8.18 or higher) where Elasticsearch Relevance Studio will store its assets (this can be the same as your content deployment)
 
 #### Step 1. Run the Quickstart Script
 
