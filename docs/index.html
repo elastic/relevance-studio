@@ -307,6 +307,7 @@
     window.$docsify = {
       alias: {
         '/docs/latest/(.*)': `/docs/${latest}/$1`,
+        '/docs/(v[\\d.]+|latest)/_sidebar.md': '/docs/$1/README.md',
         '/_sidebar.md': `/docs/${latest}/README.md`
       },
       auto2top: true,
