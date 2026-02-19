@@ -1,27 +1,83 @@
 # Architecture
 
-## Application
+- [Diagram](#diagram)
+- [Components](#components)
+    - [Server](#server)
+    - [Agent](#agent)
+    - [UI](#ui)
+    - [Worker](#worker)
+    - [MCP Server](#mcp-server)
+    - [MCP Proxy](#mcp-proxy)
+- [External components](#external-components)
+    - [Studio Deployment](#studio-deployment)
+    - [Content Deployment](#content-deployment)
+- [Ports and protocols](#ports-and-protocols)
 
-- **UI** - Provides a human user experience in a web browser
-- **Server** - Provides a REST API for the UI and worker(s)
-- **Agent** - A function run by the Server for chat orchestration, tool calls, and streamed responses
-- **Worker** - Checks for pending evaluations and runs them
-- **MCP Server** *(optional)* - Enables MCP over HTTP for AI agents
-- **MCP Proxy** *(optional)* - Enables MCP over stdio for local AI agents (e.g. Claude Desktop)
+## Diagram
 
-## Elasticsearch
+This diagram shows all required and optional [components of Elasticsearch Relevance Studio](#components), the external components that interface with them, their lines of communication, and the protocols by which they communicate.
 
-- **Studio deployment** - Stores application assets (including workspaces, conversations, and evaluation state)
-- **Content deployment** - Stores documents to be judged and runs rank evaluation
+<img src="https://storage.googleapis.com/esrs-docs/architecture/architecture-v1.1-reference.png" />
 
-## Setup and upgrades
+## Components
 
-- **Setup API** - Creates the required index templates and indices in the studio deployment
-- **Upgrade API** - Applies additive index-template upgrades for newer application versions
+### Server
+
+The Server is the central HTTP service in Elasticsearch Relevance Studio. It serves the [UI](#ui), exposes the [REST API](docs/{{VERSION}}/reference/rest-api.md), and coordinates reads and writes to the [Studio Deployment](#studio-deployment) and [Content Deployment](#content-deployment).
+
+For users, this is the main integration point: the UI and API both go through the Server. It provides setup and health endpoints, plus workspace-scoped APIs for assets such as [displays](docs/{{VERSION}}/guide/concepts.md#display), [scenarios](docs/{{VERSION}}/guide/concepts.md#scenario), [judgements](docs/{{VERSION}}/guide/concepts.md#judgement), [strategies](docs/{{VERSION}}/guide/concepts.md#strategy), [benchmarks](docs/{{VERSION}}/guide/concepts.md#benchmark), and [evaluations](docs/{{VERSION}}/guide/concepts.md#evaluation).
+
+For deployment and security considerations, see [Security](docs/{{VERSION}}/reference/security.md).
+
+### Agent
+
+The Agent is the AI assistant capability in Elasticsearch Relevance Studio. It handles chat interactions in the UI, uses LLM inference and [MCP tools](docs/{{VERSION}}/reference/mcp-tools.md), and persists [conversations](docs/{{VERSION}}/guide/concepts.md#conversation) in the [Studio Deployment](#studio-deployment). It's not a sandalone process, but rather a function executed by the Server.
+
+Use the Agent for guided authoring and workflow assistance when working with workspace assets.
+
+### UI
+
+The User Interface (UI) is the browser experience for day-to-day relevance work. It is delivered by the [Server](#server) and uses the Server APIs.
+
+The UI is organized around [workspaces](docs/{{VERSION}}/guide/concepts.md#workspace) and supports the full lifecycle of relevance engineering: defining [scenarios](docs/{{VERSION}}/guide/concepts.md#scenario), curating [judgements](docs/{{VERSION}}/guide/concepts.md#judgement), building [strategies](docs/{{VERSION}}/guide/concepts.md#strategy), creating [benchmarks](docs/{{VERSION}}/guide/concepts.md#benchmark), and analyzing [evaluations](docs/{{VERSION}}/guide/concepts.md#evaluation).
+
+### Worker
+
+A Worker is a background process that executes pending [evaluations](docs/{{VERSION}}/guide/concepts.md#evaluation). It polls the [Studio Deployment](#studio-deployment) for evaluation jobs, runs benchmark tasks against the [Content Deployment](#content-deployment), and writes results back to the Studio Deployment.
+
+The Worker is what makes evaluations asynchronous. If you want to run benchmarks at all, run at least one Worker. You can run multiple Workers to increase throughput for larger benchmark workloads.
+
+### MCP Server
+
+The MCP Server enables [MCP](https://modelcontextprotocol.io) over HTTP for AI agents. It exposes most [REST API](docs/{{VERSION}}/reference/rest-api.md) operations as [MCP tools](docs/{{VERSION}}/reference/mcp-tools.md), so AI clients can perform the same core actions available through the REST API.
+
+The MCP Server is required for the [Agent](#agent), and it can also be used directly by external MCP clients.
+
+### MCP Proxy
+
+The MCP Proxy is an optional bridge for local AI tools that require MCP over stdio (for example, Claude Desktop). It forwards stdio MCP traffic from the local tool to the [MCP Server](#mcp-server) over HTTP.
+
+If you use this pattern, run the MCP Proxy on the same machine as the local AI client. You can learn more in the [FastMCP documentation for Claude Desktop](https://gofastmcp.com/integrations/claude-desktop).
+
+## External components
+
+### Studio Deployment
+
+The Studio Deployment is an Elasticsearch deployment that stores Elasticsearch Relevance Studio [artifacts](docs/{{VERSION}}/reference/data-model) (workspaces, scenarios, judgements, strategies, benchmarks, evaluations, and related metadata). The [Server](#server), [Worker](#worker), and [MCP Server](#mcp-server) all connect to this deployment.
+
+This deployment acts as the system-of-record for your relevance program.
+
+### Content Deployment
+
+The Content Deployment is an Elasticsearch deployment that stores the documents you search, judge, and evaluate. Evaluations run [rank evaluation](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-rank-eval) on this deployment.
+
+***This should not be a production deployment.*** Evaluation workloads can be resource-intensive and may degrade end-user search performance.
+
+You can combine the Studio and Content deployments, but separating them is usually preferred for safer operations, clearer access boundaries, and independent scaling.
 
 ## Ports and protocols
 
-These are the default ports and protocols used by Relevance Studio:
+These are the default ports and protocols used by Elasticsearch Relevance Studio:
 
 |Service   |Port|Protocols|
 |----------|----|---------|
@@ -43,66 +99,3 @@ You can learn more about the networking configuration of Elasticsearch here:
 
 * For self-managed and open source: [Elasticsearch networking settings](https://www.elastic.co/docs/reference/elasticsearch/configuration-reference/networking-settings)
 * For Elastic Cloud Enterprise (ECE): [ECE networking prerequisites](https://www.elastic.co/docs/deploy-manage/deploy/cloud-enterprise/ece-networking-prereq)
-
----
-
-## Deployment patterns
-
-### Minimal setup
-
-<img src="img/architecture-minimal.png" style="float: right; max-width: 400px; padding-left: 15px;" />
-
-This is the simplest deployment pattern of Relevance Studio. A minimal setup includes the UI, Server, a Worker, and an Elasticsearch deployment that stores both the studio assets and the content.
-
-*Note: Technically the UI is optional. The Server handles the full lifecycle of Relevance Studio, including the Agent loop, so the application can be used entirely programmatically through the REST API.*
-
-<div style="clear: both;"/>
-
----
-
-### Minimal setup with MCP
-
-<img src="img/architecture-minimal-mcp.png" style="float: right; max-width: 400px; padding-left: 15px;" />
-
-This pattern extends the [minimal setup](#minimal-setup) by introducing the MCP Server.  The MCP Server makes it possible to use Relevance Studio in agentic workflows using the [Model Context Protocol (MCP)](https://modelcontextprotocol.io) over HTTP.
-
-*Note: The MCP Server does not depend on the Server. They provide separate backend interfaces: REST (Server) and MCP (MCP Server).*
-
-<div style="clear: both;"/>
-
----
-
-### Recommended setup
-
-<img src="img/architecture-recommended.png" style="float: right; max-width: 400px; padding-left: 15px;" />
-
-The recommended pattern separates the studio assets from the content into two Elasticsearch deployments. It also acknowledges that multiple Workers can run in parallel.
-
-Advantages over the [minimal setup](#minimal-setup):
-
-- Separating the studio deployment and the content deployment offers greater flexibility in terms of security and scalability.
-- Adding additional workers increases the number of evaluations that can run in parallel. This can be useful for deployments with a large number of benchmarks. 
-
-<div style="clear: both;"/>
-
----
-
-### Recommended setup with MCP
-
-<img src="img/architecture-recommended-mcp.png" style="float: right; max-width: 400px; padding-left: 15px;" />
-
-This pattern extends the [recommended setup](#recommended-setup) by introducing the MCP Server. The MCP Server follows the same implementation pattern as the [minimal setup with MCP](#minimal-setup-with-mcp).
-
-<div style="clear: both;"/>
-
----
-
-### Recommended setup with MCP and Proxy for local MCP hosts
-
-<img src="img/architecture-recommended-mcp-proxy.png" style="float: right; max-width: 400px; padding-left: 15px;" />
-
-This pattern extends the [recommended setup with MCP](#recommended-setup-with-mcp) by introducing a local proxy designed for integration with stdio-based MCP host applications such as Claude Desktop, Cursor, or GitHub Copilot.
-
-The MCP Proxy brokers communications between these host applications and the MCP Server. The proxy must run on the same machine as the host application. The host application communicates with the local MCP Proxy over stdio, and the MCP Proxy communicates with the MCP Server over HTTP. You can learn more about this pattern in the [FastMCP documentation for Claude Desktop](https://gofastmcp.com/integrations/claude-desktop).
-
-<div style="clear: both;"/>

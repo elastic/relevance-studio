@@ -22,7 +22,7 @@
 
 Elasticsearch Relevance Studio manages the lifecycle of **search relevance engineering** so you can deliver amazing search experiences.
 
-<img src="img/process.png" style="max-width: 600px; padding: 20px 0 0 0;" />
+<img src="https://storage.googleapis.com/esrs-docs/process.png" style="max-width: 600px; padding: 20px 0 0 0;" />
 
 <h3>AI ready :sparkles:</h3>
 
