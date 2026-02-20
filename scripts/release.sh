@@ -361,7 +361,7 @@ check_docs_index_wiring() {
     exit 1
   fi
 
-  if ! rg -q "\\{ value: '${target_version}', label:" "$docs_index"; then
+  if ! grep -q "\\{ value: '${target_version}', label:" "$docs_index"; then
     echo ""
     print_error "Version selector entry not found for ${target_version} in $docs_index"
     print_info "Add an entry in the versions array with value '${target_version}'."
