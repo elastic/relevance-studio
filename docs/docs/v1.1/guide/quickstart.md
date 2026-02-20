@@ -16,13 +16,13 @@ This quickstart guide assumes that you have:
 
 Download and run the quickstart script:
 
-**`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) {{VERSION}}`**
+**`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) --version {{VERSION}}`**
 
 The script clones the repository to `./relevance-studio/`, guides you through the setup process, and starts the services with Docker Compose.
 
 You can use `--dir` to install to a different directory:
 
-**`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) {{VERSION}} --dir my-directory`**
+**`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) --version {{VERSION}} --dir my-directory`**
 
 Use `--help` to see all available options:
 
