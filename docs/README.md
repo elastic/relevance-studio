@@ -62,7 +62,7 @@ Let's look at some of the impressive features of Elasticsearch Relevance Studio.
 
 <small>*The benchmarks report any unrated documents that matched your strategies and scenarios. This helps you improve the coverage and quality of your ground truth judgements and, by extension, the trustworthiness of your relevance metrics.*</small>
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-unrated-docs-v1.1-agentic.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-unrated-docs-agentic-v1.1.png" class="screenshot" />
 
 <small>*You can inspect the state of the indices, strategies, scenarios, and judgements as they existed at runtime. They include deterministic fingerprints for efficient change detection. This helps you find and explain the reasons for changes in relevance metrics between runs.*</small>
 
