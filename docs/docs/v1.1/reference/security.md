@@ -37,11 +37,13 @@ Below are the recommended role configurations for the studio deployment and the 
 
 ### Studio deployment role configuration
 
-The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`, and grants privilege to [call Elasticsearch Inference API endpoints](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-inference-chat-completion-unified), which is required when using the [Agent](docs/{{VERSION}}/guide/concepts.md#agent).
+The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`, grants `manage_index_templates` to create and read composable index templates during [setup](docs/{{VERSION}}/guide/quickstart.md), grants `monitor` to check the Elasticsearch license, and grants privilege to [call Elasticsearch Inference API endpoints](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-inference-chat-completion-unified), which is required when using the [Agent](docs/{{VERSION}}/guide/concepts.md#agent).
 
 ```json
 {
   "cluster": [
+    "manage_index_templates",
+    "monitor",
     "monitor_inference"
   ],
   "indices": [

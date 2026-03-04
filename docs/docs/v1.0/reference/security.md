@@ -37,11 +37,14 @@ Below are the recommended role configurations for the studio deployment and the 
 
 ### Studio deployment role configuration
 
-The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`.
+The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`, grants `manage_index_templates` to create and read composable index templates during [setup](docs/{{VERSION}}/guide/quickstart.md), and grants `monitor` to check the Elasticsearch license.
 
 ```json
 {
-  "cluster": [],
+  "cluster": [
+    "manage_index_templates",
+    "monitor"
+  ],
     "indices": [
       {
         "names": [
