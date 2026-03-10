@@ -72,12 +72,13 @@ Below are the recommended role configurations for the studio deployment and the 
 
 ### Studio deployment role configuration
 
-The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`, grants `manage_index_templates` to create and read composable index templates during [setup](docs/{{VERSION}}/guide/quickstart.md), grants `monitor` to check the Elasticsearch license, and grants privilege to [call Elasticsearch Inference API endpoints](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-inference-chat-completion-unified), which is required when using the [Agent](docs/{{VERSION}}/guide/concepts.md#agent).
+The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`, grants `manage_index_templates` to create and read composable index templates during [setup](docs/{{VERSION}}/guide/quickstart.md), grants `manage_own_api_key` for creating session API keys during login, grants `monitor` to check the Elasticsearch license, and grants privilege to [call Elasticsearch Inference API endpoints](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-inference-chat-completion-unified), which is required when using the [Agent](docs/{{VERSION}}/guide/concepts.md#agent).
 
 ```json
 {
   "cluster": [
     "manage_index_templates",
+    "manage_own_api_key",
     "monitor",
     "monitor_inference"
   ],
@@ -126,6 +127,37 @@ The recommended role for the [content deployment](docs/{{VERSION}}/reference/arc
         "except": []
       },
       "allow_restricted_indices": false
+    }
+  ]
+}
+```
+
+### Worker / service-account role configuration
+
+The recommended role for the evaluation worker and service account (below) grants **read and write** privileges to all indices prefixed with `esrs-` and `monitor` for the Rank Eval API. This role does NOT include `manage_index_templates` or `manage_own_api_key` — those are only needed for admin users who run setup.
+
+```json
+{
+  "cluster": [
+    "monitor"
+  ],
+  "indices": [
+    {
+      "names": [
+        "esrs-*"
+      ],
+      "privileges": [
+        "read",
+        "write",
+        "view_index_metadata",
+        "monitor"
+      ],
+      "field_security": {
+        "grant": [
+          "*"
+        ],
+        "except": []
+      }
     }
   ]
 }

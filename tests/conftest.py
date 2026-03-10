@@ -26,13 +26,11 @@ def _request_with_retry(method, url, max_attempts=3, **kwargs):
                 time.sleep(1.0 * (attempt + 1))
     raise last_err
 
+
 # Config
-_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
-DOCKER_COMPOSE_FILE = os.path.join(_TESTS_DIR, "docker-compose.yml")
-_PROJECT_ROOT = os.path.dirname(_TESTS_DIR)
+DOCKER_COMPOSE_FILE = os.path.join("tests", "docker-compose.yml")
 ES_URL = "http://localhost:9200"
 ESRS_URL = "http://localhost:4196"
-MCP_URL = "http://127.0.0.1:4200"
 ESRS_INDICES = [
     "esrs-conversations",
     "esrs-workspaces",
@@ -45,9 +43,6 @@ ESRS_INDICES = [
 ] 
 
 def wait_for_es(url, attempts=30):
-    """
-    Start Elasticsearch test cluster.
-    """
     es_client = Elasticsearch(url, request_timeout=4000)
     for _ in range(attempts):
         try:
@@ -59,9 +54,6 @@ def wait_for_es(url, attempts=30):
     raise RuntimeError("Elasticsearch did not start in time")
 
 def wait_for_esrs(url, attempts=30):
-    """
-    Start the Elasticsearch Relevance Studio test server.
-    """
     for _ in range(attempts):
         try:
             r = requests.get(url)
@@ -71,70 +63,36 @@ def wait_for_esrs(url, attempts=30):
             time.sleep(1)
     raise RuntimeError("Server did not start in time")
 
-
-def wait_for_mcp(url, attempts=30):
-    """
-    Wait for the MCP server to be ready.
-    """
-    for _ in range(attempts):
-        try:
-            r = requests.get(f"{url}/healthz", timeout=2)
-            if r.status_code == 200:
-                return url
-        except requests.exceptions.RequestException:
-            time.sleep(1)
-    raise RuntimeError("MCP server did not start in time")
-
-
 @pytest.fixture(scope="session")
 def services() -> Generator[Dict[str, Union[Elasticsearch, str]], None, None]:
-    """
-    Setup and teardown the Elasticsearch Relevance Studio test server and the
-    Elasticsearch test cluster with docker compose.
-    """
     subprocess.run(
         ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "down", "-v", "--remove-orphans"],
         check=False,
-        cwd=_PROJECT_ROOT,
     )
     time.sleep(3)
     subprocess.run(
         ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d", "--force-recreate"],
         check=True,
-        cwd=_PROJECT_ROOT,
     )
     try:
-        services_dict = {
+        yield {
             "es": wait_for_es(ES_URL),
             "esrs": wait_for_esrs(ESRS_URL),
         }
-        try:
-            services_dict["mcp"] = wait_for_mcp(MCP_URL)
-        except RuntimeError:
-            services_dict["mcp"] = None
-        yield services_dict
     finally:
         subprocess.run(
             ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "down", "-v"],
-            cwd=_PROJECT_ROOT,
             check=True,
         )
         
 @pytest.fixture(scope="session")
 def constants() -> Dict[str, Any]:
-    """
-    Constant values available to each test. 
-    """
     return {
         "index_templates": ESRS_INDICES,
         "indices": ESRS_INDICES
     }
     
 def delete_index_templates(es, index_templates, max_attempts=3):
-    """
-    Delete esrs-* indices and index templates.
-    Retries on connection errors to handle transient ES resets.
-    """
     last_err = None
     for attempt in range(max_attempts):
         try:
@@ -150,10 +108,6 @@ def delete_index_templates(es, index_templates, max_attempts=3):
         
 @pytest.fixture(scope="session")
 def wipe_data(services, constants, request):
-    """
-    Fixture to delete esrs-* indices and index templates.
-    """
-    # Skip if test is marked with @pytest.mark.no_wipe_data
     if request.node.get_closest_marker("no_wipe_data"):
         yield
         return
@@ -162,11 +116,6 @@ def wipe_data(services, constants, request):
         
 @pytest.fixture(scope="session")
 def clean_data(services, constants, request):
-    """
-    Fixture to delete esrs-* indices and index templates, and then setup
-    esrs-* index templates.
-    """
-    # Skip if test is marked with @pytest.mark.no_wipe_data
     if request.node.get_closest_marker("no_wipe_data"):
         yield
         return
