@@ -176,7 +176,7 @@ def _read_ledger() -> Dict[str, Any]:
         return {"applied_versions": []}
 
 
-def _write_ledger(applied_versions: List[str]):
+def _write_ledger(applied_versions: List[str], via: str = "api"):
     try:
         es("studio").indices.create(index=LEDGER_INDEX)
     except RequestError as e:
@@ -188,17 +188,18 @@ def _write_ledger(applied_versions: List[str]):
         "@meta": {
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "updated_by": "system",
+            "updated_via": via,
         },
     }
     return es("studio").index(index=LEDGER_INDEX, id=LEDGER_DOC_ID, document=document, refresh=True)
 
 
-def _append_applied_version(version: str):
+def _append_applied_version(version: str, via: str = "api"):
     ledger = _read_ledger()
     versions = ledger.get("applied_versions", [])
     if version in versions:
         return None
-    return _write_ledger(versions + [version])
+    return _write_ledger(versions + [version], via=via)
 
 
 def _get_deployed_template_version(template_name: str):
@@ -413,7 +414,7 @@ def _execute_upgrade_step(step: Dict[str, Any], index_templates: Dict[str, Dict[
     return requests
 
 
-def run_upgrade(additive_only: bool = True):
+def run_upgrade(additive_only: bool = True, via: str = "api"):
     manifest = _load_migration_manifest()
     index_templates = _load_index_templates()
     upgrade_state = check_upgrade_state()
@@ -476,7 +477,7 @@ def run_upgrade(additive_only: bool = True):
         if release_failed:
             break
 
-        _append_applied_version(release["version"])
+        _append_applied_version(release["version"], via=via)
         result["upgrade"]["applied_versions"].append(release["version"])
 
     latest = check_upgrade_state()
@@ -547,7 +548,7 @@ def check():
     }
 
 
-def run():
+def run(via: str = "api"):
     """Create or update required index templates and indices.
 
     Returns:
@@ -556,11 +557,11 @@ def run():
     return {"setup": run_setup()}
 
 
-def upgrade():
+def upgrade(via: str = "api"):
     """Apply additive index-template upgrade steps from the migration manifest.
 
     Returns:
         Dict[str, Any]: A dictionary with upgrade execution details under
         `upgrade`.
     """
-    return run_upgrade(additive_only=True)
+    return run_upgrade(additive_only=True, via=via)

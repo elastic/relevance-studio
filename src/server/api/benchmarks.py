@@ -71,7 +71,7 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = None) -> Dict[str, Any]:
     """Create a benchmark.
 
     Args:
@@ -84,7 +84,7 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     """
     
     # Create, validate, and serialize model
-    doc = BenchmarkCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = BenchmarkCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("benchmarks", doc)
@@ -98,7 +98,7 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = None) -> Dict[str, Any]:
     """Update a benchmark by its _id.
 
     Args:
@@ -111,7 +111,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     """
     
     # Create, validate, and serialize model
-    doc_partial = BenchmarkUpdate.model_validate(doc_partial, context={"user": user}).serialize()
+    doc_partial = BenchmarkUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("benchmarks", doc_partial)

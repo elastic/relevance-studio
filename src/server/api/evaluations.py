@@ -711,6 +711,7 @@ def create(
         benchmark_id: str,
         task: Dict[str, Any],
         user: str = None,
+        via: str = None,
     ) -> Dict[str, Any]:
     """Create a pending evaluation for a given workspace and benchmark.
 
@@ -730,7 +731,7 @@ def create(
         "benchmark_id": benchmark_id,
         "task": task
     }
-    doc = EvaluationCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = EvaluationCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
     
     es_response = es("studio").index(
         index=INDEX_NAME,

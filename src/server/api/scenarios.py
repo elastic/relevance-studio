@@ -70,7 +70,7 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], user: str = None, via: str = None) -> Dict[str, Any]:
     """
     Create a scenario. Generates a deterministic _id for UX efficiency, and
     to prevent the creation of duplicate scenarios for the same values.
@@ -84,7 +84,7 @@ def create(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
     
     # Create, validate, and dump model
-    doc = ScenarioCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = ScenarioCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("scenarios", doc)
@@ -98,7 +98,7 @@ def create(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = None) -> Dict[str, Any]:
     """Update a scenario by its _id.
 
     Args:
@@ -111,7 +111,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     """
     
     # Create, validate, and dump model
-    doc_partial = ScenarioUpdate.model_validate(doc_partial, context={"user": user}).serialize()
+    doc_partial = ScenarioUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("scenarios", doc_partial)
