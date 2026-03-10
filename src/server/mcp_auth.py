@@ -10,7 +10,6 @@ and provide per-request user and ES client for tool handlers.
 
 # Standard packages
 import base64
-import os
 from typing import Any, Dict, Optional, Tuple
 
 # Third-party packages
@@ -20,8 +19,8 @@ from elasticsearch import Elasticsearch
 from . import auth
 from .client import es, es_from_credentials, es_studio_endpoint
 
-# Config
-AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").strip().lower() in ("true", "1", "yes")
+# Config: single source of truth from auth module
+AUTH_ENABLED = auth.AUTH_ENABLED
 
 # Exempt tool name (no auth required)
 HEALTHZ_TOOL_NAME = "healthz_mcp"
