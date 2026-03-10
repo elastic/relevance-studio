@@ -4,6 +4,18 @@ Relevance Studio is designed to run in trusted environments.
 
 ## Authentication
 
+Authentication controls access to the [Server](docs/{{VERSION}}/reference/architecture.md#application) and [MCP Server](docs/{{VERSION}}/reference/architecture.md#application). See [Getting started: Authentication](docs/{{VERSION}}/guide/getting-started-auth.md) for setup steps.
+
+### Auth configuration
+
+| Variable | Default | Description |
+|----------|---------|--------------|
+| `AUTH_ENABLED` | `true` | Set to `false` to disable auth and use service-account (singleton) mode. |
+| `JWT_SECRET` | — | Secret for signing session JWTs. Required when `AUTH_ENABLED` is true. Generate with `openssl rand -hex 32`. |
+| `SESSION_EXPIRY` | `24h` | Session expiry for JWT cookies (e.g. `24h`, `7d`, `30m`). |
+
+When `AUTH_ENABLED=false`, the credentials in `.env` (`ELASTICSEARCH_*` / `CONTENT_*`) define a single service account used for all requests. See [Migration guide](docs/{{VERSION}}/guide/auth-tls-migration.md) for moving from auth-disabled to auth-enabled.
+
 ### MCP Server authentication
 
 When `AUTH_ENABLED=true` (default), the [MCP Server](docs/{{VERSION}}/reference/architecture.md#application) requires authentication for all tool calls and custom routes except `/healthz` and the `healthz_mcp` tool. MCP clients must send credentials via the `Authorization` header on each request.
