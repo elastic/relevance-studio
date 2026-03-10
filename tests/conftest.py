@@ -27,9 +27,12 @@ def _request_with_retry(method, url, max_attempts=3, **kwargs):
     raise last_err
 
 # Config
-DOCKER_COMPOSE_FILE = os.path.join("tests", "docker-compose.yml")
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+DOCKER_COMPOSE_FILE = os.path.join(_TESTS_DIR, "docker-compose.yml")
+_PROJECT_ROOT = os.path.dirname(_TESTS_DIR)
 ES_URL = "http://localhost:9200"
 ESRS_URL = "http://localhost:4196"
+MCP_URL = "http://127.0.0.1:4200"
 ESRS_INDICES = [
     "esrs-conversations",
     "esrs-workspaces",
@@ -69,25 +72,53 @@ def wait_for_esrs(url, attempts=30):
     raise RuntimeError("Server did not start in time")
 
 
+def wait_for_mcp(url, attempts=30):
+    """
+    Wait for the MCP server to be ready.
+    """
+    for _ in range(attempts):
+        try:
+            r = requests.get(f"{url}/healthz", timeout=2)
+            if r.status_code == 200:
+                return url
+        except requests.exceptions.RequestException:
+            time.sleep(1)
+    raise RuntimeError("MCP server did not start in time")
+
+
 @pytest.fixture(scope="session")
 def services() -> Generator[Dict[str, Union[Elasticsearch, str]], None, None]:
     """
     Setup and teardown the Elasticsearch Relevance Studio test server and the
     Elasticsearch test cluster with docker compose.
     """
-    subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "down", "-v", "--remove-orphans"], check=False)
+    subprocess.run(
+        ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "down", "-v", "--remove-orphans"],
+        check=False,
+        cwd=_PROJECT_ROOT,
+    )
     time.sleep(3)
     subprocess.run(
         ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d", "--force-recreate"],
         check=True,
+        cwd=_PROJECT_ROOT,
     )
     try:
-        yield {
+        services_dict = {
             "es": wait_for_es(ES_URL),
             "esrs": wait_for_esrs(ESRS_URL),
         }
+        try:
+            services_dict["mcp"] = wait_for_mcp(MCP_URL)
+        except RuntimeError:
+            services_dict["mcp"] = None
+        yield services_dict
     finally:
-        subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE,  "-p", "esrs-tests", "down", "-v"], check=True)
+        subprocess.run(
+            ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "down", "-v"],
+            cwd=_PROJECT_ROOT,
+            check=True,
+        )
         
 @pytest.fixture(scope="session")
 def constants() -> Dict[str, Any]:
