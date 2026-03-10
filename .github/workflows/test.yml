@@ -122,7 +122,7 @@ jobs:
       # -> integration_evaluation
       # Optional parallel branch: integration_conversations
       - name: Run setup/upgrade integration tests
-        run: pytest tests/integration -m integration_setup
+        run: pytest tests/integration -m integration_setup -p no:asyncio
 
   # Placeholder job for future tier expansion.
   # integration_workspace:

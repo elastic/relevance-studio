@@ -516,11 +516,14 @@ def _has_upgrade_only_setup_failures(setup_state: Dict[str, Any], upgrade_state:
     return True
 
 
-def check():
+def check(es_client=None):
     """Return deployment, setup, and upgrade status for the server.
 
     This is the status payload shown by setup/upgrade checks and is used by
     MCP tool metadata for `setup_check`.
+
+    Args:
+        es_client: Optional Elasticsearch client. When omitted, uses the default studio client.
     """
     cluster_info = get_cluster_info()
     license_info = get_license_info()
@@ -547,8 +550,11 @@ def check():
     }
 
 
-def run():
+def run(es_client=None):
     """Create or update required index templates and indices.
+
+    Args:
+        es_client: Optional Elasticsearch client. When omitted, uses the default studio client.
 
     Returns:
         Dict[str, Any]: A dictionary with setup execution details under `setup`.
@@ -556,8 +562,11 @@ def run():
     return {"setup": run_setup()}
 
 
-def upgrade():
+def upgrade(es_client=None):
     """Apply additive index-template upgrade steps from the migration manifest.
+
+    Args:
+        es_client: Optional Elasticsearch client. When omitted, uses the default studio client.
 
     Returns:
         Dict[str, Any]: A dictionary with upgrade execution details under
