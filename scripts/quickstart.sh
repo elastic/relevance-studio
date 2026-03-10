@@ -36,6 +36,7 @@ ARG_CONTENT_ELASTICSEARCH_USERNAME=""
 ARG_CONTENT_ELASTICSEARCH_PASSWORD=""
 ARG_NO_SEPARATE_CONTENT=false
 ARG_NO_START=false
+ARG_GENERATE_TLS_CERT=false
 ARG_OTEL_EXPORTER_OTLP_ENDPOINT=""
 ARG_OTEL_EXPORTER_OTLP_HEADERS=""
 ARG_OTEL_RESOURCE_ATTRIBUTES=""
@@ -317,6 +318,10 @@ parse_args() {
         ARG_NO_START=true
         shift
         ;;
+      --generate-tls-cert)
+        ARG_GENERATE_TLS_CERT=true
+        shift
+        ;;
       # OpenTelemetry
       --otel-exporter-otlp-endpoint)
         ARG_OTEL_EXPORTER_OTLP_ENDPOINT="$2"
@@ -421,6 +426,7 @@ print_usage() {
   echo -e "                                          ${DIM}# Accepts: latest, main, or v{major}.{minor}.{patch}${RESET}"
   echo -e "  -d, --dir <path>                        ${DIM}# Installation directory (default: ./relevance-studio)${RESET}"
   echo -e "      --no-start                          ${DIM}# Install and configure only; don't start services${RESET}"
+  echo -e "      --generate-tls-cert                  ${DIM}# Generate self-signed TLS cert for local dev (HTTPS)${RESET}"
   echo -e "  -u, --uninstall                         ${DIM}# Remove all locally installed artifacts${RESET}"
   echo -e "  -h, --help                              ${DIM}# Show this help message${RESET}"
   echo ""
@@ -824,10 +830,54 @@ configure_env() {
     echo ""
   fi
   
+  # --- TLS (optional self-signed cert for local dev) ---
+  if [[ "$ARG_GENERATE_TLS_CERT" == true ]]; then
+    generate_tls_cert "$INSTALL_DIR" "$env_file"
+  fi
+  
   # Clean up sed backup files
   rm -f "$env_file.bak"
   
   print_success "Configuration saved to ${BOLD}.env${RESET}"
+  echo ""
+}
+
+# Generate self-signed TLS cert for local development
+generate_tls_cert() {
+  local install_dir="$1"
+  local env_file="$2"
+  local certs_dir="$install_dir/certs"
+  local cert_file="$certs_dir/cert.pem"
+  local key_file="$certs_dir/key.pem"
+  
+  print_step "Generating self-signed TLS certificate..."
+  echo ""
+  
+  if ! command_exists openssl; then
+    print_error "openssl is required for --generate-tls-cert but was not found"
+    exit 1
+  fi
+  
+  mkdir -p "$certs_dir"
+  if openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout "$key_file" -out "$cert_file" \
+    -subj "/CN=localhost/O=Relevance Studio Local Dev" 2>/dev/null; then
+    print_success "Certificate: ${CYAN}$cert_file${RESET}"
+    print_success "Private key: ${CYAN}$key_file${RESET}"
+    set_env_value "TLS_ENABLED" "true" "$env_file"
+    set_env_value "TLS_CERT_FILE" "/certs/cert.pem" "$env_file"
+    set_env_value "TLS_KEY_FILE" "/certs/key.pem" "$env_file"
+    # Update docker-compose to enable TLS (override default TLS_ENABLED=false)
+    local compose_file="$install_dir/docker-compose.yml"
+    if [[ -f "$compose_file" ]]; then
+      sed -i.bak 's/- TLS_ENABLED=false  # Set true with valid certs/- TLS_ENABLED=true  # Self-signed cert for local dev/' "$compose_file"
+      rm -f "${compose_file}.bak"
+    fi
+    print_info "${DIM}Access via https://localhost:4096 (accept browser warning for self-signed cert)${RESET}"
+  else
+    print_error "Failed to generate certificate"
+    exit 1
+  fi
   echo ""
 }
 
