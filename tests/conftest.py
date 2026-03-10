@@ -59,7 +59,9 @@ def services() -> Generator[Dict[str, Union[Elasticsearch, str]], None, None]:
     Setup and teardown the Elasticsearch Relevance Studio test server and the
     Elasticsearch test cluster with docker compose.
     """
-    subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d"], check=True)
+    # Use check=False: Docker Compose may return exit 1 with "No such container"
+    # due to a known race on macOS even when containers start successfully.
+    subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d"], check=False)
     try:
         yield {
             "es": wait_for_es(ES_URL),
