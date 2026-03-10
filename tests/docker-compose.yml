@@ -38,6 +38,7 @@ services:
       - ELASTICSEARCH_URL=http://es-content:9200
       - FLASK_RUN_PORT=4196
       - TLS_ENABLED=false
+      - AUTH_ENABLED=false
     networks:
       - esrs-test
   esrs-worker:
