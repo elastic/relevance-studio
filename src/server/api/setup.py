@@ -533,6 +533,9 @@ def check(es_client: Optional["Elasticsearch"] = None):
 
     This is the status payload shown by setup/upgrade checks and is used by
     MCP tool metadata for `setup_check`.
+
+    Args:
+        es_client: Optional Elasticsearch client. When omitted, uses the default studio client.
     """
     cluster_info = get_cluster_info(es_client)
     license_info = get_license_info(es_client)
@@ -562,6 +565,9 @@ def check(es_client: Optional["Elasticsearch"] = None):
 def run(via: str = "api", es_client: Optional["Elasticsearch"] = None):
     """Create or update required index templates and indices.
 
+    Args:
+        es_client: Optional Elasticsearch client. When omitted, uses the default studio client.
+
     Returns:
         Dict[str, Any]: A dictionary with setup execution details under `setup`.
     """
@@ -570,6 +576,9 @@ def run(via: str = "api", es_client: Optional["Elasticsearch"] = None):
 
 def upgrade(via: str = "api", es_client: Optional["Elasticsearch"] = None):
     """Apply additive index-template upgrade steps from the migration manifest.
+
+    Args:
+        es_client: Optional Elasticsearch client. When omitted, uses the default studio client.
 
     Returns:
         Dict[str, Any]: A dictionary with upgrade execution details under
