@@ -147,12 +147,12 @@ def conversations_get(_id):
 def conversations_create():
     doc = request.get_json()
     _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.conversations.create(doc, _id)
+    return api.conversations.create(doc, _id, via="server")
 
 @api_route("/api/conversations/<string:_id>", methods=["PUT"])
 def conversations_update(_id):
     doc_partial = request.get_json()
-    return api.conversations.update(_id, doc_partial)
+    return api.conversations.update(_id, doc_partial, via="server")
 
 @api_route("/api/conversations/<string:_id>", methods=["DELETE"])
 def conversations_delete(_id):
@@ -174,12 +174,12 @@ def workspaces_get(_id):
 def workspaces_create():
     doc = request.get_json()
     _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.workspaces.create(doc, _id)
+    return api.workspaces.create(doc, _id, via="server")
 
 @api_route("/api/workspaces/<string:_id>", methods=["PUT"])
 def workspaces_update(_id):
     doc_partial = request.get_json()
-    return api.workspaces.update(_id, doc_partial)
+    return api.workspaces.update(_id, doc_partial, via="server")
 
 @api_route("/api/workspaces/<string:_id>", methods=["DELETE"])
 def workspaces_delete(_id):
@@ -203,14 +203,14 @@ def displays_create(workspace_id):
     validate_workspace_id_match(doc, workspace_id)
     doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.displays.create(doc, _id)
+    return api.displays.create(doc, _id, via="server")
 
 @api_route("/api/workspaces/<string:workspace_id>/displays/<string:_id>", methods=["PUT"])
 def displays_update(workspace_id, _id):
     doc_partial = request.get_json()
     validate_workspace_id_match(doc_partial, workspace_id)
     doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
-    return api.displays.update(_id, doc_partial)
+    return api.displays.update(_id, doc_partial, via="server")
 
 @api_route("/api/workspaces/<string:workspace_id>/displays/<string:_id>", methods=["DELETE"])
 def displays_delete(workspace_id, _id):
@@ -237,14 +237,14 @@ def scenarios_create(workspace_id):
     doc = request.get_json()
     validate_workspace_id_match(doc, workspace_id)
     doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
-    return api.scenarios.create(doc)
+    return api.scenarios.create(doc, via="server")
 
 @api_route("/api/workspaces/<string:workspace_id>/scenarios/<string:_id>", methods=["PUT"])
 def scenarios_update(workspace_id, _id):
     doc_partial = request.get_json()
     validate_workspace_id_match(doc_partial, workspace_id)
     doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
-    return api.scenarios.update(_id, doc_partial)
+    return api.scenarios.update(_id, doc_partial, via="server")
 
 @api_route("/api/workspaces/<string:workspace_id>/scenarios/<string:_id>", methods=["DELETE"])
 def scenarios_delete(workspace_id, _id):
@@ -270,6 +270,7 @@ def judgements_set(workspace_id):
         index=doc["index"],
         doc_id=doc["doc_id"],
         rating=doc["rating"],
+        via="server",
     )
 
 @api_route("/api/workspaces/<string:workspace_id>/judgements/<string:_id>", methods=["DELETE"])
@@ -298,14 +299,14 @@ def strategies_create(workspace_id):
     validate_workspace_id_match(doc, workspace_id)
     doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.strategies.create(doc, _id)
+    return api.strategies.create(doc, _id, via="server")
 
 @api_route("/api/workspaces/<string:workspace_id>/strategies/<string:_id>", methods=["PUT"])
 def strategies_update(workspace_id, _id):
     doc_partial = request.get_json()
     validate_workspace_id_match(doc_partial, workspace_id)
     doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
-    return api.strategies.update(_id, doc_partial)
+    return api.strategies.update(_id, doc_partial, via="server")
 
 @api_route("/api/workspaces/<string:workspace_id>/strategies/<string:_id>", methods=["DELETE"])
 def strategies_delete(workspace_id, _id):
@@ -338,14 +339,14 @@ def benchmarks_create(workspace_id):
     validate_workspace_id_match(doc, workspace_id)
     doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.benchmarks.create(doc, _id)
+    return api.benchmarks.create(doc, _id, via="server")
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:_id>", methods=["PUT"])
 def benchmarks_update(workspace_id, _id):
     doc_partial = request.get_json()
     validate_workspace_id_match(doc_partial, workspace_id)
     doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
-    return api.benchmarks.update(_id, doc_partial)
+    return api.benchmarks.update(_id, doc_partial, via="server")
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:_id>", methods=["DELETE"])
 def benchmarks_delete(workspace_id, _id):
@@ -366,7 +367,7 @@ def evaluations_get(workspace_id, benchmark_id, _id):
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations", methods=["POST"])
 def evaluations_create(workspace_id, benchmark_id):
     task = request.get_json()
-    return api.evaluations.create(workspace_id, benchmark_id, task)
+    return api.evaluations.create(workspace_id, benchmark_id, task, via="server")
 
 @api_route("/api/workspaces/<string:workspace_id>/evaluations/_run", methods=["POST"])
 def evaluations_run(workspace_id):
@@ -400,11 +401,11 @@ def setup_check():
 
 @api_route("/api/setup", methods=["POST"])
 def setup_run():
-    return api.setup.run()
+    return api.setup.run(via="server")
 
 @api_route("/api/upgrade", methods=["POST"])
 def upgrade_run():
-    return api.setup.upgrade()
+    return api.setup.upgrade(via="server")
 
 
 ####  Health checks  ###########################################################

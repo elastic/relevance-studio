@@ -4,15 +4,12 @@
 # 2.0.
 
 # Standard packages
-from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import Any, Dict, List, Set
 
 # App packages
 from .. import utils
 from ..client import es
 from ..models import BenchmarkCreate, BenchmarkUpdate
-
-if TYPE_CHECKING:
-    from elasticsearch import Elasticsearch
 
 INDEX_NAME = "esrs-benchmarks"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmarks")
@@ -25,7 +22,6 @@ def search(
         size: int = 10,
         page: int = 1,
         aggs: bool = False,
-        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Search for benchmarks.
 
@@ -43,12 +39,11 @@ def search(
     """
     response = utils.search_assets(
         "benchmarks", workspace_id, text, filters, sort, size, page,
-        counts=[ "evaluations" ] if aggs else [],
-        es_client=es_client,
+        counts=[ "evaluations" ] if aggs else []
     )
     return response
 
-def tags(workspace_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def tags(workspace_id: str) -> Dict[str, Any]:
     """List all benchmark tags (up to 10,000).
 
     Args:
@@ -57,10 +52,10 @@ def tags(workspace_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict
     Returns:
         The response from Elasticsearch containing tag aggregations.
     """
-    es_response = utils.search_tags("benchmarks", workspace_id, es_client=es_client)
+    es_response = utils.search_tags("benchmarks", workspace_id)
     return es_response
 
-def get(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def get(_id: str) -> Dict[str, Any]:
     """Get a benchmark by its _id.
 
     Args:
@@ -69,15 +64,14 @@ def get(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]
     Returns:
         The benchmark document from Elasticsearch.
     """
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.get(
+    es_response = es("studio").get(
         index=INDEX_NAME,
         id=_id,
         source_excludes="_search",
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = None) -> Dict[str, Any]:
     """Create a benchmark.
 
     Args:
@@ -90,14 +84,13 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Op
     """
     
     # Create, validate, and serialize model
-    doc = BenchmarkCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = BenchmarkCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("benchmarks", doc)
     
     # Submit
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.index(
+    es_response = es("studio").index(
         index=INDEX_NAME,
         id=_id or utils.unique_id(),
         document=doc,
@@ -105,7 +98,7 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Op
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = None) -> Dict[str, Any]:
     """Update a benchmark by its _id.
 
     Args:
@@ -118,14 +111,13 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, es_client: O
     """
     
     # Create, validate, and serialize model
-    doc_partial = BenchmarkUpdate.model_validate(doc_partial, context={"user": user}).serialize()
+    doc_partial = BenchmarkUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("benchmarks", doc_partial)
     
     # Submit
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.update(
+    es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
         doc=doc_partial,
@@ -133,7 +125,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, es_client: O
     )
     return es_response
 
-def delete(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def delete(_id: str) -> Dict[str, Any]:
     """Delete a benchmark and its associated evaluations.
 
     Args:
@@ -167,8 +159,7 @@ def delete(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, A
             }
         }
     }
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.delete_by_query(
+    es_response = es("studio").delete_by_query(
         index="esrs-benchmarks,esrs-evaluations",
         body=body,
         refresh=True,
@@ -183,7 +174,6 @@ def fetch_strategies(
         strategy_ids: List[str] = None,
         strategy_tags: List[str] = None,
         strategy_ids_excluded: List = None,
-        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Set[str]]:
     """Fetch strategies optionally filtered by IDs or tags.
 
@@ -236,8 +226,7 @@ def fetch_strategies(
         ]
         
     # Fetch strategies
-    client = es_client if es_client is not None else es("studio")
-    response = client.search(
+    response = es("studio").search(
         index="esrs-strategies",
         body=body
     )
@@ -253,7 +242,6 @@ def fetch_scenarios(
         scenario_tags: List[str] = None,
         sample_size: int = 1000,
         sample_seed: int = None,
-        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Fetch scenarios optionally filtered by IDs or tags, with random sampling.
 
@@ -307,8 +295,7 @@ def fetch_scenarios(
         body["query"]["function_score"]["query"]["bool"]["minimum_should_match"] = 1
         
     # Fetch scenarios
-    client = es_client if es_client is not None else es("studio")
-    response = client.search(
+    response = es("studio").search(
         index="esrs-scenarios",
         body=body
     )
@@ -347,7 +334,7 @@ def fetch_scenarios(
             }
         }
     }
-    response = client.search(
+    response = es("studio").search(
         index="esrs-judgements",
         body=body
     )
@@ -361,8 +348,7 @@ def fetch_scenarios(
 
 def make_candidate_pool(
         workspace_id: str,
-        task: Dict[str, Any],
-        es_client: Optional["Elasticsearch"] = None,
+        task: Dict[str, Any]
     ) -> Dict[str, Any]:
     """Identify compatible strategies and scenarios for a benchmark task.
 
@@ -406,7 +392,6 @@ def make_candidate_pool(
             strategy_ids,
             strategy_tags,
             list(strategies), # exclude any strategies that were given as docs
-            es_client=es_client,
         )
         strategies.update(strategies_fetched)
     
@@ -417,7 +402,6 @@ def make_candidate_pool(
         scenario_tags,
         scenario_sample_size,
         scenario_sample_seed,
-        es_client=es_client,
     )
 
     # Filter strategies and scenarios by their compatibility

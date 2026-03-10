@@ -4,15 +4,12 @@
 # 2.0.
 
 # Standard packages
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, Optional
 
 # App packages
 from .. import utils
 from ..client import es
 from ..models import JudgementCreate
-
-if TYPE_CHECKING:
-    from elasticsearch import Elasticsearch
 
 INDEX_NAME = "esrs-judgements"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("judgements")
@@ -25,8 +22,7 @@ def search(
         query_string: str = "*",
         filter: str = None,
         sort: str = None,
-        _source: Optional[Dict[str, Any]] = None,
-        es_client: Optional["Elasticsearch"] = None,
+        _source: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
     """Get documents from the content deployment with ratings joined to them.
 
@@ -68,11 +64,11 @@ def search(
     }
     if filter == "rated-human":
         body["query"]["bool"]["must_not"] = {
-            "term": { "@meta.updated_by": "ai"}
+            "term": { "@meta.updated_via": "mcp"}
         }
     elif filter == "rated-ai":
         body["query"]["bool"]["filter"].append({
-            "term": { "@meta.updated_by": "ai"}
+            "term": { "@meta.updated_via": "mcp"}
         })
     if sort == "rating-newest":
         body["sort"] = [{
@@ -82,8 +78,7 @@ def search(
         body["sort"] = [{
             "@meta.updated_at": "asc"
         }]
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.search(index="esrs-judgements", body=body)
+    es_response = es("studio").search(index="esrs-judgements", body=body)
     for hit in es_response.body.get("hits", {}).get("hits") or []:
         _index = hit["_source"]["index"]
         _id = hit["_source"]["doc_id"]
@@ -161,7 +156,7 @@ def search(
         response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: hit.get("@meta", {}).get("created_at") or fallback, reverse=reverse)
     return response
 
-def set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int, user: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int, user: str = None, via: str = None) -> Dict[str, Any]:
     """Create or update a judgement.
     
     Generates a deterministic _id for UX efficiency, and to prevent the creation
@@ -180,9 +175,10 @@ def set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: in
     """
     
     # Create, validate, and dump model
+    context = {"user": user, "via": via}
     doc = JudgementCreate.model_validate(
         {"workspace_id": workspace_id, "scenario_id": scenario_id, "index": index, "doc_id": doc_id, "rating": rating},
-        context={"user": user}
+        context=context
     ).serialize()
 
     # Copy searchable fields to _search
@@ -198,27 +194,30 @@ def set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: in
                     ctx._source['@meta'] = [
                         'created_at': params.now,
                         'created_by': params.username,
+                        'created_via': params.via,
                         'updated_at': params.now,
-                        'updated_by': params.username
+                        'updated_by': params.username,
+                        'updated_via': params.via
                     ];
                 } else {
                     ctx._source.rating = params.rating;
                     ctx._source['@meta'].updated_at = params.now;
                     ctx._source['@meta'].updated_by = params.username;
+                    ctx._source['@meta'].updated_via = params.via;
                 }
             """,
             "lang": "painless",
             "params": {
                 "rating": doc["rating"],
                 "now": doc["@meta"]["created_at"],
-                "username": doc["@meta"]["created_by"]
+                "username": doc["@meta"]["created_by"],
+                "via": doc["@meta"].get("created_via") or doc["@meta"].get("updated_via") or "api"
             }
         },
         "upsert": doc
     }
 
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.update(
+    es_response = es("studio").update(
         index=INDEX_NAME,
         id=utils.unique_id([
             doc["workspace_id"],
@@ -231,7 +230,7 @@ def set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: in
     )
     return es_response
 
-def unset(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def unset(_id: str) -> Dict[str, Any]:
     """Delete a judgement in Elasticsearch.
 
     Args:
@@ -240,8 +239,7 @@ def unset(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, An
     Returns:
         The response from the Elasticsearch delete operation.
     """
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.delete(
+    es_response = es("studio").delete(
         index=INDEX_NAME,
         id=_id,
         refresh=True

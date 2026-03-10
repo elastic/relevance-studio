@@ -6,16 +6,13 @@
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple
 
 # Elastic packages
 from elasticsearch.exceptions import ApiError, NotFoundError, RequestError
 
 # App packages
 from ..client import es
-
-if TYPE_CHECKING:
-    from elasticsearch import Elasticsearch
 
 PATH_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "elastic")
 PATH_INDEX_TEMPLATE_DIR = os.path.join(PATH_BASE, "index_templates")
@@ -59,24 +56,22 @@ def is_serverless(cluster_info_body: Dict[str, Any]) -> bool:
     """
     return cluster_info_body.get("version", {}).get("build_flavor") == "serverless"
 
-def get_license_info(es_client: Optional["Elasticsearch"] = None):
+def get_license_info():
     """Get license information from Elasticsearch.
 
     Returns:
         The response from the Elasticsearch license API.
     """
-    client = es_client if es_client is not None else es("studio")
-    return client.license.get()
+    return es("studio").license.get()
 
 
-def get_cluster_info(es_client: Optional["Elasticsearch"] = None):
+def get_cluster_info():
     """Get cluster information from Elasticsearch.
 
     Returns:
         The response from the Elasticsearch info API.
     """
-    client = es_client if es_client is not None else es("studio")
-    return client.info()
+    return es("studio").info()
 
 
 def _parse_semver(version: str) -> Tuple[int, int, int]:
@@ -167,12 +162,11 @@ def _load_migration_manifest() -> Dict[str, Any]:
     return manifest
 
 
-def _read_ledger(es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
-    client = es_client if es_client is not None else es("studio")
+def _read_ledger() -> Dict[str, Any]:
     try:
-        if not client.indices.exists(index=LEDGER_INDEX):
+        if not es("studio").indices.exists(index=LEDGER_INDEX):
             return {"applied_versions": []}
-        response = client.get(index=LEDGER_INDEX, id=LEDGER_DOC_ID)
+        response = es("studio").get(index=LEDGER_INDEX, id=LEDGER_DOC_ID)
         source = response.body.get("_source", {}) if response and response.body else {}
         versions = source.get("applied_versions", [])
         if not isinstance(versions, list):
@@ -182,10 +176,9 @@ def _read_ledger(es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
         return {"applied_versions": []}
 
 
-def _write_ledger(applied_versions: List[str], es_client: Optional["Elasticsearch"] = None):
-    client = es_client if es_client is not None else es("studio")
+def _write_ledger(applied_versions: List[str], via: str = "api"):
     try:
-        client.indices.create(index=LEDGER_INDEX)
+        es("studio").indices.create(index=LEDGER_INDEX)
     except RequestError as e:
         if e.error != "resource_already_exists_exception":
             raise
@@ -195,23 +188,23 @@ def _write_ledger(applied_versions: List[str], es_client: Optional["Elasticsearc
         "@meta": {
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "updated_by": "system",
+            "updated_via": via,
         },
     }
-    return client.index(index=LEDGER_INDEX, id=LEDGER_DOC_ID, document=document, refresh=True)
+    return es("studio").index(index=LEDGER_INDEX, id=LEDGER_DOC_ID, document=document, refresh=True)
 
 
-def _append_applied_version(version: str, es_client: Optional["Elasticsearch"] = None):
-    ledger = _read_ledger(es_client)
+def _append_applied_version(version: str, via: str = "api"):
+    ledger = _read_ledger()
     versions = ledger.get("applied_versions", [])
     if version in versions:
         return None
-    return _write_ledger(versions + [version], es_client)
+    return _write_ledger(versions + [version], via=via)
 
 
-def _get_deployed_template_version(template_name: str, es_client: Optional["Elasticsearch"] = None):
-    client = es_client if es_client is not None else es("studio")
+def _get_deployed_template_version(template_name: str):
     try:
-        response = client.indices.get_index_template(name=template_name)
+        response = es("studio").indices.get_index_template(name=template_name)
         templates = response.body.get("index_templates", [])
         if not templates:
             return None
@@ -220,37 +213,36 @@ def _get_deployed_template_version(template_name: str, es_client: Optional["Elas
         return None
 
 
-def _is_release_applied(release: Dict[str, Any], es_client: Optional["Elasticsearch"] = None) -> bool:
+def _is_release_applied(release: Dict[str, Any]) -> bool:
     required_version = release["version"]
     for step in release["steps"]:
-        deployed_version = _get_deployed_template_version(step["template"], es_client)
+        deployed_version = _get_deployed_template_version(step["template"])
         if not deployed_version or not _version_gte(deployed_version, required_version):
             return False
     return True
 
 
-def _effective_current_version(applied_versions: List[str], manifest_versions: List[Dict[str, Any]], es_client: Optional["Elasticsearch"] = None):
+def _effective_current_version(applied_versions: List[str], manifest_versions: List[Dict[str, Any]]):
     if applied_versions:
         return sorted(applied_versions, key=_parse_semver)[-1]
 
     current = None
     for release in manifest_versions:
-        if _is_release_applied(release, es_client):
+        if _is_release_applied(release):
             current = release["version"]
         else:
             break
     return current
 
 
-def check_setup_state(es_client: Optional["Elasticsearch"] = None):
+def check_setup_state():
     result = {"failures": 0, "requests": []}
     for _, path_index_template in PATH_INDEX_TEMPLATES:
         body = _load_json(path_index_template)
         index_name = body["index_patterns"][0].replace("*", "")
 
-        client = es_client if es_client is not None else es("studio")
         try:
-            response = client.indices.get_index_template(name=index_name)
+            response = es("studio").indices.get_index_template(name=index_name)
             result["requests"].append({
                 "index_template": index_name,
                 "response": {"body": response.body, "status": response.meta.status},
@@ -263,7 +255,7 @@ def check_setup_state(es_client: Optional["Elasticsearch"] = None):
             })
 
         try:
-            exists = client.indices.exists(index=index_name)
+            exists = es("studio").indices.exists(index=index_name)
             result["requests"].append({
                 "index": index_name,
                 "response": {"body": "OK" if exists else "Not Found", "status": 200 if exists else 404},
@@ -279,10 +271,10 @@ def check_setup_state(es_client: Optional["Elasticsearch"] = None):
     return result
 
 
-def check_upgrade_state(es_client: Optional["Elasticsearch"] = None):
+def check_upgrade_state():
     manifest = _load_migration_manifest()
     versions = manifest["versions"]
-    ledger = _read_ledger(es_client)
+    ledger = _read_ledger()
     applied_versions = sorted(set(ledger.get("applied_versions", [])), key=_parse_semver)
 
     pending_releases = []
@@ -290,7 +282,7 @@ def check_upgrade_state(es_client: Optional["Elasticsearch"] = None):
         version = release["version"]
         if version in applied_versions:
             continue
-        if _is_release_applied(release, es_client):
+        if _is_release_applied(release):
             continue
         pending_releases.append(release)
 
@@ -314,7 +306,7 @@ def check_upgrade_state(es_client: Optional["Elasticsearch"] = None):
                 "mapping_additions": step.get("mapping_additions", {}),
             })
 
-    current_version = _effective_current_version(applied_versions, versions, es_client)
+    current_version = _effective_current_version(applied_versions, versions)
     target_version = versions[-1]["version"] if versions else None
     return {
         "schema_version": manifest.get("schema_version"),
@@ -335,14 +327,13 @@ def check_upgrade_state(es_client: Optional["Elasticsearch"] = None):
     }
 
 
-def run_setup(es_client: Optional["Elasticsearch"] = None):
-    client = es_client if es_client is not None else es("studio")
+def run_setup():
     result = {"failures": 0, "requests": []}
     for _, path_index_template in PATH_INDEX_TEMPLATES:
         body = _load_json(path_index_template)
         index_name = body["index_patterns"][0].replace("*", "")
         try:
-            response = client.indices.put_index_template(name=index_name, body=body)
+            response = es("studio").indices.put_index_template(name=index_name, body=body)
             result["requests"].append({
                 "index_template": index_name,
                 "response": {"body": response.body, "status": response.meta.status},
@@ -355,7 +346,7 @@ def run_setup(es_client: Optional["Elasticsearch"] = None):
             })
 
         try:
-            response = client.indices.create(index=index_name)
+            response = es("studio").indices.create(index=index_name)
             result["requests"].append({
                 "index": index_name,
                 "response": {"body": response.body, "status": response.meta.status},
@@ -376,15 +367,14 @@ def run_setup(es_client: Optional["Elasticsearch"] = None):
     return result
 
 
-def _execute_upgrade_step(step: Dict[str, Any], index_templates: Dict[str, Dict[str, Any]], es_client: Optional["Elasticsearch"] = None) -> List[Dict[str, Any]]:
+def _execute_upgrade_step(step: Dict[str, Any], index_templates: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
     requests = []
     template_name = step["template"]
     if template_name not in index_templates:
         raise ValueError(f"Template '{template_name}' from migration manifest is not present in index templates.")
     template = index_templates[template_name]
-    client = es_client if es_client is not None else es("studio")
 
-    response = client.indices.put_index_template(name=template_name, body=template["body"])
+    response = es("studio").indices.put_index_template(name=template_name, body=template["body"])
     requests.append({
         "index_template": template_name,
         "action": "put_index_template",
@@ -393,7 +383,7 @@ def _execute_upgrade_step(step: Dict[str, Any], index_templates: Dict[str, Dict[
 
     if step["action"] == "create_template":
         try:
-            response = client.indices.create(index=template["index_name"])
+            response = es("studio").indices.create(index=template["index_name"])
             requests.append({
                 "index": template["index_name"],
                 "action": "create_index",
@@ -409,8 +399,8 @@ def _execute_upgrade_step(step: Dict[str, Any], index_templates: Dict[str, Dict[
                 raise
     elif step["action"] == "update_template":
         mapping_additions = step.get("mapping_additions", {})
-        if mapping_additions and client.indices.exists(index=template["index_name"]):
-            response = client.indices.put_mapping(
+        if mapping_additions and es("studio").indices.exists(index=template["index_name"]):
+            response = es("studio").indices.put_mapping(
                 index=template["index_name"],
                 body={"properties": mapping_additions},
             )
@@ -424,10 +414,10 @@ def _execute_upgrade_step(step: Dict[str, Any], index_templates: Dict[str, Dict[
     return requests
 
 
-def run_upgrade(additive_only: bool = True, es_client: Optional["Elasticsearch"] = None):
+def run_upgrade(additive_only: bool = True, via: str = "api"):
     manifest = _load_migration_manifest()
     index_templates = _load_index_templates()
-    upgrade_state = check_upgrade_state(es_client)
+    upgrade_state = check_upgrade_state()
 
     result = {
         "upgrade": {
@@ -466,7 +456,7 @@ def run_upgrade(additive_only: bool = True, es_client: Optional["Elasticsearch"]
                 break
 
             try:
-                step_requests = _execute_upgrade_step(step, index_templates, es_client)
+                step_requests = _execute_upgrade_step(step, index_templates)
                 for request in step_requests:
                     request["version"] = release["version"]
                     request["template"] = step["template"]
@@ -487,10 +477,10 @@ def run_upgrade(additive_only: bool = True, es_client: Optional["Elasticsearch"]
         if release_failed:
             break
 
-        _append_applied_version(release["version"], es_client)
+        _append_applied_version(release["version"], via=via)
         result["upgrade"]["applied_versions"].append(release["version"])
 
-    latest = check_upgrade_state(es_client)
+    latest = check_upgrade_state()
     result["upgrade"]["upgrade_needed"] = latest["upgrade_needed"]
     result["upgrade"]["pending_versions"] = latest["pending_versions"]
     result["upgrade"]["reindex_required"] = latest["reindex_required"]
@@ -527,21 +517,21 @@ def _has_upgrade_only_setup_failures(setup_state: Dict[str, Any], upgrade_state:
     return True
 
 
-def check(es_client: Optional["Elasticsearch"] = None):
+def check():
     """Return deployment, setup, and upgrade status for the server.
 
     This is the status payload shown by setup/upgrade checks and is used by
     MCP tool metadata for `setup_check`.
     """
-    cluster_info = get_cluster_info(es_client)
-    license_info = get_license_info(es_client)
+    cluster_info = get_cluster_info()
+    license_info = get_license_info()
     deployment_mode = "standard"
     if is_serverless(cluster_info.body):
         deployment_mode = "serverless"
     elif is_cloud(cluster_info.meta.headers):
         deployment_mode = "cloud"
-    setup_state = check_setup_state(es_client)
-    upgrade_state = check_upgrade_state(es_client)
+    setup_state = check_setup_state()
+    upgrade_state = check_upgrade_state()
     setup_state["upgrade_only_failures"] = _has_upgrade_only_setup_failures(setup_state, upgrade_state)
     return {
         "version": _read_server_version(),
@@ -558,20 +548,20 @@ def check(es_client: Optional["Elasticsearch"] = None):
     }
 
 
-def run(es_client: Optional["Elasticsearch"] = None):
+def run(via: str = "api"):
     """Create or update required index templates and indices.
 
     Returns:
         Dict[str, Any]: A dictionary with setup execution details under `setup`.
     """
-    return {"setup": run_setup(es_client)}
+    return {"setup": run_setup()}
 
 
-def upgrade(es_client: Optional["Elasticsearch"] = None):
+def upgrade(via: str = "api"):
     """Apply additive index-template upgrade steps from the migration manifest.
 
     Returns:
         Dict[str, Any]: A dictionary with upgrade execution details under
         `upgrade`.
     """
-    return run_upgrade(additive_only=True, es_client=es_client)
+    return run_upgrade(additive_only=True, via=via)

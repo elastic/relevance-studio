@@ -520,6 +520,7 @@ async def _save_conversation_async(conversation_id: str, rounds: List[Dict[str, 
             lambda: api_conversations.update(
                 conversation_id, 
                 {"rounds": rounds},
+                via="server",
                 refresh=final  # Only refresh on final save
             )
         )

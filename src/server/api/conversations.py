@@ -4,15 +4,12 @@
 # 2.0.
 
 # Standard packages
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List
 
 # App packages
 from .. import utils
 from ..client import es
 from ..models import ConversationsCreate, ConversationsUpdate
-
-if TYPE_CHECKING:
-    from elasticsearch import Elasticsearch
 
 INDEX_NAME = "esrs-conversations"
 
@@ -23,7 +20,6 @@ def search(
         size: int = 10,
         page: int = 1,
         aggs: bool = False,
-        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Search for conversations.
 
@@ -39,12 +35,11 @@ def search(
         A dictionary containing the search results.
     """
     response = utils.search_assets(
-        "conversations", None, text, filters, sort, size, page,
-        es_client=es_client,
+        "conversations", None, text, filters, sort, size, page
     )
     return response
 
-def get(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def get(_id: str) -> Dict[str, Any]:
     """Get a conversation by its _id.
 
     Args:
@@ -53,15 +48,14 @@ def get(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]
     Returns:
         The conversation document from Elasticsearch.
     """
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.get(
+    es_response = es("studio").get(
         index=INDEX_NAME,
         id=_id,
         source_excludes="_search",
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = None) -> Dict[str, Any]:
     """Create a conversation.
 
     Args:
@@ -86,14 +80,13 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Op
     doc.pop("id", None)
 
     # Create, validate, and dump model
-    doc = ConversationsCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = ConversationsCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("conversations", doc)
     
     # Submit
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.index(
+    es_response = es("studio").index(
         index=INDEX_NAME,
         id=_id,
         document=doc,
@@ -101,7 +94,7 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Op
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None, refresh: bool = True, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = None, refresh: bool = True) -> Dict[str, Any]:
     """Update a conversation by its _id.
 
     Args:
@@ -117,14 +110,13 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, refresh: boo
     """
     
     # Create, validate, and dump model
-    doc_partial = ConversationsUpdate.model_validate(doc_partial, context={"user": user}).serialize()
+    doc_partial = ConversationsUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
 
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("conversations", doc_partial)
     
     # Submit
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.update(
+    es_response = es("studio").update(
         index=INDEX_NAME,
         id=_id,
         doc=doc_partial,
@@ -132,7 +124,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, refresh: boo
     )
     return es_response
 
-def delete(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def delete(_id: str) -> Dict[str, Any]:
     """Delete a conversation by its _id.
 
     Args:
@@ -141,8 +133,7 @@ def delete(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, A
     Returns:
         The response from the Elasticsearch delete operation.
     """
-    client = es_client if es_client is not None else es("studio")
-    es_response = client.delete(
+    es_response = es("studio").delete(
         index=INDEX_NAME,
         id=_id,
         refresh=True,

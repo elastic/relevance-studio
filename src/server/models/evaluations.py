@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator, StrictInt
 
 # App packages
-from .asset import is_valid_timestamp
+from .asset import is_valid_timestamp, _resolve_via
 from .benchmarks import TaskCreate
 from .. import utils
 
@@ -181,12 +181,14 @@ class EvaluationCreate(Evaluation):
     @classmethod
     def enrich_meta(cls, input, info):
         user = (info.context or {}).get("user") or "unknown"
+        via = _resolve_via(info.context)
         if "@meta" in input:
             raise ValueError("@meta is forbidden as an input")
         input["@meta"] = {
             "status": "pending",
             "created_at": utils.timestamp(),
             "created_by": user,
+            "created_via": via,
             "started_at": None,
             "started_by": None,
             "stopped_at": None,

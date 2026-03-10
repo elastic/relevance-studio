@@ -29,6 +29,122 @@
           }
         }
       ]
+    },
+    {
+      "version": "1.2.0",
+      "steps": [
+        {
+          "template": "esrs-conversations",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add @meta.created_via and @meta.updated_via to mappings.",
+          "mapping_additions": {
+            "@meta": {
+              "properties": {
+                "created_via": {"type": "keyword"},
+                "updated_via": {"type": "keyword"}
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-workspaces",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add @meta.created_via and @meta.updated_via to mappings.",
+          "mapping_additions": {
+            "@meta": {
+              "properties": {
+                "created_via": {"type": "keyword"},
+                "updated_via": {"type": "keyword"}
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-displays",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add @meta.created_via and @meta.updated_via to mappings.",
+          "mapping_additions": {
+            "@meta": {
+              "properties": {
+                "created_via": {"type": "keyword"},
+                "updated_via": {"type": "keyword"}
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-scenarios",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add @meta.created_via and @meta.updated_via to mappings.",
+          "mapping_additions": {
+            "@meta": {
+              "properties": {
+                "created_via": {"type": "keyword"},
+                "updated_via": {"type": "keyword"}
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-judgements",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add @meta.created_via and @meta.updated_via to mappings.",
+          "mapping_additions": {
+            "@meta": {
+              "properties": {
+                "created_via": {"type": "keyword"},
+                "updated_via": {"type": "keyword"}
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-strategies",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add @meta.created_via and @meta.updated_via to mappings.",
+          "mapping_additions": {
+            "@meta": {
+              "properties": {
+                "created_via": {"type": "keyword"},
+                "updated_via": {"type": "keyword"}
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-benchmarks",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add @meta.created_via and @meta.updated_via to mappings.",
+          "mapping_additions": {
+            "@meta": {
+              "properties": {
+                "created_via": {"type": "keyword"},
+                "updated_via": {"type": "keyword"}
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-evaluations",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add @meta.created_via to mappings.",
+          "mapping_additions": {
+            "@meta": {
+              "properties": {
+                "created_via": {"type": "keyword"}
+              }
+            }
+          }
+        }
+      ]
     }
   ]
 }
