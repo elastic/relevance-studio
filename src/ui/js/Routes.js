@@ -16,27 +16,43 @@ import { Chat } from './Layout'
 import Login from './components/Login'
 import history from './history'
 
+const title = 'Elasticsearch Relevance Studio'
+
 /**
  * Auth guard: redirect to /login when not authenticated.
- * When AUTH_ENABLED=false, session returns 200 with system user, so no redirect.
+ * Only wraps protected routes; /login is rendered outside.
  */
-const AuthGuard = ({ children }) => {
+export const AuthGuard = ({ children }) => {
   const { isAuthenticated, hasCheckedSession, isLoading } = useAuthContext()
   const location = useLocation()
 
   if (isLoading || !hasCheckedSession) {
     return null
   }
-  if (!isAuthenticated && location.pathname !== '/login') {
+  if (!isAuthenticated) {
     history.replace('/login', { from: { pathname: location.pathname } })
     return null
   }
-  if (isAuthenticated && location.pathname === '/login') {
+  return children
+}
+
+/**
+ * Login route wrapper: redirect authenticated users away from /login.
+ */
+const LoginRoute = () => {
+  const { isAuthenticated, hasCheckedSession, isLoading } = useAuthContext()
+  const location = useLocation()
+
+  if (isLoading || !hasCheckedSession) {
+    return null
+  }
+  if (isAuthenticated) {
     const from = location.state?.from?.pathname || '/'
     history.replace(from)
     return null
   }
-  return children
+  document.title = `Sign in - ${title}`
+  return <Login />
 }
 
 /**
@@ -69,99 +85,97 @@ const RouteWithSetupCheck = ({ component: Component, render, ...rest }) => {
   )
 }
 
-const Routes = () => {
+const allOtherPaths = [
+  '/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations/:evaluation_id',
+  '/workspaces/:workspace_id/benchmarks/:benchmark_id',
+  '/workspaces/:workspace_id/strategies/:strategy_id',
+  '/workspaces/:workspace_id/displays/:display_id',
+  '/workspaces/:workspace_id',
+  '/',
+]
 
-  const title = 'Elasticsearch Relevance Studio'
+const Routes = () => {
   const { darkMode } = useAppContext()
 
   return (
     <EuiProvider colorMode={darkMode ? 'dark' : 'light'}>
       <Router history={history}>
-        <Route path={[
-          '/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations/:evaluation_id',
-          '/workspaces/:workspace_id/benchmarks/:benchmark_id',
-          '/workspaces/:workspace_id/strategies/:strategy_id',
-          '/workspaces/:workspace_id/displays/:display_id',
-          '/workspaces/:workspace_id',
-          '/',
-          '/login',
-        ]}>
-          <AuthGuard>
-            <ResourceProvider>
-              <Switch>
+        <Switch>
+          {/* Login route - outside AuthGuard and ResourceProvider to avoid 401 redirect loops */}
+          <Route path='/login' exact render={() => <LoginRoute />} />
 
-                {/* Login route */}
-                <Route path='/login' exact render={() => {
-                  document.title = `Sign in - ${title}`
-                  return <Login />
-                }} />
+          {/* All other routes - inside AuthGuard and ResourceProvider */}
+          <Route path={allOtherPaths}>
+            <AuthGuard>
+              <ResourceProvider>
+                <Switch>
+                  {/* Home route */}
+                  <Route path='/' exact render={(e) => {
+                    document.title = title
+                    return <Pages.Home />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces' exact render={(r) => {
+                    document.title = `Workspaces - ${title}`
+                    return <Pages.Workspaces />
+                  }} />
 
-                {/* Home route */}
-                <Route path='/' exact render={(e) => {
-                  document.title = title
-                  return <Pages.Home />
-                }} />
-              <RouteWithSetupCheck path='/workspaces' exact render={(r) => {
-                document.title = `Workspaces - ${title}`
-                return <Pages.Workspaces />
-              }} />
+                  {/* Resource routes */}
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id' exact render={(r) => {
+                    document.title = `Workspaces - ${r.match.params.workspace_id} - ${title}`
+                    return <Pages.WorkspacesView />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/displays' exact render={() => {
+                    document.title = `Displays - ${title}`
+                    return <Pages.Displays />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/displays/:display_id' exact render={(r) => {
+                    document.title = `Displays - ${r.match.params.display_id} - ${title}`
+                    return <Pages.DisplaysEdit />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/judgements' exact render={() => {
+                    document.title = `Judgements - ${title}`
+                    return <Pages.Judgements />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/scenarios' exact render={() => {
+                    document.title = `Scenarios - ${title}`
+                    return <Pages.Scenarios />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/strategies' exact render={() => {
+                    document.title = `Strategies - ${title}`
+                    return <Pages.Strategies />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/strategies/:strategy_id' exact render={(r) => {
+                    document.title = `Strategies - ${r.match.params.strategy_id} - ${title}`
+                    return <Pages.StrategiesEdit />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks' exact render={() => {
+                    document.title = `Benchmarks - ${title}`
+                    return <Pages.Benchmarks />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id' exact render={(r) => {
+                    document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
+                    return <Pages.BenchmarksView />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations' exact render={(r) => {
+                    document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
+                    return <Pages.BenchmarksView />
+                  }} />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations/:evaluation_id' exact render={(r) => {
+                    document.title = `Evaluations - ${r.match.params.evaluation_id} - ${title}`
+                    return <Pages.EvaluationsView />
+                  }} />
 
-              {/* Resource routes */}
-              <RouteWithSetupCheck path='/workspaces/:workspace_id' exact render={(r) => {
-                document.title = `Workspaces - ${r.match.params.workspace_id} - ${title}`
-                return <Pages.WorkspacesView />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/displays' exact render={() => {
-                document.title = `Displays - ${title}`
-                return <Pages.Displays />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/displays/:display_id' exact render={(r) => {
-                document.title = `Displays - ${r.match.params.display_id} - ${title}`
-                return <Pages.DisplaysEdit />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/judgements' exact render={() => {
-                document.title = `Judgements - ${title}`
-                return <Pages.Judgements />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/scenarios' exact render={() => {
-                document.title = `Scenarios - ${title}`
-                return <Pages.Scenarios />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/strategies' exact render={() => {
-                document.title = `Strategies - ${title}`
-                return <Pages.Strategies />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/strategies/:strategy_id' exact render={(r) => {
-                document.title = `Strategies - ${r.match.params.strategy_id} - ${title}`
-                return <Pages.StrategiesEdit />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks' exact render={() => {
-                document.title = `Benchmarks - ${title}`
-                return <Pages.Benchmarks />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id' exact render={(r) => {
-                document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
-                return <Pages.BenchmarksView />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations' exact render={(r) => {
-                document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
-                return <Pages.BenchmarksView />
-              }} />
-              <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations/:evaluation_id' exact render={(r) => {
-                document.title = `Evaluations - ${r.match.params.evaluation_id} - ${title}`
-                return <Pages.EvaluationsView />
-              }} />
-
-              {/* Fallback route */}
-              <Route path='*' render={(r) => {
-                document.title = `Not Found - ${title}`
-                return <Pages.NotFound />
-              }} />
-            </Switch>
-            <Chat />
-          </ResourceProvider>
-          </AuthGuard>
-        </Route>
+                  {/* Fallback route */}
+                  <Route path='*' render={(r) => {
+                    document.title = `Not Found - ${title}`
+                    return <Pages.NotFound />
+                  }} />
+                </Switch>
+                <Chat />
+              </ResourceProvider>
+            </AuthGuard>
+          </Route>
+        </Switch>
       </Router>
     </EuiProvider>
   )
