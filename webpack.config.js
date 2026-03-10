@@ -68,19 +68,26 @@ module.exports = {
     static: {
       directory: path.join(__dirname, 'dist'),
     },
-    proxy: [
-      {
-        context: ['/api/chat'],
-        target: 'http://localhost:4096',
-        changeOrigin: true,
-        proxyTimeout: 300000,
-        timeout: 300000,
-      },
-      {
-        context: ['**', '!**.js', '!/api/chat'],
-        target: 'http://localhost:4096',
-      },
-    ],
+    // DEV_API_URL: optional target for API proxy (default http://localhost:4096)
+    // Use https://localhost:4096 when backend runs with TLS
+    proxy: (() => {
+      const target = process.env.DEV_API_URL || 'http://localhost:4096'
+      return [
+        {
+          context: ['/api/chat'],
+          target,
+          changeOrigin: true,
+          secure: target.startsWith('https'),
+          proxyTimeout: 300000,
+          timeout: 300000,
+        },
+        {
+          context: ['**', '!**.js', '!/api/chat'],
+          target,
+          secure: target.startsWith('https'),
+        },
+      ]
+    })(),
     compress: false
   }
 }
