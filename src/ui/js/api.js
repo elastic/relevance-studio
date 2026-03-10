@@ -71,6 +71,21 @@ const responseOrFallbackSetup = (response) => {
   return response
 }
 
+////  API: Auth  ///////////////////////////////////////////////////////////////
+
+api.auth_login = async (credentials) => {
+  validateArgs('api.auth_login', { credentials })
+  return await client.post(`/api/auth/login`, { data: credentials })
+}
+
+api.auth_logout = async () => {
+  return await client.post(`/api/auth/logout`)
+}
+
+api.auth_session = async () => {
+  return await client.get(`/api/auth/session`)
+}
+
 ////  API: Agent  //////////////////////////////////////////////////////////////
 
 api.chat = async (rounds, inference_id, onChunk, signal, ui_context, id, conversation_id) => {

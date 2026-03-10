@@ -6,13 +6,38 @@
  */
 
 import { useEffect } from 'react'
-import { Router, Route, Switch } from 'react-router-dom'
+import { Router, Route, Switch, useLocation } from 'react-router-dom'
 import { EuiProvider } from '@elastic/eui'
 import { useAppContext } from './Contexts/AppContext'
+import { useAuthContext } from './Contexts/AuthContext'
 import { ResourceProvider } from './Contexts/ResourceContext'
 import { Pages } from './Pages'
 import { Chat } from './Layout'
+import Login from './components/Login'
 import history from './history'
+
+/**
+ * Auth guard: redirect to /login when not authenticated.
+ * When AUTH_ENABLED=false, session returns 200 with system user, so no redirect.
+ */
+const AuthGuard = ({ children }) => {
+  const { isAuthenticated, hasCheckedSession, isLoading } = useAuthContext()
+  const location = useLocation()
+
+  if (isLoading || !hasCheckedSession) {
+    return null
+  }
+  if (!isAuthenticated && location.pathname !== '/login') {
+    history.replace('/login', { from: { pathname: location.pathname } })
+    return null
+  }
+  if (isAuthenticated && location.pathname === '/login') {
+    const from = location.state?.from?.pathname || '/'
+    history.replace(from)
+    return null
+  }
+  return children
+}
 
 /**
  * Custom route component that redirects to the home page to finish setup
@@ -59,15 +84,23 @@ const Routes = () => {
           '/workspaces/:workspace_id/displays/:display_id',
           '/workspaces/:workspace_id',
           '/',
+          '/login',
         ]}>
-          <ResourceProvider>
-            <Switch>
+          <AuthGuard>
+            <ResourceProvider>
+              <Switch>
 
-              {/* Home route */}
-              <Route path='/' exact render={(e) => {
-                document.title = title
-                return <Pages.Home />
-              }} />
+                {/* Login route */}
+                <Route path='/login' exact render={() => {
+                  document.title = `Sign in - ${title}`
+                  return <Login />
+                }} />
+
+                {/* Home route */}
+                <Route path='/' exact render={(e) => {
+                  document.title = title
+                  return <Pages.Home />
+                }} />
               <RouteWithSetupCheck path='/workspaces' exact render={(r) => {
                 document.title = `Workspaces - ${title}`
                 return <Pages.Workspaces />
@@ -127,6 +160,7 @@ const Routes = () => {
             </Switch>
             <Chat />
           </ResourceProvider>
+          </AuthGuard>
         </Route>
       </Router>
     </EuiProvider>

@@ -43,3 +43,14 @@ def test_auth_logout_succeeds(services):
     r = requests.post(f"{services['esrs']}/api/auth/logout")
     assert r.status_code == 200
     assert r.json().get("acknowledged") is True
+
+
+def test_auth_login_returns_system_when_disabled(services):
+    """When AUTH_ENABLED=false, POST /api/auth/login returns system user without validating creds."""
+    r = requests.post(
+        f"{services['esrs']}/api/auth/login",
+        json={"username": "any", "password": "any"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("user", {}).get("username") == "system"
