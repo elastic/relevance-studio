@@ -4,12 +4,15 @@
 # 2.0.
 
 # Standard packages
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 # App packages
 from .. import utils
 from ..client import es
 from ..models import DisplayCreate, DisplayUpdate
+
+if TYPE_CHECKING:
+    from elasticsearch import Elasticsearch
 
 INDEX_NAME = "esrs-displays"
 
@@ -21,6 +24,7 @@ def search(
         size: int = 10,
         page: int = 1,
         aggs: bool = False,
+        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Search for displays.
 
@@ -37,7 +41,8 @@ def search(
         A dictionary containing the search results.
     """
     response = utils.search_assets(
-        "displays", workspace_id, text, filters, sort, size, page
+        "displays", workspace_id, text, filters, sort, size, page,
+        es_client=es_client,
     )
     return response
 
@@ -50,14 +55,15 @@ def get(_id: str) -> Dict[str, Any]:
     Returns:
         The display document from Elasticsearch.
     """
-    es_response = es("studio").get(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.get(
         index=INDEX_NAME,
         id=_id,
         source_excludes="_search",
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Create a display.
 
     Args:
@@ -76,7 +82,8 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     doc = utils.copy_fields_to_search("displays", doc)
     
     # Submit
-    es_response = es("studio").index(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.index(
         index=INDEX_NAME,
         id=_id or utils.unique_id(),
         document=doc,
@@ -84,7 +91,7 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Update a display by its _id.
 
     Args:
@@ -104,7 +111,8 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     doc_partial = utils.copy_fields_to_search("displays", doc_partial)
     
     # Submit
-    es_response = es("studio").update(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.update(
         index=INDEX_NAME,
         id=_id,
         doc=doc_partial,
@@ -112,7 +120,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     )
     return es_response
 
-def delete(_id: str) -> Dict[str, Any]:
+def delete(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Delete a display by its _id.
 
     Args:
@@ -121,7 +129,8 @@ def delete(_id: str) -> Dict[str, Any]:
     Returns:
         The response from the Elasticsearch delete operation.
     """
-    es_response = es("studio").delete(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.delete(
         index=INDEX_NAME,
         id=_id,
         refresh=True,
