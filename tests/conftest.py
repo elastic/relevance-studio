@@ -11,6 +11,21 @@ import requests
 # Elastic packages
 from elasticsearch import Elasticsearch, ConnectionError
 
+
+def _request_with_retry(method, url, max_attempts=3, **kwargs):
+    """Retry HTTP requests to handle transient connection resets."""
+    last_err = None
+    for attempt in range(max_attempts):
+        try:
+            if method == "GET":
+                return requests.get(url, **kwargs)
+            return requests.post(url, **kwargs)
+        except (requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError) as e:
+            last_err = e
+            if attempt < max_attempts - 1:
+                time.sleep(1.0 * (attempt + 1))
+    raise last_err
+
 # Config
 DOCKER_COMPOSE_FILE = os.path.join("tests", "docker-compose.yml")
 ES_URL = "http://localhost:9200"
@@ -78,13 +93,23 @@ def constants() -> Dict[str, Any]:
         "indices": ESRS_INDICES
     }
     
-def delete_index_templates(es, index_templates):
+def delete_index_templates(es, index_templates, max_attempts=3):
     """
     Delete esrs-* indices and index templates.
+    Retries on connection errors to handle transient ES resets.
     """
-    es.options(ignore_status=[404]).indices.delete(index="esrs-*")
-    for name in index_templates:
-        es.options(ignore_status=[404]).indices.delete_template(name=name)
+    last_err = None
+    for attempt in range(max_attempts):
+        try:
+            es.options(ignore_status=[404]).indices.delete(index="esrs-*")
+            for name in index_templates:
+                es.options(ignore_status=[404]).indices.delete_template(name=name)
+            return
+        except Exception as e:
+            last_err = e
+            if attempt < max_attempts - 1:
+                time.sleep(1.0 * (attempt + 1))
+    raise last_err
         
 @pytest.fixture(scope="session")
 def wipe_data(services, constants, request):
@@ -109,5 +134,5 @@ def clean_data(services, constants, request):
         yield
         return
     delete_index_templates(services["es"], constants["index_templates"])
-    requests.post(f"{services['esrs']}/api/setup")
+    _request_with_retry("POST", f"{services['esrs']}/api/setup")
     yield
