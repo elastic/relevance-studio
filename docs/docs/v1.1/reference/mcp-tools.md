@@ -1,6 +1,8 @@
 # MCP Tools
 
-The [MCP Server](docs/{{VERSION}}/reference/architecture.md#application) for Relevance Studio implements the core [REST API](docs/{{VERSION}}/reference/rest-api.md) resource operations as MCP tools. Tool input/output generally mirrors the corresponding REST operation and data model. For schema details and full payload examples, see the linked [REST API](docs/{{VERSION}}/reference/rest-api.md) sections.
+The [MCP Server](docs/{{VERSION}}/reference/architecture.md#application) for Relevance Studio implements the core [REST API](docs/{{VERSION}}/reference/rest-api.md) resource operations as MCP tools.
+
+When [authentication](docs/{{VERSION}}/reference/security.md#mcp-server-authentication) is enabled (`AUTH_ENABLED=true`), configure your MCP client to send credentials (Basic or ApiKey) via the `Authorization` header. The `healthz_mcp` tool and `/healthz` HTTP route are exempt from auth. Tool input/output generally mirrors the corresponding REST operation and data model. For schema details and full payload examples, see the linked [REST API](docs/{{VERSION}}/reference/rest-api.md) sections.
 
 ## Tool Groups
 
