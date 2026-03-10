@@ -6,6 +6,7 @@
 # Standard packages
 import base64
 import os
+import sys
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
@@ -20,6 +21,7 @@ from starlette.responses import JSONResponse
 # App packages
 from . import api
 from .models import *
+from .tls import get_tls_config
 
 ####  Configuration  ###########################################################
 
@@ -380,4 +382,12 @@ def healthz_http(request: Request) -> JSONResponse:
 ####  Main  ####################################################################
 
 if __name__ == "__main__":
-    mcp.run(transport="http", port=4200, log_level="debug")
+    tls = get_tls_config()
+    if tls["error"]:
+        print(tls["error"], file=sys.stderr)
+        sys.exit(1)
+    port = int(os.environ.get("FASTMCP_PORT") or "4200")
+    transport_kwargs = {"port": port, "log_level": "debug"}
+    if tls["uvicorn_config"]:
+        transport_kwargs["uvicorn_config"] = tls["uvicorn_config"]
+    mcp.run(transport="http", **transport_kwargs)

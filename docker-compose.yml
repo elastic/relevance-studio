@@ -5,10 +5,13 @@ services:
       dockerfile: Dockerfile-server
     ports:
       - 4096:4096
+    volumes:
+      - ./certs:/certs:ro  # For TLS: add cert.pem and key.pem, set TLS_CERT_FILE=/certs/cert.pem TLS_KEY_FILE=/certs/key.pem TLS_ENABLED=true
     env_file:
       - .env
     environment:
       - MCP_SERVER_URL=http://esrs-server-mcp:4200/mcp
+      - TLS_ENABLED=false  # Set true with valid certs in ./certs for HTTPS
   esrs-worker:
     build:
       context: .
@@ -26,8 +29,12 @@ services:
       dockerfile: Dockerfile-server-mcp
     ports:
       - 4200:4200
+    volumes:
+      - ./certs:/certs:ro  # For TLS: add cert.pem and key.pem, set TLS_CERT_FILE=/certs/cert.pem TLS_KEY_FILE=/certs/key.pem TLS_ENABLED=true
     env_file:
       - .env
+    environment:
+      - TLS_ENABLED=false  # Set true with valid certs in ./certs for HTTPS
   esrs-proxy-mcp:
     build:
       context: .

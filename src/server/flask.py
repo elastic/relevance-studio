@@ -5,6 +5,7 @@
 
 # Standard packages
 import os
+import sys
 from functools import wraps
 
 # Third-party packages
@@ -19,6 +20,7 @@ from elasticsearch.exceptions import ApiError
 # App packages
 from . import api
 from .models import *
+from .tls import get_tls_config
 
 ####  Configuration  ###########################################################
 
@@ -439,4 +441,16 @@ def home():
 ####  Main  ####################################################################
 
 if __name__ == "__main__":
-    app.run(port=4096, debug=True)
+    tls = get_tls_config()
+    if tls["error"]:
+        print(tls["error"], file=sys.stderr)
+        sys.exit(1)
+    host = os.environ.get("FLASK_RUN_HOST") or "0.0.0.0"
+    port = int(os.environ.get("FLASK_RUN_PORT") or "4096")
+    debug = os.environ.get("FLASK_ENV") == "development"
+    app.run(
+        host=host,
+        port=port,
+        debug=debug,
+        ssl_context=tls["ssl_context"],
+    )
