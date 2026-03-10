@@ -4,7 +4,30 @@ Relevance Studio is designed to run in trusted environments.
 
 ## Authentication
 
-Currently the [Server](docs/{{VERSION}}/reference/architecture.md#application) and [MCP Server](docs/{{VERSION}}/reference/architecture.md#application) use a single identity defined in an `.env` file. There isn't a way to identify or authenticate specific users of those services. Effectively, everyone who uses these services shares the same identity and permissions.
+### MCP Server authentication
+
+When `AUTH_ENABLED=true` (default), the [MCP Server](docs/{{VERSION}}/reference/architecture.md#application) requires authentication for all tool calls and custom routes except `/healthz` and the `healthz_mcp` tool. MCP clients must send credentials via the `Authorization` header on each request.
+
+**Supported schemes:**
+
+- **Basic**: `Authorization: Basic <base64(username:password)>` — Use Elasticsearch username and password.
+- **ApiKey**: `Authorization: ApiKey <base64(id:api_key)>` — Use an [Elasticsearch API key](https://www.elastic.co/docs/deploy-manage/api-keys/elasticsearch-api-keys). The value is the base64-encoded `id:api_key` string.
+- **Bearer**: `Authorization: Bearer <base64(id:api_key)>` — Same as ApiKey; accepts the base64-encoded API key.
+
+**MCP client configuration:**
+
+Configure your MCP client to send credentials when connecting to Relevance Studio. Examples:
+
+- **Claude Desktop / Cursor**: Add `headers` with `Authorization` to the MCP server config. For Basic auth, use `Authorization: Basic <base64(username:password)>`. For API key, use `Authorization: ApiKey <encoded>` where `encoded` is the base64 of `id:api_key`.
+- **Custom clients**: Include the `Authorization` header on every HTTP request to the MCP endpoint (e.g. `POST /mcp/`).
+
+When `AUTH_ENABLED=false`, the MCP server uses the service account from `.env` (no per-request auth).
+
+### Flask Server authentication
+
+The [Server](docs/{{VERSION}}/reference/architecture.md#application) uses session-based auth when `AUTH_ENABLED=true`. See `/api/auth/login` and `/api/auth/session`.
+
+When `AUTH_ENABLED=false`, the server uses a single identity from `.env` and does not require login.
 
 Authentication to the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) is configured by these environment variables defined in `.env`:
 
