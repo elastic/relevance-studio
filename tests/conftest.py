@@ -53,6 +53,19 @@ def wait_for_esrs(url, attempts=30):
             time.sleep(1)
     raise RuntimeError("Server did not start in time")
 
+
+def _post_setup_with_retry(esrs_url, attempts=5):
+    """POST /api/setup with retries for transient connection errors."""
+    for attempt in range(attempts):
+        try:
+            r = requests.post(f"{esrs_url}/api/setup", timeout=30)
+            r.raise_for_status()
+            return
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(2)
+
 @pytest.fixture(scope="session")
 def services() -> Generator[Dict[str, Union[Elasticsearch, str]], None, None]:
     """
@@ -109,5 +122,5 @@ def clean_data(services, constants, request):
         yield
         return
     delete_index_templates(services["es"], constants["index_templates"])
-    requests.post(f"{services['esrs']}/api/setup")
+    _post_setup_with_retry(services["esrs"])
     yield
