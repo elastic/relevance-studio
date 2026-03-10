@@ -176,7 +176,7 @@ def test_run_upgrade_applies_put_mapping_for_additive_changes(monkeypatch):
 
     monkeypatch.setattr(setup, "_load_migration_manifest", lambda: manifest)
     monkeypatch.setattr(setup, "_load_index_templates", lambda: template_def)
-    monkeypatch.setattr(setup, "_append_applied_version", lambda version: None)
+    monkeypatch.setattr(setup, "_append_applied_version", lambda version, via="api": None)
     monkeypatch.setattr(
         setup,
         "check_upgrade_state",
