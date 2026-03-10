@@ -4,6 +4,7 @@ import pytest
 import requests
 
 from server.api import setup as setup_api
+from tests.conftest import requests_get_retry, requests_post_retry
 
 pytestmark = pytest.mark.integration_setup
 
@@ -65,19 +66,19 @@ def seed_legacy_v1_state(es):
 
 
 def setup_check(services):
-    response = requests.get(f"{services['esrs']}/api/setup")
+    response = requests_get_retry(f"{services['esrs']}/api/setup")
     assert response.status_code == 200, response.text
     return response.json()
 
 
 def run_setup(services):
-    response = requests.post(f"{services['esrs']}/api/setup")
+    response = requests_post_retry(f"{services['esrs']}/api/setup")
     assert response.status_code == 200, response.text
     return response.json()
 
 
 def run_upgrade(services):
-    response = requests.post(f"{services['esrs']}/api/upgrade")
+    response = requests_post_retry(f"{services['esrs']}/api/upgrade")
     assert response.status_code == 200, response.text
     return response.json()
 

@@ -53,13 +53,69 @@ def wait_for_esrs(url, attempts=30):
             time.sleep(1)
     raise RuntimeError("Server did not start in time")
 
+
+def requests_get_retry(url, attempts=5, **kwargs):
+    """GET with retries on connection errors (flaky server/network)."""
+    for attempt in range(attempts):
+        try:
+            return requests.get(url, **kwargs)
+        except requests.exceptions.ConnectionError:
+            if attempt < attempts - 1:
+                time.sleep(3)
+            else:
+                raise
+
+
+def requests_post_retry(url, attempts=5, **kwargs):
+    """POST with retries on connection errors (flaky server/network)."""
+    for attempt in range(attempts):
+        try:
+            return requests.post(url, **kwargs)
+        except requests.exceptions.ConnectionError:
+            if attempt < attempts - 1:
+                time.sleep(3)
+            else:
+                raise
+
+def _docker_compose_down():
+    """Clean down esrs-tests stack, including orphans."""
+    subprocess.run(
+        ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "down", "-v", "--remove-orphans"],
+        check=False,
+        capture_output=True,
+    )
+
+
+def _docker_compose_up(max_attempts=3):
+    """Run docker compose up with retries and pre-up cleanup for flaky Docker state."""
+    _docker_compose_down()
+    time.sleep(5)
+    for attempt in range(max_attempts):
+        result = subprocess.run(
+            ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return
+        if attempt < max_attempts - 1:
+            _docker_compose_down()
+            time.sleep(5)
+    raise subprocess.CalledProcessError(
+        result.returncode,
+        ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d"],
+        result.stdout,
+        result.stderr,
+    )
+
+
 @pytest.fixture(scope="session")
 def services() -> Generator[Dict[str, Union[Elasticsearch, str]], None, None]:
     """
     Setup and teardown the Elasticsearch Relevance Studio test server and the
     Elasticsearch test cluster with docker compose.
     """
-    subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d"], check=True)
+    _docker_compose_up()
     try:
         yield {
             "es": wait_for_es(ES_URL),
