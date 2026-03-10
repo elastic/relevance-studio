@@ -67,8 +67,8 @@ def test_check_upgrade_state_is_noop_when_current(monkeypatch):
         ],
     }
     monkeypatch.setattr(setup, "_load_migration_manifest", lambda: manifest)
-    monkeypatch.setattr(setup, "_read_ledger", lambda: {"applied_versions": ["1.1.0"]})
-    monkeypatch.setattr(setup, "_is_release_applied", lambda release: True)
+    monkeypatch.setattr(setup, "_read_ledger", lambda es_client=None: {"applied_versions": ["1.1.0"]})
+    monkeypatch.setattr(setup, "_is_release_applied", lambda release, es_client=None: True)
 
     state = setup.check_upgrade_state()
     assert state["upgrade_needed"] is False
@@ -91,8 +91,8 @@ def test_check_upgrade_state_returns_incremental_pending_versions(monkeypatch):
         ],
     }
     monkeypatch.setattr(setup, "_load_migration_manifest", lambda: manifest)
-    monkeypatch.setattr(setup, "_read_ledger", lambda: {"applied_versions": ["1.0.0"]})
-    monkeypatch.setattr(setup, "_is_release_applied", lambda release: False)
+    monkeypatch.setattr(setup, "_read_ledger", lambda es_client=None: {"applied_versions": ["1.0.0"]})
+    monkeypatch.setattr(setup, "_is_release_applied", lambda release, es_client=None: False)
 
     state = setup.check_upgrade_state()
     assert state["upgrade_needed"] is True
@@ -116,7 +116,7 @@ def test_run_upgrade_blocks_when_reindex_is_required(monkeypatch):
     monkeypatch.setattr(
         setup,
         "check_upgrade_state",
-        lambda: {
+        lambda es_client=None: {
             "pending_versions": ["1.1.0"],
             "upgrade_needed": True,
             "reindex_required": True,
@@ -176,11 +176,11 @@ def test_run_upgrade_applies_put_mapping_for_additive_changes(monkeypatch):
 
     monkeypatch.setattr(setup, "_load_migration_manifest", lambda: manifest)
     monkeypatch.setattr(setup, "_load_index_templates", lambda: template_def)
-    monkeypatch.setattr(setup, "_append_applied_version", lambda version: None)
+    monkeypatch.setattr(setup, "_append_applied_version", lambda version, es_client=None: None)
     monkeypatch.setattr(
         setup,
         "check_upgrade_state",
-        lambda: {
+        lambda es_client=None: {
             "pending_versions": ["1.1.0"],
             "upgrade_needed": True,
             "reindex_required": False,
@@ -230,11 +230,11 @@ def test_check_includes_server_version(monkeypatch):
     cluster_info.meta.headers = {}
     license_info = _Response({"license": {"type": "enterprise", "status": "active"}})
 
-    monkeypatch.setattr(setup, "get_cluster_info", lambda: cluster_info)
-    monkeypatch.setattr(setup, "get_license_info", lambda: license_info)
+    monkeypatch.setattr(setup, "get_cluster_info", lambda es_client=None: cluster_info)
+    monkeypatch.setattr(setup, "get_license_info", lambda es_client=None: license_info)
     monkeypatch.setattr(setup, "_read_server_version", lambda: "1.2.3")
-    monkeypatch.setattr(setup, "check_setup_state", lambda: {"failures": 0, "requests": []})
-    monkeypatch.setattr(setup, "check_upgrade_state", lambda: {"upgrade_needed": False})
+    monkeypatch.setattr(setup, "check_setup_state", lambda es_client=None: {"failures": 0, "requests": []})
+    monkeypatch.setattr(setup, "check_upgrade_state", lambda es_client=None: {"upgrade_needed": False})
 
     result = setup.check()
     assert result["version"] == "1.2.3"
@@ -245,11 +245,11 @@ def test_check_includes_null_server_version_when_unavailable(monkeypatch):
     cluster_info.meta.headers = {}
     license_info = _Response({"license": {"type": "enterprise", "status": "active"}})
 
-    monkeypatch.setattr(setup, "get_cluster_info", lambda: cluster_info)
-    monkeypatch.setattr(setup, "get_license_info", lambda: license_info)
+    monkeypatch.setattr(setup, "get_cluster_info", lambda es_client=None: cluster_info)
+    monkeypatch.setattr(setup, "get_license_info", lambda es_client=None: license_info)
     monkeypatch.setattr(setup, "_read_server_version", lambda: None)
-    monkeypatch.setattr(setup, "check_setup_state", lambda: {"failures": 0, "requests": []})
-    monkeypatch.setattr(setup, "check_upgrade_state", lambda: {"upgrade_needed": False})
+    monkeypatch.setattr(setup, "check_setup_state", lambda es_client=None: {"failures": 0, "requests": []})
+    monkeypatch.setattr(setup, "check_upgrade_state", lambda es_client=None: {"upgrade_needed": False})
 
     result = setup.check()
     assert result["version"] is None
@@ -296,11 +296,11 @@ def test_check_includes_upgrade_only_setup_failures_flag(monkeypatch):
     setup_state = {"failures": 1, "requests": [{"index_template": "esrs-conversations", "response": {"status": 404}}]}
     upgrade_state = {"upgrade_needed": True, "pending_steps": [{"template": "esrs-conversations"}]}
 
-    monkeypatch.setattr(setup, "get_cluster_info", lambda: cluster_info)
-    monkeypatch.setattr(setup, "get_license_info", lambda: license_info)
+    monkeypatch.setattr(setup, "get_cluster_info", lambda es_client=None: cluster_info)
+    monkeypatch.setattr(setup, "get_license_info", lambda es_client=None: license_info)
     monkeypatch.setattr(setup, "_read_server_version", lambda: "1.2.3")
-    monkeypatch.setattr(setup, "check_setup_state", lambda: setup_state)
-    monkeypatch.setattr(setup, "check_upgrade_state", lambda: upgrade_state)
+    monkeypatch.setattr(setup, "check_setup_state", lambda es_client=None: setup_state)
+    monkeypatch.setattr(setup, "check_upgrade_state", lambda es_client=None: upgrade_state)
 
     result = setup.check()
     assert result["setup"]["upgrade_only_failures"] is True

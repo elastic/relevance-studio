@@ -4,11 +4,14 @@
 # 2.0.
 
 # Standard packages
-from typing import Any, Dict
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 # App packages
 from .. import utils
 from ..client import es
+
+if TYPE_CHECKING:
+    from elasticsearch import Elasticsearch
 
 def _flatten_fields(properties, parent_key=""):
     """Recursively flattens the field mapping, ignoring multi-fields.
@@ -41,7 +44,7 @@ def _flatten_fields(properties, parent_key=""):
             fields[full_key] = "object"
     return fields
 
-def search(index_patterns: str, body: Dict[str, Any]) -> Dict[str, Any]:
+def search(index_patterns: str, body: Dict[str, Any], es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Submit a search request to the content deployment.
 
     Args:
@@ -51,13 +54,14 @@ def search(index_patterns: str, body: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         The search response from Elasticsearch.
     """
-    es_response = es("content").search(
+    client = es_client if es_client is not None else es("content")
+    es_response = client.search(
         index=index_patterns,
         body=body
     )
     return es_response
 
-def get(index_patterns: str) -> Dict[str, Any]:
+def get(index_patterns: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Retrieve indices with their settings and mappings from the content deployment.
 
     Args:
@@ -66,12 +70,13 @@ def get(index_patterns: str) -> Dict[str, Any]:
     Returns:
         A dictionary of indices with their settings and mappings.
     """
-    response = es("content").options(ignore_status=404).indices.get(index=index_patterns)
+    client = es_client if es_client is not None else es("content")
+    response = client.options(ignore_status=404).indices.get(index=index_patterns)
     if response.get("status") == 404:
         return {}
     return response.body
 
-def mappings_browse(index_patterns: str) -> Dict[str, Any]:
+def mappings_browse(index_patterns: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Retrieve flattened index mappings for browsing.
 
     Args:
@@ -80,7 +85,8 @@ def mappings_browse(index_patterns: str) -> Dict[str, Any]:
     Returns:
         A dictionary mapping index names to their flattened fields and types.
     """
-    response = es("content").options(ignore_status=404).indices.get_mapping(index=index_patterns)
+    client = es_client if es_client is not None else es("content")
+    response = client.options(ignore_status=404).indices.get_mapping(index=index_patterns)
     if response.get("status") == 404:
         return {}
     mappings = response.body
@@ -91,7 +97,7 @@ def mappings_browse(index_patterns: str) -> Dict[str, Any]:
         indices[index] = { "fields": fields_flattened }
     return indices
 
-def make_index_relevance_fingerprints(index_pattern: str) -> Dict[str, Any]:
+def make_index_relevance_fingerprints(index_pattern: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Generate relevance fingerprints for indices in an index pattern.
 
     Args:
@@ -102,8 +108,9 @@ def make_index_relevance_fingerprints(index_pattern: str) -> Dict[str, Any]:
     """
     
     # Create a fingerprint for each index in the given index pattern
-    indices = get(index_pattern)
-    stats = es("content").indices.stats(index=index_pattern, level="shards")
+    client = es_client if es_client is not None else es("content")
+    indices = get(index_pattern, es_client=client)
+    stats = client.indices.stats(index=index_pattern, level="shards")
     result = {}
     for index_name in indices.keys():
         if index_name not in stats["indices"]:
