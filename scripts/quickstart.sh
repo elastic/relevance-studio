@@ -830,9 +830,52 @@ configure_env() {
     echo ""
   fi
   
+  # --- Authentication (optional) ---
+  if ! has_studio_args; then
+    print_divider
+    print_info "${BOLD}Authentication${RESET} ${DIM}(optional, recommended for production)${RESET}"
+    print_divider
+    echo ""
+    
+    if prompt_yes_no "Enable authentication? (users must log in with Elasticsearch credentials)" "n"; then
+      set_env_value "AUTH_ENABLED" "true" "$env_file"
+      if command_exists openssl; then
+        local jwt_secret
+        jwt_secret="$(openssl rand -hex 32 2>/dev/null)"
+        if [[ -n "$jwt_secret" ]]; then
+          set_env_value "JWT_SECRET" "$jwt_secret" "$env_file"
+          print_success "JWT_SECRET auto-generated"
+        else
+          set_env_value "JWT_SECRET" "$(prompt_secret "JWT_SECRET (generate with: openssl rand -hex 32)")" "$env_file"
+        fi
+      else
+        set_env_value "JWT_SECRET" "$(prompt_secret "JWT_SECRET (generate with: openssl rand -hex 32)")" "$env_file"
+      fi
+      set_env_value "SESSION_EXPIRY" "$(prompt_value "Session expiry" "24h")" "$env_file"
+      print_success "Authentication enabled"
+    else
+      set_env_value "AUTH_ENABLED" "false" "$env_file"
+      print_info "Authentication disabled (service-account mode)"
+    fi
+    echo ""
+  fi
+  
   # --- TLS (optional self-signed cert for local dev) ---
   if [[ "$ARG_GENERATE_TLS_CERT" == true ]]; then
     generate_tls_cert "$INSTALL_DIR" "$env_file"
+  elif ! has_studio_args; then
+    print_divider
+    print_info "${BOLD}TLS${RESET} ${DIM}(optional, for HTTPS)${RESET}"
+    print_divider
+    echo ""
+    
+    if prompt_yes_no "Generate self-signed TLS cert for HTTPS? (localhost only)" "n"; then
+      generate_tls_cert "$INSTALL_DIR" "$env_file"
+    else
+      set_env_value "TLS_ENABLED" "false" "$env_file"
+      print_info "TLS disabled (HTTP). Add certs to ./certs and set TLS_* in .env for HTTPS."
+    fi
+    echo ""
   fi
   
   # Clean up sed backup files

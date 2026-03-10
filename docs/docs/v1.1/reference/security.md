@@ -4,7 +4,42 @@ Relevance Studio is designed to run in trusted environments.
 
 ## Authentication
 
-Currently the [Server](docs/{{VERSION}}/reference/architecture.md#application) and [MCP Server](docs/{{VERSION}}/reference/architecture.md#application) use a single identity defined in an `.env` file. There isn't a way to identify or authenticate specific users of those services. Effectively, everyone who uses these services shares the same identity and permissions.
+Authentication controls access to the [Server](docs/{{VERSION}}/reference/architecture.md#application) and [MCP Server](docs/{{VERSION}}/reference/architecture.md#application). See [Getting started: Authentication](docs/{{VERSION}}/guide/getting-started-auth.md) for setup steps.
+
+### Auth configuration
+
+| Variable | Default | Description |
+|----------|---------|--------------|
+| `AUTH_ENABLED` | `true` | Set to `false` to disable auth and use service-account (singleton) mode. |
+| `JWT_SECRET` | — | Secret for signing session JWTs. Required when `AUTH_ENABLED` is true. Generate with `openssl rand -hex 32`. |
+| `SESSION_EXPIRY` | `24h` | Session expiry for JWT cookies (e.g. `24h`, `7d`, `30m`). |
+
+When `AUTH_ENABLED=false`, the credentials in `.env` (`ELASTICSEARCH_*` / `CONTENT_*`) define a single service account used for all requests. See [Migration guide](docs/{{VERSION}}/guide/auth-tls-migration.md) for moving from auth-disabled to auth-enabled.
+
+### MCP Server authentication
+
+When `AUTH_ENABLED=true` (default), the [MCP Server](docs/{{VERSION}}/reference/architecture.md#application) requires authentication for all tool calls and custom routes except `/healthz` and the `healthz_mcp` tool. MCP clients must send credentials via the `Authorization` header on each request.
+
+**Supported schemes:**
+
+- **Basic**: `Authorization: Basic <base64(username:password)>` — Use Elasticsearch username and password.
+- **ApiKey**: `Authorization: ApiKey <base64(id:api_key)>` — Use an [Elasticsearch API key](https://www.elastic.co/docs/deploy-manage/api-keys/elasticsearch-api-keys). The value is the base64-encoded `id:api_key` string.
+- **Bearer**: `Authorization: Bearer <base64(id:api_key)>` — Same as ApiKey; accepts the base64-encoded API key.
+
+**MCP client configuration:**
+
+Configure your MCP client to send credentials when connecting to Relevance Studio. Examples:
+
+- **Claude Desktop / Cursor**: Add `headers` with `Authorization` to the MCP server config. For Basic auth, use `Authorization: Basic <base64(username:password)>`. For API key, use `Authorization: ApiKey <encoded>` where `encoded` is the base64 of `id:api_key`.
+- **Custom clients**: Include the `Authorization` header on every HTTP request to the MCP endpoint (e.g. `POST /mcp/`).
+
+When `AUTH_ENABLED=false`, the MCP server uses the service account from `.env` (no per-request auth).
+
+### Flask Server authentication
+
+The [Server](docs/{{VERSION}}/reference/architecture.md#application) uses session-based auth when `AUTH_ENABLED=true`. See `/api/auth/login` and `/api/auth/session`.
+
+When `AUTH_ENABLED=false`, the server uses a single identity from `.env` and does not require login.
 
 Authentication to the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) is configured by these environment variables defined in `.env`:
 
@@ -37,12 +72,13 @@ Below are the recommended role configurations for the studio deployment and the 
 
 ### Studio deployment role configuration
 
-The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`, grants `manage_index_templates` to create and read composable index templates during [setup](docs/{{VERSION}}/guide/quickstart.md), grants `monitor` to check the Elasticsearch license, and grants privilege to [call Elasticsearch Inference API endpoints](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-inference-chat-completion-unified), which is required when using the [Agent](docs/{{VERSION}}/guide/concepts.md#agent).
+The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`, grants `manage_index_templates` to create and read composable index templates during [setup](docs/{{VERSION}}/guide/quickstart.md), grants `manage_own_api_key` for creating session API keys during login, grants `monitor` to check the Elasticsearch license, and grants privilege to [call Elasticsearch Inference API endpoints](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-inference-chat-completion-unified), which is required when using the [Agent](docs/{{VERSION}}/guide/concepts.md#agent).
 
 ```json
 {
   "cluster": [
     "manage_index_templates",
+    "manage_own_api_key",
     "monitor",
     "monitor_inference"
   ],
@@ -91,6 +127,37 @@ The recommended role for the [content deployment](docs/{{VERSION}}/reference/arc
         "except": []
       },
       "allow_restricted_indices": false
+    }
+  ]
+}
+```
+
+### Worker / service-account role configuration
+
+The recommended role for the evaluation worker and service account (below) grants **read and write** privileges to all indices prefixed with `esrs-` and `monitor` for the Rank Eval API. This role does NOT include `manage_index_templates` or `manage_own_api_key` — those are only needed for admin users who run setup.
+
+```json
+{
+  "cluster": [
+    "monitor"
+  ],
+  "indices": [
+    {
+      "names": [
+        "esrs-*"
+      ],
+      "privileges": [
+        "read",
+        "write",
+        "view_index_metadata",
+        "monitor"
+      ],
+      "field_security": {
+        "grant": [
+          "*"
+        ],
+        "except": []
+      }
     }
   ]
 }

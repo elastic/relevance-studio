@@ -1,12 +1,29 @@
 import json
+import time
 
 import pytest
 import requests
 
 from server.api import setup as setup_api
-from tests.conftest import requests_get_retry, requests_post_retry
 
 pytestmark = pytest.mark.integration_setup
+
+# Retry HTTP requests to ESRS to handle transient connection resets
+# (e.g. after heavy ES operations or server load)
+def _request_with_retry(method, url, max_attempts=3, **kwargs):
+    last_err = None
+    for attempt in range(max_attempts):
+        try:
+            if method == "GET":
+                r = requests.get(url, **kwargs)
+            else:
+                r = requests.post(url, **kwargs)
+            return r
+        except (requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError) as e:
+            last_err = e
+            if attempt < max_attempts - 1:
+                time.sleep(1.0 * (attempt + 1))
+    raise last_err
 
 # Placeholder roadmap for future integration suites.
 # Suggested follow-up files:
@@ -66,19 +83,19 @@ def seed_legacy_v1_state(es):
 
 
 def setup_check(services):
-    response = requests_get_retry(f"{services['esrs']}/api/setup")
+    response = _request_with_retry("GET", f"{services['esrs']}/api/setup")
     assert response.status_code == 200, response.text
     return response.json()
 
 
 def run_setup(services):
-    response = requests_post_retry(f"{services['esrs']}/api/setup")
+    response = _request_with_retry("POST", f"{services['esrs']}/api/setup")
     assert response.status_code == 200, response.text
     return response.json()
 
 
 def run_upgrade(services):
-    response = requests_post_retry(f"{services['esrs']}/api/upgrade")
+    response = _request_with_retry("POST", f"{services['esrs']}/api/upgrade")
     assert response.status_code == 200, response.text
     return response.json()
 

@@ -4,7 +4,7 @@
 # 2.0.
 
 # Standard packages
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Union
 import os
 
 # Third-party packages
