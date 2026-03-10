@@ -6,7 +6,7 @@
 import pytest
 
 from server import auth
-from server.flask import app, AUTH_COOKIE_NAME
+from server.flask import app, AUTH_COOKIE_NAME, _request_user
 
 
 @pytest.fixture
@@ -82,6 +82,26 @@ class TestAuthEnabled:
         assert r.status_code in (200, 401, 500)
         if r.status_code == 200:
             assert r.get_json()["user"]["username"] == "alice"
+
+
+class TestRequestUser:
+    """Test that _request_user() returns a string username for API context, not a dict."""
+
+    def test_request_user_returns_username_string(self):
+        with app.test_request_context():
+            from flask import g
+            g.user = {"username": "alice", "roles": ["user"]}
+            result = _request_user()
+            assert result == "alice"
+            assert isinstance(result, str)
+
+    def test_request_user_returns_none_when_no_user(self):
+        with app.test_request_context():
+            from flask import g
+            if hasattr(g, "user"):
+                del g.user
+            result = _request_user()
+            assert result is None
 
 
 class TestLoginRoute:

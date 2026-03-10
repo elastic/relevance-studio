@@ -3,6 +3,9 @@
 # 2.0; you may not use this file except in compliance with the Elastic License
 # 2.0.
 
+import time
+from unittest.mock import patch
+
 import pytest
 
 from server import auth
@@ -79,3 +82,28 @@ class TestEncodeDecodeJwt:
         import jwt as jwt_lib
         with pytest.raises(jwt_lib.InvalidTokenError):
             auth.decode_jwt("invalid-token")
+
+    def test_decode_expired_token_raises(self, monkeypatch):
+        monkeypatch.setattr(auth, "JWT_SECRET", "test-secret-key")
+        import jwt as jwt_lib
+        # Encode with exp in the past by patching time.time only during encode
+        with patch("time.time", return_value=1000.0):
+            token = auth.encode_jwt({"username": "alice"}, "key", expiry="1h")
+        with pytest.raises(jwt_lib.ExpiredSignatureError):
+            auth.decode_jwt(token)
+
+    def test_decode_tampered_token_raises(self, monkeypatch):
+        monkeypatch.setattr(auth, "JWT_SECRET", "test-secret-key")
+        import jwt as jwt_lib
+        token = auth.encode_jwt({"username": "alice"}, "key", expiry="1h")
+        tampered = token[:-1] + ("x" if token[-1] != "x" else "y")
+        with pytest.raises(jwt_lib.InvalidTokenError):
+            auth.decode_jwt(tampered)
+
+    def test_decode_wrong_secret_raises(self, monkeypatch):
+        monkeypatch.setattr(auth, "JWT_SECRET", "secret-a")
+        token = auth.encode_jwt({"username": "alice"}, "key", expiry="1h")
+        monkeypatch.setattr(auth, "JWT_SECRET", "secret-b")
+        import jwt as jwt_lib
+        with pytest.raises(jwt_lib.InvalidTokenError):
+            auth.decode_jwt(token)

@@ -151,7 +151,10 @@ api_route = make_api_route(app)
 ####  API: Validations  ########################################################
 
 def _request_user():
-    return getattr(g, "user", None)
+    user = getattr(g, "user", None)
+    if isinstance(user, dict):
+        return user.get("username")
+    return user
 
 
 def _request_es_client():
@@ -495,7 +498,7 @@ def evaluations_run(workspace_id):
     validate_workspace_id_match(body, workspace_id)
     body["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     user = _request_user()
-    started_by = (user.get("username") if user else None) or "unknown"
+    started_by = user or "unknown"
     return api.evaluations.run(body, started_by=started_by, es_client=_request_es_client())
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["DELETE"])
