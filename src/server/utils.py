@@ -11,10 +11,13 @@ import time
 import uuid
 from datetime import datetime, timezone
 from hashlib import blake2b
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 # Third-party packages
 from .client import es
+
+if TYPE_CHECKING:
+    from elasticsearch import Elasticsearch
 
 # Pre-compiled regular expressions
 RE_PARAMS = re.compile(r"{{\s*([\w.-]+)\s*}}")
@@ -205,7 +208,7 @@ def remove_empty_values(obj, keep_fields=None, path=""):
     else:
         return obj
     
-def search_tags(asset_type: str, workspace_id: str = None) -> Dict[str, Any]:
+def search_tags(asset_type: str, workspace_id: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """
     Standardizes retrieval for tags() API of workspace assets.
     """
@@ -236,9 +239,10 @@ def search_tags(asset_type: str, workspace_id: str = None) -> Dict[str, Any]:
             }
         }
     }
-        
+    
+    client = es_client if es_client is not None else es("studio")
     # Submit search
-    es_response = es("studio").search(
+    es_response = client.search(
         index=f"esrs-{asset_type}",
         body=body
     )
@@ -253,6 +257,7 @@ def search_assets(
         size: int = 10,
         page: int = 1,
         counts: List[str] = [],
+        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """
     Standardizes basic searches and aggs for the search() API of workspace assets.
@@ -318,9 +323,10 @@ def search_assets(
             body["sort"] = [{ sort["field"]: sort["order"] }]
         else:
             body["sort"] = [sort]
-        
+    
+    client = es_client if es_client is not None else es("studio")
     # Submit search
-    es_response = es("studio").search(
+    es_response = client.search(
         index=f"esrs-{asset_type}",
         body=body
     )
@@ -348,7 +354,7 @@ def search_assets(
             "filter": { "term": {  "_index": f"esrs-{relational_asset_type}" }}
         }
         indices.append(f"esrs-{relational_asset_type}")
-    aggs_response = es("studio").search(
+    aggs_response = client.search(
         index=",".join(indices),
         body=body
     )
