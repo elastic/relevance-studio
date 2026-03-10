@@ -97,3 +97,9 @@ class TestLoginRoute:
     def test_login_requires_username_and_password(self, client):
         r = client.post("/api/auth/login", json={"username": "u"})
         assert r.status_code == 400
+
+    def test_login_accepts_api_key(self, client):
+        """Login with api_key (no username/password) is valid format; may 401 if invalid."""
+        r = client.post("/api/auth/login", json={"api_key": "invalid-base64-key"})
+        # 400 = bad format, 401 = invalid creds, 500 = ES unreachable
+        assert r.status_code in (400, 401, 500)

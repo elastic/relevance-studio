@@ -24,6 +24,7 @@ import {
   EuiToolTip,
 } from '@elastic/eui'
 import { useAppContext } from '../Contexts/AppContext'
+import { useAuthContext } from '../Contexts/AuthContext'
 import { useChatContext } from '../Contexts/ChatContext'
 import Breadcrumbs from './Breadcrumbs'
 import SideNav from './SideNav'
@@ -58,6 +59,8 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
     chatOpen,
     setChatOpen,
   } = useChatContext()
+
+  const { user, logout } = useAuthContext()
 
   const path = useRouteMatch().path
   const isAiAgentDisabled = !hasCheckedSetup || isCheckingSetup || !isSetup || isUpgradeNeeded
@@ -103,6 +106,23 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
     },
     {
       items: [
+        user?.username && user.username !== 'system' && (
+          <EuiToolTip content={`Signed in as ${user.username}`}>
+            <EuiText size="s" style={{ marginRight: 8 }}>
+              {user.username}
+            </EuiText>
+          </EuiToolTip>
+        ),
+        user?.username && user.username !== 'system' && (
+          <EuiButton
+            size="s"
+            color="text"
+            onClick={() => logout()}
+            style={{ marginRight: 8 }}
+          >
+            Sign out
+          </EuiButton>
+        ),
         <EuiToolTip content={`Switch to ${darkMode ? 'light' : 'dark'} mode`}>
           <EuiButtonIcon
             aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`}

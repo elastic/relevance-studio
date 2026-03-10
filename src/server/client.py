@@ -4,7 +4,7 @@
 # 2.0.
 
 # Standard packages
-from typing import Dict
+from typing import Dict, Optional, Union
 import os
 
 # Third-party packages
@@ -31,6 +31,62 @@ ELASTICSEARCH_TIMEOUT = int(os.getenv("ELASTICSEARCH_TIMEOUT", "10").strip()) # 
 # Singleton Elasticsearch clients
 _es_clients = None
 _valid_es_clients = set([ "studio", "content", ])
+
+
+def es_studio_endpoint() -> Dict[str, Union[str, list]]:
+    """
+    Return endpoint configuration for the studio deployment without credentials.
+    Prefers cloud_id when available, else url (hosts).
+    """
+    if ELASTIC_CLOUD_ID:
+        return {"cloud_id": ELASTIC_CLOUD_ID}
+    if ELASTICSEARCH_URL:
+        return {"hosts": [ELASTICSEARCH_URL]}
+    raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL in .env")
+
+
+def es_from_credentials(
+    *,
+    api_key: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    cloud_id: Optional[str] = None,
+    url: Optional[str] = None,
+) -> Elasticsearch:
+    """
+    Construct an Elasticsearch client for the studio endpoint using the given credentials.
+    Prefers cloud_id when available, else url.
+    Raises ValueError when no credentials are provided.
+    """
+    if api_key and (username or password):
+        raise ValueError("Provide either api_key or username/password, not both.")
+    if not api_key and not (username and password):
+        raise ValueError("You must provide either api_key or both username and password.")
+    if not cloud_id and not url:
+        endpoint = es_studio_endpoint()
+        cloud_id = endpoint.get("cloud_id")
+        url = endpoint.get("hosts", [None])[0] if endpoint.get("hosts") else None
+    if not cloud_id and not url:
+        raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL (or pass cloud_id/url).")
+    kwargs = {
+        "headers": {
+            "Accept": "application/vnd.elasticsearch+json; compatible-with=8",
+            "Content-Type": "application/vnd.elasticsearch+json; compatible-with=8"
+        },
+        "max_retries": ELASTICSEARCH_MAX_RETRIES,
+        "retry_on_timeout": True,
+        "request_timeout": ELASTICSEARCH_TIMEOUT
+    }
+    if cloud_id:
+        kwargs["cloud_id"] = cloud_id
+    else:
+        kwargs["hosts"] = [url]
+    if api_key:
+        kwargs["api_key"] = api_key
+    else:
+        kwargs["basic_auth"] = (username, password)
+    return Elasticsearch(**kwargs)
+
 
 def es(client_name: str) -> Elasticsearch:
     """
