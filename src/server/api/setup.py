@@ -182,7 +182,7 @@ def _read_ledger(es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
         return {"applied_versions": []}
 
 
-def _write_ledger(applied_versions: List[str], es_client: Optional["Elasticsearch"] = None):
+def _write_ledger(applied_versions: List[str], via: str = "api", es_client: Optional["Elasticsearch"] = None):
     client = es_client if es_client is not None else es("studio")
     try:
         client.indices.create(index=LEDGER_INDEX)
@@ -195,17 +195,18 @@ def _write_ledger(applied_versions: List[str], es_client: Optional["Elasticsearc
         "@meta": {
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "updated_by": "system",
+            "updated_via": via,
         },
     }
     return client.index(index=LEDGER_INDEX, id=LEDGER_DOC_ID, document=document, refresh=True)
 
 
-def _append_applied_version(version: str, es_client: Optional["Elasticsearch"] = None):
+def _append_applied_version(version: str, via: str = "api", es_client: Optional["Elasticsearch"] = None):
     ledger = _read_ledger(es_client)
     versions = ledger.get("applied_versions", [])
     if version in versions:
         return None
-    return _write_ledger(versions + [version], es_client)
+    return _write_ledger(versions + [version], via=via, es_client=es_client)
 
 
 def _get_deployed_template_version(template_name: str, es_client: Optional["Elasticsearch"] = None):
@@ -424,7 +425,7 @@ def _execute_upgrade_step(step: Dict[str, Any], index_templates: Dict[str, Dict[
     return requests
 
 
-def run_upgrade(additive_only: bool = True, es_client: Optional["Elasticsearch"] = None):
+def run_upgrade(additive_only: bool = True, via: str = "api", es_client: Optional["Elasticsearch"] = None):
     manifest = _load_migration_manifest()
     index_templates = _load_index_templates()
     upgrade_state = check_upgrade_state(es_client)
@@ -487,7 +488,7 @@ def run_upgrade(additive_only: bool = True, es_client: Optional["Elasticsearch"]
         if release_failed:
             break
 
-        _append_applied_version(release["version"], es_client)
+        _append_applied_version(release["version"], via=via, es_client=es_client)
         result["upgrade"]["applied_versions"].append(release["version"])
 
     latest = check_upgrade_state(es_client)
@@ -558,7 +559,7 @@ def check(es_client: Optional["Elasticsearch"] = None):
     }
 
 
-def run(es_client: Optional["Elasticsearch"] = None):
+def run(via: str = "api", es_client: Optional["Elasticsearch"] = None):
     """Create or update required index templates and indices.
 
     Returns:
@@ -567,11 +568,11 @@ def run(es_client: Optional["Elasticsearch"] = None):
     return {"setup": run_setup(es_client)}
 
 
-def upgrade(es_client: Optional["Elasticsearch"] = None):
+def upgrade(via: str = "api", es_client: Optional["Elasticsearch"] = None):
     """Apply additive index-template upgrade steps from the migration manifest.
 
     Returns:
         Dict[str, Any]: A dictionary with upgrade execution details under
         `upgrade`.
     """
-    return run_upgrade(additive_only=True, es_client=es_client)
+    return run_upgrade(additive_only=True, via=via, es_client=es_client)

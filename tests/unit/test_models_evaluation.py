@@ -11,11 +11,12 @@ from server.models.evaluations import (
 )
 from tests.utils import mock_context, invalid_values_for
 
-def assert_valid_meta_for_create(meta, created_by: str = "unknown"):
+def assert_valid_meta_for_create(meta, created_by: str = "unknown", created_via: str = "api"):
     assert meta is not None
     assert meta.get("status") == "pending"
     assert meta.get("created_at") is not None
     assert meta.get("created_by") == created_by
+    assert meta.get("created_via") == created_via
     assert "started_at" in meta
     assert meta["started_at"] is None
     assert "started_by" in meta

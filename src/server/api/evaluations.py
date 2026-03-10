@@ -721,6 +721,7 @@ def create(
         benchmark_id: str,
         task: Dict[str, Any],
         user: str = None,
+        via: str = None,
         es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Create a pending evaluation for a given workspace and benchmark.
@@ -741,7 +742,7 @@ def create(
         "benchmark_id": benchmark_id,
         "task": task
     }
-    doc = EvaluationCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = EvaluationCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
     
     client = es_client if es_client is not None else es("studio")
     es_response = client.index(

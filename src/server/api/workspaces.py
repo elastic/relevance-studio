@@ -71,7 +71,7 @@ def get(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Create a workspace.
 
     Args:
@@ -84,7 +84,7 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Op
     """
     
     # Create, validate, and dump model
-    doc = WorkspaceCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = WorkspaceCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("workspaces", doc)
@@ -99,7 +99,7 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None, es_client: Op
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Update a workspace by its _id.
 
     Args:
@@ -112,7 +112,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, es_client: O
     """
     
     # Create, validate, and dump model
-    doc_partial = WorkspaceUpdate.model_validate(doc_partial, context={"user": user}).serialize()
+    doc_partial = WorkspaceUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
     
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("workspaces", doc_partial)

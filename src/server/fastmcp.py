@@ -52,13 +52,13 @@ def conversations_get(_id: str) -> Dict[str, Any]:
 JSON schema for doc:\n\n{ConversationsCreate.model_input_json_schema()}
 """)
 def conversations_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
-    return dict(api.conversations.create(doc, _id, user="ai"))
+    return dict(api.conversations.create(doc, _id, user="ai", via="mcp"))
 
 @mcp.tool(description=api.conversations.update.__doc__ + f"""\n
 JSON schema for doc_partial:\n\n{ConversationsUpdate.model_input_json_schema()}
 """)
 def conversations_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.conversations.update(_id, doc_partial, user="ai"))
+    return dict(api.conversations.update(_id, doc_partial, user="ai", via="mcp"))
 
 @mcp.tool(description=api.conversations.delete.__doc__)
 def conversations_delete(_id: str) -> Dict[str, Any]:
@@ -86,13 +86,13 @@ def workspaces_get(_id: str) -> Dict[str, Any]:
 JSON schema for doc:\n\n{WorkspaceCreate.model_input_json_schema()}
 """)
 def workspaces_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
-    return dict(api.workspaces.create(doc, _id, user="ai"))
+    return dict(api.workspaces.create(doc, _id, user="ai", via="mcp"))
 
 @mcp.tool(description=api.workspaces.update.__doc__ + f"""\n
 JSON schema for doc_partial:\n\n{DisplayCreate.model_input_json_schema()}
 """)
 def workspaces_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.workspaces.update(_id, doc_partial, user="ai"))
+    return dict(api.workspaces.update(_id, doc_partial, user="ai", via="mcp"))
 
 @mcp.tool(description=api.workspaces.delete.__doc__)
 def workspaces_delete(_id: str) -> Dict[str, Any]:
@@ -121,13 +121,13 @@ def displays_get(_id: str) -> Dict[str, Any]:
 JSON schema for doc:\n\n{DisplayCreate.model_input_json_schema()}
 """)
 def displays_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
-    return dict(api.displays.create(doc, _id, user="ai"))
+    return dict(api.displays.create(doc, _id, user="ai", via="mcp"))
 
 @mcp.tool(description=api.displays.update.__doc__ + f"""\n
 JSON schema for doc_partia:\n\n{DisplayUpdate.model_input_json_schema()}
 """)
 def displays_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.displays.update(_id, doc_partial, user="ai"))
+    return dict(api.displays.update(_id, doc_partial, user="ai", via="mcp"))
 
 @mcp.tool(description=api.displays.delete.__doc__)
 def displays_delete(_id: str) -> Dict[str, Any]:
@@ -160,13 +160,13 @@ def scenarios_get(_id: str) -> Dict[str, Any]:
 JSON schema for doc:\n\n{ScenarioCreate.model_input_json_schema()}
 """)
 def scenarios_create(doc: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.scenarios.create(doc, user="ai"))
+    return dict(api.scenarios.create(doc, user="ai", via="mcp"))
 
 @mcp.tool(description=api.scenarios.update.__doc__ + f"""\n
 JSON schema for doc_partial:\n\n{ScenarioUpdate.model_input_json_schema()}
 """)
 def scenarios_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.scenarios.update(_id, doc_partial, user="ai"))
+    return dict(api.scenarios.update(_id, doc_partial, user="ai", via="mcp"))
 
 @mcp.tool(description=api.scenarios.delete.__doc__)
 def scenarios_delete(_id: str) -> Dict[str, Any]:
@@ -190,7 +190,7 @@ def judgements_search(
 
 @mcp.tool(description=api.judgements.set.__doc__)
 def judgements_set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int) -> Dict[str, Any]:
-    return dict(api.judgements.set(workspace_id, scenario_id, index, doc_id, rating, user="ai"))
+    return dict(api.judgements.set(workspace_id, scenario_id, index, doc_id, rating, user="ai", via="mcp"))
 
 @mcp.tool(description=api.judgements.unset.__doc__)
 def judgements_unset(_id: str) -> Dict[str, Any]:
@@ -223,13 +223,13 @@ def strategies_get(_id: str) -> Dict[str, Any]:
 JSON schema for doc:\n\n{StrategyCreate.model_input_json_schema()}
 """)
 def strategies_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
-    return dict(api.strategies.create(doc, _id, user="ai"))
+    return dict(api.strategies.create(doc, _id, user="ai", via="mcp"))
 
 @mcp.tool(description=api.strategies.update.__doc__ + f"""\n
 JSON schema for doc_partial:\n\n{StrategyUpdate.model_input_json_schema()}
 """)
 def strategies_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.strategies.update(_id, doc_partial, user="ai"))
+    return dict(api.strategies.update(_id, doc_partial, user="ai", via="mcp"))
 
 @mcp.tool(description=api.strategies.delete.__doc__)
 def strategies_delete(_id: str) -> Dict[str, Any]:
@@ -266,13 +266,13 @@ def benchmarks_get(_id: str) -> Dict[str, Any]:
 JSON schema for doc:\n\n{BenchmarkCreate.model_input_json_schema()}
 """)
 def benchmarks_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
-    return dict(api.benchmarks.create(doc, _id, user="ai"))
+    return dict(api.benchmarks.create(doc, _id, user="ai", via="mcp"))
 
 @mcp.tool(description=api.benchmarks.update.__doc__ + f"""\n
 JSON schema for doc:\n\n{BenchmarkUpdate.model_input_json_schema()}
 """)
 def benchmarks_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.benchmarks.update(_id, doc_partial, user="ai"))
+    return dict(api.benchmarks.update(_id, doc_partial, user="ai", via="mcp"))
 
 @mcp.tool(description=api.benchmarks.delete.__doc__)
 def benchmarks_delete(_id: str) -> Dict[str, Any]:
@@ -302,7 +302,7 @@ def evaluations_get(_id: str) -> Dict[str, Any]:
 JSON schema for doc:\n\n{EvaluationCreate.model_input_json_schema()}
 """)
 def evaluations_create(workspace_id: str, benchmark_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.evaluations.create(workspace_id, benchmark_id, task, user="ai"))
+    return dict(api.evaluations.create(workspace_id, benchmark_id, task, user="ai", via="mcp"))
 
 @mcp.tool(description=api.evaluations.run.__doc__)
 def evaluations_run(evaluation: Dict[str, Any], store_results: Optional[bool] = False) -> Dict[str, Any]:
@@ -332,7 +332,7 @@ def setup_check() -> Dict[str, Any]:
 
 @mcp.tool(description=api.setup.run.__doc__)
 def setup_run() -> Dict[str, Any]:
-    return api.setup.run()
+    return api.setup.run(via="mcp")
 
 
 ####  Utils  ###################################################################
