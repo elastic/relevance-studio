@@ -22,8 +22,19 @@ def search(
         page: int = 1,
         aggs: bool = False,
     ) -> Dict[str, Any]:
-    """
-    Search for scenarios.
+    """Search for scenarios.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        text: Search text for filtering scenarios.
+        filters: List of additional Elasticsearch filters.
+        sort: Sorting configuration for the search.
+        size: Number of scenarios to return per page.
+        page: Page number for pagination.
+        aggs: Whether to include aggregations (e.g., judgement counts).
+
+    Returns:
+        A dictionary containing the search results.
     """
     response = utils.search_assets(
         "scenarios", workspace_id, text, filters, sort, size, page,
@@ -32,15 +43,25 @@ def search(
     return response
 
 def tags(workspace_id: str) -> Dict[str, Any]:
-    """
-    List all scenario tags (up to 10,000).
+    """List all scenario tags (up to 10,000).
+
+    Args:
+        workspace_id: The UUID of the workspace.
+
+    Returns:
+        The response from Elasticsearch containing tag aggregations.
     """
     es_response = utils.search_tags("scenarios", workspace_id)
     return es_response
 
 def get(_id: str) -> Dict[str, Any]:
-    """
-    Get a scenario by its _id.
+    """Get a scenario by its _id.
+
+    Args:
+        _id: The UUID of the scenario.
+
+    Returns:
+        The scenario document from Elasticsearch.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -51,10 +72,15 @@ def get(_id: str) -> Dict[str, Any]:
 
 def create(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     """
-    Create a scenario.
-    
-    Generates a deterministic _id for UX efficiency, and to prevent the creation
-    of duplicate scenarios for the same values.
+    Create a scenario. Generates a deterministic _id for UX efficiency, and
+    to prevent the creation of duplicate scenarios for the same values.
+
+    Args:
+        doc: The scenario data to create.
+        user: The username of the creator.
+
+    Returns:
+        The response from the Elasticsearch index operation.
     """
     
     # Create, validate, and dump model
@@ -73,8 +99,15 @@ def create(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     return es_response
 
 def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
-    """
-    Update a scenario by its _id.
+    """Update a scenario by its _id.
+
+    Args:
+        _id: The UUID of the scenario.
+        doc_partial: The partial scenario data to update.
+        user: The username of the updater.
+
+    Returns:
+        The response from the Elasticsearch update operation.
     """
     
     # Create, validate, and dump model
@@ -93,10 +126,13 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     return es_response
 
 def delete(_id: str) -> Dict[str, Any]:
-    """
-    Delete a scenario by its _id
-    
-    This also deletes all judgements that share its scenario_id.
+    """Delete a scenario and its associated judgements.
+
+    Args:
+        _id: The UUID of the scenario to delete.
+
+    Returns:
+        The response from the Elasticsearch delete_by_query operation.
     """
     body = {
         "query": {

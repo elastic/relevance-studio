@@ -26,7 +26,6 @@ import {
 import { Page } from '../../Layout'
 import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import FlyoutRuntime from './FlyoutRuntime'
-import ChartMetricsScatterplot from './ChartMetricsScatterplot'
 import ChartMetricsHeatmap from './ChartMetricsHeatmap'
 import PanelUnratedDocs from './PanelUnratedDocs'
 import TableMetrics from './TableMetrics'
@@ -334,7 +333,7 @@ const EvaluationsView = () => {
   )
 
   return (
-    <Page panelled={true} title={
+    <Page title={
       <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!benchmark?.name &&
           <>Not found</>
@@ -441,17 +440,6 @@ const EvaluationsView = () => {
                 <EuiFlexItem>
                   <TableMetrics evaluation={evaluation} rowOnHover={setStrategyInFocus} />
                 </EuiFlexItem>
-
-                {/* Scatterplot */}
-                {['ndcg', 'precision', 'recall'].every(metric => benchmark?.task?.metrics?.includes(metric)) &&
-                  <EuiFlexItem grow={false}>
-                    <EuiPanel hasBorder paddingSize='none'>
-                      <EuiPanel color='subdued'>
-                        <ChartMetricsScatterplot evaluation={evaluation} strategyInFocus={strategyInFocus} />
-                      </EuiPanel>
-                    </EuiPanel>
-                  </EuiFlexItem>
-                }
               </EuiFlexGroup>
             </EuiPanel>
           </EuiPanel>

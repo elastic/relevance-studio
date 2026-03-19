@@ -5,6 +5,7 @@
 
 from .asset import AssetCreate, AssetUpdate
 from .benchmarks import BenchmarkCreate, BenchmarkUpdate
+from .conversations import ConversationsCreate, ConversationsUpdate
 from .displays import DisplayCreate, DisplayUpdate
 from .evaluations import EvaluationCreate, EvaluationSkip, EvaluationFail, EvaluationComplete
 from .judgements import JudgementCreate

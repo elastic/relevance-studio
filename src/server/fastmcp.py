@@ -28,120 +28,42 @@ load_dotenv()
 
 ####  Application  #############################################################
 
-instructions = """
-Elasticsearch Relevance Studio is an application that manages the lifecycle of
-search relevance engineering in Elasticsearch. Generally, its goal is to help
-people deliver amazing search experiences by guiding them in the best practices
-of search relevance engineering. That means defining scenarios, curating
-judgements, building strategies, and benchmarking their performance.
-
-## Application architecture
-
-- **Studio deployment** - An Elasticsearch deployment that stores the assets created by the **server**.
-- **Content deployment** - A Elasticsearch deployment that stores the documents that will be searched, judged, and used in rank evaluation.
-- **Server** - A Flask server that handles API requests and interfaces with the **studio deployment** and **content deployment**.
-- **MCP server** - A FastMCP server that handles MCP requests and interfaces with the **studio deployment** and **content deployment**.
-- **Worker** - A background process that polls for pending evaluations in the **studio deployment**, runs them, and saves their results in the **studio deployment**.
-- **UI** - A React application for the UX that interfaces with the **server**.
-
-## Studio deployment data assets
-
-- **workspaces** - A namespace for all assets whose workspace_id matches the workspace _id.
-- **displays** - A markdown template to render documents from specific indices in the **UI**.
-- **scenarios** - A search input (e.g. "brown oxfords")
-- **judgements** - A rating for a given document from a given index for a given scenario.
-- **strategies** - An Elasticsearch search template whose params are supplied by scenario values.
-- **benchmarks** - A reusable task definition for evaluations.
-- **evaluations** - The results of a gridded rank evaluation.
-
-## General workflow
-
-Here is the typical workflow of the application:
-
-1. Select a workspace to work in.
-    - Take note of "_id", "name", "index_pattern", "rating_scale", and "params".
-2. Use displays to control the retrieval and display of documents from indices in the content deployment.
-    - "index_pattern" is the Elasticsearch index pattern that the display. When multiple displays have overlapping "index_pattern" values, the more specific matching pattern should be used.
-    - "fields" lists the fields that should be in the _source.includes of all searches to that index pattern.
-    - "template.image.url" is an image for the document. It might contain mustache variables, which should be replaced by their respective values from "fields".
-3. Define a diverse set of scenarios that are representative of the use case.
-4. Curate judgements for each scenario using the workspace rating scale.
-    - "rating_scale_max" represents superb relevance.
-    - "rating_scale.min" represents complete irrelevance.
-    - "index" in judgements is the index of the doc being rated.
-    - "doc_id" in judgements is the _id of the doc being rated.
-5. Build strategies that attempt to maximize search relevance.
-    - Strategies are the bodies of Elasticsearch Search API, which is a "query" or "retriever".
-    - Strategies must implement at least one of the params from the workspace in the form of a Mustache variables. Example: "{{ text }}"
-6. Define benchmarks.
-7. Run evaluations for a benchmark.
-    - A worker process will execute these asynchronously. It may take seconds or minutes to complete.
-8. Analyze the results of the evaluations.
-    - The "summary" field summarizes the relevance metrics for each strategy_id or strategy_tag.
-9. Find ways to enhance the process, such as:
-    - Creating scenarios that would be valuable to include in benchmarks;
-    - Adjusting the tags of scenarios or strategies;
-    - Setting the ratings of documents that should be judged;
-    - Changing or unsetting the ratings of judgements that might be inaccurate;
-    - Enhancing the query logic of strategies; and
-    - Re-running evaluations, analyzing their results, and repeating the workflow.
-
-## Instructions
-
-You are an expert in Elasticsearch and search relevance engineering.
-
-You automate the management of resources and evaluations in Relevance Studio.
-
-You must adhere to the following requirements and best practices:
-
-## Requirements
-
-### 1. Always scope operations on studio assets by workspace_id
-
-All operations on **studio deployment data assets** must be scoped to a workspace.
-If I ask you to perform a search, create, update, set, unset, or delete on
-displays, scenarios, judgements, strategies, benchmarks or evaluations, pass the
-workspace_id that you're currently working on as an argument to that function.
-
-If you aren't working on a workspace or you forgot which one it was, ask me for
-clarification on which workspace you should be using. If I give you an _id
-(which is a UUID), then use that as the workspace_id. If I give you a name or a
-description instead, then search for the workspace that best matches it and use
-that _id. If there are no good matches, let me know, and don't perform the
-operation.
-
-### 2. Always fetch displays before searching or judging documents from the content deployment
-
-Fetch all displays for the workspace before searching or judging documents from
-the content deployment. Use the display whose index_pattern best matches the
-index of the documents that you will be searching or judging. If there is a
-matching display, use the values of its "fields" as the values of
-_source.includes in your searches. This will make searching much more efficient.
-If thers is no matching display, then don't set the value of _source.includes
-in your searches.
-
-In other words, always ensure you have tried fetching displays with the
-displays_search tool before using either the content_search tool or the
-judgements_search tool.
-
-## Best Practices
-
-### Analyze images when judging documents
-
-When judging documents that have a display template, check to see if the
-display defines an image URL template, which you can reconstruct by replacing
-mustache variables with fields from the document. You can use the
-get_base64_image_from_url tool to fetch that image in a small, base64-encoded
-format. This can be a great signal for relevance.
-
-### Other requirements
-
-Don't make up fictional values for any "_id" or "doc_id" field of any asset.
-Look them up if needed.
-"""
-
-mcp = FastMCP(name="Relevance Studio", instructions=instructions)
+mcp = FastMCP(name="Relevance Studio")
     
+
+####  API: Conversations  ######################################################
+
+@mcp.tool(description=api.conversations.search.__doc__)
+def conversations_search(
+        text: Optional[str] = "",
+        filters: Optional[List[Dict[str, Any]]] = [],
+        sort: Dict[str, Any] = {},
+        size: Optional[int] = 10,
+        page: Optional[int] = 1,
+        aggs: Optional[bool] = False,
+    ) -> Dict[str, Any]:
+    return dict(api.conversations.search(text, filters, sort, size, page, aggs))
+
+@mcp.tool(description=api.conversations.get.__doc__)
+def conversations_get(_id: str) -> Dict[str, Any]:
+    return dict(api.conversations.get(_id))
+
+@mcp.tool(description=api.conversations.create.__doc__ + f"""\n
+JSON schema for doc:\n\n{ConversationsCreate.model_input_json_schema()}
+""")
+def conversations_create(doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+    return dict(api.conversations.create(doc, _id, user="ai"))
+
+@mcp.tool(description=api.conversations.update.__doc__ + f"""\n
+JSON schema for doc_partial:\n\n{ConversationsUpdate.model_input_json_schema()}
+""")
+def conversations_update(_id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+    return dict(api.conversations.update(_id, doc_partial, user="ai"))
+
+@mcp.tool(description=api.conversations.delete.__doc__)
+def conversations_delete(_id: str) -> Dict[str, Any]:
+    return dict(api.conversations.delete(_id))
+
 
 ####  API: Workspaces  #########################################################
 
@@ -266,11 +188,9 @@ def judgements_search(
     ) -> Dict[str, Any]:
     return dict(api.judgements.search(workspace_id, scenario_id, index_pattern, query, query_string, filter, sort, _source))
 
-@mcp.tool(description=api.judgements.set.__doc__ + f"""\n
-JSON schema for doc:\n\n{JudgementCreate.model_input_json_schema()}
-""")
-def judgements_set(doc: Dict[str, Any]) -> Dict[str, Any]:
-    return dict(api.judgements.set(doc, user="ai"))
+@mcp.tool(description=api.judgements.set.__doc__)
+def judgements_set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int) -> Dict[str, Any]:
+    return dict(api.judgements.set(workspace_id, scenario_id, index, doc_id, rating, user="ai"))
 
 @mcp.tool(description=api.judgements.unset.__doc__)
 def judgements_unset(_id: str) -> Dict[str, Any]:

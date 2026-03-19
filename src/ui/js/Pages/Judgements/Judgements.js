@@ -66,10 +66,11 @@ const Judgements = () => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [filterSelected, setFilterSelected] = useState({ label: 'All docs', value: 'all', checked: 'on' })
+  const [filterSelected, setFilterSelected] = useState({ label: 'Rated docs', value: 'rated', checked: 'on' })
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [filtersOptions, setFiltersOptions] = useState(defaultFilterOptions.map(o => ({ ...o })))
+  const [filtersOptions, setFiltersOptions] = useState(defaultFilterOptions.map(o => ({ ...o, checked: o.value === 'rated' ? 'on' : undefined })))
   const [indexPatternMap, setIndexPatternMap] = useState({})
+  const [initialScenarioLoaded, setInitialScenarioLoaded] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
   const [isScenariosOpen, setIsScenariosOpen] = useState(false)
@@ -81,15 +82,15 @@ const Judgements = () => {
   const [scenarioOptions, setScenarioOptions] = useState([])
   const [scenarioSearchString, setScenarioSearchString] = useState('')
   const [sortOpen, setSortOpen] = useState(false)
-  const [sortOptions, setSortOptions] = useState(defaultSortOptions.map(o => ({ ...o })))
-  const [sortSelected, setSortSelected] = useState({ label: 'By match', value: 'match', checked: 'on' })
+  const [sortOptions, setSortOptions] = useState(defaultSortOptions.map(o => ({ ...o, checked: o.value === 'rating-newest' ? 'on' : undefined })))
+  const [sortSelected, setSortSelected] = useState({ label: 'By newest ratings', value: 'rating-newest', checked: 'on' })
   const [sourceFilters, setSourceFilters] = useState([])
 
   // Helper to get URL params
   const getUrlParams = () => {
     const params = new URLSearchParams(location.search)
     return {
-      scenario: params.get('scenario'),
+      scenario: params.get('scenario_id'),
       filter: params.get('filter'),
       sort: params.get('sort'),
       query: params.get('query')
@@ -163,15 +164,15 @@ const Judgements = () => {
     if (!isReady)
       return
 
-    // Only fetch scenarios when dropdown is open, not when options are empty
+    // Only fetch scenarios when dropdown is open, show all scenarios
     if (isScenariosOpen) {
-      onSearchScenarios(`*${scenarioSearchString}*`)
+      onSearchScenarios(`**`)
     }
   }, [isReady, isScenariosOpen])
 
-  // Fetch scenarios with debounce when typing
+  // Fetch scenarios with debounce when typing (only while dropdown is open and user has typed something)
   useEffect(() => {
-    if (!isReady)
+    if (!isReady || !isScenariosOpen || scenarioSearchString === '')
       return
     const debounced = debounce(() => {
       onSearchScenarios(`*${scenarioSearchString}*`)
@@ -181,8 +182,9 @@ const Judgements = () => {
   }, [scenarioSearchString])
 
   useEffect(() => {
-    if (!isReady || !scenarioOptions)
+    if (!isReady || !scenarioOptions || initialScenarioLoaded)
       return
+
     const urlParams = getUrlParams()
 
     // Check if we have a scenario from URL params
@@ -192,6 +194,7 @@ const Judgements = () => {
           option.checked = 'on'
           setScenario(option)
           setScenarioSearchString(option.label)
+          setInitialScenarioLoaded(true)
           return
         }
       }
@@ -202,6 +205,7 @@ const Judgements = () => {
       if (option.checked) {
         setScenario(option)
         setScenarioSearchString(option.checked === 'on' ? option.label : '')
+        setInitialScenarioLoaded(true)
         break
       }
     }
@@ -264,11 +268,11 @@ const Judgements = () => {
     try {
       setIsLoadingScenarios(true)
       const response = await api.scenarios_search(workspace._id, { text })
-      const urlParams = getUrlParams()
+      const selectedId = scenario?._id || getUrlParams().scenario
       const options = response.data.hits.hits.map((doc) => ({
         _id: doc._id,
         label: doc._source.name,
-        checked: (urlParams.scenario === doc._id) ? 'on' : undefined
+        checked: (selectedId === doc._id) ? 'on' : undefined
       }))
       setScenarioOptions(options)
     } catch (e) {
@@ -324,6 +328,12 @@ const Judgements = () => {
       autoFocus={!getUrlParams().scenario}
       isLoading={isLoadingScenarios}
       isOpen={isScenariosOpen}
+      onChange={(changedOption) => {
+        // Update URL, set active scenario, and restore the scenario name in the search field
+        updateUrl({ scenario_id: changedOption._id })
+        setScenario(changedOption.checked === 'on' ? changedOption : null)
+        setScenarioSearchString(changedOption.checked === 'on' ? changedOption.label : '')
+      }}
       options={scenarioOptions}
       searchString={scenarioSearchString}
       setSearchString={setScenarioSearchString}
@@ -339,8 +349,8 @@ const Judgements = () => {
       onChange={(newOptions, event, changedOption) => {
         setFiltersOptions(newOptions)
 
-        // Update URL when user changes filter
-        updateUrl({ filter: changedOption.value !== 'all' ? changedOption.value : null })
+        // Update URL when user changes filter (don't write default value)
+        updateUrl({ filter: changedOption.value !== 'rated' ? changedOption.value : null })
 
         // Filtering by unrated docs requires sorting not by anything with ratings
         if (changedOption.value == 'unrated') {
@@ -376,8 +386,8 @@ const Judgements = () => {
       onChange={(newOptions, event, changedOption) => {
         setSortOptions(newOptions)
 
-        // Update URL when user changes sort
-        updateUrl({ sort: changedOption.value !== 'match' ? changedOption.value : null })
+        // Update URL when user changes sort (don't write default value)
+        updateUrl({ sort: changedOption.value !== 'rating-newest' ? changedOption.value : null })
 
         // Sorting by anything with ratings requires filtering by rated docs
         if (changedOption.value.startsWith('rating') && !filterSelected.value.startsWith('rated')) {
@@ -419,7 +429,7 @@ const Judgements = () => {
   )
 
   return (
-    <Page title='Judgements' color='subdued' panelled={true}>
+    <Page title='Judgements' color='subdued'>
       <EuiFlexGroup gutterSize='m' alignItems='flexStart'>
         <EuiFlexItem grow>
 
@@ -430,7 +440,7 @@ const Judgements = () => {
             style={{
               margin: '-16px -20px 10px -20px',
               position: 'sticky',
-              top: 0,
+              top: '-16px',
               zIndex: 9
             }}
           >

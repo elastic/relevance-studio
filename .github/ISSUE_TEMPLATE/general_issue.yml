@@ -1,0 +1,19 @@
+name: General Issue
+description: Report something that doesn't fit the other templates
+title: ""
+labels: ["needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for issues that don't fit the Bug Report or Enhancement Request categories.
+        This could be questions, discussions, or anything else.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe your issue, question, or feedback
+      placeholder: Please provide details about your issue...
+    validations:
+      required: true

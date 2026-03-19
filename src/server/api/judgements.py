@@ -20,12 +20,27 @@ def search(
         index_pattern: str,
         query: Dict[str, Any] = {},
         query_string: str = "*",
-        filter: str = None, # options: "rated", "rated-ai", "rated-human", "unrated" (or omitted for no filter)
-        sort: str = None, # options: "match", "rating-newest", "rating-oldest"
+        filter: str = None,
+        sort: str = None,
         _source: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-    """
-    Get documents from the content deployment with ratings joined to them.
+    """Get documents from the content deployment with ratings joined to them.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        scenario_id: The UUID of the scenario to retrieve judgements for.
+        index_pattern: Elasticsearch index pattern to search against.
+        query: A full Elasticsearch query DSL object. If provided, overrides `query_string`.
+        query_string: A Lucene query string (defaults to "*").
+        filter: Filtering criteria for rated vs unrated documents.
+            Options: "rated", "rated-ai", "rated-human", "unrated".
+        sort: Sorting criteria for the results.
+            Options: "match" (BM25 score), "rating-newest", "rating-oldest".
+        _source: Source filtering configuration with 'includes' and 'excludes'. Searches should set "_source.includes" as the value of "fields" from a display.
+
+    Returns:
+        A dictionary containing "hits" from Elasticsearch, where each hit has 
+        the rating and metadata joined to the original document.
     """
     response = {}
         
@@ -141,16 +156,29 @@ def search(
         response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: hit.get("@meta", {}).get("created_at") or fallback, reverse=reverse)
     return response
 
-def set(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
-    """
-    Create or update a judgement.
+def set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int, user: str = None) -> Dict[str, Any]:
+    """Create or update a judgement.
     
-    Gemerates a deterministic _id for UX efficiency, and to prevent the creation
+    Generates a deterministic _id for UX efficiency, and to prevent the creation
     of duplicate judgements for the same combination of scenario, index, and doc.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        scenario_id: The UUID of the scenario being judged.
+        index: The Elasticsearch index the document belongs to.
+        doc_id: The _id of the document being judged.
+        rating: The relevance rating (integer >= 0, using the workspace's rating scale).
+        user: The username of the user performing the operation.
+
+    Returns:
+        The response from the Elasticsearch update operation.
     """
     
     # Create, validate, and dump model
-    doc = JudgementCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = JudgementCreate.model_validate(
+        {"workspace_id": workspace_id, "scenario_id": scenario_id, "index": index, "doc_id": doc_id, "rating": rating},
+        context={"user": user}
+    ).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("judgements", doc)
@@ -198,8 +226,13 @@ def set(doc: Dict[str, Any], user: str = None) -> Dict[str, Any]:
     return es_response
 
 def unset(_id: str) -> Dict[str, Any]:
-    """
-    Delete a judgement in Elasticsearch.
+    """Delete a judgement in Elasticsearch.
+
+    Args:
+        _id: The unique identifier of the judgement to delete.
+
+    Returns:
+        The response from the Elasticsearch delete operation.
     """
     es_response = es("studio").delete(
         index=INDEX_NAME,

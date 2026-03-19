@@ -70,10 +70,17 @@ module.exports = {
     },
     proxy: [
       {
-        context: ['**', '!**.js'],
+        context: ['/api/chat'],
+        target: 'http://localhost:4096',
+        changeOrigin: true,
+        proxyTimeout: 300000,
+        timeout: 300000,
+      },
+      {
+        context: ['**', '!**.js', '!/api/chat'],
         target: 'http://localhost:4096',
       },
     ],
-    compress: true
+    compress: false
   }
 }

@@ -51,13 +51,13 @@ Search relevance engineering relies on a carefully curated set of [judgements](h
 
 #### Life with Elasticsearch Relevance Studio
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/judgements.png" class="screenshot">
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/judgements-agentic-v1.1.png" class="screenshot">
 
 ### Move strategies in the right direction.
 
 With your ground truth judgements in place, you can get immediate relevance feedback with every change you make to your search strategies. Just press `Ctrl/Cmd + Enter` at any time to see the ratings and relevance metrics for your current strategy draft on a chosen scenario. It's like an IDE for search relevance.
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/strategy.png" class="screenshot">
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/strategy-agentic-v1.1.png" class="screenshot">
 
 ### Adapt to model drift and regressions.
 
@@ -66,11 +66,11 @@ Search is dynamic. Content and behaviors can change over time. The search strate
 **Elasticsearch Relevance Studio** can surface model drift and regressions before they impact your users. Schedule [benchmarks](https://elastic.github.io/relevance-studio/#/docs/guide/concepts#benchmark) with your latest data to detect drift in your search strategies. Run benchmarks from your CI/CD pipeline to prevent regressions from reaching production. And find root causes in the analytics interface – or let AI find them for you.
 
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary-v1.1.png" class="screenshot" />
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-heatmap.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-heatmap-v1.1.png" class="screenshot" />
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-runtime-assets.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-runtime-assets-v1.1.png" class="screenshot" />
 
 ### AI ready :sparkles:
 

@@ -1,5 +1,0 @@
--r requirements.txt
-
-fastmcp==2.10.6
-pillow==11.3.0
-requests==2.32.4

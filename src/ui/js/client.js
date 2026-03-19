@@ -46,6 +46,20 @@ const request = async (path, opts) => {
     params: opts.params,
     headers: opts.headers || {},
     data: opts.data,
+    signal: opts.signal,
+    onDownloadProgress: (e) => {
+      if (opts.onDownloadProgress) {
+        const response = e.event?.currentTarget?.response || ''; // Access raw response and ensure it's a string
+        if (response) {
+          if (!opts._lastResponseLength) opts._lastResponseLength = 0
+          const chunk = response.substring(opts._lastResponseLength)
+          opts._lastResponseLength = response.length
+          if (chunk) {
+            opts.onDownloadProgress({ data: chunk })
+          }
+        }
+      }
+    },
     validateStatus: (status) => (status >= 200 && status < 400) || status == 404,
     timeout: opts.timeout || 60000,
   })
@@ -81,6 +95,7 @@ const client = {
   get: get,
   post: post,
   put: put,
+  isCancel: axios.isCancel,
 }
 
 export default client

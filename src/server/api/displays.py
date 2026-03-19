@@ -22,8 +22,19 @@ def search(
         page: int = 1,
         aggs: bool = False,
     ) -> Dict[str, Any]:
-    """
-    Search for displays.
+    """Search for displays.
+
+    Args:
+        workspace_id: The UUID of the workspace.
+        text: Search text for filtering displays.
+        filters: List of additional Elasticsearch filters.
+        sort: Sorting configuration for the search.
+        size: Number of displays to return per page.
+        page: Page number for pagination.
+        aggs: Whether to include aggregations.
+
+    Returns:
+        A dictionary containing the search results.
     """
     response = utils.search_assets(
         "displays", workspace_id, text, filters, sort, size, page
@@ -31,8 +42,13 @@ def search(
     return response
 
 def get(_id: str) -> Dict[str, Any]:
-    """
-    Get a display by its _id.
+    """Get a display by its _id.
+
+    Args:
+        _id: The UUID of the display.
+
+    Returns:
+        The display document from Elasticsearch.
     """
     es_response = es("studio").get(
         index=INDEX_NAME,
@@ -42,10 +58,15 @@ def get(_id: str) -> Dict[str, Any]:
     return es_response
 
 def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
-    """
-    Create a display.
-    
-    Accepts an optional pregenerated _id for idempotence.
+    """Create a display.
+
+    Args:
+        doc: The display data to create.
+        _id: Optional pregenerated UUID for idempotence.
+        user: The username of the creator.
+
+    Returns:
+        The response from the Elasticsearch index operation.
     """
     
     # Create, validate, and dump model
@@ -64,8 +85,15 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     return es_response
 
 def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str, Any]:
-    """
-    Update a display by its _id.
+    """Update a display by its _id.
+
+    Args:
+        _id: The UUID of the display.
+        doc_partial: The partial display data to update.
+        user: The username of the updater.
+
+    Returns:
+        The response from the Elasticsearch update operation.
     """
     
     # Create, validate, and dump model
@@ -85,8 +113,13 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None) -> Dict[str,
     return es_response
 
 def delete(_id: str) -> Dict[str, Any]:
-    """
-    Delete a display by its _id.
+    """Delete a display by its _id.
+
+    Args:
+        _id: The UUID of the display to delete.
+
+    Returns:
+        The response from the Elasticsearch delete operation.
     """
     es_response = es("studio").delete(
         index=INDEX_NAME,

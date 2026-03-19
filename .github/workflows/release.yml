@@ -1,0 +1,38 @@
+# Automatically create GitHub releases when tags are pushed
+name: Release
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on semantic version tags like v1.0.0
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+    with:
+      run_integration_setup: true
+      # Placeholder for future release gating tiers.
+      # run_integration_workspace: true
+      # run_integration_displays: true
+      # run_integration_scenarios: true
+      # run_integration_strategies: true
+      # run_integration_judgements: true
+      # run_integration_benchmark: true
+      # run_integration_evaluation: true
+      # run_integration_conversations: true
+
+  release:
+    needs: test  # Only run if tests pass
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write  # Required to create releases
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: false

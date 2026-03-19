@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import {
   EuiBadge,
@@ -34,11 +35,14 @@ import {
 import FlyoutHelp from './FlyoutHelp'
 import api from '../../api'
 import utils from '../../utils'
+import { getHistory } from '../../history'
 
 const StrategiesEdit = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
+  const location = useLocation()
+  const history = getHistory()
   const { addToast, darkMode } = useAppContext()
   const { workspace, strategy, displays } = usePageResources()
   useAdditionalResources(['displays'])
@@ -56,6 +60,7 @@ const StrategiesEdit = () => {
   const [errorContent, setErrorContent] = useState(null)
   const [hasSearched, setHasSearched] = useState(false)
   const [indexPatternMap, setIndexPatternMap] = useState({})
+  const [initialScenarioLoaded, setInitialScenarioLoaded] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [isRankEvalEnabled, setIsRankEvalEnabled] = useState(false)
@@ -70,6 +75,27 @@ const StrategiesEdit = () => {
   const editorRef = useRef(null)
   const monacoRef = useRef(null)
 
+  // Helper to get URL params
+  const getUrlParams = () => {
+    const params = new URLSearchParams(location.search)
+    return {
+      scenario: params.get('scenario_id'),
+    }
+  }
+
+  // Helper to update URL without adding to history
+  const updateUrl = (newParams) => {
+    const params = new URLSearchParams(location.search)
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value)
+      } else {
+        params.delete(key)
+      }
+    })
+    history.replace(`${location.pathname}?${params.toString()}`)
+  }
+
   ///  Strategy editing  ///////////////////////////////////////////////////////
 
   /**
@@ -81,6 +107,12 @@ const StrategiesEdit = () => {
     setLastSavedStrategy(strategy)
     if (strategy.template?.source)
       setStrategyDraft(utils.formatJsonWithMustache(strategy.template.source))
+
+    // Reset test results when switching strategies
+    setResults([])
+    setResultsRankEval({})
+    setHasSearched(false)
+    setErrorContent(null)
   }, [strategy])
 
   /**
@@ -187,16 +219,16 @@ const StrategiesEdit = () => {
     setSourceFilters(Object.keys(_sourceFilters))
   }, [displays])
 
-  // Fetch scenarios immediately when opening the dropdown
+  // Fetch scenarios immediately when opening the dropdown, show all scenarios
   useEffect(() => {
     if (!workspace?._id || !isScenariosOpen)
       return
-    onSearchScenarios(`*${scenarioSearchString}*`)
+    onSearchScenarios(`**`)
   }, [workspace?._id, isScenariosOpen])
 
-  // Fetch scenarios with debounce when typing
+  // Fetch scenarios with debounce when typing (only while dropdown is open and user has typed something)
   useEffect(() => {
-    if (!workspace?._id || !isScenariosOpen)
+    if (!workspace?._id || !isScenariosOpen || scenarioSearchString === '')
       return
     const debounced = debounce(() => {
       onSearchScenarios(`*${scenarioSearchString}*`)
@@ -205,17 +237,52 @@ const StrategiesEdit = () => {
     return () => debounced.cancel()
   }, [scenarioSearchString])
 
+  // Match scenario from URL params on initial load, or use the first checked option
   useEffect(() => {
-    if (!workspace?._id || !scenarioOptions)
+    if (!workspace?._id || !scenarioOptions || initialScenarioLoaded)
       return
-    for (const i in scenarioOptions) {
-      if (scenarioOptions[i].checked) {
-        setScenario(scenarioOptions[i])
-        setScenarioSearchString(scenarioOptions[i].checked === 'on' ? scenarioOptions[i].label : '')
+
+    const urlParams = getUrlParams()
+
+    // Check if we have a scenario from URL params
+    if (urlParams.scenario) {
+      for (const option of scenarioOptions) {
+        if (option._id === urlParams.scenario) {
+          option.checked = 'on'
+          setScenario(option)
+          setScenarioSearchString(option.label)
+          setInitialScenarioLoaded(true)
+          return
+        }
+      }
+    }
+
+    // Otherwise, use the first checked option
+    for (const option of scenarioOptions) {
+      if (option.checked) {
+        setScenario(option)
+        setScenarioSearchString(option.checked === 'on' ? option.label : '')
+        setInitialScenarioLoaded(true)
         break
       }
     }
   }, [scenarioOptions])
+
+  // Fetch scenarios on mount if URL has a scenario param
+  useEffect(() => {
+    if (!workspace?._id)
+      return
+    const urlParams = getUrlParams()
+    if (urlParams.scenario && scenarioOptions.length === 0)
+      onSearchScenarios(`**`)
+  }, [workspace?._id, scenarioOptions.length])
+
+  // Automatically test strategy when scenario changes
+  useEffect(() => {
+    if (!isReady || !scenario)
+      return
+    onTestStrategy()
+  }, [isReady, scenario])
 
   // Add keyboard shortcuts to monaco editor
   useEffect(() => {
@@ -267,10 +334,12 @@ const StrategiesEdit = () => {
     try {
       setIsLoadingScenarios(true)
       const response = await api.scenarios_search(workspace._id, { text })
+      const selectedId = scenario?._id || getUrlParams().scenario
       const options = response.data.hits.hits.map((doc) => ({
         _id: doc._id,
         label: doc._source.name,
         values: doc._source.values,
+        checked: (selectedId === doc._id) ? 'on' : undefined
       }))
       setScenarioOptions(options)
     } catch (e) {
@@ -425,8 +494,15 @@ const StrategiesEdit = () => {
 
   const renderSelectScenarios = () => (
     <SelectScenario
+      autoFocus={!getUrlParams().scenario}
       isLoading={isLoadingScenarios}
       isOpen={isScenariosOpen}
+      onChange={(changedOption) => {
+        // Update URL, set active scenario, and restore the scenario name in the search field
+        updateUrl({ scenario_id: changedOption._id })
+        setScenario(changedOption.checked === 'on' ? changedOption : null)
+        setScenarioSearchString(changedOption.checked === 'on' ? changedOption.label : '')
+      }}
       options={scenarioOptions}
       placeholder={'Choose a scenario to test on...'}
       searchString={scenarioSearchString}
@@ -459,13 +535,14 @@ const StrategiesEdit = () => {
       hasShadow={false}
       paddingSize='none'
       style={{
-        height: '100%',
+        flex: 1,
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
       }}
     >
       <EuiPanel color='transparent' grow={false} paddingSize='none'>
-        <EuiFlexGroup gutterSize='m'>
+        <EuiFlexGroup gutterSize='m' responsive={false}>
           <EuiFlexItem grow>
             {renderSelectScenarios()}
           </EuiFlexItem>
@@ -489,9 +566,10 @@ const StrategiesEdit = () => {
         paddingSize='none'
         style={{
           display: 'flex',
+          flexDirection: 'column',
           flex: 1,
           minHeight: 0,
-          overflow: 'visible',
+          overflow: 'hidden',
           position: 'relative',
         }}>
         {isLoadingResults &&
@@ -512,8 +590,10 @@ const StrategiesEdit = () => {
           color='subdued'
           paddingSize='m'
           style={{
+            flex: 1,
+            minHeight: 0,
             opacity: isLoadingResults ? 0.5 : 1.0,
-            overflow: 'scroll',
+            overflowY: 'auto',
           }}
         >
           {errorContent ? renderError() : renderResults()}
@@ -609,7 +689,7 @@ const StrategiesEdit = () => {
       <EuiPanel color='transparent' grow={false} paddingSize='none'>
 
         {/* Buttons */}
-        <EuiFlexGroup gutterSize='m'>
+        <EuiFlexGroup gutterSize='m' responsive={false}>
           <EuiFlexItem grow={false}>
             <EuiButton
               color='primary'
@@ -651,7 +731,7 @@ const StrategiesEdit = () => {
       {/* Display keyboard shortcuts */}
       <div style={{ flexShrink: 0, height: '24px', margin: '5px 0 -10px 0' }}>
         <EuiPanel color='transparent' grow={false} hasBorder={false} hasShadow={false} paddingSize='xs'>
-          <EuiFlexGroup gutterSize='m'>
+          <EuiFlexGroup gutterSize='m' responsive={false}>
             <EuiFlexItem grow={false}>
               <EuiIcon color='subdued' type='keyboard' style={{ margin: '-1px 10px 0 0' }} />
             </EuiFlexItem>
@@ -672,13 +752,19 @@ const StrategiesEdit = () => {
   )
 
   const renderSplitPanels = () => (
-    <EuiPanel paddingSize='s' style={{ height: '100%' }}>
-      <EuiResizableContainer direction='horizontal' style={{ height: '100%' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <EuiResizableContainer direction='horizontal' style={{ flex: 1, minHeight: 0 }}>
         {(EuiResizablePanel, EuiResizableButton) => (
           <>
             {/* Editor panel */}
-            <EuiResizablePanel initialSize={40} minSize='300px' paddingSize='s' style={{ overflow: 'visible' }}>
-              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
+            <EuiResizablePanel
+              initialSize={40}
+              minSize='300px'
+              paddingSize='s'
+              scrollable={false}
+              style={{ display: 'flex', flexDirection: 'column' }}
+            >
+              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ flex: 1, minHeight: 0 }}>
                 {renderEditorPanel()}
               </EuiPanel>
             </EuiResizablePanel>
@@ -686,15 +772,21 @@ const StrategiesEdit = () => {
             <EuiResizableButton />
 
             {/* Test panel */}
-            <EuiResizablePanel initialSize={60} minSize='300px' paddingSize='s' style={{ overflow: 'visible' }}>
-              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ height: '100%' }}>
+            <EuiResizablePanel
+              initialSize={60}
+              minSize='300px'
+              paddingSize='s'
+              scrollable={false}
+              style={{ display: 'flex', flexDirection: 'column' }}
+            >
+              <EuiPanel hasBorder={false} hasShadow={false} paddingSize='none' style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 {renderTestPanel()}
               </EuiPanel>
             </EuiResizablePanel>
           </>
         )}
       </EuiResizableContainer>
-    </EuiPanel>
+    </div>
   )
 
   const renderButtonHelp = () => (
@@ -704,7 +796,7 @@ const StrategiesEdit = () => {
   )
 
   return (
-    <Page panelled={true} title={
+    <Page paddingSize='none' title={
       <EuiSkeletonTitle isLoading={!isReady} size='l'>
         {!strategy &&
           <>Not found</>
@@ -715,7 +807,9 @@ const StrategiesEdit = () => {
       </EuiSkeletonTitle>
     } buttons={[renderButtonHelp()]}>
       {showHelp && <FlyoutHelp onClose={() => setShowHelp(false)} />}
-      {renderSplitPanels()}
+      <div style={{ height: 'calc(100vh - 180px)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {renderSplitPanels()}
+      </div>
     </Page>
   )
 }

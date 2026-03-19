@@ -50,6 +50,7 @@ class WorkspaceCreate(AssetCreate):
     rating_scale: RatingScaleModel
     
     # Optional inputs
+    description: str = ""
     tags: List[str] = Field(default_factory=list)
 
     @field_validator("name")
@@ -80,20 +81,20 @@ class WorkspaceCreate(AssetCreate):
             raise ValueError("tags must be a list of non-empty strings if given")
         return value
 
-
 class WorkspaceUpdate(AssetUpdate):
     
     # Optional inputs
-    name: str = None
-    index_pattern: str = None
+    name: Optional[str] = None
+    index_pattern: Optional[str] = None
     params: Optional[List[str]] = None
+    description: Optional[str] = None
     tags: Optional[List[str]] = None
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: Optional[str]):
         if value is None:
-            return value
+            raise ValueError("name must be a non-empty string if given")
         if not value.strip():
             raise ValueError("name must be a non-empty string if given")
         return value
@@ -102,7 +103,7 @@ class WorkspaceUpdate(AssetUpdate):
     @classmethod
     def validate_index_pattern(cls, value: Optional[str]):
         if value is None:
-            return value
+            raise ValueError("index_pattern must be a non-empty string if given")
         if not value.strip():
             raise ValueError("index_pattern must be a non-empty string if given")
         return value

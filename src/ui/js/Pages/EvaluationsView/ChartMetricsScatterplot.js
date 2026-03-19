@@ -47,9 +47,6 @@ const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategy
       return
     const _data = []
     for (const key in evaluation.summary[groupBy]) {
-      console.log('---')
-      console.log(groupBy)
-      console.log(key)
       const row = {
         label: key,
         mrr: evaluation.summary[groupBy][key]?._total?.metrics?.mrr?.avg,
@@ -66,7 +63,6 @@ const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategy
         return prev
       return _data
     })
-    console.debug('[EvaluationsScatterplot state updated]', { _data })
   }, [evaluation, groupBy])
 
   const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]

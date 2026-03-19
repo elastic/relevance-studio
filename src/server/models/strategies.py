@@ -69,7 +69,7 @@ class StrategyUpdate(AssetUpdate):
     workspace_id: str
     
     # Optional inputs
-    name: str = Field(default=None)
+    name: Optional[str] = None
     tags: Optional[List[str]] = None
     template: Optional[TemplateUpdate] = None
 
@@ -83,8 +83,10 @@ class StrategyUpdate(AssetUpdate):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: Optional[str]):
+        if value is None:
+            raise ValueError("name must be a non-empty string if given")
         if not value.strip():
-            raise ValueError("name must be a non-empty string")
+            raise ValueError("name must be a non-empty string if given")
         return value
     
     @field_validator("template", mode="before")

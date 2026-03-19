@@ -14,6 +14,7 @@ const SelectScenario = ({
   autoFocus = false,
   isLoading,
   isOpen,
+  onChange,
   options,
   placeholder = 'Choose a scenario',
   searchString,
@@ -38,6 +39,9 @@ const SelectScenario = ({
         setOptions(newOptions)
         setIsOpen(false)
         setIsLoading(false)
+        if (onChange) {
+          onChange(changedOption)
+        }
       }}
       singleSelection
       searchable
@@ -53,13 +57,17 @@ const SelectScenario = ({
           if (event.key !== 'Escape') return setIsOpen(true)
         },
         onClick: () => {
-          if (searchString.trim())
-            setOptions([])
+          // Clear search string when opening dropdown to show all scenarios
+          if (!isOpen) {
+            setSearchString('')
+          }
           setIsOpen(true)
         },
         onFocus: () => {
-          if (searchString.trim())
-            setOptions([])
+          // Clear search string when opening dropdown to show all scenarios
+          if (!isOpen) {
+            setSearchString('')
+          }
           setIsOpen(true)
         },
         placeholder: isLoading ? '' : placeholder,

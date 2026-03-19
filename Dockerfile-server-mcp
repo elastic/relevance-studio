@@ -4,11 +4,11 @@ FROM python:3.10-slim AS server-mcp
 WORKDIR /app
 
 # Copy project files
-COPY requirements.txt requirements-mcp.txt ./
+COPY requirements.txt ./
 COPY src/server ./server
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements-mcp.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 ####  Run the server  ##########################################################
 

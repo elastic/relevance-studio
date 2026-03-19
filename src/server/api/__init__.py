@@ -4,8 +4,10 @@
 # 2.0.
 
 from . import (
+    agent,
     benchmarks,
     content,
+    conversations,
     displays,
     evaluations,
     judgements,
@@ -16,8 +18,10 @@ from . import (
 )
 
 __all__ = [
+    "agent",
     "benchmarks",
     "content",
+    "conversations",
     "displays",
     "evaluations",
     "judgements",

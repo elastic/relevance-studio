@@ -19,7 +19,7 @@ const NotFound = () => {
   ////  Render  ////////////////////////////////////////////////////////////////
 
   return (
-    <Page panelled>
+    <Page>
       <EuiPanel color='transparent'>
         <div style={{ textAlign: 'center' }}>
           <EuiSpacer />

@@ -20,6 +20,7 @@ from .client import es
 RE_PARAMS = re.compile(r"{{\s*([\w.-]+)\s*}}")
 
 ASSET_TYPES = set([
+    "conversations",
     "workspaces",
     "displays",
     "scenarios",
@@ -29,6 +30,7 @@ ASSET_TYPES = set([
     "evaluations",
 ])
 ASSET_TYPES_RELATIONAL_ID_NAMES = {
+    "conversations": "conversation_id",
     "workspaces": "workspace_id",
     "displays": "display_id",
     "scenarios": "scenario_id",
@@ -258,7 +260,8 @@ def search_assets(
     Structure of the sort input (single field allowed):
     
     {
-        SORT_FIELD: SORT_ORDER
+        "field": SORT_FIELD,
+        "order": SORT_ORDER
     }
     
     
@@ -281,9 +284,9 @@ def search_assets(
     body = {}
     
     # Filter search by workspace_id
-    if asset_type != "workspaces":
+    if asset_type not in ["workspaces", "conversations"]:
         if not workspace_id:
-            raise Exception(f"\"workspace_id\" is required to scope searches.")
+            raise Exception(f"\"workspace_id\" is required to scope searches on workspace assets.")
         body["query"] = { "bool": { "filter": [{ "term": { "workspace_id": workspace_id }}]}}
         
     # Apply any given filers
@@ -311,7 +314,10 @@ def search_assets(
     
     # Apply sort if given
     if sort:
-        body["sort"] = [{ sort["field"]: sort["order"] }]
+        if "field" in sort and "order" in sort:
+            body["sort"] = [{ sort["field"]: sort["order"] }]
+        else:
+            body["sort"] = [sort]
         
     # Submit search
     es_response = es("studio").search(

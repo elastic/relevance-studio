@@ -1,6 +1,7 @@
 {
   "_meta": {
-    "description": "Elasticsearch Relevance Studio - Scenarios"
+    "description": "Elasticsearch Relevance Studio - Scenarios",
+    "version": "1.1.0"
   },
   "index_patterns": [
     "esrs-scenarios*"

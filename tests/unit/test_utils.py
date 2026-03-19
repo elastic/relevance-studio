@@ -132,7 +132,7 @@ class TestUtils:
     
     def test_get_search_fields_from_mapping(self):
         actual = utils.get_search_fields_from_mapping("workspaces")
-        expected = sorted([ "name", "index_pattern", "params", "tags" ])
+        expected = sorted([ "name", "index_pattern", "params", "tags", "description" ])
         assert actual == expected
     
     def test_copy_fields_to_search(self):
@@ -144,5 +144,6 @@ class TestUtils:
             "index_pattern": expected["index_pattern"],
             "params": expected["params"],
             "tags": expected["tags"],
+            "description": expected["description"],
         }
         assert actual == expected

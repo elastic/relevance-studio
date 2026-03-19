@@ -49,12 +49,15 @@ if (!window.MonacoEnvironment) {
 */
 
 import { AppProvider } from './Contexts/AppContext'
+import { ChatProvider } from './Contexts/ChatContext'
 import Routes from './Routes'
 
 const App = () => {
   return (
     <AppProvider>
-      <Routes />
+      <ChatProvider>
+        <Routes />
+      </ChatProvider>
     </AppProvider>
   )
 }

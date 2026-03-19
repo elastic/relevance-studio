@@ -6,13 +6,23 @@
 
 <span style="font-size: 18px;">*You know, for search relevance.*</span>
 
+<div style="background: linear-gradient(180deg,#111d40,#091022); border-radius: 4px; padding: 16px 24px; margin: 0 0 -20px 0; max-width: 600px; overflow: hidden;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <code style="background: none; color: #48efcf; font-size: 13px; font-weight: 600; white-space: nowrap; overflow-x: auto;">bash &lt;(curl -fsSL https://ela.st/relevance-studio-quickstart)</code>
+        <button onmouseenter="this.querySelector('.copy-icon').style.stroke='#fff'" onmouseleave="this.querySelector('.copy-icon').style.stroke='#4ea7ff'" onclick="navigator.clipboard.writeText('bash <(curl -fsSL https://ela.st/relevance-studio-quickstart)').then(function(){var b=this;b.querySelector('.copy-icon').style.visibility='hidden';b.querySelector('.check-icon').style.visibility='visible';setTimeout(function(){b.querySelector('.copy-icon').style.visibility='visible';b.querySelector('.check-icon').style.visibility='hidden';},1500);}.bind(this))" style="background: none; border: none; cursor: pointer; padding: 4px; flex-shrink: 0; position: relative; width: 28px; height: 28px;" title="Copy to clipboard">
+            <svg class="copy-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ea7ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: stroke 0.2s; position: absolute; top: 4px; left: 4px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <svg class="check-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#48efcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; top: 4px; left: 4px; visibility: hidden;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><polyline points="13 14 15.5 16.5 19.5 12.5"/></svg>
+        </button>
+    </div>
+</div>
+
 [<button class="get-started">Get started</button>](docs/guide/quickstart) <span style="margin-left: 15px;">[Learn more](docs/guide/welcome.md)</span>
 
 <h3>Search is more relevant than ever</h3>
 
 Elasticsearch Relevance Studio manages the lifecycle of **search relevance engineering** so you can deliver amazing search experiences.
 
-<img src="img/process.png" style="max-width: 600px; padding: 20px 0 0 0;" />
+<img src="https://storage.googleapis.com/esrs-docs/process.png" style="max-width: 600px; padding: 20px 0 0 0;" />
 
 <h3>AI ready :sparkles:</h3>
 
@@ -28,7 +38,7 @@ Let's look at some of the impressive features of Elasticsearch Relevance Studio.
 
 <small>*A ground truth data set is your most important asset in measuring search relevance. Elasticsearch Relevance Studio provides an intuitive human interface for judging the relevance of your documents to your search scenarios – and tools that AI agents can use to automate and scale the process. This screenshot shows Claude Desktop working on a set of [judgements](docs/guide/concepts.md#judgements) and a human reviewing its choices in the application.*</small>
 
-<img alt="Judgements" src="https://storage.googleapis.com/esrs-docs/screenshots/judgements-agentic.png" class="screenshot" />
+<img alt="Judgements" src="https://storage.googleapis.com/esrs-docs/screenshots/judgements-agentic-v1.1.png" class="screenshot" />
 
 ---
 
@@ -36,7 +46,7 @@ Let's look at some of the impressive features of Elasticsearch Relevance Studio.
 
 <small>*You can build and test the search [strategies](docs/guide/concepts#strategies) that you intend to benchmark and get immediate visual feedback on the quality of their results. As you work on them, you can judge the documents that appear in the search results of a test run for a chosen scenario.*</small>
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/strategy.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/strategy-agentic-v1.1.png" class="screenshot" />
 
 ---
 
@@ -44,19 +54,19 @@ Let's look at some of the impressive features of Elasticsearch Relevance Studio.
 
 <small>*As you build out your scenarios, judgements, and strategies, you can run [benchmarks](docs/guide/concepts.md#benchmarks) that evaluate the relevance of your strategies. The human interface presents a concise set of analytics that rank your strategies by key relevance metrics such as NCDG, Precision, and Recall. Re-run benchmarks to measure the progress of your strategies as you change them.*</small>
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary-agentic-v1.1.png" class="screenshot" />
 
 <small>*Drill down into the performance of strategies by scenarios for a chosen relevance metric. Group the metric by strategy tags and/or scenario tags to get a broader sense of which kinds of strategies perform well with which kinds of scenarios.*</small>
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-heatmap.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-heatmap-agentic-v1.1.png" class="screenshot" />
 
 <small>*The benchmarks report any unrated documents that matched your strategies and scenarios. This helps you improve the coverage and quality of your ground truth judgements and, by extension, the trustworthiness of your relevance metrics.*</small>
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-unrated-docs.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-unrated-docs-agentic-v1.1.png" class="screenshot" />
 
 <small>*You can inspect the state of the indices, strategies, scenarios, and judgements as they existed at runtime. They include deterministic fingerprints for efficient change detection. This helps you find and explain the reasons for changes in relevance metrics between runs.*</small>
 
-<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-runtime-assets.png" class="screenshot" />
+<img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-runtime-assets-v1.1.png" class="screenshot" />
 
 ---
 
