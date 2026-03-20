@@ -20,6 +20,7 @@ import {
   EuiPopover,
   EuiPopoverTitle,
   EuiSpacer,
+  EuiAvatar,
   EuiText,
   EuiToolTip,
 } from '@elastic/eui'
@@ -38,6 +39,7 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
 
   const [isHelpPopoverOpen, setIsHelpPopoverOpen] = useState(false)
   const [isInfoPopoverOpen, setIsInfoPopoverOpen] = useState(false)
+  const [isUserPopoverOpen, setIsUserPopoverOpen] = useState(false)
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
@@ -71,6 +73,9 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
 
   const closeHelpPopover = () => setIsHelpPopoverOpen(false)
   const closeInfoPopover = () => setIsInfoPopoverOpen(false)
+  const closeUserPopover = () => setIsUserPopoverOpen(false)
+
+  const userInitials = getUserInitials(userDisplayName)
 
   const headerSections = [
     {
@@ -107,23 +112,6 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
     },
     {
       items: [
-        user?.username && user.username !== 'system' && (
-          <EuiToolTip content={`Signed in as ${userDisplayName}`}>
-            <EuiText size="s" style={{ marginRight: 8 }}>
-              {userDisplayName}
-            </EuiText>
-          </EuiToolTip>
-        ),
-        user?.username && user.username !== 'system' && (
-          <EuiButton
-            size="s"
-            color="text"
-            onClick={() => logout()}
-            style={{ marginRight: 8 }}
-          >
-            Sign out
-          </EuiButton>
-        ),
         <EuiToolTip content={`Switch to ${darkMode ? 'light' : 'dark'} mode`}>
           <EuiButtonIcon
             aria-label={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
@@ -233,6 +221,54 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
             AI Agent
           </EuiButton>
         </EuiToolTip>,
+        user?.username && user.username !== 'system' && (
+          <EuiPopover
+            anchorPosition="downRight"
+            button={
+              <EuiToolTip content={userDisplayName}>
+                <button
+                  aria-label="User menu"
+                  onClick={() => setIsUserPopoverOpen(!isUserPopoverOpen)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    margin: '0 12px',
+                    padding: 0,
+                  }}
+                >
+                  <EuiAvatar
+                    name={userDisplayName || '?'}
+                    size="s"
+                    type="user"
+                    color="#EAAE01"
+                    initialsLength={2}
+                  />
+                </button>
+              </EuiToolTip>
+            }
+            isOpen={isUserPopoverOpen}
+            closePopover={closeUserPopover}
+          >
+            <>
+              <EuiPopoverTitle>{userDisplayName}</EuiPopoverTitle>
+              <EuiFlexGroup
+                alignItems="center"
+                gutterSize="s"
+                responsive={false}
+                style={{ cursor: 'pointer' }}
+                onClick={() => { closeUserPopover(); logout() }}
+              >
+                <EuiFlexItem grow={false}>
+                  <EuiIcon type="exit" size="m" />
+                </EuiFlexItem>
+                <EuiFlexItem grow={false}>
+                  <EuiText size="s" style={{ fontWeight: 500 }}>Log out</EuiText>
+                </EuiFlexItem>
+              </EuiFlexGroup>
+            </>
+          </EuiPopover>
+        ),
       ],
     },
   ]
@@ -332,5 +368,14 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
 
 export const getUserDisplayName = (user) =>
   user?.full_name || user?.email || user?.api_key?.name || user?.username || null
+
+export const getUserInitials = (displayName) => {
+  if (!displayName) return '?'
+  const parts = displayName.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+  return parts[0][0].toUpperCase()
+}
 
 export default Page

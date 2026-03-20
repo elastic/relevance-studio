@@ -5,7 +5,7 @@
  * 2.0.
  */
 
-import { getUserDisplayName } from '../Layout/Page'
+import { getUserDisplayName, getUserInitials } from '../Layout/Page'
 
 describe('getUserDisplayName', () => {
   it('returns full_name when available', () => {
@@ -31,5 +31,24 @@ describe('getUserDisplayName', () => {
   it('returns null for null/undefined user', () => {
     expect(getUserDisplayName(null)).toBeNull()
     expect(getUserDisplayName(undefined)).toBeNull()
+  })
+})
+
+describe('getUserInitials', () => {
+  it('returns initials from a two-word name', () => {
+    expect(getUserInitials('Dave Moore')).toBe('DM')
+  })
+
+  it('returns initials from a multi-word name (first and last)', () => {
+    expect(getUserInitials('Mary Jane Watson')).toBe('MW')
+  })
+
+  it('returns a single initial for a single-word name', () => {
+    expect(getUserInitials('elastic')).toBe('E')
+  })
+
+  it('returns "?" for null/undefined', () => {
+    expect(getUserInitials(null)).toBe('?')
+    expect(getUserInitials(undefined)).toBe('?')
   })
 })
