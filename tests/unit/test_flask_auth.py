@@ -123,3 +123,62 @@ class TestLoginRoute:
         r = client.post("/api/auth/login", json={"api_key": "invalid-base64-key"})
         # 400 = bad format, 401 = invalid creds, 500 = ES unreachable
         assert r.status_code in (400, 401, 500)
+
+    def test_login_with_api_key_reuses_key_for_session(self, client, monkeypatch):
+        input_api_key = "dGVzdDphcGlrZXk="
+        observed = {}
+
+        monkeypatch.setattr(
+            auth,
+            "validate_credentials",
+            lambda credentials: {"username": "alice", "roles": ["user"]},
+        )
+
+        def _fail_if_called(_):
+            raise AssertionError("create_session_api_key must not be called for api_key login")
+
+        monkeypatch.setattr(auth, "create_session_api_key", _fail_if_called)
+
+        def _capture_encode(user, api_key, expiry=None):
+            observed["user"] = user
+            observed["api_key"] = api_key
+            observed["expiry"] = expiry
+            return "test-jwt-token"
+
+        monkeypatch.setattr(auth, "encode_jwt", _capture_encode)
+
+        r = client.post("/api/auth/login", json={"api_key": input_api_key})
+
+        assert r.status_code == 200
+        assert observed["user"]["username"] == "alice"
+        assert observed["api_key"] == input_api_key
+
+    def test_login_with_basic_auth_creates_session_api_key(self, client, monkeypatch):
+        observed = {}
+
+        monkeypatch.setattr(
+            auth,
+            "validate_credentials",
+            lambda credentials: {"username": "alice", "roles": ["user"]},
+        )
+
+        def _create_session_api_key(credentials):
+            observed["credentials"] = credentials
+            return {"encoded": "ZGVyaXZlZDphcGlrZXk="}
+
+        monkeypatch.setattr(auth, "create_session_api_key", _create_session_api_key)
+
+        def _capture_encode(user, api_key, expiry=None):
+            observed["user"] = user
+            observed["api_key"] = api_key
+            observed["expiry"] = expiry
+            return "test-jwt-token"
+
+        monkeypatch.setattr(auth, "encode_jwt", _capture_encode)
+
+        r = client.post("/api/auth/login", json={"username": "alice", "password": "secret"})
+
+        assert r.status_code == 200
+        assert observed["credentials"] == {"username": "alice", "password": "secret"}
+        assert observed["user"]["username"] == "alice"
+        assert observed["api_key"] == "ZGVyaXZlZDphcGlrZXk="

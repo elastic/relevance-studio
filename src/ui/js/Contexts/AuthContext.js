@@ -9,6 +9,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import api from '../api'
 import { getHistory } from '../history'
 import { register401Handler } from '../auth401handler'
+import { clearAuthReady, notifyAuthReady } from '../authEvents'
 
 export const AuthContext = createContext()
 
@@ -23,6 +24,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(() => {
     setUser(null)
+    clearAuthReady()
     api.auth_logout().catch(() => {})
     getHistory().replace('/login')
   }, [])
@@ -32,6 +34,7 @@ export const AuthProvider = ({ children }) => {
     const u = response?.data?.user
     if (u) {
       setUser(u)
+      notifyAuthReady()
     } else {
       throw new Error('Login did not return user')
     }
@@ -42,12 +45,14 @@ export const AuthProvider = ({ children }) => {
       const response = await api.auth_session()
       const u = response?.data?.user
       setUser(u || null)
-    } catch (err) {
-      if (err.response?.status === 401) {
-        setUser(null)
+      if (u) {
+        notifyAuthReady()
       } else {
-        setUser(null)
+        clearAuthReady()
       }
+    } catch (err) {
+      setUser(null)
+      clearAuthReady()
     } finally {
       setHasCheckedSession(true)
       setIsLoading(false)

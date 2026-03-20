@@ -193,8 +193,15 @@ def auth_login():
     except AuthenticationException:
         return jsonify({"error": "Unauthorized", "message": "Invalid credentials"}), 401
 
-    api_key_result = auth.create_session_api_key(credentials)
-    token = auth.encode_jwt(user, api_key_result["encoded"])
+    # API-key login cannot always create a derived API key; reuse provided key.
+    # Username/password login still creates a scoped session API key.
+    if credentials.get("api_key"):
+        session_api_key_encoded = credentials["api_key"]
+    else:
+        api_key_result = auth.create_session_api_key(credentials)
+        session_api_key_encoded = api_key_result["encoded"]
+
+    token = auth.encode_jwt(user, session_api_key_encoded)
 
     resp = make_response(jsonify({"user": user}))
     resp.set_cookie(

@@ -8,8 +8,13 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { AuthProvider, useAuthContext } from '../Contexts/AuthContext'
 import api from '../api'
+import { clearAuthReady, notifyAuthReady } from '../authEvents'
 
 jest.mock('../api')
+jest.mock('../authEvents', () => ({
+  notifyAuthReady: jest.fn(),
+  clearAuthReady: jest.fn(),
+}))
 jest.mock('../history', () => {
   const mockHistory = { replace: jest.fn(), location: { state: null } }
   return {
@@ -60,6 +65,8 @@ describe('AuthProvider', () => {
       expect(screen.getByTestId('checked')).toHaveTextContent('true')
       expect(screen.getByTestId('authenticated')).toHaveTextContent('true')
     })
+    expect(notifyAuthReady).toHaveBeenCalledTimes(1)
+    expect(clearAuthReady).not.toHaveBeenCalled()
   })
 
   it('sets isAuthenticated=false when session returns 401', async () => {
@@ -75,5 +82,7 @@ describe('AuthProvider', () => {
       expect(screen.getByTestId('checked')).toHaveTextContent('true')
       expect(screen.getByTestId('authenticated')).toHaveTextContent('false')
     })
+    expect(clearAuthReady).toHaveBeenCalledTimes(1)
+    expect(notifyAuthReady).not.toHaveBeenCalled()
   })
 })
