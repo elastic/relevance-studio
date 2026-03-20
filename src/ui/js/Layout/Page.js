@@ -62,6 +62,7 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
 
   const { user, logout } = useAuthContext()
 
+  const userDisplayName = getUserDisplayName(user)
   const path = useRouteMatch().path
   const isAiAgentDisabled = !hasCheckedSetup || isCheckingSetup || !isSetup || isUpgradeNeeded
   const aiAgentTooltip = isAiAgentDisabled
@@ -107,9 +108,9 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
     {
       items: [
         user?.username && user.username !== 'system' && (
-          <EuiToolTip content={`Signed in as ${user.username}`}>
+          <EuiToolTip content={`Signed in as ${userDisplayName}`}>
             <EuiText size="s" style={{ marginRight: 8 }}>
-              {user.username}
+              {userDisplayName}
             </EuiText>
           </EuiToolTip>
         ),
@@ -328,5 +329,8 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
     </div>
   )
 }
+
+export const getUserDisplayName = (user) =>
+  user?.full_name || user?.email || user?.api_key?.name || user?.username || null
 
 export default Page
