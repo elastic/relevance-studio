@@ -22,6 +22,14 @@ jest.mock('../history', () => {
     getHistory: () => mockHistory,
   }
 })
+jest.mock('../Contexts/AppContext', () => ({
+  __esModule: true,
+  useAppContext: () => ({ darkMode: false }),
+}))
+jest.mock('../Layout/Page', () => ({
+  APP_LOGO_ICON_DARK: 'dark-logo',
+  APP_LOGO_ICON_LIGHT: 'light-logo',
+}))
 
 const renderLogin = () => {
   return render(
@@ -40,44 +48,53 @@ beforeEach(() => {
 })
 
 describe('Login', () => {
-  it('renders username and password fields in basic auth mode', async () => {
+  it('renders method selector with two login options', async () => {
     renderLogin()
     await waitFor(() => expect(api.auth_session).toHaveBeenCalled())
+
+    expect(screen.getByText(/log in with username and password/i)).toBeInTheDocument()
+    expect(screen.getByText(/log in with api key/i)).toBeInTheDocument()
+  })
+
+  it('shows username and password fields when selecting basic auth', async () => {
+    renderLogin()
+    await waitFor(() => expect(api.auth_session).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByText(/log in with username and password/i))
 
     expect(screen.getByRole('textbox', { name: /username/i })).toBeInTheDocument()
     expect(screen.getByLabelText(/^Password$/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument()
   })
 
-  it('renders API key field in API key mode', async () => {
+  it('shows API key field when selecting API key auth', async () => {
     renderLogin()
     await waitFor(() => expect(api.auth_session).toHaveBeenCalled())
 
-    const switchEl = screen.getByRole('switch', { name: /username & password/i })
-    fireEvent.click(switchEl)
+    fireEvent.click(screen.getByText(/log in with api key/i))
 
-    expect(screen.getByPlaceholderText(/base64-encoded api key/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/api key/i)).toBeInTheDocument()
   })
 
-  it('toggles between modes', async () => {
+  it('navigates back to method selector via "More login options"', async () => {
     renderLogin()
     await waitFor(() => expect(api.auth_session).toHaveBeenCalled())
 
+    fireEvent.click(screen.getByText(/log in with username and password/i))
     expect(screen.getByRole('textbox', { name: /username/i })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('switch', { name: /username & password/i }))
-    expect(screen.queryByRole('textbox', { name: /username/i })).not.toBeInTheDocument()
-    expect(screen.getByPlaceholderText(/base64-encoded api key/i)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('switch', { name: /api key/i }))
-    expect(screen.getByRole('textbox', { name: /username/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByText('More login options'))
+    expect(screen.getByText(/log in with username and password/i)).toBeInTheDocument()
+    expect(screen.getByText(/log in with api key/i)).toBeInTheDocument()
   })
 
   it('disables submit when fields are empty', async () => {
     renderLogin()
     await waitFor(() => expect(api.auth_session).toHaveBeenCalled())
 
-    const submitBtn = screen.getByRole('button', { name: /sign in/i })
+    fireEvent.click(screen.getByText(/log in with username and password/i))
+
+    const submitBtn = screen.getByRole('button', { name: /log in/i })
     expect(submitBtn).toBeDisabled()
 
     await userEvent.type(screen.getByRole('textbox', { name: /username/i }), 'user')
@@ -93,9 +110,11 @@ describe('Login', () => {
     renderLogin()
     await waitFor(() => expect(api.auth_session).toHaveBeenCalled())
 
+    fireEvent.click(screen.getByText(/log in with username and password/i))
+
     await userEvent.type(screen.getByRole('textbox', { name: /username/i }), 'user')
     await userEvent.type(screen.getByLabelText(/^Password$/i), 'wrong')
-    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+    fireEvent.click(screen.getByRole('button', { name: /log in/i }))
 
     await waitFor(() => {
       expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument()
