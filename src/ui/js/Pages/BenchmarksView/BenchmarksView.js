@@ -252,6 +252,12 @@ const BenchmarksView = () => {
       render: (name, doc) => doc.scenario_id?.length || '-'
     },
     {
+      field: 'task.requests',
+      name: 'Requests',
+      sortable: true,
+      render: (name, doc) => Number.isInteger(doc.task?.requests) ? doc.task.requests.toLocaleString() : '-'
+    },
+    {
       name: 'Actions',
       actions: [
         {
