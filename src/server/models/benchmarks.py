@@ -145,6 +145,7 @@ class TaskCreate(BaseModel):
     # Optional inputs
     metrics: List[str] = Field(default_factory=lambda: ["mrr", "ndcg", "precision", "recall"])
     k: StrictInt = Field(default=10, ge=1)
+    requests: StrictInt = Field(default=0, ge=0)
     strategies: TaskStrategiesCreate = Field(default_factory=TaskStrategiesCreate)
     scenarios: TaskScenariosCreate = Field(default_factory=TaskScenariosCreate)
 
@@ -153,6 +154,13 @@ class TaskCreate(BaseModel):
     def validate_k(cls, value):
         if isinstance(value, bool):
             raise ValueError("k must be an integer")
+        return value
+
+    @field_validator("requests", mode="before")
+    @classmethod
+    def validate_requests(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("requests must be an integer")
         return value
 
     @field_validator("metrics")
@@ -170,6 +178,7 @@ class TaskUpdate(BaseModel):
     
     # Optional inputs
     metrics: Optional[List[str]] = None
+    requests: Optional[StrictInt] = Field(default=None, ge=0)
     strategies: Optional[TaskStrategiesUpdate] = None
     scenarios: Optional[TaskScenariosUpdate] = None
 
@@ -182,6 +191,15 @@ class TaskUpdate(BaseModel):
         if len(stripped) != len(value) or not all(stripped):
             raise ValueError("metrics must be a list of non-empty strings")
         return stripped
+
+    @field_validator("requests", mode="before")
+    @classmethod
+    def validate_requests(cls, value):
+        if value is None:
+            return value
+        if isinstance(value, bool):
+            raise ValueError("requests must be an integer")
+        return value
 
     @model_validator(mode="before")
     @classmethod
