@@ -70,6 +70,19 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
   const aiAgentTooltip = isAiAgentDisabled
     ? (!isSetup ? 'AI Agent will be available after setup is complete' : 'AI Agent will be available after upgrade is complete')
     : (chatOpen ? 'Close AI Agent' : 'Open AI Agent')
+  const aiAgentButtonStyle = {
+    background: chatOpen
+      ? 'linear-gradient(165deg, rgb(11, 100, 221) 2.98%, rgb(129, 68, 204) 66.24%)'
+      : 'linear-gradient(90deg, rgb(217, 232, 255) 2.98%, rgb(236, 226, 254) 66.24%)',
+    border: 'none',
+    borderRadius: '4px',
+    color: chatOpen ? '#ffffff' : 'rgb(23, 80, 186)',
+    fontWeight: 500,
+    height: '32px',
+    marginLeft: '6px',
+    opacity: isAiAgentDisabled ? 0.6 : 1,
+    transition: 'all 0.2s ease',
+  }
 
   const closeHelpPopover = () => setIsHelpPopoverOpen(false)
   const closeInfoPopover = () => setIsInfoPopoverOpen(false)
@@ -213,10 +226,12 @@ const Page = ({ title, buttons, paddingSize = 's', children, }) => {
         <EuiToolTip content={aiAgentTooltip}>
           <EuiButton
             aria-label={chatOpen ? 'Close AI Agent' : 'Open AI Agent'}
+            color="text"
             disabled={isAiAgentDisabled}
+            fill={true}
             iconType="productAgent"
             onClick={() => setChatOpen(!chatOpen)}
-            style={{ height: '32px', marginLeft: '6px', fontWeight: 500 }}
+            style={aiAgentButtonStyle}
           >
             AI Agent
           </EuiButton>
