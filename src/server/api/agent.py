@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import re
+import ssl
 import time
 import uuid
 from datetime import datetime, timezone
@@ -17,9 +18,9 @@ from typing import Any, Dict, Generator, List, Optional, Tuple, TYPE_CHECKING
 import httpx
 import requests
 from fastmcp.client import Client
+from fastmcp.client.transports import StreamableHttpTransport
 
 # App packages
-from .. import utils
 from ..client import es
 from . import conversations as api_conversations
 
@@ -27,8 +28,36 @@ if TYPE_CHECKING:
     from elasticsearch import Elasticsearch
 
 # MCP server configuration
-MCP_SERVER_URL = os.getenv("MCP_SERVER_URL") or "http://127.0.0.1:4200/mcp"
+_tls_raw = os.getenv("TLS_ENABLED")
+_TLS_ENABLED = _tls_raw is None or _tls_raw.strip() == "" or _tls_raw.strip().lower() in ("true", "1", "yes", "on")
+_TLS_CERT_FILE = os.getenv("TLS_CERT_FILE", "").strip() or None
+_mcp_scheme = "https" if _TLS_ENABLED else "http"
+_mcp_port = os.getenv("FASTMCP_PORT") or "4200"
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL") or f"{_mcp_scheme}://127.0.0.1:{_mcp_port}/mcp"
 MCP_ENABLED = True
+
+# When TLS is enabled with a cert file (e.g. self-signed), build an SSL context
+# that trusts it in addition to the default CA bundle so that the MCP client can
+# connect to the co-located MCP server over HTTPS.
+_mcp_ssl_ctx: Optional[ssl.SSLContext] = None
+if _TLS_ENABLED and _TLS_CERT_FILE and os.path.isfile(_TLS_CERT_FILE):
+    _mcp_ssl_ctx = ssl.create_default_context()
+    _mcp_ssl_ctx.load_verify_locations(cafile=_TLS_CERT_FILE)
+
+
+def _create_mcp_client(auth: Optional[Any] = None) -> Client:
+    """Create a FastMCP Client with TLS and auth configured."""
+    if _mcp_ssl_ctx is not None:
+        ssl_ctx = _mcp_ssl_ctx
+
+        def _httpx_factory(**kwargs: Any) -> httpx.AsyncClient:
+            kwargs.setdefault("verify", ssl_ctx)
+            return httpx.AsyncClient(**kwargs)
+
+        transport = StreamableHttpTransport(MCP_SERVER_URL, auth=auth, httpx_client_factory=_httpx_factory)
+        return Client(transport)
+    return Client(MCP_SERVER_URL, auth=auth)
+
 
 # MCP tools cache
 _tools_cache = None
@@ -774,7 +803,7 @@ async def _load_tools_from_mcp(mcp_client_auth: Optional[Any] = None) -> List[Di
     """
     global _tools_cache
     try:
-        async with Client(MCP_SERVER_URL, auth=mcp_client_auth) as client:
+        async with _create_mcp_client(auth=mcp_client_auth) as client:
             # List available tools
             tools_list = await client.list_tools()
             
@@ -814,7 +843,7 @@ async def _call_mcp_tool(tool_name: str, tool_args: Dict[str, Any], mcp_client_a
         McpError: If the tool call fails.
     """
     try:
-        async with Client(MCP_SERVER_URL, auth=mcp_client_auth) as client:
+        async with _create_mcp_client(auth=mcp_client_auth) as client:
             result = await client.call_tool(tool_name, tool_args)
             
             # Extract text content from MCP response
