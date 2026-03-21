@@ -43,13 +43,17 @@ After the new code is running, apply index upgrades:
 - Open Elasticsearch Relevance Studio and run setup/upgrade from the UI, or
 - Call the upgrade API directly:
 
-**`curl -X POST http://localhost:4096/api/upgrade`**
+**`curl -X POST https://localhost:4096/api/upgrade`**
+
+*(use `http://` if `TLS_ENABLED=false`)*
 
 ## Verify upgrade status
 
 Check upgrade status at:
 
-**`http://localhost:4096/api/setup`**
+**`https://localhost:4096/api/setup`**
+
+*(use `http://` if `TLS_ENABLED=false`)*
 
 In the response:
 

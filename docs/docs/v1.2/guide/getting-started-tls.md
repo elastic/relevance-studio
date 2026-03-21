@@ -19,29 +19,21 @@ TLS is enabled by default. When `TLS_ENABLED=true`, you must provide valid PEM c
 2. Generate a self-signed certificate:
 
    ```bash
-   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+   openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
      -keyout .certs/key.pem -out .certs/cert.pem \
-     -subj "/CN=localhost/O=Relevance Studio Local Dev"
+     -subj "/CN=localhost" \
+     -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"
    ```
 
 3. Add to `.env`:
 
    ```
    TLS_ENABLED=true
-   TLS_CERT_FILE=/certs/cert.pem
-   TLS_KEY_FILE=/certs/key.pem
+   TLS_CERT_FILE=.certs/cert.pem
+   TLS_KEY_FILE=.certs/key.pem
    ```
 
-4. For Docker, mount the local `.certs` directory to `/certs`. Example in `docker-compose.yml`:
-
-   ```yaml
-   volumes:
-     - ./.certs:/certs
-   environment:
-     - TLS_ENABLED=true
-     - TLS_CERT_FILE=/certs/cert.pem
-     - TLS_KEY_FILE=/certs/key.pem
-   ```
+4. For Docker, mount the local `.certs` directory into the container. The default `docker-compose.yml` already mounts `./.certs:/app/.certs:ro`, so the relative paths above resolve correctly under the container's working directory (`/app`).
 
 5. Access the app at `https://localhost:4096` and accept the browser warning for the self-signed cert.
 

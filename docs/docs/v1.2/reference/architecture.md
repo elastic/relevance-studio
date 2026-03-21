@@ -19,6 +19,8 @@ This diagram shows all required and optional [components of Elasticsearch Releva
 
 <img src="https://storage.googleapis.com/esrs-docs/architecture/architecture-v1.1-reference.png" />
 
+*Note: This diagram reflects the v1.1 architecture. v1.2 adds native TLS and authentication to the Server and MCP Server. See [Security](docs/{{VERSION}}/reference/security.md) for details.*
+
 ## Components
 
 ### Server
@@ -79,12 +81,12 @@ You can combine the Studio and Content deployments, but separating them is usual
 
 These are the default ports and protocols used by Elasticsearch Relevance Studio:
 
-|Service   |Port|Protocols|
-|----------|----|---------|
-|Server    |4096|HTTP     |
-|Worker*   |-   |-        |
-|MCP Server|4200|HTTP     |
-|MCP Proxy*|-   |-        |
+|Service   |Port|Protocols  |
+|----------|----|-----------|
+|Server    |4096|HTTP, HTTPS|
+|Worker*   |-   |-          |
+|MCP Server|4200|HTTP, HTTPS|
+|MCP Proxy*|-   |-          |
 
 *&ast; The Worker and MCP Proxy don't expose ports because they don't accept remote connections.*
 

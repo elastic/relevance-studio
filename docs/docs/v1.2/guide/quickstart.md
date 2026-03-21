@@ -34,7 +34,9 @@ Use `--help` to see all available options:
 
 Once the quickstart script has finished, open Elasticsearch Relevance Studio in a web browser:
 
-[http://localhost:4096/](http://localhost:4096/)
+If TLS is enabled (default): [https://localhost:4096/](https://localhost:4096/)
+
+If TLS is disabled: [http://localhost:4096/](http://localhost:4096/)
 
 ...then click the "Setup" button to finish the setup.
 

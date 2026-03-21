@@ -67,12 +67,19 @@ def search(
         }
     }
     if filter == "rated-human":
-        body["query"]["bool"]["must_not"] = {
-            "term": { "@meta.updated_via": "mcp"}
-        }
+        body["query"]["bool"]["must_not"] = [
+            {"term": {"@meta.updated_via": "mcp"}},
+            {"term": {"@meta.updated_by": "ai"}},
+        ]
     elif filter == "rated-ai":
         body["query"]["bool"]["filter"].append({
-            "term": { "@meta.updated_via": "mcp"}
+            "bool": {
+                "should": [
+                    {"term": {"@meta.updated_via": "mcp"}},
+                    {"term": {"@meta.updated_by": "ai"}},
+                ],
+                "minimum_should_match": 1,
+            }
         })
     if sort == "rating-newest":
         body["sort"] = [{
@@ -158,7 +165,7 @@ def search(
     if response["hits"]["hits"] and sort in ( "rating-newest", "rating-oldest" ):
         reverse = True if sort == "rating-newest" else False
         fallback = "0000-01-01T00:00:00Z" if not reverse else "9999-12-31T23:59:59Z"
-        response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: hit.get("@meta", {}).get("created_at") or fallback, reverse=reverse)
+        response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: (hit.get("@meta") or {}).get("created_at") or fallback, reverse=reverse)
     return response
 
 def set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int, user: str = None, via: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:

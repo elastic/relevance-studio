@@ -11,6 +11,8 @@ The following fields are used by all documents (except [evaluations](#evaluation
 - **`@meta.created_by`** - The name of the user that created the document.
 - **`@meta.updated_at`** - The ISO 8601 (UTC) date and time at which the document was last updated.
 - **`@meta.updated_by`** - The name of the user that last updated the document.
+- **`@meta.created_via`** - The channel through which the document was created: `"server"` (REST API/UI), `"mcp"` (MCP Server), or `"api"` (Python API/worker).
+- **`@meta.updated_via`** - The channel through which the document was last updated (same values as `created_via`).
 - **`_search`** - An object whose fields are the full text representations of their respective fields in the document.
 
 **Constraints**
@@ -21,6 +23,8 @@ The following fields are used by all documents (except [evaluations](#evaluation
 |**`@meta.created_by`**|String|Forbidden|Forbidden|Auto-generated|
 |**`@meta.updated_at`**|String|Forbidden|Forbidden|Auto-generated|
 |**`@meta.updated_by`**|String|Forbidden|Forbidden|Auto-generated|
+|**`@meta.created_via`**|String|Forbidden|Forbidden|Auto-generated|
+|**`@meta.updated_via`**|String|Forbidden|Forbidden|Auto-generated|
 |**`_search`**|Object|Forbidden|Forbidden|Auto-generated|
 
 ## Workspaces

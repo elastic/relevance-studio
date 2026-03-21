@@ -42,6 +42,19 @@ If you previously ran over HTTP, follow these steps to enable TLS:
 
 4. **Restart services**. Access the app at `https://` instead of `http://`.
 
+## Apply the v1.2.0 index template migration
+
+After upgrading to v1.2, apply the index template migration to add `@meta.created_via` and `@meta.updated_via` fields to existing indices:
+
+1. Open Elasticsearch Relevance Studio and run setup/upgrade from the UI, or
+2. Call the upgrade API directly:
+
+   **`curl -X POST https://localhost:4096/api/upgrade`**
+
+   *(use `http://` if `TLS_ENABLED=false`)*
+
+Check status at **`GET https://localhost:4096/api/setup`** — verify `upgrade.upgrade_needed: false`.
+
 ## Running behind a reverse proxy
 
 If you run Relevance Studio behind a reverse proxy that terminates TLS and handles auth:

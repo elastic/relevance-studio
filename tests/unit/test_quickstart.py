@@ -966,8 +966,8 @@ class TestIdempotency:
         assert req_count_file.read_text() == "1"
         env = read_env(seeded_dir)
         assert env["TLS_ENABLED"] == "true"
-        assert env["TLS_CERT_FILE"] == "/certs/cert.pem"
-        assert env["TLS_KEY_FILE"] == "/certs/key.pem"
+        assert env["TLS_CERT_FILE"] == ".certs/cert.pem"
+        assert env["TLS_KEY_FILE"] == ".certs/key.pem"
 
 
 class TestInteractiveTlsAuth:
@@ -997,8 +997,8 @@ class TestInteractiveTlsAuth:
         assert result.returncode == 0
         env = read_env(seeded_dir)
         assert env["TLS_ENABLED"] == "true"
-        assert env["TLS_CERT_FILE"] == "/certs/cert.pem"
-        assert env["TLS_KEY_FILE"] == "/certs/key.pem"
+        assert env["TLS_CERT_FILE"] == ".certs/cert.pem"
+        assert env["TLS_KEY_FILE"] == ".certs/key.pem"
         assert env["AUTH_ENABLED"] == "true"
         assert env["AUTH_JWT_SECRET"] == "stub-jwt-secret"
         assert env["AUTH_SESSION_EXPIRY"] == "24h"

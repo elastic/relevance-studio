@@ -60,21 +60,21 @@ class TestParseAuthorizationHeader:
 class TestGetDefaultUserAndClient:
     """AUTH_ENABLED=false uses default user and singleton ES client."""
 
-    def test_returns_ai_user_and_es_studio(self, monkeypatch):
+    def test_returns_system_user_and_es_studio(self, monkeypatch):
         mock_es = MagicMock()
         monkeypatch.setattr("server.mcp_auth.es", lambda name: mock_es)
         user, client = mcp_auth.get_default_user_and_client()
-        assert user["username"] == "ai"
-        assert user["roles"] == []
+        assert user["username"] == "system"
+        assert user["roles"] == ["superuser"]
         assert client is mock_es
 
 
 class TestGetMcpAuthFromContext:
     """Extract user and es_client from FastMCP context state."""
 
-    def test_none_context_returns_ai_and_none(self):
+    def test_none_context_returns_system_and_none(self):
         username, es_client = mcp_auth.get_mcp_auth_from_context(None)
-        assert username == "ai"
+        assert username == "system"
         assert es_client is None
 
     def test_context_with_state_returns_user_and_client(self):
@@ -86,11 +86,11 @@ class TestGetMcpAuthFromContext:
         assert username == "alice"
         assert es_client is not None
 
-    def test_context_missing_user_falls_back_to_ai(self):
+    def test_context_missing_user_falls_back_to_system(self):
         ctx = MagicMock()
         ctx.get_state.side_effect = lambda k: (None if k == "mcp_user" else MagicMock())
         username, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-        assert username == "ai"
+        assert username == "system"
 
 
 class TestHealthzExemption:

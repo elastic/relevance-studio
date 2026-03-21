@@ -10,7 +10,7 @@ services:
     env_file:
       - .env
     environment:
-      - MCP_SERVER_URL=http://esrs-server-mcp:4200/mcp
+      - MCP_SERVER_URL=https://esrs-server-mcp:4200/mcp  # Use http:// if TLS_ENABLED=false
   esrs-worker:
     build:
       context: .

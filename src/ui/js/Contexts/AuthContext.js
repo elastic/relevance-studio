@@ -26,7 +26,9 @@ export const AuthProvider = ({ children }) => {
     setUser(null)
     clearAuthReady()
     api.auth_logout().catch(() => {})
-    getHistory().replace('/login')
+    const h = getHistory()
+    const currentPath = h.location.pathname + h.location.search
+    h.replace(`/login?next=${encodeURIComponent(currentPath)}`)
   }, [])
 
   const login = useCallback(async (credentials) => {

@@ -13,6 +13,7 @@ Elasticsearch Relevance Studio is an opinionated framework for search relevance 
 - [Benchmark](#benchmark)
 - [Evaluation](#evaluation)
 - [Relevance metrics](#relevance-metrics)
+- [Identity and channels](#identity-and-channels)
 
 ## Agent
 
@@ -235,3 +236,14 @@ Relevance metrics are what you try to maximize in Elasticsearch Relevance Studio
 - **[Precision](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-rank-eval#k-precision)** - Measures how many of the top `k` documents were judged as relevant.
 - **[Recall](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-rank-eval#k-recall)** - Measures how many relevant documents were retrieved.
 - **[MRR](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/search-rank-eval#_mean_reciprocal_rank)** *(Mean Reciprocal Rank)* - Measures how early the first relevant document appears in the results.
+
+---
+
+## Identity and channels
+
+Documents track both **who** performed an action and **how** it was performed using [`@meta`](docs/{{VERSION}}/reference/data-model.md#common-fields) fields:
+
+- **`@meta.created_by` / `@meta.updated_by`** — the Elasticsearch username of the authenticated user (e.g. `"dave"`), or `"system"` for service-account operations.
+- **`@meta.created_via` / `@meta.updated_via`** — the channel through which the action was performed: `"server"` (REST API / UI), `"mcp"` (MCP Server / AI agents), or `"api"` (Python API / worker).
+
+This separation means you can filter by channel (e.g. show only AI-created judgements) independently of user identity. For example, the `rated-human` and `rated-ai` filters on [judgements](docs/{{VERSION}}/reference/rest-api.md#judgements-api) use `@meta.updated_via` to distinguish channel rather than identity.

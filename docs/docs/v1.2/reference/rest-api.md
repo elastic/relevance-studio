@@ -21,6 +21,12 @@ All REST API endpoints accept payloads as JSON and return payloads as JSON (`app
 - [Search API](#search-api)
 - [Mappings API](#mappings-api)
 
+<span style="font-size: 18px;">**[Auth API](#auth-api)**</span>
+
+- [Login](#login)
+- [Logout](#logout)
+- [Session](#session)
+
 <span style="font-size: 18px;">**[System API](#system-api)**</span>
 
 - [Setup API](#setup-api)
@@ -892,6 +898,87 @@ Example payload:
 Retrieve all [mappings](https://www.elastic.co/docs/manage-data/data-store/mapping) from the [content deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) that match a given set of index patterns.
 
 **`GET /api/content/mappings/<index_patterns>`**
+
+---
+
+## Auth API
+
+The Auth API manages user authentication and sessions. When `AUTH_ENABLED=true` (default), users must authenticate before accessing other API endpoints. See [Security](docs/{{VERSION}}/reference/security.md) for configuration details.
+
+### Login
+
+Authenticate with Elasticsearch credentials and create a session. Accepts either username/password or an API key. On success, returns user metadata and sets an HTTP-only session cookie (JWT).
+
+**`POST /api/auth/login`**
+
+Example payload (username/password):
+
+```json
+{
+  "username": "alice",
+  "password": "secret"
+}
+```
+
+Example payload (API key):
+
+```json
+{
+  "api_key": "<base64-encoded Elasticsearch API key>"
+}
+```
+
+Example response:
+
+```json
+{
+  "user": {
+    "username": "alice",
+    "roles": ["admin"],
+    "full_name": "Alice Smith",
+    "email": "alice@example.com"
+  }
+}
+```
+
+Returns `401` with `{"error": "Unauthorized", "message": "Invalid credentials"}` if credentials are invalid. Returns `400` if neither `api_key` nor `username`/`password` are provided.
+
+When `AUTH_ENABLED=false`, returns a system user without validating credentials.
+
+### Logout
+
+Clear the session cookie.
+
+**`POST /api/auth/logout`**
+
+Example response:
+
+```json
+{
+  "acknowledged": true
+}
+```
+
+### Session
+
+Return the current user's metadata from the session cookie. Returns `401` if no valid session exists (when `AUTH_ENABLED=true`).
+
+**`GET /api/auth/session`**
+
+Example response:
+
+```json
+{
+  "user": {
+    "username": "alice",
+    "roles": ["admin"],
+    "full_name": "Alice Smith",
+    "email": "alice@example.com"
+  }
+}
+```
+
+When `AUTH_ENABLED=false`, returns the system user.
 
 ---
 

@@ -888,8 +888,8 @@ configure_env() {
       if prompt_yes_no "Auto-generate self-signed certs in .certs/?" "y"; then
         generate_tls_cert "$INSTALL_DIR" "$env_file" "true"
       else
-        set_env_value "TLS_CERT_FILE" "$(prompt_value "TLS_CERT_FILE path" "/certs/cert.pem")" "$env_file"
-        set_env_value "TLS_KEY_FILE" "$(prompt_value "TLS_KEY_FILE path" "/certs/key.pem")" "$env_file"
+        set_env_value "TLS_CERT_FILE" "$(prompt_value "TLS_CERT_FILE path" ".certs/cert.pem")" "$env_file"
+        set_env_value "TLS_KEY_FILE" "$(prompt_value "TLS_KEY_FILE path" ".certs/key.pem")" "$env_file"
         print_success "TLS enabled with provided certificate paths"
       fi
     else
@@ -962,20 +962,21 @@ generate_tls_cert() {
   if [[ -f "$cert_file" && -f "$key_file" ]]; then
     print_info "Existing TLS cert/key found in ${CYAN}$certs_dir${RESET}; reusing files."
     set_env_value "TLS_ENABLED" "true" "$env_file"
-    set_env_value "TLS_CERT_FILE" "/certs/cert.pem" "$env_file"
-    set_env_value "TLS_KEY_FILE" "/certs/key.pem" "$env_file"
+    set_env_value "TLS_CERT_FILE" ".certs/cert.pem" "$env_file"
+    set_env_value "TLS_KEY_FILE" ".certs/key.pem" "$env_file"
     set_compose_tls_enabled "$install_dir" "true"
     print_success "Certificate: ${CYAN}$cert_file${RESET}"
     print_success "Private key: ${CYAN}$key_file${RESET}"
     print_info "${DIM}Access via https://localhost:4096 (accept browser warning for self-signed cert)${RESET}"
-  elif openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  elif openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
     -keyout "$key_file" -out "$cert_file" \
-    -subj "/CN=localhost/O=Relevance Studio Local Dev" 2>/dev/null; then
+    -subj "/CN=localhost" \
+    -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" 2>/dev/null; then
     print_success "Certificate: ${CYAN}$cert_file${RESET}"
     print_success "Private key: ${CYAN}$key_file${RESET}"
     set_env_value "TLS_ENABLED" "true" "$env_file"
-    set_env_value "TLS_CERT_FILE" "/certs/cert.pem" "$env_file"
-    set_env_value "TLS_KEY_FILE" "/certs/key.pem" "$env_file"
+    set_env_value "TLS_CERT_FILE" ".certs/cert.pem" "$env_file"
+    set_env_value "TLS_KEY_FILE" ".certs/key.pem" "$env_file"
     set_compose_tls_enabled "$install_dir" "true"
     print_info "${DIM}Access via https://localhost:4096 (accept browser warning for self-signed cert)${RESET}"
   else
@@ -1100,7 +1101,7 @@ start_services() {
     
     if [[ "$running" == "$total" ]] && [[ "$total" != "0" ]]; then
       # Try to hit the health endpoint
-      if curl -sf http://localhost:4096/healthz >/dev/null 2>&1; then
+      if curl -sfk https://localhost:4096/healthz >/dev/null 2>&1 || curl -sf http://localhost:4096/healthz >/dev/null 2>&1; then
         services_ready=true
         break
       fi
@@ -1131,7 +1132,14 @@ start_services() {
 # =============================================================================
 
 print_completion() {
-  local frontend_url="http://localhost:4096"
+  local tls_val
+  tls_val=$(grep -E '^\s*TLS_ENABLED=' "${INSTALL_DIR}/.env" 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+  local frontend_url
+  if [[ "$tls_val" == "false" || "$tls_val" == "0" || "$tls_val" == "no" ]]; then
+    frontend_url="http://localhost:4096"
+  else
+    frontend_url="https://localhost:4096"
+  fi
   
   echo ""
   print_step "Ready! ${YELLOW}✨ ${RESET}"

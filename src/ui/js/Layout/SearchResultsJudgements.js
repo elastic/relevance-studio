@@ -51,6 +51,7 @@ const SearchResultsJudgements = ({
         rating={result.rating}
         createdBy={result['@meta']?.created_by}
         updatedBy={result['@meta']?.updated_by}
+        updatedVia={result['@meta']?.updated_via}
         template={resolveIndexToDisplay(result.doc._index)?.template}
         showScore={showScore}
       />

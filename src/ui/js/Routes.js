@@ -30,7 +30,7 @@ export const AuthGuard = ({ children }) => {
     return null
   }
   if (!isAuthenticated) {
-    history.replace(`/login?next=${encodeURIComponent(location.pathname)}`)
+    history.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`)
     return null
   }
   return children

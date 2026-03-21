@@ -6,7 +6,7 @@ This guide walks you through enabling and configuring authentication for Elastic
 
 When `AUTH_ENABLED=true` (default):
 
-- **Server**: Users log in via `POST /api/auth/login` with Elasticsearch credentials. A session cookie (JWT) is issued for subsequent API requests.
+- **Server**: Users log in via `POST /api/auth/login` with Elasticsearch credentials (username/password or API key). A session cookie (JWT) is issued for subsequent API requests.
 - **MCP Server**: Clients send credentials via the `Authorization` header on each request.
 
 When `AUTH_ENABLED=false`, Studio and MCP do not require per-request auth, and Studio uses no credentials for the studio deployment.

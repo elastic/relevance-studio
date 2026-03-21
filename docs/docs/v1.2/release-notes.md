@@ -1,5 +1,22 @@
 # Release notes
 
+## v1.2.0
+
+### Features
+
+- Added per-user authentication with JWT sessions and pass-through Elasticsearch credentials for the studio deployment. Users log in with their own ES credentials; sessions use short-lived ES API keys. Controlled by `AUTH_ENABLED` (default: `true`). ([Auth API](docs/{{VERSION}}/reference/rest-api.md#auth-api), [Security](docs/{{VERSION}}/reference/security.md))
+- Added authentication for the MCP Server via `Authorization` header (Basic, ApiKey, Bearer schemes). ([MCP client auth](docs/{{VERSION}}/guide/mcp-client-auth.md))
+- Added native TLS support for the Server and MCP Server. Controlled by `TLS_ENABLED` (default: `true`). ([Getting started: TLS](docs/{{VERSION}}/guide/getting-started-tls.md))
+- Added `@meta.created_via` and `@meta.updated_via` channel-tracking fields to all asset documents (`"server"`, `"mcp"`, `"api"`). ([Data model](docs/{{VERSION}}/reference/data-model.md#common-fields))
+- Added login screen to the UI with username/password and API key authentication modes.
+
+### Improvements
+
+- Refactored Elasticsearch client to support per-request clients alongside singleton service-account clients, enabling authenticated operations per user.
+- The judgements `rated-human` / `rated-ai` filter now uses `@meta.updated_via` (channel) instead of `@meta.updated_by` (identity) for cleaner separation.
+- Added index template migration `1.2.0` to add `created_via` and `updated_via` fields to existing indices.
+- Quickstart script now supports interactive TLS certificate generation and authentication setup.
+
 ## v1.1.0
 
 ### Features

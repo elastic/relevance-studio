@@ -79,7 +79,7 @@ def validate_and_get_es_client(credentials: Dict[str, Any]) -> Tuple[Dict[str, A
 
 def get_default_user_and_client() -> Tuple[Dict[str, Any], Elasticsearch]:
     """Return default user and singleton ES client when AUTH_ENABLED=false."""
-    return {"username": "ai", "roles": []}, es("studio")
+    return {"username": "system", "roles": ["superuser"]}, es("studio")
 
 
 def get_mcp_auth_from_context(ctx: Optional[Any]) -> Tuple[str, Optional[Elasticsearch]]:
@@ -96,8 +96,8 @@ def get_mcp_auth_from_context(ctx: Optional[Any]) -> Tuple[str, Optional[Elastic
         (username, es_client) - username for user= param, es_client for es_client= param.
     """
     if ctx is None:
-        return "ai", None
+        return "system", None
     user = ctx.get_state("mcp_user")
     es_client = ctx.get_state("mcp_es_client")
-    username = (user.get("username") if isinstance(user, dict) else None) or "ai"
+    username = (user.get("username") if isinstance(user, dict) else None) or "system"
     return username, es_client
