@@ -146,6 +146,8 @@ class TaskCreate(BaseModel):
     metrics: List[str] = Field(default_factory=lambda: ["mrr", "ndcg", "precision", "recall"])
     k: StrictInt = Field(default=10, ge=1)
     requests: StrictInt = Field(default=0, ge=0)
+    rank_eval_batch_size: Optional[StrictInt] = Field(default=None, ge=1)
+    rank_eval_batch_delay: Optional[StrictInt] = Field(default=None, ge=0)
     strategies: TaskStrategiesCreate = Field(default_factory=TaskStrategiesCreate)
     scenarios: TaskScenariosCreate = Field(default_factory=TaskScenariosCreate)
 
@@ -179,6 +181,8 @@ class TaskUpdate(BaseModel):
     # Optional inputs
     metrics: Optional[List[str]] = None
     requests: Optional[StrictInt] = Field(default=None, ge=0)
+    rank_eval_batch_size: Optional[StrictInt] = Field(default=None, ge=1)
+    rank_eval_batch_delay: Optional[StrictInt] = Field(default=None, ge=0)
     strategies: Optional[TaskStrategiesUpdate] = None
     scenarios: Optional[TaskScenariosUpdate] = None
 

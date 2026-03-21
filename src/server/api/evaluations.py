@@ -278,6 +278,26 @@ def run(
     evaluation_id = evaluation.pop("_id", None)
     rank_eval_requests_count = 0
 
+    # Get benchmark settings for batch size and delay
+    benchmark_batch_size = RANK_EVAL_BATCH_SIZE
+    benchmark_batch_delay_sec = RANK_EVAL_BATCH_DELAY_SEC
+    benchmark_id = evaluation.get("benchmark_id")
+    if benchmark_id:
+        try:
+            es_response = es("studio").get(
+                index="esrs-benchmarks",
+                id=benchmark_id,
+                source_includes=["task.rank_eval_batch_size", "task.rank_eval_batch_delay"]
+            )
+            benchmark_source = es_response.body["_source"]
+            if benchmark_source.get("task", {}).get("rank_eval_batch_size"):
+                benchmark_batch_size = benchmark_source["task"]["rank_eval_batch_size"]
+            if benchmark_source.get("task", {}).get("rank_eval_batch_delay") is not None:
+                benchmark_batch_delay_sec = benchmark_source["task"]["rank_eval_batch_delay"] / 1000.0  # Convert ms to seconds
+        except Exception:
+            # Fallback to env defaults if benchmark fetch fails
+            pass
+
     def persist_benchmark_requests_count(requests_count: int):
         benchmark_id = evaluation.get("benchmark_id")
         if not benchmark_id:
@@ -597,13 +617,13 @@ def run(
 
                 # Batch the requests to avoid overwhelming Elasticsearch
                 all_requests = _rank_eval["requests"]
-                for batch_index, batch_requests in enumerate(utils.chunks(all_requests, RANK_EVAL_BATCH_SIZE)):
+                for batch_index, batch_requests in enumerate(utils.chunks(all_requests, benchmark_batch_size)):
 
                     # Throttle between batches
                     applied_throttle_delay = 0.0
-                    if batch_index > 0 and RANK_EVAL_BATCH_DELAY_SEC > 0:
-                        applied_throttle_delay = RANK_EVAL_BATCH_DELAY_SEC
-                        time.sleep(RANK_EVAL_BATCH_DELAY_SEC)
+                    if batch_index > 0 and benchmark_batch_delay_sec > 0:
+                        applied_throttle_delay = benchmark_batch_delay_sec
+                        time.sleep(benchmark_batch_delay_sec)
 
                     # Run _rank_eval on the content deployment and accumulate the results
                     body = {
