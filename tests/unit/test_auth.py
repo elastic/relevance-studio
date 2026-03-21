@@ -57,17 +57,17 @@ class TestCreateSessionApiKey:
 
 class TestEncodeDecodeJwt:
     def test_encode_requires_jwt_secret(self, monkeypatch):
-        monkeypatch.setattr(auth, "JWT_SECRET", "")
-        with pytest.raises(ValueError, match="JWT_SECRET"):
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "")
+        with pytest.raises(ValueError, match="AUTH_JWT_SECRET"):
             auth.encode_jwt({"username": "test"}, "encoded-key")
 
     def test_decode_requires_jwt_secret(self, monkeypatch):
-        monkeypatch.setattr(auth, "JWT_SECRET", "")
-        with pytest.raises(ValueError, match="JWT_SECRET"):
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "")
+        with pytest.raises(ValueError, match="AUTH_JWT_SECRET"):
             auth.decode_jwt("token")
 
     def test_encode_decode_roundtrip(self, monkeypatch):
-        monkeypatch.setattr(auth, "JWT_SECRET", "test-secret-key")
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "test-secret-key")
         user = {"username": "alice", "roles": ["user"]}
         api_key = "id:secret"
         token = auth.encode_jwt(user, api_key, expiry="1h")
@@ -78,13 +78,13 @@ class TestEncodeDecodeJwt:
         assert "iat" in payload
 
     def test_decode_invalid_token_raises(self, monkeypatch):
-        monkeypatch.setattr(auth, "JWT_SECRET", "test-secret-key")
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "test-secret-key")
         import jwt as jwt_lib
         with pytest.raises(jwt_lib.InvalidTokenError):
             auth.decode_jwt("invalid-token")
 
     def test_decode_expired_token_raises(self, monkeypatch):
-        monkeypatch.setattr(auth, "JWT_SECRET", "test-secret-key")
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "test-secret-key")
         import jwt as jwt_lib
         # Encode with exp in the past by patching time.time only during encode
         with patch("time.time", return_value=1000.0):
@@ -93,7 +93,7 @@ class TestEncodeDecodeJwt:
             auth.decode_jwt(token)
 
     def test_decode_tampered_token_raises(self, monkeypatch):
-        monkeypatch.setattr(auth, "JWT_SECRET", "test-secret-key")
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "test-secret-key")
         import jwt as jwt_lib
         token = auth.encode_jwt({"username": "alice"}, "key", expiry="1h")
         tampered = token[:-1] + ("x" if token[-1] != "x" else "y")
@@ -101,9 +101,9 @@ class TestEncodeDecodeJwt:
             auth.decode_jwt(tampered)
 
     def test_decode_wrong_secret_raises(self, monkeypatch):
-        monkeypatch.setattr(auth, "JWT_SECRET", "secret-a")
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "secret-a")
         token = auth.encode_jwt({"username": "alice"}, "key", expiry="1h")
-        monkeypatch.setattr(auth, "JWT_SECRET", "secret-b")
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "secret-b")
         import jwt as jwt_lib
         with pytest.raises(jwt_lib.InvalidTokenError):
             auth.decode_jwt(token)

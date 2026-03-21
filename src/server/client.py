@@ -20,6 +20,7 @@ ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "").strip()
 ELASTICSEARCH_API_KEY = os.getenv("ELASTICSEARCH_API_KEY", "").strip()
 ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "").strip()
 ELASTICSEARCH_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD", "").strip()
+AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").strip().lower() in ("true", "1", "yes")
 CONTENT_ELASTIC_CLOUD_ID = os.getenv("CONTENT_ELASTIC_CLOUD_ID", "").strip()
 CONTENT_ELASTICSEARCH_URL = os.getenv("CONTENT_ELASTICSEARCH_URL", "").strip()
 CONTENT_ELASTICSEARCH_API_KEY = os.getenv("CONTENT_ELASTICSEARCH_API_KEY", "").strip()
@@ -113,11 +114,15 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
     # Validate configuration
     if not ELASTIC_CLOUD_ID and not ELASTICSEARCH_URL:
         raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL in .env")
-    if (ELASTICSEARCH_USERNAME and not ELASTICSEARCH_PASSWORD) or (not ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD):
-        raise ValueError("You must configure either ELASTICSEARCH_API_KEY or both of ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD in .env")
+    if AUTH_ENABLED and ELASTICSEARCH_API_KEY and (ELASTICSEARCH_USERNAME or ELASTICSEARCH_PASSWORD):
+        raise ValueError("Configure either ELASTICSEARCH_API_KEY or ELASTICSEARCH_USERNAME/ELASTICSEARCH_PASSWORD, not both.")
+    if AUTH_ENABLED and ((ELASTICSEARCH_USERNAME and not ELASTICSEARCH_PASSWORD) or (not ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD)):
+        raise ValueError("You must configure both of ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD in .env")
+    if (CONTENT_ELASTICSEARCH_USERNAME and not CONTENT_ELASTICSEARCH_PASSWORD) or (not CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD):
+        raise ValueError("You must configure both of CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD in .env")
     if CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL:
-        if not CONTENT_ELASTICSEARCH_API_KEY and not (CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD):
-            raise ValueError(f"When using {CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL}, you must configure either CONTENT_ELASTICSEARCH_API_KEY or both of CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD in .env")
+        if CONTENT_ELASTICSEARCH_API_KEY and (CONTENT_ELASTICSEARCH_USERNAME or CONTENT_ELASTICSEARCH_PASSWORD):
+            raise ValueError(f"When using {CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL}, configure either CONTENT_ELASTICSEARCH_API_KEY or CONTENT_ELASTICSEARCH_USERNAME/CONTENT_ELASTICSEARCH_PASSWORD, not both.")
 
     # Setup Elasticsearch clients
     es_clients = {
@@ -139,13 +144,14 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
         es_studio_kwargs["cloud_id"] = ELASTIC_CLOUD_ID
     else:
         es_studio_kwargs["hosts"] = [ ELASTICSEARCH_URL ]
-    if ELASTICSEARCH_API_KEY:
-        es_studio_kwargs["api_key"] = ELASTICSEARCH_API_KEY
-    else:
-        es_studio_kwargs["basic_auth"] = (
-            ELASTICSEARCH_USERNAME,
-            ELASTICSEARCH_PASSWORD
-        )
+    if AUTH_ENABLED:
+        if ELASTICSEARCH_API_KEY:
+            es_studio_kwargs["api_key"] = ELASTICSEARCH_API_KEY
+        elif ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD:
+            es_studio_kwargs["basic_auth"] = (
+                ELASTICSEARCH_USERNAME,
+                ELASTICSEARCH_PASSWORD
+            )
     es_clients["studio"] = Elasticsearch(**es_studio_kwargs)
 
     # Setup client for deployment with source content
@@ -167,7 +173,7 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
             es_content_kwargs["hosts"] = [ CONTENT_ELASTICSEARCH_URL ]
         if CONTENT_ELASTICSEARCH_API_KEY:
             es_content_kwargs["api_key"] = CONTENT_ELASTICSEARCH_API_KEY
-        else:
+        elif CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD:
             es_content_kwargs["basic_auth"] = (
                 CONTENT_ELASTICSEARCH_USERNAME,
                 CONTENT_ELASTICSEARCH_PASSWORD

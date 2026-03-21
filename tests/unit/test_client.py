@@ -1,8 +1,8 @@
-"""Unit tests for server.client: es_studio_endpoint, es_from_credentials."""
+"""Unit tests for server.client: endpoint resolution and client construction."""
 
 import pytest
 
-from server.client import es_studio_endpoint, es_from_credentials
+from server.client import _setup_clients, es_studio_endpoint, es_from_credentials
 
 
 class TestEsStudioEndpoint:
@@ -82,3 +82,93 @@ class TestEsFromCredentials:
         )
         assert client is not None
         assert hasattr(client, "search")
+
+
+class TestSetupClients:
+    def test_setup_clients_rejects_studio_api_key_with_basic_auth_when_auth_enabled(self, monkeypatch):
+        monkeypatch.setattr("server.client.AUTH_ENABLED", True)
+        monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_URL", "http://localhost:9200")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_API_KEY", "abc123")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_USERNAME", "elastic")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_PASSWORD", "changeme")
+
+        with pytest.raises(ValueError, match="either ELASTICSEARCH_API_KEY or ELASTICSEARCH_USERNAME/ELASTICSEARCH_PASSWORD"):
+            _setup_clients()
+
+    def test_setup_clients_rejects_content_api_key_with_basic_auth(self, monkeypatch):
+        monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_URL", "http://localhost:9200")
+        monkeypatch.setattr("server.client.CONTENT_ELASTIC_CLOUD_ID", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_URL", "http://localhost:9201")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_API_KEY", "abc123")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_USERNAME", "elastic")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_PASSWORD", "changeme")
+
+        with pytest.raises(ValueError, match="either CONTENT_ELASTICSEARCH_API_KEY or CONTENT_ELASTICSEARCH_USERNAME/CONTENT_ELASTICSEARCH_PASSWORD"):
+            _setup_clients()
+
+    def test_setup_clients_allows_no_auth_credentials(self, monkeypatch):
+        calls = []
+
+        class FakeClient:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        def _fake_es_client(**kwargs):
+            calls.append(kwargs)
+            return FakeClient(**kwargs)
+
+        monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_URL", "http://localhost:9200")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_API_KEY", "")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_USERNAME", "")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_PASSWORD", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTIC_CLOUD_ID", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_URL", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_API_KEY", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_USERNAME", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_PASSWORD", "")
+        monkeypatch.setattr("server.client.Elasticsearch", _fake_es_client)
+
+        clients = _setup_clients()
+
+        assert "studio" in clients
+        assert "content" in clients
+        assert clients["content"] is clients["studio"]  # shared when no separate content deployment
+        assert len(calls) == 1
+        assert calls[0]["hosts"] == ["http://localhost:9200"]
+        assert "api_key" not in calls[0]
+        assert "basic_auth" not in calls[0]
+
+    def test_setup_clients_ignores_studio_credentials_when_auth_disabled(self, monkeypatch):
+        calls = []
+
+        class FakeClient:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        def _fake_es_client(**kwargs):
+            calls.append(kwargs)
+            return FakeClient(**kwargs)
+
+        monkeypatch.setattr("server.client.AUTH_ENABLED", False)
+        monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_URL", "http://localhost:9200")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_API_KEY", "should-not-be-used")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_USERNAME", "elastic")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_PASSWORD", "changeme")
+        monkeypatch.setattr("server.client.CONTENT_ELASTIC_CLOUD_ID", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_URL", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_API_KEY", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_USERNAME", "")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_PASSWORD", "")
+        monkeypatch.setattr("server.client.Elasticsearch", _fake_es_client)
+
+        clients = _setup_clients()
+
+        assert "studio" in clients
+        assert len(calls) == 1
+        assert calls[0]["hosts"] == ["http://localhost:9200"]
+        assert "api_key" not in calls[0]
+        assert "basic_auth" not in calls[0]

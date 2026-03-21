@@ -20,8 +20,8 @@ load_dotenv()
 
 # Config
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").strip().lower() in ("true", "1", "yes")
-JWT_SECRET = os.getenv("JWT_SECRET", "").strip()
-SESSION_EXPIRY = os.getenv("SESSION_EXPIRY", "24h").strip()  # e.g. "24h", "7d", "30m"
+AUTH_JWT_SECRET = os.getenv("AUTH_JWT_SECRET", "").strip()
+AUTH_SESSION_EXPIRY = os.getenv("AUTH_SESSION_EXPIRY", "24h").strip()  # e.g. "24h", "7d", "30m"
 
 
 def _parse_expiry(expiry_str: str) -> int:
@@ -42,6 +42,11 @@ def _parse_expiry(expiry_str: str) -> int:
     if unit == "d":
         return val * 86400
     return 86400
+
+
+def session_expiry_seconds(expiry: Optional[str] = None) -> int:
+    """Return session expiry in seconds from AUTH_SESSION_EXPIRY or override."""
+    return _parse_expiry(expiry or AUTH_SESSION_EXPIRY)
 
 
 def validate_credentials(credentials: Dict[str, Any]) -> Dict[str, Any]:
@@ -101,7 +106,7 @@ def create_session_api_key(
 
     Args:
         credentials: Valid credentials (api_key or username/password).
-        expiry: Expiration string (e.g. "24h", "7d"). Defaults to SESSION_EXPIRY.
+        expiry: Expiration string (e.g. "24h", "7d"). Defaults to AUTH_SESSION_EXPIRY.
 
     Returns:
         Dict with id, api_key, encoded (base64 id:api_key), expiration.
@@ -124,7 +129,7 @@ def create_session_api_key(
         url=endpoint.get("hosts", [None])[0] if endpoint.get("hosts") else None,
     )
 
-    expiry_str = expiry or SESSION_EXPIRY
+    expiry_str = expiry or AUTH_SESSION_EXPIRY
     resp = client.security.create_api_key(
         name="relevance-studio-session",
         expiration=expiry_str,
@@ -151,21 +156,21 @@ def encode_jwt(
     Args:
         user_metadata: User info (username, roles, etc.) from _authenticate.
         api_key: Encoded API key (base64 id:api_key) for ES requests.
-        expiry: Expiration string. Defaults to SESSION_EXPIRY.
+        expiry: Expiration string. Defaults to AUTH_SESSION_EXPIRY.
 
     Returns:
         Signed JWT string.
     """
-    if not JWT_SECRET:
-        raise ValueError("JWT_SECRET must be set when AUTH_ENABLED is true")
-    exp_seconds = _parse_expiry(expiry or SESSION_EXPIRY)
+    if not AUTH_JWT_SECRET:
+        raise ValueError("AUTH_JWT_SECRET must be set when AUTH_ENABLED is true")
+    exp_seconds = session_expiry_seconds(expiry)
     payload = {
         "user": user_metadata,
         "api_key": api_key,
         "exp": int(time.time()) + exp_seconds,
         "iat": int(time.time()),
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+    return jwt.encode(payload, AUTH_JWT_SECRET, algorithm="HS256")
 
 
 def decode_jwt(token: str) -> Dict[str, Any]:
@@ -181,6 +186,6 @@ def decode_jwt(token: str) -> Dict[str, Any]:
     Raises:
         jwt.InvalidTokenError: Invalid or expired token.
     """
-    if not JWT_SECRET:
-        raise ValueError("JWT_SECRET must be set when AUTH_ENABLED is true")
-    return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    if not AUTH_JWT_SECRET:
+        raise ValueError("AUTH_JWT_SECRET must be set when AUTH_ENABLED is true")
+    return jwt.decode(token, AUTH_JWT_SECRET, algorithms=["HS256"])

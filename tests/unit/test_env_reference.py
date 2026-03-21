@@ -23,8 +23,8 @@ SRC_DIR = REPO_ROOT / "src"
 # Required vars that must appear in .env-reference (auth + TLS from Issue 7)
 REQUIRED_ENV_VARS = [
     "AUTH_ENABLED",
-    "JWT_SECRET",
-    "SESSION_EXPIRY",
+    "AUTH_JWT_SECRET",
+    "AUTH_SESSION_EXPIRY",
     "TLS_ENABLED",
     "TLS_CERT_FILE",
     "TLS_KEY_FILE",
@@ -44,8 +44,8 @@ APP_ENV_VARS = [
     "CONTENT_ELASTICSEARCH_USERNAME",
     "CONTENT_ELASTICSEARCH_PASSWORD",
     "AUTH_ENABLED",
-    "JWT_SECRET",
-    "SESSION_EXPIRY",
+    "AUTH_JWT_SECRET",
+    "AUTH_SESSION_EXPIRY",
     "TLS_ENABLED",
     "TLS_CERT_FILE",
     "TLS_KEY_FILE",
@@ -73,7 +73,7 @@ def test_env_reference_exists():
 
 
 def test_required_auth_tls_vars_in_env_reference():
-    """Verify AUTH_ENABLED, JWT_SECRET, SESSION_EXPIRY, TLS_ENABLED, TLS_CERT_FILE, TLS_KEY_FILE are in .env-reference."""
+    """Verify AUTH_ENABLED, AUTH_JWT_SECRET, AUTH_SESSION_EXPIRY, TLS_ENABLED, TLS_CERT_FILE, TLS_KEY_FILE are in .env-reference."""
     vars_in_ref = _parse_env_reference_vars(ENV_REFERENCE)
     missing = [v for v in REQUIRED_ENV_VARS if v not in vars_in_ref]
     assert not missing, (

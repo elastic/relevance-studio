@@ -48,7 +48,7 @@ class TestAuthEnabled:
     @pytest.fixture(autouse=True)
     def enable_auth(self, monkeypatch):
         monkeypatch.setattr(auth, "AUTH_ENABLED", True)
-        monkeypatch.setattr(auth, "JWT_SECRET", "test-secret")
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "test-secret")
 
     def test_login_accessible_without_session(self, client, monkeypatch):
         # Login calls validate_credentials which needs es_studio_endpoint. Mock env.
@@ -108,7 +108,7 @@ class TestLoginRoute:
     @pytest.fixture(autouse=True)
     def enable_auth(self, monkeypatch):
         monkeypatch.setattr(auth, "AUTH_ENABLED", True)
-        monkeypatch.setattr(auth, "JWT_SECRET", "test-secret")
+        monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "test-secret")
 
     def test_login_requires_body(self, client):
         r = client.post("/api/auth/login", json={})
@@ -182,3 +182,23 @@ class TestLoginRoute:
         assert observed["credentials"] == {"username": "alice", "password": "secret"}
         assert observed["user"]["username"] == "alice"
         assert observed["api_key"] == "ZGVyaXZlZDphcGlrZXk="
+
+    def test_login_cookie_max_age_respects_auth_session_expiry(self, client, monkeypatch):
+        monkeypatch.setattr(
+            auth,
+            "validate_credentials",
+            lambda credentials: {"username": "alice", "roles": ["user"]},
+        )
+        monkeypatch.setattr(
+            auth,
+            "create_session_api_key",
+            lambda credentials: {"encoded": "ZGVyaXZlZDphcGlrZXk="},
+        )
+        monkeypatch.setattr(auth, "encode_jwt", lambda user, api_key, expiry=None: "test-jwt-token")
+        monkeypatch.setattr(auth, "AUTH_SESSION_EXPIRY", "30m")
+
+        r = client.post("/api/auth/login", json={"username": "alice", "password": "secret"})
+
+        assert r.status_code == 200
+        set_cookie = r.headers.get("Set-Cookie", "")
+        assert "Max-Age=1800" in set_cookie

@@ -6,12 +6,12 @@ This guide helps you migrate from auth-disabled or TLS-disabled configurations t
 
 If you previously ran with `AUTH_ENABLED=false` (service-account mode), follow these steps to enable authentication:
 
-1. **Ensure JWT_SECRET is set** in `.env`:
+1. **Ensure AUTH_JWT_SECRET is set** in `.env`:
 
    ```
    AUTH_ENABLED=true
-   JWT_SECRET=<generate with: openssl rand -hex 32>
-   SESSION_EXPIRY=24h
+   AUTH_JWT_SECRET=<generate with: openssl rand -hex 32>
+   AUTH_SESSION_EXPIRY=24h
    ```
 
 2. **Create Elasticsearch users or API keys** for each person or system that will access Relevance Studio. Assign the [studio deployment role](docs/{{VERSION}}/reference/security.md#studio-deployment-role-configuration) (and content role if applicable).

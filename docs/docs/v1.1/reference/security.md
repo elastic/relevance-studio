@@ -11,10 +11,10 @@ Authentication controls access to the [Server](docs/{{VERSION}}/reference/archit
 | Variable | Default | Description |
 |----------|---------|--------------|
 | `AUTH_ENABLED` | `true` | Set to `false` to disable auth and use service-account (singleton) mode. |
-| `JWT_SECRET` | — | Secret for signing session JWTs. Required when `AUTH_ENABLED` is true. Generate with `openssl rand -hex 32`. |
-| `SESSION_EXPIRY` | `24h` | Session expiry for JWT cookies (e.g. `24h`, `7d`, `30m`). |
+| `AUTH_JWT_SECRET` | — | Secret for signing session JWTs. Required when `AUTH_ENABLED` is true. Generate with `openssl rand -hex 32`. |
+| `AUTH_SESSION_EXPIRY` | `24h` | Session expiry for JWT cookies (e.g. `24h`, `7d`, `30m`). |
 
-When `AUTH_ENABLED=false`, the credentials in `.env` (`ELASTICSEARCH_*` / `CONTENT_*`) define a single service account used for all requests. See [Migration guide](docs/{{VERSION}}/guide/auth-tls-migration.md) for moving from auth-disabled to auth-enabled.
+When `AUTH_ENABLED=false`, Studio uses a singleton Elasticsearch client (no per-request user auth) and communicates with the studio deployment without credentials. See [Migration guide](docs/{{VERSION}}/guide/auth-tls-migration.md) for moving from auth-disabled to auth-enabled.
 
 ### MCP Server authentication
 
@@ -33,15 +33,15 @@ Configure your MCP client to send credentials when connecting to Relevance Studi
 - **Claude Desktop / Cursor**: Add `headers` with `Authorization` to the MCP server config. For Basic auth, use `Authorization: Basic <base64(username:password)>`. For API key, use `Authorization: ApiKey <encoded>` where `encoded` is the base64 of `id:api_key`.
 - **Custom clients**: Include the `Authorization` header on every HTTP request to the MCP endpoint (e.g. `POST /mcp/`).
 
-When `AUTH_ENABLED=false`, the MCP server uses the service account from `.env` (no per-request auth).
+When `AUTH_ENABLED=false`, the MCP server uses the singleton client with no per-request auth.
 
 ### Flask Server authentication
 
 The [Server](docs/{{VERSION}}/reference/architecture.md#application) uses session-based auth when `AUTH_ENABLED=true`. See `/api/auth/login` and `/api/auth/session`.
 
-When `AUTH_ENABLED=false`, the server uses a single identity from `.env` and does not require login.
+When `AUTH_ENABLED=false`, the server uses a singleton Elasticsearch client and does not require login.
 
-Authentication to the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) is configured by these environment variables defined in `.env`:
+When Elasticsearch security is enabled, authentication to the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) is configured by these environment variables in `.env`:
 
 **Option 1: [API Key](https://www.elastic.co/docs/deploy-manage/api-keys/elasticsearch-api-keys)**
 
@@ -52,7 +52,7 @@ Authentication to the [studio deployment](docs/{{VERSION}}/reference/architectur
 - `ELASTICSEARCH_USERNAME`
 - `ELASTICSEARCH_PASSWORD`
 
-Authentication to the [content deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) is configured by these environment variables defined in `.env`:
+When Elasticsearch security is enabled for a separate content deployment, configure authentication with these `.env` variables:
 
 **Option 1: [API Key](https://www.elastic.co/docs/deploy-manage/api-keys/elasticsearch-api-keys)**
 
@@ -187,14 +187,14 @@ For local development, you can generate a self-signed certificate:
 quickstart --generate-tls-cert
 ```
 
-This creates `certs/cert.pem` and `certs/key.pem` in your installation directory and configures the servers to use them. Access the app at `https://localhost:4096` and accept the browser warning for the self-signed cert.
+This creates `.certs/cert.pem` and `.certs/key.pem` in your installation directory and configures the servers to use them. Access the app at `https://localhost:4096` and accept the browser warning for the self-signed cert.
 
 **Manual generation with OpenSSL:**
 
 ```bash
-mkdir -p certs
+mkdir -p .certs
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout certs/key.pem -out certs/cert.pem \
+  -keyout .certs/key.pem -out .certs/cert.pem \
   -subj "/CN=localhost/O=Relevance Studio Local Dev"
 ```
 
@@ -206,7 +206,7 @@ TLS_CERT_FILE=/certs/cert.pem
 TLS_KEY_FILE=/certs/key.pem
 ```
 
-For Docker, mount the certs directory and ensure the paths match (e.g. `-v ./certs:/certs`).
+For Docker, mount the certs directory and ensure the paths match (e.g. `-v ./.certs:/certs`).
 
 ### Production
 

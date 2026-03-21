@@ -13,14 +13,14 @@ TLS is enabled by default. When `TLS_ENABLED=true`, you must provide valid PEM c
 1. Create a certs directory:
 
    ```bash
-   mkdir -p certs
+   mkdir -p .certs
    ```
 
 2. Generate a self-signed certificate:
 
    ```bash
    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-     -keyout certs/key.pem -out certs/cert.pem \
+     -keyout .certs/key.pem -out .certs/cert.pem \
      -subj "/CN=localhost/O=Relevance Studio Local Dev"
    ```
 
@@ -28,15 +28,15 @@ TLS is enabled by default. When `TLS_ENABLED=true`, you must provide valid PEM c
 
    ```
    TLS_ENABLED=true
-   TLS_CERT_FILE=./certs/cert.pem
-   TLS_KEY_FILE=./certs/key.pem
+   TLS_CERT_FILE=/certs/cert.pem
+   TLS_KEY_FILE=/certs/key.pem
    ```
 
-4. For Docker, use absolute paths and mount the certs directory. Example in `docker-compose.yml`:
+4. For Docker, mount the local `.certs` directory to `/certs`. Example in `docker-compose.yml`:
 
    ```yaml
    volumes:
-     - ./certs:/certs
+     - ./.certs:/certs
    environment:
      - TLS_ENABLED=true
      - TLS_CERT_FILE=/certs/cert.pem

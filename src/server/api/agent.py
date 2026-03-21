@@ -11,7 +11,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple, TYPE_CHECKING
 
 # Third-party packages
 import requests
@@ -19,8 +19,11 @@ from fastmcp.client import Client
 
 # App packages
 from .. import utils
-from ..client import es, ELASTICSEARCH_API_KEY, ELASTICSEARCH_USERNAME, ELASTICSEARCH_PASSWORD
+from ..client import es
 from . import conversations as api_conversations
+
+if TYPE_CHECKING:
+    from elasticsearch import Elasticsearch
 
 # MCP server configuration
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL") or "http://127.0.0.1:4200/mcp"
@@ -422,7 +425,7 @@ class McpConnectionError(McpError):
     pass
 
 
-def _get_es_url_and_auth():
+def _get_es_url_and_auth(es_client: Optional["Elasticsearch"] = None):
     """Get Elasticsearch URL and auth from the existing ES client.
 
     Returns:
@@ -431,7 +434,7 @@ def _get_es_url_and_auth():
             auth (tuple or None): Basic auth credentials as (username, password).
             headers (dict): Extra headers, including Authorization if an API key is used.
     """
-    client = es("studio")
+    client = es_client if es_client is not None else es("studio")
     
     # Get the first node URL
     node = client.transport.node_pool.get()
@@ -452,13 +455,6 @@ def _get_es_url_and_auth():
             elif hasattr(config, "basic_auth") and config.basic_auth:
                 # Use basic auth tuple
                 auth = config.basic_auth
-    
-    # Fallback: try to reconstruct from environment
-    if not auth and not headers.get("Authorization"):
-        if ELASTICSEARCH_API_KEY:
-            headers["Authorization"] = f"ApiKey {ELASTICSEARCH_API_KEY}"
-        elif ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD:
-            auth = (ELASTICSEARCH_USERNAME, ELASTICSEARCH_PASSWORD)
     
     return base_url, auth, headers
 
@@ -643,7 +639,12 @@ def _update_current_round_from_messages(rounds: List[Dict[str, Any]], messages: 
 
 ####  Chat Streaming and Agent Loop  ##########################################
 
-def _chat_stream(messages: List[Dict[str, Any]], inference_id: str = ".rainbow-sprinkles-elastic", tools: Optional[List[Dict]] = None):
+def _chat_stream(
+    messages: List[Dict[str, Any]],
+    inference_id: str = ".rainbow-sprinkles-elastic",
+    tools: Optional[List[Dict]] = None,
+    es_client: Optional["Elasticsearch"] = None
+):
     """Internal function to call ES chat_completion with streaming using requests.
 
     Args:
@@ -674,7 +675,7 @@ def _chat_stream(messages: List[Dict[str, Any]], inference_id: str = ".rainbow-s
         body["tools"] = tools
     
     # Get ES connection details
-    base_url, auth, extra_headers = _get_es_url_and_auth()
+    base_url, auth, extra_headers = _get_es_url_and_auth(es_client=es_client)
     
     # Build headers
     headers = {
@@ -1286,7 +1287,8 @@ async def _agent_loop_stream(
     retry_delay: float = 1.0,
     session_id: str = None,
     conversation_id: str = None,
-    original_rounds: List[Dict[str, Any]] = None
+    original_rounds: List[Dict[str, Any]] = None,
+    es_client: Optional["Elasticsearch"] = None
 ):
     """Streaming agent loop that handles tool calling and yields response lines.
 
@@ -1363,7 +1365,12 @@ async def _agent_loop_stream(
             
             for attempt in range(max_retries + 1):
                 try:
-                    es_response = _chat_stream(messages, inference_id, tools if tools else None)
+                    es_response = _chat_stream(
+                        messages,
+                        inference_id,
+                        tools if tools else None,
+                        es_client=es_client
+                    )
                     break # Success
                 except requests.exceptions.HTTPError as e:
                     status_code = e.response.status_code if e.response is not None else None
@@ -1698,7 +1705,16 @@ def _sanitize_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sanitized
 
 
-def chat(text: str = "", rounds: List[Dict[str, Any]] = None, inference_id=".rainbow-sprinkles-elastic", ui_context: Optional[Dict[str, Any]] = None, id: str = None, conversation_id: str = None, session_id: str = None) -> Generator[str, None, None]:
+def chat(
+    text: str = "",
+    rounds: List[Dict[str, Any]] = None,
+    inference_id=".rainbow-sprinkles-elastic",
+    ui_context: Optional[Dict[str, Any]] = None,
+    id: str = None,
+    conversation_id: str = None,
+    session_id: str = None,
+    es_client: Optional["Elasticsearch"] = None
+) -> Generator[str, None, None]:
     """Perform a streaming chat completion with agentic behavior and MCP tool calling.
 
     Args:
@@ -1749,7 +1765,8 @@ def chat(text: str = "", rounds: List[Dict[str, Any]] = None, inference_id=".rai
                 inference_id,
                 session_id=session_id,
                 conversation_id=conversation_id,
-                original_rounds=rounds
+                original_rounds=rounds,
+                es_client=es_client
             ):
                 yield line
         except GeneratorExit:
@@ -1762,13 +1779,14 @@ def chat(text: str = "", rounds: List[Dict[str, Any]] = None, inference_id=".rai
     
     return _run_sync_generator_from_async(run_async_stream)
 
-def endpoints() -> List[Dict[str, Any]]:
+def endpoints(es_client: Optional["Elasticsearch"] = None) -> List[Dict[str, Any]]:
     """List all chat_completion inference endpoints.
 
     Returns:
         List[Dict[str, Any]]: A list of dictionaries representing chat_completion endpoints.
     """
-    es_response = es("studio").inference.get()
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.inference.get()
     response = []
     for endpoint in es_response.get("endpoints", []):
         if endpoint["task_type"] == "chat_completion":

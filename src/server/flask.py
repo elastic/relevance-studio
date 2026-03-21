@@ -38,7 +38,7 @@ AUTH_COOKIE_NAME = "relevance_studio_session"
 DEFAULT_STATIC_PATH = os.path.abspath(os.path.join(__file__, "..", "..", "..", "dist"))
 
 app = Flask(__name__, static_folder=os.environ.get("STATIC_PATH") or DEFAULT_STATIC_PATH)
-app.config["SECRET_KEY"] = os.getenv("JWT_SECRET", "dev-secret")
+app.config["SECRET_KEY"] = os.getenv("AUTH_JWT_SECRET", "dev-secret")
 CORS(app, supports_credentials=True)
 
 # Pre-load MCP tools
@@ -210,7 +210,7 @@ def auth_login():
         httponly=True,
         secure=os.getenv("FLASK_ENV") == "production",
         samesite="Lax",
-        max_age=86400 * 7,  # 7 days
+        max_age=auth.session_expiry_seconds(),
     )
     return resp, 200
 
@@ -240,7 +240,7 @@ def auth_session():
 def chat():
     body = request.get_json() or {}
     return Response(
-        stream_with_context(api.agent.chat(**body)),
+        stream_with_context(api.agent.chat(**body, es_client=_request_es_client())),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -251,7 +251,7 @@ def chat():
 
 @api_route("/api/chat/endpoints", methods=["GET"])
 def chat_endpoints():
-    return api.agent.endpoints()
+    return api.agent.endpoints(es_client=_request_es_client())
 
 @app.route("/api/chat/cancel/<string:session_id>", methods=["POST"])
 def chat_cancel(session_id):
