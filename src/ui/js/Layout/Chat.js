@@ -772,6 +772,11 @@ const Chat = () => {
     const hasActiveRound = conversation.some(round => round.status === 'running' || round.status === 'pending')
     if (!hasActiveRound) return
 
+    // Only poll for background recovery after refresh. During an active local stream,
+    // events should update the UI directly and polling would be redundant/noisy.
+    const isBackgroundRecovery = isSending && !abortControllerRef.current
+    if (!isBackgroundRecovery || !sessionIdRef.current) return
+
     // Poll every 2 seconds for updates
     const pollInterval = setInterval(async () => {
       try {
@@ -792,7 +797,7 @@ const Chat = () => {
     }, 2000)
 
     return () => clearInterval(pollInterval)
-  }, [conversationId, conversation])
+  }, [conversationId, conversation, isSending])
 
   const fetchConversations = async () => {
     setIsLoadingHistory(true)
@@ -961,6 +966,16 @@ const Chat = () => {
         const response = await api.conversations_update(convId, {
           rounds: updatedRounds
         })
+        if (response.status === 403) {
+          addToast({
+            title: 'Access denied',
+            text: 'You can only continue conversations you created.',
+            color: 'danger',
+            iconType: 'alert'
+          })
+          setIsSending(false)
+          return
+        }
         if (response.status === 404) {
           addToast({
             title: 'Conversation not found',
@@ -972,6 +987,16 @@ const Chat = () => {
           return
         }
       } catch (err) {
+        if (err?.response?.status === 403) {
+          addToast({
+            title: 'Access denied',
+            text: 'You can only continue conversations you created.',
+            color: 'danger',
+            iconType: 'alert'
+          })
+          setIsSending(false)
+          return
+        }
         console.error("Error updating conversation before chat:", err)
       }
     }
@@ -1149,6 +1174,21 @@ const Chat = () => {
         }
       } else {
         console.error("Error in chat:", error)
+        addToast({
+          title: 'Chat failed',
+          text: error.message || 'The agent request failed before any response was received.',
+          color: 'danger',
+          iconType: 'alert'
+        })
+        setConversation((prev) => {
+          const newRounds = [...prev]
+          const currentRound = newRounds[newRounds.length - 1]
+          if (currentRound && (currentRound.status === 'pending' || currentRound.status === 'running')) {
+            const failedSteps = [...(currentRound.steps || []), { type: 'reasoning', reasoning: 'Chat request failed before the response stream started.' }]
+            newRounds[newRounds.length - 1] = { ...currentRound, status: 'failed', steps: failedSteps }
+          }
+          return newRounds
+        })
       }
     } finally {
       setIsSending(false)

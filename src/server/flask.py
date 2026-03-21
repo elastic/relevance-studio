@@ -13,7 +13,7 @@ import jwt
 from dotenv import load_dotenv
 from flask import Flask, current_app, g, jsonify, make_response, request, Response, stream_with_context
 from flask_cors import CORS
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, Forbidden
 
 # Elastic packages
 from elasticsearch.exceptions import ApiError, AuthenticationException
@@ -129,6 +129,9 @@ def handle_response(func):
             status = getattr(getattr(e, "meta", None), "status", 401)
             return jsonify(body if isinstance(body, dict) else {"error": "Unauthorized", "message": str(e)}), status
 
+        except Forbidden as e:
+            return jsonify({"error": "Forbidden", "message": str(e)}), 403
+
         # Handle everything else
         except Exception as e: # TODO: Move this somewhere else
             current_app.logger.exception(e)
@@ -240,7 +243,7 @@ def auth_session():
 def chat():
     body = request.get_json() or {}
     return Response(
-        stream_with_context(api.agent.chat(**body, es_client=_request_es_client())),
+        stream_with_context(api.agent.chat(**body, user=_request_user(), es_client=_request_es_client())),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -265,11 +268,11 @@ def chat_cancel(session_id):
 @api_route("/api/conversations/_search", methods=["POST"])
 def conversations_search():
     body = request.get_json() or {}
-    return api.conversations.search(**body, es_client=_request_es_client())
+    return api.conversations.search(**body, user=_request_user(), es_client=_request_es_client())
 
 @api_route("/api/conversations/<string:_id>", methods=["GET"])
 def conversations_get(_id):
-    return api.conversations.get(_id, es_client=_request_es_client())
+    return api.conversations.get(_id, user=_request_user(), es_client=_request_es_client())
 
 @api_route("/api/conversations", methods=["POST"])
 def conversations_create():
@@ -284,7 +287,7 @@ def conversations_update(_id):
 
 @api_route("/api/conversations/<string:_id>", methods=["DELETE"])
 def conversations_delete(_id):
-    return api.conversations.delete(_id, es_client=_request_es_client())
+    return api.conversations.delete(_id, user=_request_user(), es_client=_request_es_client())
 
 
 ####  API: Workspaces  #########################################################

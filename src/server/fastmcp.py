@@ -50,12 +50,12 @@ def conversations_search(
         aggs: Optional[bool] = False,
     ) -> Dict[str, Any]:
     user, es_client = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.conversations.search(text, filters, sort, size, page, aggs, es_client=es_client))
+    return dict(api.conversations.search(text, filters, sort, size, page, aggs, user=user, es_client=es_client))
 
 @mcp.tool(description=api.conversations.get.__doc__)
 def conversations_get(ctx: Context, _id: str) -> Dict[str, Any]:
     user, es_client = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.conversations.get(_id, es_client=es_client))
+    return dict(api.conversations.get(_id, user=user, es_client=es_client))
 
 @mcp.tool(description=api.conversations.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{ConversationsCreate.model_input_json_schema()}
@@ -74,7 +74,7 @@ def conversations_update(ctx: Context, _id: str, doc_partial: Dict[str, Any]) ->
 @mcp.tool(description=api.conversations.delete.__doc__)
 def conversations_delete(ctx: Context, _id: str) -> Dict[str, Any]:
     user, es_client = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.conversations.delete(_id, es_client=es_client))
+    return dict(api.conversations.delete(_id, user=user, es_client=es_client))
 
 
 ####  API: Workspaces  #########################################################

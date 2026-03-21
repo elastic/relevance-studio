@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Generator, List, Optional, Tuple, TYPE_CHECKING
 
 # Third-party packages
+import httpx
 import requests
 from fastmcp.client import Client
 
@@ -444,17 +445,12 @@ def _get_es_url_and_auth(es_client: Optional["Elasticsearch"] = None):
     auth = None
     headers = {}
     
-    # Check for API key
-    if hasattr(client.transport, "_client_meta") or hasattr(node, "config"):
-        # Try to get auth from node config
-        if hasattr(node, "config"):
-            config = node.config
-            if hasattr(config, "api_key") and config.api_key:
-                # Use API key in header
-                headers["Authorization"] = f"ApiKey {config.api_key}"
-            elif hasattr(config, "basic_auth") and config.basic_auth:
-                # Use basic auth tuple
-                auth = config.basic_auth
+    # elastic-transport stores credentials as an Authorization header on the
+    # client object, not on individual node configs.
+    if hasattr(client, "_headers"):
+        auth_header = client._headers.get("authorization")
+        if auth_header:
+            headers["Authorization"] = auth_header
     
     return base_url, auth, headers
 
@@ -499,7 +495,12 @@ def _apply_stats_to_round(rounds: List[Dict[str, Any]], stats: Dict[str, Any], i
         last_round["time_to_last_token"] = int(stats["last_token_ms"])
 
 
-async def _save_conversation_async(conversation_id: str, rounds: List[Dict[str, Any]], final: bool = False):
+async def _save_conversation_async(
+    conversation_id: str,
+    rounds: List[Dict[str, Any]],
+    user: Optional[str] = None,
+    final: bool = False,
+):
     """Asynchronously save conversation state without blocking the agent loop.
     
     Args:
@@ -516,6 +517,7 @@ async def _save_conversation_async(conversation_id: str, rounds: List[Dict[str, 
             lambda: api_conversations.update(
                 conversation_id, 
                 {"rounds": rounds},
+                user=user,
                 via="server",
                 refresh=final  # Only refresh on final save
             )
@@ -708,7 +710,7 @@ def _chat_stream(
     return line_iter
 
 
-async def _get_mcp_tools() -> List[Dict[str, Any]]:
+async def _get_mcp_tools(mcp_client_auth: Optional[Any] = None) -> List[Dict[str, Any]]:
     """Connect to MCP server and retrieve available tools.
 
     Returns:
@@ -733,16 +735,34 @@ async def _get_mcp_tools() -> List[Dict[str, Any]]:
         async with _tools_lock:
             if _tools_cache is not None:
                 return _tools_cache
-            return await _load_tools_from_mcp()
+            return await _load_tools_from_mcp(mcp_client_auth=mcp_client_auth)
     except RuntimeError:
         # Lock might be bound to a different event loop (e.g. from startup asyncio.run)
         _tools_lock = asyncio.Lock()
         async with _tools_lock:
             if _tools_cache is not None:
                 return _tools_cache
-            return await _load_tools_from_mcp()
+            return await _load_tools_from_mcp(mcp_client_auth=mcp_client_auth)
 
-async def _load_tools_from_mcp() -> List[Dict[str, Any]]:
+def _resolve_mcp_client_auth(es_client: Optional["Elasticsearch"] = None) -> Optional[Any]:
+    """Build FastMCP client auth from the current Elasticsearch auth context."""
+    _, basic_auth, headers = _get_es_url_and_auth(es_client=es_client)
+
+    auth_header = (headers or {}).get("Authorization")
+    if isinstance(auth_header, str):
+        parts = auth_header.split(None, 1)
+        if len(parts) == 2 and parts[0].lower() == "apikey":
+            # FastMCP `auth=str` maps to Bearer token auth.
+            return parts[1]
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            return parts[1]
+
+    if isinstance(basic_auth, tuple) and len(basic_auth) == 2:
+        return httpx.BasicAuth(basic_auth[0], basic_auth[1])
+
+    return None
+
+async def _load_tools_from_mcp(mcp_client_auth: Optional[Any] = None) -> List[Dict[str, Any]]:
     """Helper to perform the actual MCP tool loading.
 
     Returns:
@@ -754,7 +774,7 @@ async def _load_tools_from_mcp() -> List[Dict[str, Any]]:
     """
     global _tools_cache
     try:
-        async with Client(MCP_SERVER_URL) as client:
+        async with Client(MCP_SERVER_URL, auth=mcp_client_auth) as client:
             # List available tools
             tools_list = await client.list_tools()
             
@@ -779,7 +799,7 @@ async def _load_tools_from_mcp() -> List[Dict[str, Any]]:
             raise McpConnectionError(f"Could not connect to MCP server: {error_msg}")
         raise McpError(f"MCP server error: {error_msg}")
 
-async def _call_mcp_tool(tool_name: str, tool_args: Dict[str, Any]) -> Any:
+async def _call_mcp_tool(tool_name: str, tool_args: Dict[str, Any], mcp_client_auth: Optional[Any] = None) -> Any:
     """Call a specific MCP tool and return the result.
 
     Args:
@@ -794,7 +814,7 @@ async def _call_mcp_tool(tool_name: str, tool_args: Dict[str, Any]) -> Any:
         McpError: If the tool call fails.
     """
     try:
-        async with Client(MCP_SERVER_URL) as client:
+        async with Client(MCP_SERVER_URL, auth=mcp_client_auth) as client:
             result = await client.call_tool(tool_name, tool_args)
             
             # Extract text content from MCP response
@@ -869,21 +889,25 @@ def _parse_tool_args(args: str) -> Dict[str, Any]:
             return {}
 
 
-async def _load_tools_safe() -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+async def _load_tools_safe(es_client: Optional["Elasticsearch"] = None) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """Safely load tools and return them or an error dict.
 
     Returns:
         Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]: A tuple containing the tools list 
             and a result dict (either reasoning message or error info).
     """
+    timeout_seconds = float(os.getenv("AGENT_TOOL_LOAD_TIMEOUT_SECONDS") or "8")
+    mcp_client_auth = _resolve_mcp_client_auth(es_client=es_client)
     try:
         is_first_load = _tools_cache is None
-        tools = await _get_mcp_tools()
+        tools = await asyncio.wait_for(_get_mcp_tools(mcp_client_auth=mcp_client_auth), timeout=timeout_seconds)
         return tools, {"reasoning": f"Initialized agent with {len(tools)} tools"} if is_first_load else None
+    except asyncio.TimeoutError:
+        return [], {"reasoning": f"MCP tools did not load within {timeout_seconds:.0f}s. Continuing without tools."}
     except McpConnectionError as e:
-        return None, {"error": {"message": str(e), "type": "mcp_connection_error"}}
+        return [], {"reasoning": f"MCP tools unavailable ({e}). Continuing without tools."}
     except McpError as e:
-        return None, {"error": {"message": str(e), "type": "mcp_error"}}
+        return [], {"reasoning": f"MCP tools failed to load ({e}). Continuing without tools."}
     except Exception as e:
         return None, {"error": {"message": f"Unexpected error: {str(e)}", "type": "internal_error"}}
 
@@ -1183,7 +1207,8 @@ async def _process_llm_response(
 
 async def _execute_tool_calls(
     tool_calls: List[Dict[str, Any]], 
-    messages: List[Dict[str, Any]]
+    messages: List[Dict[str, Any]],
+    mcp_client_auth: Optional[Any] = None,
 ) -> Generator[SseMessage, None, None]:
     """Execute tool calls in parallel and yield results.
 
@@ -1203,7 +1228,7 @@ async def _execute_tool_calls(
         tool_args = _parse_tool_args(args_str)
             
         try:
-            result = await _call_mcp_tool(tool_name, tool_args)
+            result = await _call_mcp_tool(tool_name, tool_args, mcp_client_auth=mcp_client_auth)
             return {
                 "role": "tool",
                 "content": result if isinstance(result, str) else json.dumps(result),
@@ -1288,6 +1313,7 @@ async def _agent_loop_stream(
     session_id: str = None,
     conversation_id: str = None,
     original_rounds: List[Dict[str, Any]] = None,
+    user: Optional[str] = None,
     es_client: Optional["Elasticsearch"] = None
 ):
     """Streaming agent loop that handles tool calling and yields response lines.
@@ -1314,8 +1340,16 @@ async def _agent_loop_stream(
         rounds_for_save[-1]["status"] = "running"
     
     # Get available MCP tools
-    tools, load_result = await _load_tools_safe()
+    tools, load_result = await _load_tools_safe(es_client=es_client)
     if not tools and load_result and "error" in load_result:
+        yield SseData({
+            "event": "round_info",
+            "data": {"status": "failed"}
+        })
+        yield SseData({
+            "event": "step_failure",
+            "data": {"error": load_result["error"]["message"]}
+        })
         yield SseEvent("error")
         yield SseData(load_result)
         return
@@ -1323,7 +1357,7 @@ async def _agent_loop_stream(
     if load_result and "reasoning" in load_result:
          yield SseData({
              "event": "reasoning",
-             "data": load_result
+             "data": {"reasoning": load_result["reasoning"]}
          })
     
     # Agent loop stats
@@ -1404,6 +1438,14 @@ async def _agent_loop_stream(
                     return
             
             if not es_response:
+                yield SseData({
+                    "event": "round_info",
+                    "data": {"status": "failed"}
+                })
+                yield SseData({
+                    "event": "step_failure",
+                    "data": {"error": "Model stream did not start."}
+                })
                 return
                 
             # Process the stream
@@ -1417,7 +1459,7 @@ async def _agent_loop_stream(
                     rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
                     rounds_for_save[-1]["status"] = "cancelled"
                     _apply_stats_to_round(rounds_for_save, stats, inference_id)
-                    await _save_conversation_async(conversation_id, rounds_for_save, final=True)
+                    await _save_conversation_async(conversation_id, rounds_for_save, user=user, final=True)
                 was_cancelled = True
                 break
                 
@@ -1441,12 +1483,13 @@ async def _agent_loop_stream(
                     rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
                     rounds_for_save[-1]["status"] = "running"  # Still working
                     _apply_stats_to_round(rounds_for_save, stats, inference_id)
-                    await _save_conversation_async(conversation_id, rounds_for_save, final=False)
+                    await _save_conversation_async(conversation_id, rounds_for_save, user=user, final=False)
                 
             # Execute tool calls
             if tool_calls:
                 try:
-                    async for event in _execute_tool_calls(tool_calls, messages):
+                    mcp_client_auth = _resolve_mcp_client_auth(es_client=es_client)
+                    async for event in _execute_tool_calls(tool_calls, messages, mcp_client_auth=mcp_client_auth):
                         # Check for cancellation during tool execution
                         if session_id and check_cancellation(session_id):
                             yield SseData({
@@ -1458,7 +1501,7 @@ async def _agent_loop_stream(
                                 rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
                                 rounds_for_save[-1]["status"] = "cancelled"
                                 _apply_stats_to_round(rounds_for_save, stats, inference_id)
-                                await _save_conversation_async(conversation_id, rounds_for_save, final=True)
+                                await _save_conversation_async(conversation_id, rounds_for_save, user=user, final=True)
                             return
                         yield event
                     
@@ -1467,7 +1510,7 @@ async def _agent_loop_stream(
                         rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
                         rounds_for_save[-1]["status"] = "running"  # Still working
                         _apply_stats_to_round(rounds_for_save, stats, inference_id)
-                        await _save_conversation_async(conversation_id, rounds_for_save, final=False)
+                        await _save_conversation_async(conversation_id, rounds_for_save, user=user, final=False)
                         
                 except McpConnectionError:
                     # Save state before returning on connection error
@@ -1475,7 +1518,7 @@ async def _agent_loop_stream(
                         rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
                         rounds_for_save[-1]["status"] = "failed"  # Connection error
                         _apply_stats_to_round(rounds_for_save, stats, inference_id)
-                        await _save_conversation_async(conversation_id, rounds_for_save, final=True)
+                        await _save_conversation_async(conversation_id, rounds_for_save, user=user, final=True)
                     return
             else:
                 # No tool calls, we're done with this round
@@ -1494,7 +1537,7 @@ async def _agent_loop_stream(
             rounds_for_save = _update_current_round_from_messages(rounds_for_save, messages[1:])
             rounds_for_save[-1]["status"] = "cancelled"
             _apply_stats_to_round(rounds_for_save, stats, inference_id)
-            await _save_conversation_async(conversation_id, rounds_for_save, final=True)
+            await _save_conversation_async(conversation_id, rounds_for_save, user=user, final=True)
         raise  # Re-raise to properly close the generator
         
     except Exception as e:
@@ -1531,7 +1574,7 @@ async def _agent_loop_stream(
         else:
             rounds_for_save[-1]["status"] = "completed"
         _apply_stats_to_round(rounds_for_save, stats, inference_id)
-        await _save_conversation_async(conversation_id, rounds_for_save, final=True)
+        await _save_conversation_async(conversation_id, rounds_for_save, user=user, final=True)
     
     # Clean up cancellation token
     if session_id:
@@ -1713,6 +1756,7 @@ def chat(
     id: str = None,
     conversation_id: str = None,
     session_id: str = None,
+    user: Optional[str] = None,
     es_client: Optional["Elasticsearch"] = None
 ) -> Generator[str, None, None]:
     """Perform a streaming chat completion with agentic behavior and MCP tool calling.
@@ -1766,6 +1810,7 @@ def chat(
                 session_id=session_id,
                 conversation_id=conversation_id,
                 original_rounds=rounds,
+                user=user,
                 es_client=es_client
             ):
                 yield line

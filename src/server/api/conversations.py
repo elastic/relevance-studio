@@ -6,6 +6,9 @@
 # Standard packages
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
+# Third-party packages
+from werkzeug.exceptions import Forbidden
+
 # App packages
 from .. import utils
 from ..client import es
@@ -16,13 +19,30 @@ if TYPE_CHECKING:
 
 INDEX_NAME = "esrs-conversations"
 
+
+def _normalize_user(user: Optional[str]) -> str:
+    return user or "unknown"
+
+
+def _created_by_filter(user: Optional[str]) -> Dict[str, Dict[str, str]]:
+    return {"term": {"@meta.created_by": _normalize_user(user)}}
+
+
+def _assert_owner(es_response: Any, user: Optional[str]) -> None:
+    body = es_response if isinstance(es_response, dict) else getattr(es_response, "body", {}) or {}
+    source = body.get("_source", {})
+    owner = (source.get("@meta") or {}).get("created_by")
+    if owner != _normalize_user(user):
+        raise Forbidden("Conversation access denied.")
+
 def search(
         text: str = "",
-        filters: List[Dict[str, Any]] = [],
-        sort: Dict[str, Any] = {},
+        filters: Optional[List[Dict[str, Any]]] = None,
+        sort: Optional[Dict[str, Any]] = None,
         size: int = 10,
         page: int = 1,
         aggs: bool = False,
+        user: Optional[str] = None,
         es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Search for conversations.
@@ -38,13 +58,14 @@ def search(
     Returns:
         A dictionary containing the search results.
     """
+    enforced_filters = [_created_by_filter(user), *(filters or [])]
     response = utils.search_assets(
-        "conversations", None, text, filters, sort, size, page,
+        "conversations", None, text, enforced_filters, sort or {}, size, page,
         es_client=es_client,
     )
     return response
 
-def get(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def get(_id: str, user: Optional[str] = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Get a conversation by its _id.
 
     Args:
@@ -59,6 +80,7 @@ def get(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]
         id=_id,
         source_excludes="_search",
     )
+    _assert_owner(es_response, user)
     return es_response
 
 def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
@@ -116,6 +138,17 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = N
         The response from the Elasticsearch update operation.
     """
     
+    client = es_client if es_client is not None else es("studio")
+
+    # Verify the caller owns the conversation before mutating it.
+    owner_check = client.get(
+        index=INDEX_NAME,
+        id=_id,
+        source_includes=["@meta.created_by"],
+        source_excludes="_search",
+    )
+    _assert_owner(owner_check, user)
+
     # Create, validate, and dump model
     doc_partial = ConversationsUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
 
@@ -123,7 +156,6 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = N
     doc_partial = utils.copy_fields_to_search("conversations", doc_partial)
     
     # Submit
-    client = es_client if es_client is not None else es("studio")
     es_response = client.update(
         index=INDEX_NAME,
         id=_id,
@@ -132,7 +164,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = N
     )
     return es_response
 
-def delete(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def delete(_id: str, user: Optional[str] = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Delete a conversation by its _id.
 
     Args:
@@ -142,6 +174,13 @@ def delete(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, A
         The response from the Elasticsearch delete operation.
     """
     client = es_client if es_client is not None else es("studio")
+    owner_check = client.get(
+        index=INDEX_NAME,
+        id=_id,
+        source_includes=["@meta.created_by"],
+        source_excludes="_search",
+    )
+    _assert_owner(owner_check, user)
     es_response = client.delete(
         index=INDEX_NAME,
         id=_id,
