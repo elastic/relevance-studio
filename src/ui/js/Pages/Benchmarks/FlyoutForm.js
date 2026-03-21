@@ -70,7 +70,9 @@ const FlyoutForm = ({
     scenarios_ids: [],
     scenarios_tags: [],
     scenarios_sample_size: 1000,
-    scenarios_sample_seed: ''
+    scenarios_sample_seed: '',
+    rank_eval_batch_size: '',
+    rank_eval_batch_delay: ''
   })
   const [formBlurs, setFormBlurs] = useState({
     name: false,
@@ -239,6 +241,8 @@ const FlyoutForm = ({
       scenarios_tags: doc.task?.scenarios?.tags || [],
       scenarios_sample_size: doc.task?.scenarios_sample_size || 1000,
       scenarios_sample_seed: doc.task?.scenarios_sample_seed || '',
+      rank_eval_batch_size: doc.task?.rank_eval_batch_size || '',
+      rank_eval_batch_delay: doc.task?.rank_eval_batch_delay || ''
     })
     // Open the toggle switches for strategy tags and scenario tags if used
     if (doc.task?.strategies?.tags?.length)
@@ -261,6 +265,10 @@ const FlyoutForm = ({
       metrics: form.metrics,
       k: parseInt(form.k)
     }
+    if (form.rank_eval_batch_size !== '' && !isNaN(parseInt(form.rank_eval_batch_size)))
+      newDoc.task.rank_eval_batch_size = parseInt(form.rank_eval_batch_size)
+    if (form.rank_eval_batch_delay !== '' && !isNaN(parseInt(form.rank_eval_batch_delay)))
+      newDoc.task.rank_eval_batch_delay = parseInt(form.rank_eval_batch_delay)
     const _strategies = {}
     _strategies._ids = form.strategies_ids
     _strategies.tags = form.strategies_tags
@@ -849,7 +857,7 @@ const FlyoutForm = ({
                       min={1}
                       onChange={(e) => setForm(prev => ({ ...prev, scenarios_sample_size: e.target.value }))}
                       prepend={
-                        <small style={{ width: '80px' }}>
+                        <small style={{ width: '100px' }}>
                           Maximum size
                         </small>
                       }
@@ -861,11 +869,42 @@ const FlyoutForm = ({
                       compressed
                       onChange={(e) => setForm(prev => ({ ...prev, scenarios_sample_seed: e.target.value }))}
                       prepend={
-                        <small style={{ width: '80px' }}>
+                        <small style={{ width: '100px' }}>
                           Seed
                         </small>
                       }
                       value={form.scenarios_sample_seed || ''}
+                    />
+                  </>
+                </EuiFormRow>
+
+                {/* Rank evaluation settings */}
+                <EuiFormRow label='Rank evaluation settings'>
+                  <>
+                    <EuiFieldNumber
+                      compressed
+                      min={1}
+                      onChange={(e) => setForm(prev => ({ ...prev, rank_eval_batch_size: e.target.value }))}
+                      prepend={
+                        <small style={{ width: '100px' }}>
+                          Batch size
+                        </small>
+                      }
+                      step={1}
+                      value={form.rank_eval_batch_size || ''}
+                    />
+                    <EuiSpacer size='xs' />
+                    <EuiFieldNumber
+                      compressed
+                      min={0}
+                      onChange={(e) => setForm(prev => ({ ...prev, rank_eval_batch_delay: e.target.value }))}
+                      prepend={
+                        <small style={{ width: '100px' }}>
+                          Batch delay (ms)
+                        </small>
+                      }
+                      step={1}
+                      value={form.rank_eval_batch_delay || ''}
                     />
                   </>
                 </EuiFormRow>

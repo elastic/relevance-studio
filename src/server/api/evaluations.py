@@ -5,6 +5,7 @@
 
 # Standard packages
 import itertools
+import os
 import time
 import traceback
 from typing import Any, Dict, List, Optional
@@ -28,6 +29,37 @@ from ..models import (
 INDEX_NAME = "esrs-evaluations"
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("evaluations")
 VALID_METRICS = set([ "mrr", "ndcg", "precision", "recall" ])
+RANK_EVAL_BATCH_SIZE = int(os.getenv("RANK_EVAL_BATCH_SIZE", "0"))
+def _parse_rank_eval_batch_delay_seconds(value: str) -> float:
+    """
+    Parse RANK_EVAL_BATCH_DELAY from env.
+
+    Supported formats:
+      - "1000"   -> 1000ms (default unit)
+      - "1000ms" -> 1000ms
+      - "1s"     -> 1 second
+      - "0.5s"   -> 0.5 second
+    """
+    raw = str(value or "0").strip().lower()
+    if not raw:
+        return 0.0
+    try:
+        if raw.endswith("ms"):
+            return max(0.0, float(raw[:-2].strip()) / 1000.0)
+        if raw.endswith("s"):
+            return max(0.0, float(raw[:-1].strip()))
+        # Default unit is milliseconds.
+        return max(0.0, float(raw) / 1000.0)
+    except ValueError:
+        logging.getLogger(__name__).warning(
+            "Invalid RANK_EVAL_BATCH_DELAY value '%s'. Falling back to 0ms.",
+            value
+        )
+        return 0.0
+
+RANK_EVAL_BATCH_DELAY_SEC = _parse_rank_eval_batch_delay_seconds(
+    os.getenv("RANK_EVAL_BATCH_DELAY", "0")
+)
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +276,58 @@ def run(
         "started_by": started_by,
     }
     evaluation_id = evaluation.pop("_id", None)
+    rank_eval_requests_count = 0
+
+    # Get benchmark settings for batch size and delay
+    benchmark_batch_size = RANK_EVAL_BATCH_SIZE
+    benchmark_batch_delay_sec = RANK_EVAL_BATCH_DELAY_SEC
+    benchmark_id = evaluation.get("benchmark_id")
+    if benchmark_id:
+        try:
+            es_response = es("studio").get(
+                index="esrs-benchmarks",
+                id=benchmark_id,
+                source_includes=["task.rank_eval_batch_size", "task.rank_eval_batch_delay"]
+            )
+            benchmark_source = es_response.body["_source"]
+            if benchmark_source.get("task", {}).get("rank_eval_batch_size"):
+                benchmark_batch_size = benchmark_source["task"]["rank_eval_batch_size"]
+            if benchmark_source.get("task", {}).get("rank_eval_batch_delay") is not None:
+                benchmark_batch_delay_sec = benchmark_source["task"]["rank_eval_batch_delay"] / 1000.0  # Convert ms to seconds
+        except Exception:
+            # Fallback to env defaults if benchmark fetch fails
+            pass
+
+    def persist_benchmark_requests_count(requests_count: int):
+        benchmark_id = evaluation.get("benchmark_id")
+        if not benchmark_id:
+            return
+        try:
+            es("studio").update(
+                index="esrs-benchmarks",
+                id=benchmark_id,
+                script={
+                    "source": """
+                        if (ctx._source.task == null) {
+                            ctx._source.task = [:];
+                        }
+                        ctx._source.task.requests = params.requests;
+                    """,
+                    "lang": "painless",
+                    "params": { "requests": requests_count }
+                },
+                refresh=True
+            )
+        except (ConnectionError, ConnectionTimeout, ApiError):
+            logger.exception(
+                "Failed to persist task.requests in benchmark",
+                extra={
+                    "benchmark_id": benchmark_id,
+                    "requests": requests_count,
+                    "evaluation_id": evaluation_id
+                }
+            )
+
     try:
     
         # Parse and validate request
@@ -492,6 +576,10 @@ def run(
                 )
             return evaluation
         
+        # Track _rank_eval call volume/timing to validate throttle behavior
+        rank_eval_call_count = 0
+        last_rank_eval_called_at = None
+
         # Create a set of requests for each evaluation metric
         for m in evaluation["task"]["metrics"]:
             
@@ -526,63 +614,83 @@ def run(
                 # Skip if no valid requests (all scenarios have no ratings)
                 if not _rank_eval["requests"]:
                     continue
-                    
-                # Run _rank_eval on the content deployment and accumulate the results
-                body = {
-                    "metric": _rank_eval["metric"],
-                    "requests": _rank_eval["requests"],
-                    "templates": [ template, ]
-                }
-                es_response = None
-                try:
-                    es_response = es("content").rank_eval(
-                        index=index_pattern,
-                        body=body
-                    )
-                except (ConnectionError, ConnectionTimeout, ApiError) as e:
-                    _results[template["id"]]["failures"].append({
-                        "scenario_id": None,
-                        "metric": m,
-                        "error": {
-                            "type": e.__class__.__name__,
-                            "reason": str(e)
-                        }
-                    })
-                    continue
-                
-                # Store results
-                for request_id, details in es_response.body["details"].items():
-                    strategy_id, scenario_id = request_id.split("~", 1)
-                    _results[strategy_id]["scenarios"][scenario_id]["metrics"][m] = details["metric_score"]
-                    if not len(_results[strategy_id]["scenarios"][scenario_id]["hits"]):
-                        _results[strategy_id]["scenarios"][scenario_id]["hits"] = details["hits"]
-                        # Find unrated docs
-                        for hit in details["hits"]:
-                            if hit["rating"] is not None:
-                                continue
-                            _index = hit["hit"]["_index"]
-                            _id = hit["hit"]["_id"]
-                            if _index not in _unrated_docs:
-                                _unrated_docs[_index] = {}
-                            if _id not in _unrated_docs[_index]:
-                                _unrated_docs[_index][_id] = {
-                                    "count": 0,
-                                    "strategies": set(),
-                                    "scenarios": set()
-                                }
-                            _unrated_docs[_index][_id]["count"] += 1
-                            _unrated_docs[_index][_id]["strategies"].add(strategy_id)
-                            _unrated_docs[_index][_id]["scenarios"].add(scenario_id)
-                
-                # Store failures
-                if es_response.body.get("failures"):
-                    for request_id, failure in es_response.body["failures"].items():
-                        strategy_id, scenario_id = request_id.split("~", 1)
-                        _results[strategy_id]["failures"].append({
-                            "scenario_id": scenario_id,
+
+                # Batch the requests to avoid overwhelming Elasticsearch
+                all_requests = _rank_eval["requests"]
+                for batch_index, batch_requests in enumerate(utils.chunks(all_requests, benchmark_batch_size)):
+
+                    # Throttle between batches
+                    applied_throttle_delay = 0.0
+                    if batch_index > 0 and benchmark_batch_delay_sec > 0:
+                        applied_throttle_delay = benchmark_batch_delay_sec
+                        time.sleep(benchmark_batch_delay_sec)
+
+                    # Run _rank_eval on the content deployment and accumulate the results
+                    body = {
+                        "metric": _rank_eval["metric"],
+                        "requests": batch_requests,
+                        "templates": [ template, ]
+                    }
+                    es_response = None
+                    rank_eval_requests_count += len(batch_requests)
+                    rank_eval_call_count += 1
+                    current_call_started_at = time.monotonic()
+                    elapsed_since_previous_call_ms = None
+                    if last_rank_eval_called_at is not None:
+                        elapsed_since_previous_call_ms = int(
+                            (current_call_started_at - last_rank_eval_called_at) * 1000
+                        )
+                    try:
+                        es_response = es("content").rank_eval(
+                            index=index_pattern,
+                            body=body
+                        )
+                    except (ConnectionError, ConnectionTimeout, ApiError) as e:
+                        _results[template["id"]]["failures"].append({
+                            "scenario_id": None,
                             "metric": m,
-                            "error": failure.get("error") or failure
+                            "error": {
+                                "type": e.__class__.__name__,
+                                "reason": str(e)
+                            }
                         })
+                        continue
+                    finally:
+                        last_rank_eval_called_at = current_call_started_at
+
+                    # Store results
+                    for request_id, details in es_response.body["details"].items():
+                        strategy_id, scenario_id = request_id.split("~", 1)
+                        _results[strategy_id]["scenarios"][scenario_id]["metrics"][m] = details["metric_score"]
+                        if not len(_results[strategy_id]["scenarios"][scenario_id]["hits"]):
+                            _results[strategy_id]["scenarios"][scenario_id]["hits"] = details["hits"]
+                            # Find unrated docs
+                            for hit in details["hits"]:
+                                if hit["rating"] is not None:
+                                    continue
+                                _index = hit["hit"]["_index"]
+                                _id = hit["hit"]["_id"]
+                                if _index not in _unrated_docs:
+                                    _unrated_docs[_index] = {}
+                                if _id not in _unrated_docs[_index]:
+                                    _unrated_docs[_index][_id] = {
+                                        "count": 0,
+                                        "strategies": set(),
+                                        "scenarios": set()
+                                    }
+                                _unrated_docs[_index][_id]["count"] += 1
+                                _unrated_docs[_index][_id]["strategies"].add(strategy_id)
+                                _unrated_docs[_index][_id]["scenarios"].add(scenario_id)
+
+                    # Store failures
+                    if es_response.body.get("failures"):
+                        for request_id, failure in es_response.body["failures"].items():
+                            strategy_id, scenario_id = request_id.split("~", 1)
+                            _results[strategy_id]["failures"].append({
+                                "scenario_id": scenario_id,
+                                "metric": m,
+                                "error": failure.get("error") or failure
+                            })
             
         # Restructure results for response
         evaluation["results"] = []
@@ -623,6 +731,7 @@ def run(
             candidates["strategies"],
             candidates["scenarios"]
         )
+        evaluation["task"]["requests"] = rank_eval_requests_count
         
         # Create final response
         stopped_at = time.time()
@@ -637,6 +746,7 @@ def run(
                 doc=doc,
                 refresh=True
             )
+            persist_benchmark_requests_count(rank_eval_requests_count)
         return doc
     
     # Mark evaluation as "failed" on exception
@@ -649,6 +759,7 @@ def run(
             "message": str(e),
             "traceback": "".join(traceback.format_exception(type(e), e, e.__traceback__))
         }
+        evaluation["task"]["requests"] = rank_eval_requests_count
         doc = EvaluationFail.model_validate(evaluation).serialize()
         if store_results:
             es("studio").update(
@@ -657,6 +768,7 @@ def run(
                 doc=doc,
                 refresh=True
             )
+            persist_benchmark_requests_count(rank_eval_requests_count)
         raise e
     
 def search(
