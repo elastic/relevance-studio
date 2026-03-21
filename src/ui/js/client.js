@@ -25,7 +25,7 @@ axios.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401) {
       const path = error.config?.url || ''
-      if (!path.includes('/api/auth/login') && !path.includes('/api/auth/logout')) {
+      if (!path.includes('/api/auth/login') && !path.includes('/api/auth/logout') && !path.includes('/api/auth/session')) {
         const handler = get401Handler()
         if (handler) {
           handler()

@@ -49,8 +49,9 @@ const Login = () => {
         ? { username, password }
         : { api_key: apiKey }
       await login(credentials)
-      const from = history.location.state?.from?.pathname || '/'
-      history.replace(from)
+      const params = new URLSearchParams(history.location.search)
+      const next = params.get('next') || '/'
+      history.replace(next)
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Login failed'
       setError(msg)

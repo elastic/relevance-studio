@@ -30,10 +30,25 @@ export const AuthGuard = ({ children }) => {
     return null
   }
   if (!isAuthenticated) {
-    history.replace('/login', { from: { pathname: location.pathname } })
+    history.replace(`/login?next=${encodeURIComponent(location.pathname)}`)
     return null
   }
   return children
+}
+
+/**
+ * Logout route: signs the user out and redirects to /login.
+ */
+const LogoutRoute = () => {
+  const { logout, hasCheckedSession, isLoading } = useAuthContext()
+
+  useEffect(() => {
+    if (!isLoading && hasCheckedSession) {
+      logout()
+    }
+  }, [isLoading, hasCheckedSession])
+
+  return null
 }
 
 /**
@@ -47,8 +62,9 @@ const LoginRoute = () => {
     return null
   }
   if (isAuthenticated) {
-    const from = location.state?.from?.pathname || '/'
-    history.replace(from)
+    const params = new URLSearchParams(location.search)
+    const next = params.get('next') || '/'
+    history.replace(next)
     return null
   }
   document.title = `Sign in - ${title}`
@@ -101,8 +117,9 @@ const Routes = () => {
     <EuiProvider colorMode={darkMode ? 'dark' : 'light'}>
       <Router history={history}>
         <Switch>
-          {/* Login route - outside AuthGuard and ResourceProvider to avoid 401 redirect loops */}
+          {/* Auth routes - outside AuthGuard and ResourceProvider to avoid 401 redirect loops */}
           <Route path='/login' exact render={() => <LoginRoute />} />
+          <Route path='/logout' exact render={() => <LogoutRoute />} />
 
           {/* All other routes - inside AuthGuard and ResourceProvider */}
           <Route path={allOtherPaths}>
