@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 
 # Third-party packages
 from pydantic import BaseModel, Field, field_validator, model_validator, StrictInt
+MAX_RANK_EVAL_BATCH_DELAY_MS = 300000  # 5 minutes
+
 
 # App packages
 from .asset import AssetCreate, AssetUpdate
@@ -147,7 +149,11 @@ class TaskCreate(BaseModel):
     k: StrictInt = Field(default=10, ge=1)
     requests: StrictInt = Field(default=0, ge=0)
     rank_eval_batch_size: Optional[StrictInt] = Field(default=None, ge=1)
-    rank_eval_batch_delay: Optional[StrictInt] = Field(default=None, ge=0)
+    rank_eval_batch_delay: Optional[StrictInt] = Field(
+        default=None,
+        ge=0,
+        le=MAX_RANK_EVAL_BATCH_DELAY_MS
+    )
     strategies: TaskStrategiesCreate = Field(default_factory=TaskStrategiesCreate)
     scenarios: TaskScenariosCreate = Field(default_factory=TaskScenariosCreate)
 
@@ -182,7 +188,11 @@ class TaskUpdate(BaseModel):
     metrics: Optional[List[str]] = None
     requests: Optional[StrictInt] = Field(default=None, ge=0)
     rank_eval_batch_size: Optional[StrictInt] = Field(default=None, ge=1)
-    rank_eval_batch_delay: Optional[StrictInt] = Field(default=None, ge=0)
+    rank_eval_batch_delay: Optional[StrictInt] = Field(
+        default=None,
+        ge=0,
+        le=MAX_RANK_EVAL_BATCH_DELAY_MS
+    )
     strategies: Optional[TaskStrategiesUpdate] = None
     scenarios: Optional[TaskScenariosUpdate] = None
 
