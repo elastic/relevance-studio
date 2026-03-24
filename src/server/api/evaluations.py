@@ -576,10 +576,6 @@ def run(
                 )
             return evaluation
         
-        # Track _rank_eval call volume/timing to validate throttle behavior
-        rank_eval_call_count = 0
-        last_rank_eval_called_at = None
-
         # Create a set of requests for each evaluation metric
         for m in evaluation["task"]["metrics"]:
             
@@ -620,9 +616,7 @@ def run(
                 for batch_index, batch_requests in enumerate(utils.chunks(all_requests, benchmark_batch_size)):
 
                     # Throttle between batches
-                    applied_throttle_delay = 0.0
                     if batch_index > 0 and benchmark_batch_delay_sec > 0:
-                        applied_throttle_delay = benchmark_batch_delay_sec
                         time.sleep(benchmark_batch_delay_sec)
 
                     # Run _rank_eval on the content deployment and accumulate the results
@@ -633,13 +627,6 @@ def run(
                     }
                     es_response = None
                     rank_eval_requests_count += len(batch_requests)
-                    rank_eval_call_count += 1
-                    current_call_started_at = time.monotonic()
-                    elapsed_since_previous_call_ms = None
-                    if last_rank_eval_called_at is not None:
-                        elapsed_since_previous_call_ms = int(
-                            (current_call_started_at - last_rank_eval_called_at) * 1000
-                        )
                     try:
                         es_response = es("content").rank_eval(
                             index=index_pattern,
@@ -655,8 +642,6 @@ def run(
                             }
                         })
                         continue
-                    finally:
-                        last_rank_eval_called_at = current_call_started_at
 
                     # Store results
                     for request_id, details in es_response.body["details"].items():
