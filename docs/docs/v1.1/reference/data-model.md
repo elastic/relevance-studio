@@ -35,7 +35,7 @@ Elasticsearch index template: [esrs-workspaces](https://github.com/elastic/relev
 - **`rating_scale.min`** - The lower bound of the rating scale used by all [judgements](#judgements) in the workspace.
 - **`rating_scale.max`** - The upper bound of the rating scale used by all [judgements](#judgements) in the workspace.
 - **`params`** - The names of search inputs that can be implemented by [scenarios](#scenarios) and [strategies](#strategies). Essentially, these are the input fields for the search form of your application.
-- **`description`** - A human-readable description of the workspace.
+- **`description`** - A markdown-formatted description of the workspace to serve as guiding context for agents and humans.
 - **`tags`** - Arbitrary tags for organizing workspaces.
 - **`_search`** - Implements the [common field](#common-fields) for `_search`.
 
@@ -217,6 +217,8 @@ Elasticsearch index template: [esrs-benchmarks](https://github.com/elastic/relev
 - **`tags`** - Arbitrary tags for organizing benchmarks.
 - **`task.k`** - The value of `k` used for metrics like NDCG.
 - **`task.metrics`** - The names of the metrics to include. Supports `"ndcg"`, `"precision"`, `"recall"`, and `"mrr"`.
+- **`task.rank_eval_batch_delay`** - Optional delay between `_rank_eval` batches, in milliseconds. Must be an integer from `0` to `300000`. If omitted, runtime defaults are used (`RANK_EVAL_BATCH_DELAY` env var, default `0`).
+- **`task.rank_eval_batch_size`** - Optional max scenarios per `_rank_eval` call. Must be an integer greater than or equal to `1`. If omitted, runtime defaults are used (`RANK_EVAL_BATCH_SIZE` env var, default `0`, which means no limit).
 - **`task.strategies._ids`** - The `_id` fields of [strategy](#strategies) documents to include in [evaluations](#evaluations).
 - **`task.strategies.tags`** - The `tags` of [strategies](#strategies) to include in [evaluations](#evaluations).
 - **`task.strategies.docs`** - The `_source` of [strategy](#strategies) documents to include in [evaluations](#evaluations). Primarily intended to be used by the strategy testing components of the [UI](docs/{{VERSION}}/reference/architecture.md#application).
@@ -237,6 +239,8 @@ Elasticsearch index template: [esrs-benchmarks](https://github.com/elastic/relev
 |**`tags`**|List of strings|Optional|Optional||
 |**`task.k`**|Integer|Required|Forbidden|Immutable|
 |**`task.metrics`**|List of strings|Required|Optional|Options: `"ndcg"`, `"precision"`, `"recall"`, `"mrr"`|
+|**`task.rank_eval_batch_delay`**|Integer|Optional|Optional|Options: `0` to `300000`; default: `null`|
+|**`task.rank_eval_batch_size`**|Integer|Optional|Optional|Options: `>=1`; default: `null`|
 |**`task.strategies._ids`**|List of strings|Optional|Optional||
 |**`task.strategies.tags`**|List of strings|Optional|Optional||
 |**`task.strategies.docs`**|List of objects|Optional|Optional||
