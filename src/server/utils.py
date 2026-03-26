@@ -367,3 +367,12 @@ def attach_schema_doc(cls):
     schema = cls.model_json_schema()
     cls.__doc__ = base_doc.rstrip() + "\n\nJSON Schema:\n" + str(schema)
     return cls
+
+def chunks(lst, size):
+    """Yield successive chunks of a list. If size is 0 or negative,
+    yield the entire list as a single chunk."""
+    if size <= 0:
+        yield lst
+        return
+    for i in range(0, len(lst), size):
+        yield lst[i:i + size]
