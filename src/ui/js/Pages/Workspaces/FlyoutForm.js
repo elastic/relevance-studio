@@ -175,7 +175,7 @@ const FlyoutForm = ({
             onChange={(e) => {
               setForm(prev => ({
                 ...prev, rating_scale: {
-                  ...prev.rating_scale, min: e.target.value
+                  ...prev.rating_scale, min: parseInt(e.target.value, 10)
                 }
               }))
             }}
@@ -195,7 +195,7 @@ const FlyoutForm = ({
             onChange={(e) => {
               setForm(prev => ({
                 ...prev, rating_scale: {
-                  ...prev.rating_scale, max: e.target.value
+                  ...prev.rating_scale, max: parseInt(e.target.value, 10)
                 }
               }))
             }}
