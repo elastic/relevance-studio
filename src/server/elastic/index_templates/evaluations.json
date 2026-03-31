@@ -65,6 +65,9 @@
             "k": {
               "type": "short"
             },
+            "requests": {
+              "type": "integer"
+            },
             "strategies": {
               "properties": {
                 "_ids": {
