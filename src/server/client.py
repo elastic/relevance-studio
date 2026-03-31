@@ -4,7 +4,7 @@
 # 2.0.
 
 # Standard packages
-from typing import Dict
+from typing import Dict, Optional, Union
 import os
 
 # Third-party packages
@@ -20,6 +20,7 @@ ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "").strip()
 ELASTICSEARCH_API_KEY = os.getenv("ELASTICSEARCH_API_KEY", "").strip()
 ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "").strip()
 ELASTICSEARCH_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD", "").strip()
+AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").strip().lower() in ("true", "1", "yes")
 CONTENT_ELASTIC_CLOUD_ID = os.getenv("CONTENT_ELASTIC_CLOUD_ID", "").strip()
 CONTENT_ELASTICSEARCH_URL = os.getenv("CONTENT_ELASTICSEARCH_URL", "").strip()
 CONTENT_ELASTICSEARCH_API_KEY = os.getenv("CONTENT_ELASTICSEARCH_API_KEY", "").strip()
@@ -31,6 +32,70 @@ ELASTICSEARCH_TIMEOUT = int(os.getenv("ELASTICSEARCH_TIMEOUT", "10").strip()) # 
 # Singleton Elasticsearch clients
 _es_clients = None
 _valid_es_clients = set([ "studio", "content", ])
+
+
+def _validate_endpoint_configuration() -> None:
+    if ELASTIC_CLOUD_ID and ELASTICSEARCH_URL:
+        raise ValueError("Configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL, not both.")
+    if CONTENT_ELASTIC_CLOUD_ID and CONTENT_ELASTICSEARCH_URL:
+        raise ValueError("Configure either CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL, not both.")
+
+
+def es_studio_endpoint() -> Dict[str, Union[str, list]]:
+    """
+    Return endpoint configuration for the studio deployment without credentials.
+    Prefers cloud_id when available, else url (hosts).
+    """
+    _validate_endpoint_configuration()
+    if ELASTIC_CLOUD_ID:
+        return {"cloud_id": ELASTIC_CLOUD_ID}
+    if ELASTICSEARCH_URL:
+        return {"hosts": [ELASTICSEARCH_URL]}
+    raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL in .env")
+
+
+def es_from_credentials(
+    *,
+    api_key: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    cloud_id: Optional[str] = None,
+    url: Optional[str] = None,
+) -> Elasticsearch:
+    """
+    Construct an Elasticsearch client for the studio endpoint using the given credentials.
+    Prefers cloud_id when available, else url.
+    Raises ValueError when no credentials are provided.
+    """
+    if api_key and (username or password):
+        raise ValueError("Provide either api_key or username/password, not both.")
+    if not api_key and not (username and password):
+        raise ValueError("You must provide either api_key or both username and password.")
+    if not cloud_id and not url:
+        endpoint = es_studio_endpoint()
+        cloud_id = endpoint.get("cloud_id")
+        url = endpoint.get("hosts", [None])[0] if endpoint.get("hosts") else None
+    if not cloud_id and not url:
+        raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL (or pass cloud_id/url).")
+    kwargs = {
+        "headers": {
+            "Accept": "application/vnd.elasticsearch+json; compatible-with=8",
+            "Content-Type": "application/vnd.elasticsearch+json; compatible-with=8"
+        },
+        "max_retries": ELASTICSEARCH_MAX_RETRIES,
+        "retry_on_timeout": True,
+        "request_timeout": ELASTICSEARCH_TIMEOUT
+    }
+    if cloud_id:
+        kwargs["cloud_id"] = cloud_id
+    else:
+        kwargs["hosts"] = [url]
+    if api_key:
+        kwargs["api_key"] = api_key
+    else:
+        kwargs["basic_auth"] = (username, password)
+    return Elasticsearch(**kwargs)
+
 
 def es(client_name: str) -> Elasticsearch:
     """
@@ -55,13 +120,18 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
     """
 
     # Validate configuration
+    _validate_endpoint_configuration()
     if not ELASTIC_CLOUD_ID and not ELASTICSEARCH_URL:
         raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL in .env")
-    if (ELASTICSEARCH_USERNAME and not ELASTICSEARCH_PASSWORD) or (not ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD):
-        raise ValueError("You must configure either ELASTICSEARCH_API_KEY or both of ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD in .env")
+    if AUTH_ENABLED and ELASTICSEARCH_API_KEY and (ELASTICSEARCH_USERNAME or ELASTICSEARCH_PASSWORD):
+        raise ValueError("Configure either ELASTICSEARCH_API_KEY or ELASTICSEARCH_USERNAME/ELASTICSEARCH_PASSWORD, not both.")
+    if AUTH_ENABLED and ((ELASTICSEARCH_USERNAME and not ELASTICSEARCH_PASSWORD) or (not ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD)):
+        raise ValueError("You must configure both of ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD in .env")
+    if (CONTENT_ELASTICSEARCH_USERNAME and not CONTENT_ELASTICSEARCH_PASSWORD) or (not CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD):
+        raise ValueError("You must configure both of CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD in .env")
     if CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL:
-        if not CONTENT_ELASTICSEARCH_API_KEY and not (CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD):
-            raise ValueError(f"When using {CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL}, you must configure either CONTENT_ELASTICSEARCH_API_KEY or both of CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD in .env")
+        if CONTENT_ELASTICSEARCH_API_KEY and (CONTENT_ELASTICSEARCH_USERNAME or CONTENT_ELASTICSEARCH_PASSWORD):
+            raise ValueError(f"When using {CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL}, configure either CONTENT_ELASTICSEARCH_API_KEY or CONTENT_ELASTICSEARCH_USERNAME/CONTENT_ELASTICSEARCH_PASSWORD, not both.")
 
     # Setup Elasticsearch clients
     es_clients = {
@@ -77,19 +147,20 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
         },
         "max_retries": ELASTICSEARCH_MAX_RETRIES,
         "retry_on_timeout": True,
-        "timeout": ELASTICSEARCH_TIMEOUT
+        "request_timeout": ELASTICSEARCH_TIMEOUT
     }
     if ELASTIC_CLOUD_ID:
         es_studio_kwargs["cloud_id"] = ELASTIC_CLOUD_ID
     else:
         es_studio_kwargs["hosts"] = [ ELASTICSEARCH_URL ]
-    if ELASTICSEARCH_API_KEY:
-        es_studio_kwargs["api_key"] = ELASTICSEARCH_API_KEY
-    else:
-        es_studio_kwargs["basic_auth"] = (
-            ELASTICSEARCH_USERNAME,
-            ELASTICSEARCH_PASSWORD
-        )
+    if AUTH_ENABLED:
+        if ELASTICSEARCH_API_KEY:
+            es_studio_kwargs["api_key"] = ELASTICSEARCH_API_KEY
+        elif ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD:
+            es_studio_kwargs["basic_auth"] = (
+                ELASTICSEARCH_USERNAME,
+                ELASTICSEARCH_PASSWORD
+            )
     es_clients["studio"] = Elasticsearch(**es_studio_kwargs)
 
     # Setup client for deployment with source content
@@ -103,7 +174,7 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
             },
             "max_retries": ELASTICSEARCH_MAX_RETRIES,
             "retry_on_timeout": True,
-            "timeout": ELASTICSEARCH_TIMEOUT
+            "request_timeout": ELASTICSEARCH_TIMEOUT
         }
         if CONTENT_ELASTIC_CLOUD_ID:
             es_content_kwargs["cloud_id"] = CONTENT_ELASTIC_CLOUD_ID
@@ -111,7 +182,7 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
             es_content_kwargs["hosts"] = [ CONTENT_ELASTICSEARCH_URL ]
         if CONTENT_ELASTICSEARCH_API_KEY:
             es_content_kwargs["api_key"] = CONTENT_ELASTICSEARCH_API_KEY
-        else:
+        elif CONTENT_ELASTICSEARCH_USERNAME and CONTENT_ELASTICSEARCH_PASSWORD:
             es_content_kwargs["basic_auth"] = (
                 CONTENT_ELASTICSEARCH_USERNAME,
                 CONTENT_ELASTICSEARCH_PASSWORD

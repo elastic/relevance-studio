@@ -92,6 +92,7 @@ def run_quickstart(
     fake_bin: Path,
     install_dir: Path,
     extra_env: dict = None,
+    stdin_input: str = None,
 ) -> subprocess.CompletedProcess:
     """
     Helper to invoke the quickstart script with fake PATH and NO_COLOR=1.
@@ -109,6 +110,7 @@ def run_quickstart(
 
     return subprocess.run(
         cmd,
+        input=stdin_input,
         capture_output=True,
         text=True,
         timeout=30,
@@ -167,6 +169,37 @@ def run_quickstart_stdin(
     )
 
 
+def run_quickstart_interactive(
+    args: list,
+    fake_bin: Path,
+    install_dir: Path,
+    stdin_input: str,
+    extra_env: dict = None,
+) -> subprocess.CompletedProcess:
+    """
+    Run quickstart with non-TTY prompt mode enabled for tests.
+    """
+    env = os.environ.copy()
+    env["PATH"] = f"{fake_bin}:{env['PATH']}"
+    env["NO_COLOR"] = "1"
+    env["QUICKSTART_ALLOW_NON_TTY_PROMPTS"] = "true"
+    if extra_env:
+        env.update(extra_env)
+
+    cmd = ["bash", str(QUICKSTART_SCRIPT)]
+    cmd += ["--no-start", "--dir", str(install_dir)]
+    cmd += args
+
+    return subprocess.run(
+        cmd,
+        input=stdin_input,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env=env,
+    )
+
+
 def read_env(install_dir: Path) -> dict:
     """Parse the generated .env file into a dict, ignoring comments and blanks.
     Strips surrounding double quotes from values (matching dotenv behavior)."""
@@ -197,6 +230,73 @@ def read_env_raw(install_dir: Path) -> dict:
                 key, _, value = line.partition("=")
                 env[key.strip()] = value.strip()
     return env
+
+
+def write_fake_openssl(fake_bin: Path):
+    """Create a fake openssl binary for deterministic tests."""
+    fake_openssl = fake_bin / "openssl"
+    fake_openssl.write_text(
+        "#!/usr/bin/env bash\n"
+        "if [[ \"$1\" == \"rand\" ]]; then\n"
+        "  echo \"stub-jwt-secret\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "if [[ \"$1\" == \"req\" ]]; then\n"
+        "  cert_file=\"\"\n"
+        "  key_file=\"\"\n"
+        "  i=1\n"
+        "  while [[ $i -le $# ]]; do\n"
+        "    arg=\"${!i}\"\n"
+        "    if [[ \"$arg\" == \"-out\" ]]; then\n"
+        "      ((i++))\n"
+        "      cert_file=\"${!i}\"\n"
+        "    elif [[ \"$arg\" == \"-keyout\" ]]; then\n"
+        "      ((i++))\n"
+        "      key_file=\"${!i}\"\n"
+        "    fi\n"
+        "    ((i++))\n"
+        "  done\n"
+        "  [[ -n \"$cert_file\" ]] && { mkdir -p \"$(dirname \"$cert_file\")\"; printf \"stub-cert\\n\" > \"$cert_file\"; }\n"
+        "  [[ -n \"$key_file\" ]] && { mkdir -p \"$(dirname \"$key_file\")\"; printf \"stub-key\\n\" > \"$key_file\"; }\n"
+        "  if [[ -n \"${OPENSSL_REQ_COUNT_FILE:-}\" ]]; then\n"
+        "    if [[ -f \"$OPENSSL_REQ_COUNT_FILE\" ]]; then\n"
+        "      count=$(cat \"$OPENSSL_REQ_COUNT_FILE\")\n"
+        "    else\n"
+        "      count=0\n"
+        "    fi\n"
+        "    count=$((count + 1))\n"
+        "    printf \"%s\" \"$count\" > \"$OPENSSL_REQ_COUNT_FILE\"\n"
+        "  fi\n"
+        "  exit 0\n"
+        "fi\n"
+        "exit 1\n"
+    )
+    fake_openssl.chmod(fake_openssl.stat().st_mode | stat.S_IEXEC)
+
+
+def write_fake_trust_tools(fake_bin: Path, log_file: Path):
+    """Create fake uname/sudo/security binaries for trust-store assertions."""
+    fake_uname = fake_bin / "uname"
+    fake_uname.write_text(
+        "#!/usr/bin/env bash\n"
+        "echo Darwin\n"
+    )
+    fake_uname.chmod(fake_uname.stat().st_mode | stat.S_IEXEC)
+
+    fake_sudo = fake_bin / "sudo"
+    fake_sudo.write_text(
+        "#!/usr/bin/env bash\n"
+        "printf '%s\\n' \"$*\" >> \"$TRUST_LOG_FILE\"\n"
+        "exit 0\n"
+    )
+    fake_sudo.chmod(fake_sudo.stat().st_mode | stat.S_IEXEC)
+
+    fake_security = fake_bin / "security"
+    fake_security.write_text(
+        "#!/usr/bin/env bash\n"
+        "exit 0\n"
+    )
+    fake_security.chmod(fake_security.stat().st_mode | stat.S_IEXEC)
 
 
 # =============================================================================
@@ -835,6 +935,162 @@ class TestIdempotency:
         env2 = read_env(seeded_dir)
         assert env2["ELASTICSEARCH_URL"] == "http://second:9200"
         assert env2["ELASTICSEARCH_API_KEY"] == "second-key"
+
+    def test_generate_tls_cert_reuses_existing_certs_on_rerun(self, seeded_dir, fake_bin):
+        """When cert files already exist, TLS generation should not regenerate."""
+        write_fake_openssl(fake_bin)
+        req_count_file = seeded_dir / "openssl-req-count.txt"
+
+        first = run_quickstart([
+            "--studio-elasticsearch-url", "http://localhost:9200",
+            "--studio-elasticsearch-api-key", "key",
+            "--no-separate-content-deployment",
+            "--generate-tls-cert",
+        ], fake_bin, seeded_dir, extra_env={
+            "OPENSSL_REQ_COUNT_FILE": str(req_count_file),
+        })
+        assert first.returncode == 0
+        assert (seeded_dir / ".certs" / "cert.pem").exists()
+        assert (seeded_dir / ".certs" / "key.pem").exists()
+        assert req_count_file.read_text() == "1"
+
+        second = run_quickstart([
+            "--studio-elasticsearch-url", "http://localhost:9200",
+            "--studio-elasticsearch-api-key", "key",
+            "--no-separate-content-deployment",
+            "--generate-tls-cert",
+        ], fake_bin, seeded_dir, extra_env={
+            "OPENSSL_REQ_COUNT_FILE": str(req_count_file),
+        })
+        assert second.returncode == 0
+        assert req_count_file.read_text() == "1"
+        env = read_env(seeded_dir)
+        assert env["TLS_ENABLED"] == "true"
+        assert env["TLS_CERT_FILE"] == ".certs/cert.pem"
+        assert env["TLS_KEY_FILE"] == ".certs/key.pem"
+
+
+class TestInteractiveTlsAuth:
+    """Interactive onboarding for TLS/auth defaults and cert options."""
+
+    def test_defaults_enable_tls_autogen_and_auth(self, seeded_dir, fake_bin):
+        write_fake_openssl(fake_bin)
+
+        # 2=URL, blank=default URL, auth-required=y, 1=API key, then values/defaults for prompts:
+        # content separate=n, OTel=n, TLS=y, auto-generate certs=y,
+        # trust cert=n, auth=y
+        stdin_input = "\n".join([
+            "2",
+            "",
+            "y",
+            "1",
+            "api-key-123",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+        ]) + "\n"
+
+        result = run_quickstart_interactive([], fake_bin, seeded_dir, stdin_input=stdin_input)
+        assert result.returncode == 0
+        env = read_env(seeded_dir)
+        assert env["TLS_ENABLED"] == "true"
+        assert env["TLS_CERT_FILE"] == ".certs/cert.pem"
+        assert env["TLS_KEY_FILE"] == ".certs/key.pem"
+        assert env["AUTH_ENABLED"] == "true"
+        assert env["AUTH_JWT_SECRET"] == "stub-jwt-secret"
+        assert env["AUTH_SESSION_EXPIRY"] == "24h"
+        assert (seeded_dir / ".certs" / "cert.pem").exists()
+        assert (seeded_dir / ".certs" / "key.pem").exists()
+
+    def test_autogen_can_trust_cert_when_user_opts_in(self, seeded_dir, fake_bin):
+        write_fake_openssl(fake_bin)
+        trust_log_file = seeded_dir / "trust.log"
+        write_fake_trust_tools(fake_bin, trust_log_file)
+
+        stdin_input = "\n".join([
+            "2",
+            "",
+            "y",
+            "1",
+            "api-key-123",
+            "",
+            "",
+            "",
+            "",
+            "y",
+            "",
+        ]) + "\n"
+
+        result = run_quickstart_interactive(
+            [],
+            fake_bin,
+            seeded_dir,
+            stdin_input=stdin_input,
+            extra_env={"TRUST_LOG_FILE": str(trust_log_file)},
+        )
+        assert result.returncode == 0
+        assert trust_log_file.exists()
+        trust_invocations = trust_log_file.read_text()
+        assert "security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain" in trust_invocations
+        assert str(seeded_dir / ".certs" / "cert.pem") in trust_invocations
+
+    def test_tls_enabled_without_autogen_prompts_for_paths(self, seeded_dir, fake_bin):
+        write_fake_openssl(fake_bin)
+
+        # 2=URL, blank=default URL, auth-required=y, 1=API key, content separate=n, OTel=n,
+        # TLS=y, auto-generate certs=n, custom cert/key paths, auth=y.
+        stdin_input = "\n".join([
+            "2",
+            "",
+            "y",
+            "1",
+            "api-key-123",
+            "",
+            "",
+            "",
+            "n",
+            "/custom/cert.pem",
+            "/custom/key.pem",
+            "",
+        ]) + "\n"
+
+        result = run_quickstart_interactive([], fake_bin, seeded_dir, stdin_input=stdin_input)
+        assert result.returncode == 0
+        env = read_env(seeded_dir)
+        assert env["TLS_ENABLED"] == "true"
+        assert env["TLS_CERT_FILE"] == "/custom/cert.pem"
+        assert env["TLS_KEY_FILE"] == "/custom/key.pem"
+        assert env["AUTH_ENABLED"] == "true"
+        assert env["AUTH_SESSION_EXPIRY"] == "24h"
+
+    def test_can_skip_studio_deployment_credentials_when_security_disabled(self, seeded_dir, fake_bin):
+        write_fake_openssl(fake_bin)
+
+        # 2=URL, blank=default URL, auth-required=n, content separate=n,
+        # OTel=n, TLS=y, auto-generate certs=y, trust cert=n, auth=n.
+        stdin_input = "\n".join([
+            "2",
+            "",
+            "n",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "n",
+        ]) + "\n"
+
+        result = run_quickstart_interactive([], fake_bin, seeded_dir, stdin_input=stdin_input)
+        assert result.returncode == 0
+        env = read_env(seeded_dir)
+        assert env["ELASTICSEARCH_URL"] == "http://localhost:9200"
+        assert env.get("ELASTICSEARCH_API_KEY", "") == ""
+        assert env.get("ELASTICSEARCH_USERNAME", "") == ""
+        assert env.get("ELASTICSEARCH_PASSWORD", "") == ""
+        assert env["AUTH_ENABLED"] == "false"
 
 
 # =============================================================================

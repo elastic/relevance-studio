@@ -16,6 +16,7 @@ import { getAppContext } from './Contexts/AppContext'
 import client from './client'
 import { SetupIncompleteError } from './errors'
 import { getHistory } from './history'
+import { get401Handler } from './auth401handler'
 
 const api = {}
 
@@ -71,6 +72,21 @@ const responseOrFallbackSetup = (response) => {
   return response
 }
 
+////  API: Auth  ///////////////////////////////////////////////////////////////
+
+api.auth_login = async (credentials) => {
+  validateArgs('api.auth_login', { credentials })
+  return await client.post(`/api/auth/login`, { data: credentials })
+}
+
+api.auth_logout = async () => {
+  return await client.post(`/api/auth/logout`)
+}
+
+api.auth_session = async () => {
+  return await client.get(`/api/auth/session`)
+}
+
 ////  API: Agent  //////////////////////////////////////////////////////////////
 
 api.chat = async (rounds, inference_id, onChunk, signal, ui_context, id, conversation_id) => {
@@ -111,6 +127,11 @@ api.chat = async (rounds, inference_id, onChunk, signal, ui_context, id, convers
       body: JSON.stringify(body),
       signal: controller.signal
     })
+    if (response.status === 401) {
+      const handler = get401Handler()
+      if (handler) handler()
+      throw new Error('Session expired')
+    }
     if (!response.ok)
       throw new Error(`HTTP error! status: ${response.status}`)
     const reader = response.body.getReader()

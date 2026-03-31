@@ -10,6 +10,7 @@ jobs:
     uses: ./.github/workflows/test.yml
     with:
       run_integration_setup: true
+      run_integration_ui: true
       # Placeholder for future release gating tiers.
       # run_integration_workspace: true
       # run_integration_displays: true

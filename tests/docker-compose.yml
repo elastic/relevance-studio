@@ -37,6 +37,8 @@ services:
     environment:
       - ELASTICSEARCH_URL=http://es-content:9200
       - FLASK_RUN_PORT=4196
+      - TLS_ENABLED=false
+      - AUTH_ENABLED=false
     networks:
       - esrs-test
   esrs-worker:
@@ -53,6 +55,22 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
+    networks:
+      - esrs-test
+  esrs-mcp:
+    build:
+      context: ..
+      dockerfile: Dockerfile-server-mcp
+    depends_on:
+      es-content:
+        condition: service_healthy
+    ports:
+      - 4200:4200
+    environment:
+      - ELASTICSEARCH_URL=http://es-content:9200
+      - AUTH_ENABLED=false
+      - FASTMCP_PORT=4200
+    command: ["python", "-m", "server.fastmcp"]
     networks:
       - esrs-test
 networks:

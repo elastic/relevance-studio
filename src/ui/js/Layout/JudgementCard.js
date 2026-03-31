@@ -19,6 +19,7 @@ import {
   EuiToolTip,
 } from '@elastic/eui'
 import { useAppContext } from '../Contexts/AppContext'
+import { useAuthContext } from '../Contexts/AuthContext'
 import { usePageResources } from '../Contexts/ResourceContext'
 import { DocCard } from '../Layout'
 import api from '../api'
@@ -29,6 +30,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const { addToast } = useAppContext()
+  const { user } = useAuthContext()
   const { workspace } = usePageResources()
 
   ////  State  /////////////////////////////////////////////////////////////////
@@ -37,6 +39,7 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
   const [loadingRating, setLoadingRating] = useState(false)
   const [createdBy, setCreatedBy] = useState(props.createdBy)
   const [updatedBy, setUpdatedBy] = useState(props.updatedBy)
+  const [updatedVia, setUpdatedVia] = useState(props.updatedVia)
   const [rating, setRating] = useState(props.rating)
   const dragging = useRef(false)
   const lastCommittedRating = useRef(rating)
@@ -72,8 +75,9 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
         addToast(utils.toastClientResponse(response))
       } else {
         lastCommittedRating.current = rating
-        setCreatedBy('unknown')
-        setUpdatedBy('unknown')
+        if (!createdBy) setCreatedBy(user?.username)
+        setUpdatedBy(user?.username)
+        setUpdatedVia('server')
         setJudgementId(response.data._id)
       }
     })()
@@ -229,9 +233,12 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                     borderRightStyle: 'none',
                     borderTopRightRadius: 0
                   }}>
-                  {!!(updatedBy || createdBy) &&
+                  {!!(updatedBy || createdBy) && (() => {
+                    const isAi = updatedVia === 'mcp' || (updatedBy || createdBy) === 'ai'
+                    const ratedByLabel = isAi ? 'Rated by AI' : `Rated by ${updatedBy || createdBy}`
+                    return (
                     <EuiToolTip
-                      content={`Rated by ${(updatedBy || createdBy) == 'ai' ? 'AI' : 'human'}`}
+                      content={ratedByLabel}
                       anchorProps={{
                         style: {
                           marginLeft: '19px'
@@ -239,11 +246,11 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                       }}
                     >
                       <EuiButtonIcon
-                        aria-label={`Rated by ${(updatedBy || createdBy)}`}
-                        color={(updatedBy || createdBy) == 'ai' ? 'primary' : 'text'}
-                        display={(updatedBy || createdBy) == 'ai' ? 'base' : 'empty'}
+                        aria-label={ratedByLabel}
+                        color={isAi ? 'primary' : 'text'}
+                        display={isAi ? 'base' : 'empty'}
                         iconSize='m'
-                        iconType={(updatedBy || createdBy) == 'ai' ? 'sparkles' : 'user'}
+                        iconType={isAi ? 'sparkles' : 'user'}
                         onClick={() => { }}
                         size='s'
                         style={{
@@ -253,7 +260,8 @@ const JudgementCard = ({ _id, doc, scenario, template, ...props }) => {
                         }}
                       />
                     </EuiToolTip>
-                  }
+                    )
+                  })()}
                 </EuiPanel>
               </EuiFlexItem>
             </EuiFlexGroup>

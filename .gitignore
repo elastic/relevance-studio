@@ -31,3 +31,6 @@ venv/
 
 # Local results and files
 local/
+
+# Local TLS certificates
+.certs/

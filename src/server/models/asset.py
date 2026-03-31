@@ -17,6 +17,17 @@ RE_ISO_8601_TIMESTAMP = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$"
 )
 
+VALID_VIA = frozenset({"server", "mcp", "api"})
+
+def _resolve_via(context: Optional[dict]) -> str:
+    """Resolve via from context; validate and default to 'api'."""
+    via = (context or {}).get("via")
+    if via is None:
+        return "api"
+    if via not in VALID_VIA:
+        raise ValueError(f"via must be one of {sorted(VALID_VIA)}, got {via!r}")
+    return via
+
 def is_valid_timestamp(ts):
     return RE_ISO_8601_TIMESTAMP.match(ts)
 
@@ -42,13 +53,16 @@ class AssetCreate(Asset):
     @classmethod
     def enrich_meta(cls, input: Dict[str, Any], info: ValidationInfo):
         user = (info.context or {}).get("user") or "unknown"
+        via = _resolve_via(info.context)
         if "@meta" in input:
             raise ValueError("@meta is forbidden as an input")
         input["@meta"] = {
             "created_at": utils.timestamp(),
             "created_by": user,
+            "created_via": via,
             "updated_at": None,
-            "updated_by": None
+            "updated_by": None,
+            "updated_via": None,
         }
         return input
 
@@ -69,11 +83,13 @@ class AssetUpdate(Asset):
     @classmethod
     def enrich_meta(cls, input: Dict[str, Any], info: ValidationInfo):
         user = (info.context or {}).get("user") or "unknown"
+        via = _resolve_via(info.context)
         if "@meta" in input:
             raise ValueError("@meta is forbidden as an input")
         input["@meta"] = {
             "updated_at": utils.timestamp(),
-            "updated_by": user
+            "updated_by": user,
+            "updated_via": via,
         }
         return input
 

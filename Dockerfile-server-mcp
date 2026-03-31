@@ -19,10 +19,14 @@ ENTRYPOINT ["/entrypoint.sh"]
 
 # Set environment variables
 ENV FASTMCP_HOST=0.0.0.0
-ENV FASTMCP_PORT=4096
+ENV FASTMCP_PORT=4200
 ENV FASTMCP_SERVER_TRANSPORT=http
 ENV OTEL_SERVICE_NAME=esrs-server-mcp
 
 # Run the MCP server
+# TLS: When TLS_ENABLED=true (default), mount certs and set TLS_CERT_FILE, TLS_KEY_FILE.
+# Example: -v /path/to/certs:/certs -e TLS_CERT_FILE=/certs/cert.pem -e TLS_KEY_FILE=/certs/key.pem
+# Also supported: -v /path/to/certs:/app/.certs -e TLS_CERT_FILE=.certs/cert.pem -e TLS_KEY_FILE=.certs/key.pem
+# Set TLS_ENABLED=false to run over HTTP (e.g. behind a TLS-terminating proxy).
 CMD ["python", "-m", "server.fastmcp"]
 EXPOSE 4200
