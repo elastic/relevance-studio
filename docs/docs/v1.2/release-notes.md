@@ -1,5 +1,11 @@
 # Release notes
 
+## v1.2.1
+
+### Bug fixes
+
+- Fixed quickstart self-signed TLS certificate generation to include the internal Docker MCP hostname (`esrs-server-mcp`) in `subjectAltName`, resolving TLS hostname mismatch errors during Server → MCP startup in local installs. ([26304c0](https://github.com/elastic/relevance-studio/commit/26304c0))
+
 ## v1.2.0
 
 ### Features

@@ -805,7 +805,7 @@ configure_env() {
     
     echo ""
     if prompt_yes_no "Does this deployment require authentication?" "y"; then
-      if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
+      if prompt_menu "How do you want the setup endpoints and worker process to authenticate to the studio deployment?" "API Key" "Username and Password"; then
         set_env_value "ELASTICSEARCH_API_KEY" "$(prompt_secret "API Key")" "$env_file"
       else
         set_env_value "ELASTICSEARCH_USERNAME" "$(prompt_value "Username")" "$env_file"
@@ -857,7 +857,7 @@ configure_env() {
       
       echo ""
       if prompt_yes_no "Does the content deployment require authentication?" "y"; then
-        if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
+        if prompt_menu "How do you want the application to authenticate to the content deployment?" "API Key" "Username and Password"; then
           set_env_value "CONTENT_ELASTICSEARCH_API_KEY" "$(prompt_secret "Content API Key")" "$env_file"
         else
           set_env_value "CONTENT_ELASTICSEARCH_USERNAME" "$(prompt_value "Content Username")" "$env_file"
@@ -1009,7 +1009,7 @@ generate_tls_cert() {
   elif openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
     -keyout "$key_file" -out "$cert_file" \
     -subj "/CN=localhost" \
-    -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" 2>/dev/null; then
+    -addext "subjectAltName=IP:127.0.0.1,DNS:localhost,DNS:esrs-server-mcp" 2>/dev/null; then
     print_success "Certificate: ${CYAN}$cert_file${RESET}"
     print_success "Private key: ${CYAN}$key_file${RESET}"
     set_env_value "TLS_ENABLED" "true" "$env_file"

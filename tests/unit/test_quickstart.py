@@ -242,6 +242,9 @@ def write_fake_openssl(fake_bin: Path):
         "  exit 0\n"
         "fi\n"
         "if [[ \"$1\" == \"req\" ]]; then\n"
+        "  if [[ -n \"${OPENSSL_ARGS_LOG_FILE:-}\" ]]; then\n"
+        "    printf \"%s\\n\" \"$*\" >> \"$OPENSSL_ARGS_LOG_FILE\"\n"
+        "  fi\n"
         "  cert_file=\"\"\n"
         "  key_file=\"\"\n"
         "  i=1\n"
@@ -968,6 +971,25 @@ class TestIdempotency:
         assert env["TLS_ENABLED"] == "true"
         assert env["TLS_CERT_FILE"] == ".certs/cert.pem"
         assert env["TLS_KEY_FILE"] == ".certs/key.pem"
+
+    def test_generate_tls_cert_includes_docker_mcp_hostname_in_san(self, seeded_dir, fake_bin):
+        """Generated cert SAN should include internal Docker hostname for MCP TLS."""
+        write_fake_openssl(fake_bin)
+        openssl_args_log = seeded_dir / "openssl-args.log"
+
+        result = run_quickstart([
+            "--studio-elasticsearch-url", "http://localhost:9200",
+            "--studio-elasticsearch-api-key", "key",
+            "--no-separate-content-deployment",
+            "--generate-tls-cert",
+        ], fake_bin, seeded_dir, extra_env={
+            "OPENSSL_ARGS_LOG_FILE": str(openssl_args_log),
+        })
+
+        assert result.returncode == 0
+        assert openssl_args_log.exists()
+        openssl_invocations = openssl_args_log.read_text()
+        assert "subjectAltName=IP:127.0.0.1,DNS:localhost,DNS:esrs-server-mcp" in openssl_invocations
 
 
 class TestInteractiveTlsAuth:
