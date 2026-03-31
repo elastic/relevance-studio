@@ -96,7 +96,10 @@ class TestEncodeDecodeJwt:
         monkeypatch.setattr(auth, "AUTH_JWT_SECRET", "test-secret-key")
         import jwt as jwt_lib
         token = auth.encode_jwt({"username": "alice"}, "key", expiry="1h")
-        tampered = token[:-1] + ("x" if token[-1] != "x" else "y")
+        header, payload, signature = token.split(".")
+        # Mutate a non-edge byte in the signature to guarantee invalid HMAC.
+        tampered_signature = signature[:1] + ("A" if signature[1] != "A" else "B") + signature[2:]
+        tampered = f"{header}.{payload}.{tampered_signature}"
         with pytest.raises(jwt_lib.InvalidTokenError):
             auth.decode_jwt(tampered)
 
