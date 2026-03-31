@@ -5,9 +5,10 @@
  * 2.0.
  */
 
-import { createContext, useContext, useEffect, useState, useMemo } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react'
 import { EuiGlobalToastList } from '@elastic/eui'
 import api from '../api'
+import { registerAuthReadyHandler } from '../authEvents'
 
 let _appContext = null
 export const getAppContext = () => _appContext
@@ -72,50 +73,60 @@ export const AppProvider = ({ children }) => {
     return () => { _appContext = null }
   }, [addToast])
 
-  // Check setup & deployment info
-  useEffect(() => {
-    const initApp = async () => {
-      setIsCheckingSetup(true)
-      try {
-        const response = await api.setup_check()
-        const upgrade = response?.data?.upgrade || {}
-        const setup = response?.data?.setup || {}
+  const checkSetupAndDeployment = useCallback(async () => {
+    let shouldMarkChecked = true
+    setIsCheckingSetup(true)
+    try {
+      const response = await api.setup_check()
+      const upgrade = response?.data?.upgrade || {}
+      const setup = response?.data?.setup || {}
 
-        // Deployment info
-        setDeploymentMode(response?.data?.deployment?.mode)
-        setLicenseType(response?.data?.deployment?.license?.type)
-        setLicenseStatus(response?.data?.deployment?.license?.status)
-        setServerVersion(response?.data?.version || null)
-        setIsUpgradeNeeded(Boolean(upgrade?.upgrade_needed))
-        setSetupState(setup)
-        setUpgradeState(upgrade)
+      // Deployment info
+      setDeploymentMode(response?.data?.deployment?.mode)
+      setLicenseType(response?.data?.deployment?.license?.type)
+      setLicenseStatus(response?.data?.deployment?.license?.status)
+      setServerVersion(response?.data?.version || null)
+      setIsUpgradeNeeded(Boolean(upgrade?.upgrade_needed))
+      setSetupState(setup)
+      setUpgradeState(upgrade)
 
-        // Setup status
-        if ((setup?.failures ?? 0) > 0 && !setup?.upgrade_only_failures) {
-          setIsSetup(false)
-        } else {
-          setIsSetup(true)
-        }
-      } catch (e) {
-        console.error('Failed to initialize app:', e)
+      // Setup status
+      if ((setup?.failures ?? 0) > 0 && !setup?.upgrade_only_failures) {
         setIsSetup(false)
-        setIsUpgradeNeeded(false)
-        setDeploymentMode(null)
-        setLicenseType(null)
-        setLicenseStatus(null)
-        setServerVersion(null)
-        setSetupState({
-          failures: 0,
-          requests: [],
-          upgrade_only_failures: false,
-        })
-      } finally {
-        setIsCheckingSetup(false)
-        setHasCheckedSetup(true)
+      } else {
+        setIsSetup(true)
       }
+    } catch (e) {
+      if (e?.response?.status === 401) {
+        // The app may be loading before a session cookie exists.
+        // Defer setup state until auth becomes ready.
+        shouldMarkChecked = false
+        return
+      }
+      console.error('Failed to initialize app:', e)
+      setIsSetup(false)
+      setIsUpgradeNeeded(false)
+      setDeploymentMode(null)
+      setLicenseType(null)
+      setLicenseStatus(null)
+      setServerVersion(null)
+      setSetupState({
+        failures: 0,
+        requests: [],
+        upgrade_only_failures: false,
+      })
+    } finally {
+      setIsCheckingSetup(false)
+      setHasCheckedSetup(shouldMarkChecked)
     }
-    initApp()
   }, [])
+
+  // Check setup/deployment initially and whenever auth transitions to ready.
+  useEffect(() => {
+    checkSetupAndDeployment()
+    const unregister = registerAuthReadyHandler(checkSetupAndDeployment, { invokeIfReady: false })
+    return unregister
+  }, [checkSetupAndDeployment])
 
   const value = useMemo(() => ({
     addToast,

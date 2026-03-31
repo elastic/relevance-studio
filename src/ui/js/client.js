@@ -11,23 +11,37 @@
  * A low-level REST client used primarily by api.js.
  */
 
+import { createElement } from 'react'
 import axios from 'axios'
 import { getAppContext } from './Contexts/AppContext'
+import { get401Handler } from './auth401handler'
+import { getHistory } from './history'
 
 /**
- * Handle non-API network errors such as net::ERR_CONNECTION_REFUSED.
+ * Handle 401: clear auth state and redirect to login.
  */
 axios.interceptors.response.use(
   async (response) => response,
   async (error) => {
+    if (error.response?.status === 401) {
+      const path = error.config?.url || ''
+      if (!path.includes('/api/auth/login') && !path.includes('/api/auth/logout') && !path.includes('/api/auth/session')) {
+        const handler = get401Handler()
+        if (handler) {
+          handler()
+        } else {
+          getHistory().replace('/login')
+        }
+      }
+    }
     if (!error.response) {
       const app = getAppContext()
       if (app?.addToast) {
         app.addToast({
-          title: error.response?.statusText || 'Network error',
+          title: 'Network error',
           color: 'danger',
           iconType: 'alert',
-          text: <p>{error.message || 'An unexpected error occurred'}</p>,
+          text: createElement('p', null, error.message || 'An unexpected error occurred'),
         })
       }
     }

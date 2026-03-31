@@ -4,22 +4,46 @@
 # 2.0.
 
 # Standard packages
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+# Third-party packages
+from werkzeug.exceptions import Forbidden
 
 # App packages
 from .. import utils
 from ..client import es
 from ..models import ConversationsCreate, ConversationsUpdate
 
+if TYPE_CHECKING:
+    from elasticsearch import Elasticsearch
+
 INDEX_NAME = "esrs-conversations"
+
+
+def _normalize_user(user: Optional[str]) -> str:
+    return user or "unknown"
+
+
+def _created_by_filter(user: Optional[str]) -> Dict[str, Dict[str, str]]:
+    return {"term": {"@meta.created_by": _normalize_user(user)}}
+
+
+def _assert_owner(es_response: Any, user: Optional[str]) -> None:
+    body = es_response if isinstance(es_response, dict) else getattr(es_response, "body", {}) or {}
+    source = body.get("_source", {})
+    owner = (source.get("@meta") or {}).get("created_by")
+    if owner != _normalize_user(user):
+        raise Forbidden("Conversation access denied.")
 
 def search(
         text: str = "",
-        filters: List[Dict[str, Any]] = [],
-        sort: Dict[str, Any] = {},
+        filters: Optional[List[Dict[str, Any]]] = None,
+        sort: Optional[Dict[str, Any]] = None,
         size: int = 10,
         page: int = 1,
         aggs: bool = False,
+        user: Optional[str] = None,
+        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Search for conversations.
 
@@ -34,12 +58,14 @@ def search(
     Returns:
         A dictionary containing the search results.
     """
+    enforced_filters = [_created_by_filter(user), *(filters or [])]
     response = utils.search_assets(
-        "conversations", None, text, filters, sort, size, page
+        "conversations", None, text, enforced_filters, sort or {}, size, page,
+        es_client=es_client,
     )
     return response
 
-def get(_id: str) -> Dict[str, Any]:
+def get(_id: str, user: Optional[str] = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Get a conversation by its _id.
 
     Args:
@@ -48,14 +74,16 @@ def get(_id: str) -> Dict[str, Any]:
     Returns:
         The conversation document from Elasticsearch.
     """
-    es_response = es("studio").get(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.get(
         index=INDEX_NAME,
         id=_id,
         source_excludes="_search",
     )
+    _assert_owner(es_response, user)
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, Any]:
+def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Create a conversation.
 
     Args:
@@ -80,13 +108,14 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     doc.pop("id", None)
 
     # Create, validate, and dump model
-    doc = ConversationsCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = ConversationsCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
 
     # Copy searchable fields to _search
     doc = utils.copy_fields_to_search("conversations", doc)
     
     # Submit
-    es_response = es("studio").index(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.index(
         index=INDEX_NAME,
         id=_id,
         document=doc,
@@ -94,7 +123,7 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None) -> Dict[str, 
     )
     return es_response
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None, refresh: bool = True) -> Dict[str, Any]:
+def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = None, refresh: bool = True, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Update a conversation by its _id.
 
     Args:
@@ -109,14 +138,25 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, refresh: boo
         The response from the Elasticsearch update operation.
     """
     
+    client = es_client if es_client is not None else es("studio")
+
+    # Verify the caller owns the conversation before mutating it.
+    owner_check = client.get(
+        index=INDEX_NAME,
+        id=_id,
+        source_includes=["@meta.created_by"],
+        source_excludes="_search",
+    )
+    _assert_owner(owner_check, user)
+
     # Create, validate, and dump model
-    doc_partial = ConversationsUpdate.model_validate(doc_partial, context={"user": user}).serialize()
+    doc_partial = ConversationsUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
 
     # Copy searchable fields to _search
     doc_partial = utils.copy_fields_to_search("conversations", doc_partial)
     
     # Submit
-    es_response = es("studio").update(
+    es_response = client.update(
         index=INDEX_NAME,
         id=_id,
         doc=doc_partial,
@@ -124,7 +164,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, refresh: boo
     )
     return es_response
 
-def delete(_id: str) -> Dict[str, Any]:
+def delete(_id: str, user: Optional[str] = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Delete a conversation by its _id.
 
     Args:
@@ -133,7 +173,15 @@ def delete(_id: str) -> Dict[str, Any]:
     Returns:
         The response from the Elasticsearch delete operation.
     """
-    es_response = es("studio").delete(
+    client = es_client if es_client is not None else es("studio")
+    owner_check = client.get(
+        index=INDEX_NAME,
+        id=_id,
+        source_includes=["@meta.created_by"],
+        source_excludes="_search",
+    )
+    _assert_owner(owner_check, user)
+    es_response = client.delete(
         index=INDEX_NAME,
         id=_id,
         refresh=True,

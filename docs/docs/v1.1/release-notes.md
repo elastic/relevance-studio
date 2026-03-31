@@ -1,5 +1,20 @@
 # Release notes
 
+## v1.1.1
+
+### Features
+
+- Added evaluation throttling controls to limit and pace `_rank_eval` requests, with global environment defaults and per-benchmark overrides via `task.rank_eval_batch_size` and `task.rank_eval_batch_delay`. Also added `task.requests` to track request volume. ([Data model](docs/{{VERSION}}/reference/data-model.md#benchmarks)) ([3b376e9](https://github.com/elastic/relevance-studio/commit/3b376e9), [90bd96e](https://github.com/elastic/relevance-studio/commit/90bd96e), [5ee45ea](https://github.com/elastic/relevance-studio/commit/5ee45ea), [61be00a](https://github.com/elastic/relevance-studio/commit/61be00a))
+
+### Improvements
+
+- Expanded security guidance for the studio deployment role by documenting required cluster privileges (`manage_index_templates`, `monitor`) in addition to `monitor_inference`. ([Security](docs/{{VERSION}}/reference/security.md#studio-deployment-role-configuration)) ([657d3ff](https://github.com/elastic/relevance-studio/commit/657d3ff))
+- Updated documentation screenshots and benchmark/reference docs to reflect the v1.1 UI and data model updates. ([Welcome](docs/{{VERSION}}/guide/welcome.md), [Data model](docs/{{VERSION}}/reference/data-model.md#benchmarks)) ([983963c](https://github.com/elastic/relevance-studio/commit/983963c), [0fadb4b](https://github.com/elastic/relevance-studio/commit/0fadb4b))
+
+### Bug fixes
+
+- Fixed quickstart command usage in docs to use explicit `--version` flags and corrected minor docs/linking issues. ([Quickstart](docs/{{VERSION}}/guide/quickstart.md)) ([80ab4f7](https://github.com/elastic/relevance-studio/commit/80ab4f7), [c3a695a](https://github.com/elastic/relevance-studio/commit/c3a695a))
+
 ## v1.1.0
 
 ### Features

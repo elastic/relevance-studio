@@ -11,6 +11,22 @@ import requests
 # Elastic packages
 from elasticsearch import Elasticsearch, ConnectionError
 
+
+def _request_with_retry(method, url, max_attempts=3, **kwargs):
+    """Retry HTTP requests to handle transient connection resets."""
+    last_err = None
+    for attempt in range(max_attempts):
+        try:
+            if method == "GET":
+                return requests.get(url, **kwargs)
+            return requests.post(url, **kwargs)
+        except (requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError) as e:
+            last_err = e
+            if attempt < max_attempts - 1:
+                time.sleep(1.0 * (attempt + 1))
+    raise last_err
+
+
 # Config
 DOCKER_COMPOSE_FILE = os.path.join("tests", "docker-compose.yml")
 ES_URL = "http://localhost:9200"
@@ -27,9 +43,6 @@ ESRS_INDICES = [
 ] 
 
 def wait_for_es(url, attempts=30):
-    """
-    Start Elasticsearch test cluster.
-    """
     es_client = Elasticsearch(url, request_timeout=4000)
     for _ in range(attempts):
         try:
@@ -41,9 +54,6 @@ def wait_for_es(url, attempts=30):
     raise RuntimeError("Elasticsearch did not start in time")
 
 def wait_for_esrs(url, attempts=30):
-    """
-    Start the Elasticsearch Relevance Studio test server.
-    """
     for _ in range(attempts):
         try:
             r = requests.get(url)
@@ -55,43 +65,49 @@ def wait_for_esrs(url, attempts=30):
 
 @pytest.fixture(scope="session")
 def services() -> Generator[Dict[str, Union[Elasticsearch, str]], None, None]:
-    """
-    Setup and teardown the Elasticsearch Relevance Studio test server and the
-    Elasticsearch test cluster with docker compose.
-    """
-    subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d"], check=True)
+    subprocess.run(
+        ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "down", "-v", "--remove-orphans"],
+        check=False,
+    )
+    time.sleep(3)
+    subprocess.run(
+        ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "up", "--build", "-d", "--force-recreate"],
+        check=True,
+    )
     try:
         yield {
             "es": wait_for_es(ES_URL),
             "esrs": wait_for_esrs(ESRS_URL),
         }
     finally:
-        subprocess.run(["docker", "compose", "-f", DOCKER_COMPOSE_FILE,  "-p", "esrs-tests", "down", "-v"], check=True)
+        subprocess.run(
+            ["docker", "compose", "-f", DOCKER_COMPOSE_FILE, "-p", "esrs-tests", "down", "-v"],
+            check=True,
+        )
         
 @pytest.fixture(scope="session")
 def constants() -> Dict[str, Any]:
-    """
-    Constant values available to each test. 
-    """
     return {
         "index_templates": ESRS_INDICES,
         "indices": ESRS_INDICES
     }
     
-def delete_index_templates(es, index_templates):
-    """
-    Delete esrs-* indices and index templates.
-    """
-    es.options(ignore_status=[404]).indices.delete(index="esrs-*")
-    for name in index_templates:
-        es.options(ignore_status=[404]).indices.delete_template(name=name)
+def delete_index_templates(es, index_templates, max_attempts=3):
+    last_err = None
+    for attempt in range(max_attempts):
+        try:
+            es.options(ignore_status=[404]).indices.delete(index="esrs-*")
+            for name in index_templates:
+                es.options(ignore_status=[404]).indices.delete_template(name=name)
+            return
+        except Exception as e:
+            last_err = e
+            if attempt < max_attempts - 1:
+                time.sleep(1.0 * (attempt + 1))
+    raise last_err
         
 @pytest.fixture(scope="session")
 def wipe_data(services, constants, request):
-    """
-    Fixture to delete esrs-* indices and index templates.
-    """
-    # Skip if test is marked with @pytest.mark.no_wipe_data
     if request.node.get_closest_marker("no_wipe_data"):
         yield
         return
@@ -100,14 +116,9 @@ def wipe_data(services, constants, request):
         
 @pytest.fixture(scope="session")
 def clean_data(services, constants, request):
-    """
-    Fixture to delete esrs-* indices and index templates, and then setup
-    esrs-* index templates.
-    """
-    # Skip if test is marked with @pytest.mark.no_wipe_data
     if request.node.get_closest_marker("no_wipe_data"):
         yield
         return
     delete_index_templates(services["es"], constants["index_templates"])
-    requests.post(f"{services['esrs']}/api/setup")
+    _request_with_retry("POST", f"{services['esrs']}/api/setup")
     yield

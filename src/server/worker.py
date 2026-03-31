@@ -19,7 +19,7 @@ from elasticsearch import NotFoundError
 
 # App packages
 from . import api, utils
-from .client import es
+from .client import _validate_endpoint_configuration, es
 
 ####  Configuration  ###########################################################
 
@@ -238,4 +238,9 @@ def run_loop():
             time_last_cleanup = time.time()
 
 if __name__ == "__main__":
+    try:
+        _validate_endpoint_configuration()
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(1)
     run_loop()

@@ -10,6 +10,7 @@
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/elastic/relevance-studio/main/scripts/quickstart.sh | bash
 #   curl -fsSL ... | bash -s -- --version v1.0.0
+#   curl -fsSL ... | bash -s -- --ref feature/my-branch
 #   curl -fsSL ... | bash -s -- --uninstall
 #
 set -euo pipefail
@@ -21,6 +22,7 @@ set -euo pipefail
 REPO_URL="https://github.com/elastic/relevance-studio.git"
 DEFAULT_DIR="./relevance-studio"
 VERSION="latest"
+GIT_REF=""
 UNINSTALL=false
 
 # CLI overrides for .env configuration (empty = prompt interactively)
@@ -36,6 +38,7 @@ ARG_CONTENT_ELASTICSEARCH_USERNAME=""
 ARG_CONTENT_ELASTICSEARCH_PASSWORD=""
 ARG_NO_SEPARATE_CONTENT=false
 ARG_NO_START=false
+ARG_GENERATE_TLS_CERT=false
 ARG_OTEL_EXPORTER_OTLP_ENDPOINT=""
 ARG_OTEL_EXPORTER_OTLP_HEADERS=""
 ARG_OTEL_RESOURCE_ATTRIBUTES=""
@@ -122,7 +125,7 @@ print_non_interactive_config_help() {
 }
 
 require_interactive_input() {
-  if [[ ! -t 0 ]]; then
+  if [[ ! -t 0 ]] && [[ "${QUICKSTART_ALLOW_NON_TTY_PROMPTS:-false}" != "true" ]]; then
     print_non_interactive_config_help
     exit 1
   fi
@@ -152,6 +155,15 @@ prompt_secret() {
   local prompt="$1"
   local value
   
+  if [[ ! -t 0 ]] && [[ "${QUICKSTART_ALLOW_NON_TTY_PROMPTS:-false}" == "true" ]]; then
+    if ! read -rp "  $prompt: " value; then
+      print_non_interactive_config_help
+      exit 1
+    fi
+    echo "$value"
+    return
+  fi
+
   if ! read -rsp "  $prompt: " value; then
     echo "" >&2
     print_non_interactive_config_help
@@ -255,6 +267,10 @@ parse_args() {
         VERSION="$2"
         shift 2
         ;;
+      -r|--ref)
+        GIT_REF="$2"
+        shift 2
+        ;;
       -d|--dir)
         INSTALL_DIR="$2"
         shift 2
@@ -317,6 +333,10 @@ parse_args() {
         ARG_NO_START=true
         shift
         ;;
+      --generate-tls-cert)
+        ARG_GENERATE_TLS_CERT=true
+        shift
+        ;;
       # OpenTelemetry
       --otel-exporter-otlp-endpoint)
         ARG_OTEL_EXPORTER_OTLP_ENDPOINT="$2"
@@ -350,6 +370,12 @@ parse_args() {
 
 validate_args() {
   local errors=false
+
+  # Installation source controls
+  if [[ -n "$GIT_REF" ]] && [[ "$VERSION" != "latest" ]]; then
+    print_error "--ref and --version are mutually exclusive"
+    errors=true
+  fi
 
   # Studio: cloud ID and URL are mutually exclusive
   if [[ -n "$ARG_STUDIO_ELASTIC_CLOUD_ID" ]] && [[ -n "$ARG_STUDIO_ELASTICSEARCH_URL" ]]; then
@@ -419,8 +445,11 @@ print_usage() {
   echo -e "${BOLD}General options:${RESET}"
   echo -e "  -v, --version <version>                 ${DIM}# Version to install (default: latest)${RESET}"
   echo -e "                                          ${DIM}# Accepts: latest, main, or v{major}.{minor}.{patch}${RESET}"
+  echo -e "  -r, --ref <git-ref>                     ${DIM}# Git branch, tag, or commit hash to install${RESET}"
+  echo -e "                                          ${DIM}# Mutually exclusive with --version${RESET}"
   echo -e "  -d, --dir <path>                        ${DIM}# Installation directory (default: ./relevance-studio)${RESET}"
   echo -e "      --no-start                          ${DIM}# Install and configure only; don't start services${RESET}"
+  echo -e "      --generate-tls-cert                  ${DIM}# Generate self-signed TLS cert in ./.certs for local dev (HTTPS)${RESET}"
   echo -e "  -u, --uninstall                         ${DIM}# Remove all locally installed artifacts${RESET}"
   echo -e "  -h, --help                              ${DIM}# Show this help message${RESET}"
   echo ""
@@ -447,6 +476,8 @@ print_usage() {
   echo -e "${BOLD}Example usage:${RESET}"
   echo -e "  quickstart                              ${DIM}# Interactive setup${RESET}"
   echo -e "  quickstart --version v1.0.0             ${DIM}# Install specific version${RESET}"
+  echo -e "  quickstart --ref feature/auth           ${DIM}# Install from a development branch${RESET}"
+  echo -e "  quickstart --ref 9f3a1c2                ${DIM}# Install from a specific commit${RESET}"
   echo -e "  quickstart --dir ~/projects/esrs        ${DIM}# Custom directory${RESET}"
   echo -e "  quickstart --uninstall                  ${DIM}# Remove installation${RESET}"
   echo ""
@@ -562,9 +593,19 @@ clone_or_update_repo() {
     print_success "Repository updated"
   else
     print_info "Cloning repository..."
-    if ! git clone --quiet "$REPO_URL" "$INSTALL_DIR"; then
-      print_error "Failed to clone repository"
-      exit 1
+    if [[ -n "$GIT_REF" ]] && [[ ! "$GIT_REF" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+      if ! git clone --quiet --branch "$GIT_REF" "$REPO_URL" "$INSTALL_DIR"; then
+        print_warning "Failed to clone directly from ref '$GIT_REF', retrying with full clone..."
+        if ! git clone --quiet "$REPO_URL" "$INSTALL_DIR"; then
+          print_error "Failed to clone repository"
+          exit 1
+        fi
+      fi
+    else
+      if ! git clone --quiet "$REPO_URL" "$INSTALL_DIR"; then
+        print_error "Failed to clone repository"
+        exit 1
+      fi
     fi
     print_success "Cloned to: ${CYAN}$INSTALL_DIR${RESET}"
   fi
@@ -575,7 +616,19 @@ clone_or_update_repo() {
   fi
   
   # Checkout appropriate version
-  if [[ "$VERSION" == "latest" ]]; then
+  if [[ -n "$GIT_REF" ]]; then
+    print_info "Checking out ref $GIT_REF..."
+    if git rev-parse "origin/$GIT_REF" >/dev/null 2>&1; then
+      if ! git checkout --quiet -B "$GIT_REF" "origin/$GIT_REF" 2>/dev/null; then
+        print_error "Failed to checkout branch $GIT_REF"
+        exit 1
+      fi
+    elif ! git checkout --quiet "$GIT_REF" 2>/dev/null; then
+      print_error "Ref $GIT_REF not found"
+      exit 1
+    fi
+    print_success "Ref: ${BOLD}$GIT_REF${RESET}"
+  elif [[ "$VERSION" == "latest" ]]; then
     local latest
     latest="$(get_latest_version)"
     if [[ -n "$latest" ]]; then
@@ -637,6 +690,30 @@ set_env_value() {
       # Append if not found
       echo "${key}=${value}" >> "$env_file"
     fi
+  fi
+}
+
+clear_env_value() {
+  local key="$1"
+  local env_file="$2"
+
+  if grep -qE "^#?\s*${key}=" "$env_file"; then
+    sed -i.bak "s|^#*[[:space:]]*${key}=.*|${key}=|" "$env_file"
+  else
+    echo "${key}=" >> "$env_file"
+  fi
+}
+
+set_compose_tls_enabled() {
+  local install_dir="$1"
+  local tls_enabled="$2"
+  local compose_file="$install_dir/docker-compose.yml"
+
+  if [[ -f "$compose_file" ]]; then
+    sed -i.bak \
+      "s|^\\([[:space:]]*- TLS_ENABLED=\\).*|\\1${tls_enabled}  # Set true with valid certs in ./.certs for HTTPS|" \
+      "$compose_file"
+    rm -f "${compose_file}.bak"
   fi
 }
 
@@ -710,7 +787,8 @@ configure_env() {
   else
     # Interactive prompts
     require_interactive_input
-    print_info "You'll need connection and authentication details for Elasticsearch."
+    print_info "You'll need connection details for Elasticsearch."
+    print_info "Authentication is optional if Elasticsearch security is disabled."
     print_info "These will be saved in: ${CYAN}${env_file}${RESET}"
     echo ""
 
@@ -726,11 +804,15 @@ configure_env() {
     fi
     
     echo ""
-    if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
-      set_env_value "ELASTICSEARCH_API_KEY" "$(prompt_secret "API Key")" "$env_file"
+    if prompt_yes_no "Does this deployment require authentication?" "y"; then
+      if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
+        set_env_value "ELASTICSEARCH_API_KEY" "$(prompt_secret "API Key")" "$env_file"
+      else
+        set_env_value "ELASTICSEARCH_USERNAME" "$(prompt_value "Username")" "$env_file"
+        set_env_value "ELASTICSEARCH_PASSWORD" "$(prompt_secret "Password")" "$env_file"
+      fi
     else
-      set_env_value "ELASTICSEARCH_USERNAME" "$(prompt_value "Username")" "$env_file"
-      set_env_value "ELASTICSEARCH_PASSWORD" "$(prompt_secret "Password")" "$env_file"
+      print_info "Skipping studio deployment credentials (security disabled)."
     fi
     echo ""
   fi
@@ -774,11 +856,15 @@ configure_env() {
       fi
       
       echo ""
-      if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
-        set_env_value "CONTENT_ELASTICSEARCH_API_KEY" "$(prompt_secret "Content API Key")" "$env_file"
+      if prompt_yes_no "Does the content deployment require authentication?" "y"; then
+        if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
+          set_env_value "CONTENT_ELASTICSEARCH_API_KEY" "$(prompt_secret "Content API Key")" "$env_file"
+        else
+          set_env_value "CONTENT_ELASTICSEARCH_USERNAME" "$(prompt_value "Content Username")" "$env_file"
+          set_env_value "CONTENT_ELASTICSEARCH_PASSWORD" "$(prompt_secret "Content Password")" "$env_file"
+        fi
       else
-        set_env_value "CONTENT_ELASTICSEARCH_USERNAME" "$(prompt_value "Content Username")" "$env_file"
-        set_env_value "CONTENT_ELASTICSEARCH_PASSWORD" "$(prompt_secret "Content Password")" "$env_file"
+        print_info "Skipping content deployment credentials (security disabled)."
       fi
     else
       print_info "Using studio deployment for content."
@@ -824,11 +910,182 @@ configure_env() {
     echo ""
   fi
   
+  # --- TLS (optional self-signed cert for local dev) ---
+  if [[ "$ARG_GENERATE_TLS_CERT" == true ]]; then
+    generate_tls_cert "$INSTALL_DIR" "$env_file" "false"
+  elif ! has_studio_args; then
+    print_divider
+    print_info "${BOLD}TLS${RESET} ${DIM}(optional, for HTTPS)${RESET}"
+    print_divider
+    echo ""
+
+    if prompt_yes_no "Enable TLS for Studio deployment (Server and MCP Server)?" "y"; then
+      set_env_value "TLS_ENABLED" "true" "$env_file"
+      set_compose_tls_enabled "$INSTALL_DIR" "true"
+
+      if prompt_yes_no "Auto-generate self-signed certs in .certs/?" "y"; then
+        generate_tls_cert "$INSTALL_DIR" "$env_file" "true"
+      else
+        set_env_value "TLS_CERT_FILE" "$(prompt_value "TLS_CERT_FILE path" ".certs/cert.pem")" "$env_file"
+        set_env_value "TLS_KEY_FILE" "$(prompt_value "TLS_KEY_FILE path" ".certs/key.pem")" "$env_file"
+        print_success "TLS enabled with provided certificate paths"
+      fi
+    else
+      set_env_value "TLS_ENABLED" "false" "$env_file"
+      set_compose_tls_enabled "$INSTALL_DIR" "false"
+      print_info "TLS disabled (HTTP)."
+    fi
+    echo ""
+  fi
+
+  # --- Authentication (optional) ---
+  if ! has_studio_args; then
+    print_divider
+    print_info "${BOLD}Authentication${RESET} ${DIM}(optional, recommended for production)${RESET}"
+    print_divider
+    echo ""
+    
+    if prompt_yes_no "Enable authentication for Server and MCP Server?" "y"; then
+      set_env_value "AUTH_ENABLED" "true" "$env_file"
+      if command_exists openssl; then
+        local jwt_secret
+        jwt_secret="$(openssl rand -hex 32 2>/dev/null)"
+        if [[ -n "$jwt_secret" ]]; then
+          set_env_value "AUTH_JWT_SECRET" "$jwt_secret" "$env_file"
+          print_success "AUTH_JWT_SECRET auto-generated"
+        else
+          set_env_value "AUTH_JWT_SECRET" "$(prompt_secret "AUTH_JWT_SECRET (generate with: openssl rand -hex 32)")" "$env_file"
+        fi
+      else
+        set_env_value "AUTH_JWT_SECRET" "$(prompt_secret "AUTH_JWT_SECRET (generate with: openssl rand -hex 32)")" "$env_file"
+      fi
+      set_env_value "AUTH_SESSION_EXPIRY" "24h" "$env_file"
+      print_success "Authentication enabled"
+    else
+      set_env_value "AUTH_ENABLED" "false" "$env_file"
+      # In auth-disabled mode, studio deployment must use no credentials.
+      clear_env_value "ELASTICSEARCH_API_KEY" "$env_file"
+      clear_env_value "ELASTICSEARCH_USERNAME" "$env_file"
+      clear_env_value "ELASTICSEARCH_PASSWORD" "$env_file"
+      print_info "Authentication disabled (no credentials sent to the studio deployment)"
+    fi
+    echo ""
+  fi
+  
   # Clean up sed backup files
   rm -f "$env_file.bak"
   
   print_success "Configuration saved to ${BOLD}.env${RESET}"
   echo ""
+}
+
+# Generate self-signed TLS cert for local development
+generate_tls_cert() {
+  local install_dir="$1"
+  local env_file="$2"
+  local prompt_for_trust="${3:-false}"
+  local certs_dir="$install_dir/.certs"
+  local cert_file="$certs_dir/cert.pem"
+  local key_file="$certs_dir/key.pem"
+  
+  print_step "Generating self-signed TLS certificate..."
+  echo ""
+  
+  if ! command_exists openssl; then
+    print_error "openssl is required for --generate-tls-cert but was not found"
+    exit 1
+  fi
+  
+  mkdir -p "$certs_dir"
+  if [[ -f "$cert_file" && -f "$key_file" ]]; then
+    print_info "Existing TLS cert/key found in ${CYAN}$certs_dir${RESET}; reusing files."
+    set_env_value "TLS_ENABLED" "true" "$env_file"
+    set_env_value "TLS_CERT_FILE" ".certs/cert.pem" "$env_file"
+    set_env_value "TLS_KEY_FILE" ".certs/key.pem" "$env_file"
+    set_compose_tls_enabled "$install_dir" "true"
+    print_success "Certificate: ${CYAN}$cert_file${RESET}"
+    print_success "Private key: ${CYAN}$key_file${RESET}"
+    print_info "${DIM}Access via https://localhost:4096 (accept browser warning for self-signed cert)${RESET}"
+  elif openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
+    -keyout "$key_file" -out "$cert_file" \
+    -subj "/CN=localhost" \
+    -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" 2>/dev/null; then
+    print_success "Certificate: ${CYAN}$cert_file${RESET}"
+    print_success "Private key: ${CYAN}$key_file${RESET}"
+    set_env_value "TLS_ENABLED" "true" "$env_file"
+    set_env_value "TLS_CERT_FILE" ".certs/cert.pem" "$env_file"
+    set_env_value "TLS_KEY_FILE" ".certs/key.pem" "$env_file"
+    set_compose_tls_enabled "$install_dir" "true"
+    print_info "${DIM}Access via https://localhost:4096 (accept browser warning for self-signed cert)${RESET}"
+  else
+    print_error "Failed to generate certificate"
+    exit 1
+  fi
+
+  if [[ "$prompt_for_trust" == "true" ]]; then
+    maybe_trust_tls_cert "$cert_file"
+  fi
+  echo ""
+}
+
+# Optionally trust local self-signed TLS cert to avoid browser/client warnings.
+maybe_trust_tls_cert() {
+  local cert_file="$1"
+  local os_name
+  os_name="$(uname -s)"
+
+  if ! prompt_yes_no "Trust the generated self-signed certificate on this machine?" "n"; then
+    print_info "${DIM}Skipping certificate trust setup. You may still see browser/client warnings.${RESET}"
+    return
+  fi
+
+  print_step "Adding certificate to system trust store..."
+  echo ""
+
+  if [[ "$os_name" == "Darwin" ]]; then
+    if ! command_exists security; then
+      print_warning "macOS security tool not found; skipping trust setup."
+      return
+    fi
+    if command_exists sudo; then
+      if sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$cert_file"; then
+        print_success "Certificate trusted in macOS System keychain"
+      else
+        print_warning "Failed to trust certificate automatically on macOS."
+      fi
+    else
+      print_warning "sudo is required to trust cert automatically on macOS."
+    fi
+    return
+  fi
+
+  if [[ -f /etc/debian_version ]]; then
+    if command_exists sudo && command_exists update-ca-certificates; then
+      if sudo cp "$cert_file" /usr/local/share/ca-certificates/relevance-studio.crt && sudo update-ca-certificates; then
+        print_success "Certificate trusted via update-ca-certificates"
+      else
+        print_warning "Failed to trust certificate automatically on this Debian/Ubuntu system."
+      fi
+    else
+      print_warning "sudo and update-ca-certificates are required to trust cert automatically on this system."
+    fi
+    return
+  fi
+
+  if [[ -f /etc/redhat-release ]]; then
+    if command_exists sudo && command_exists update-ca-trust; then
+      if sudo cp "$cert_file" /etc/pki/ca-trust/source/anchors/relevance-studio.pem && sudo update-ca-trust; then
+        print_success "Certificate trusted via update-ca-trust"
+      else
+        print_warning "Failed to trust certificate automatically on this RHEL/Fedora/CentOS system."
+      fi
+    else
+      print_warning "sudo and update-ca-trust are required to trust cert automatically on this system."
+    fi
+    return
+  fi
+
+  print_warning "Automatic trust setup is not supported on this OS. Please trust ${CYAN}$cert_file${RESET} manually."
 }
 
 # =============================================================================
@@ -882,7 +1139,7 @@ start_services() {
     
     if [[ "$running" == "$total" ]] && [[ "$total" != "0" ]]; then
       # Try to hit the health endpoint
-      if curl -sf http://localhost:4096/healthz >/dev/null 2>&1; then
+      if curl -sfk https://localhost:4096/healthz >/dev/null 2>&1 || curl -sf http://localhost:4096/healthz >/dev/null 2>&1; then
         services_ready=true
         break
       fi
@@ -913,7 +1170,14 @@ start_services() {
 # =============================================================================
 
 print_completion() {
-  local frontend_url="http://localhost:4096"
+  local tls_val
+  tls_val=$(grep -E '^\s*TLS_ENABLED=' "${INSTALL_DIR}/.env" 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+  local frontend_url
+  if [[ "$tls_val" == "false" || "$tls_val" == "0" || "$tls_val" == "no" ]]; then
+    frontend_url="http://localhost:4096"
+  else
+    frontend_url="https://localhost:4096"
+  fi
   
   echo ""
   print_step "Ready! ${YELLOW}✨ ${RESET}"

@@ -1,4 +1,5 @@
 import json
+import time
 
 import pytest
 import requests
@@ -6,6 +7,23 @@ import requests
 from server.api import setup as setup_api
 
 pytestmark = pytest.mark.integration_setup
+
+# Retry HTTP requests to ESRS to handle transient connection resets
+# (e.g. after heavy ES operations or server load)
+def _request_with_retry(method, url, max_attempts=3, **kwargs):
+    last_err = None
+    for attempt in range(max_attempts):
+        try:
+            if method == "GET":
+                r = requests.get(url, **kwargs)
+            else:
+                r = requests.post(url, **kwargs)
+            return r
+        except (requests.exceptions.ConnectionError, requests.exceptions.ChunkedEncodingError) as e:
+            last_err = e
+            if attempt < max_attempts - 1:
+                time.sleep(1.0 * (attempt + 1))
+    raise last_err
 
 # Placeholder roadmap for future integration suites.
 # Suggested follow-up files:
@@ -65,19 +83,19 @@ def seed_legacy_v1_state(es):
 
 
 def setup_check(services):
-    response = requests.get(f"{services['esrs']}/api/setup")
+    response = _request_with_retry("GET", f"{services['esrs']}/api/setup")
     assert response.status_code == 200, response.text
     return response.json()
 
 
 def run_setup(services):
-    response = requests.post(f"{services['esrs']}/api/setup")
+    response = _request_with_retry("POST", f"{services['esrs']}/api/setup")
     assert response.status_code == 200, response.text
     return response.json()
 
 
 def run_upgrade(services):
-    response = requests.post(f"{services['esrs']}/api/upgrade")
+    response = _request_with_retry("POST", f"{services['esrs']}/api/upgrade")
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -135,3 +153,31 @@ def test_upgrade_applies_workspace_mapping_additions(services):
 
     assert properties["description"]["type"] == "text"
     assert properties["_search"]["properties"]["description"]["type"] == "text"
+
+
+def test_workspaces_crud_with_explicit_es_client(services, clean_data):
+    """Verify workspaces API accepts optional es_client and uses it when provided."""
+    from server.api import workspaces
+
+    es_client = services["es"]
+    doc = {
+        "name": "test-ws",
+        "index_pattern": "test-*",
+        "params": ["query"],
+        "rating_scale": {"min": 0, "max": 3},
+        "tags": [],
+    }
+    created = workspaces.create(doc, user="test", es_client=es_client)
+    _id = created.body.get("_id") if hasattr(created, "body") else created.get("_id")
+    assert _id
+
+    got = workspaces.get(_id, es_client=es_client)
+    src = got.body.get("_source", {}) if hasattr(got, "body") else got.get("_source", {})
+    assert src.get("name") == "test-ws"
+
+    workspaces.update(_id, {"name": "updated-ws"}, user="test", es_client=es_client)
+    got2 = workspaces.get(_id, es_client=es_client)
+    src2 = got2.body.get("_source", {}) if hasattr(got2, "body") else got2.get("_source", {})
+    assert src2.get("name") == "updated-ws"
+
+    workspaces.delete(_id, es_client=es_client)

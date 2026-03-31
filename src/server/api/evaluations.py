@@ -8,7 +8,7 @@ import itertools
 import os
 import time
 import traceback
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 import logging
 
 # Elastic packages
@@ -19,6 +19,9 @@ from elasticsearch import ApiError
 from . import benchmarks, content
 from .. import utils
 from ..client import es
+
+if TYPE_CHECKING:
+    from elasticsearch import Elasticsearch
 from ..models import (
     EvaluationComplete,
     EvaluationCreate,
@@ -254,6 +257,7 @@ def run(
         evaluation: Dict[str, Any],
         store_results: Optional[bool] = False,
         started_by = "unknown",
+        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Execute an evaluation for a benchmark.
 
@@ -334,7 +338,7 @@ def run(
         workspace_id = evaluation["workspace_id"]
         
         # Select candidates for strategies and scenarios
-        candidates = benchmarks.make_candidate_pool(workspace_id, evaluation["task"])
+        candidates = benchmarks.make_candidate_pool(workspace_id, evaluation["task"], es_client=es_client)
         
         # If there are no strategies or scenarios that meet the criteria of the
         # benchmark task definition, mark the evaluation as "skipped" and exit.
@@ -344,7 +348,8 @@ def run(
                     "took": int((time.time() - started_at) * 1000)
                 }
                 doc_updates = EvaluationSkip.model_validate(doc_updates).serialize()
-                es_response = es("studio").update(
+                client = es_client if es_client is not None else es("studio")
+                es_response = client.update(
                     index=INDEX_NAME,
                     id=evaluation_id,
                     doc=doc_updates,
@@ -376,7 +381,8 @@ def run(
         size = 10000
         
         # Get the index pattern and rating scale of workspace
-        es_response = es("studio").get(
+        client = es_client if es_client is not None else es("studio")
+        es_response = client.get(
             index="esrs-workspaces",
             id=workspace_id,
             source_includes=["index_pattern","rating_scale"]
@@ -408,7 +414,7 @@ def run(
                 "version": True,
                 "_source": { "excludes": [ "_search" ]},
             }
-            es_response = es("studio").search(
+            es_response = client.search(
                 index="esrs-strategies",
                 body=body
             )
@@ -446,7 +452,7 @@ def run(
             "version": True,
             "_source": { "excludes": [ "_search" ]},
         }
-        es_response = es("studio").search(
+        es_response = client.search(
             index="esrs-judgements",
             body=body
         )
@@ -492,7 +498,7 @@ def run(
             "version": True,
             "_source": { "excludes": [ "_search" ]},
         }
-        es_response = es("studio").search(
+        es_response = client.search(
             index="esrs-scenarios",
             body=body
         )
@@ -509,7 +515,7 @@ def run(
             
         # Store index relevance fingerprints (optional in serverless mode)
         try:
-            evaluation["runtime"]["indices"] = content.make_index_relevance_fingerprints(index_pattern)
+            evaluation["runtime"]["indices"] = content.make_index_relevance_fingerprints(index_pattern, es_client=None)
         except Exception:
             # Fallback for serverless mode where indices.stats API is not available
             evaluation["runtime"]["indices"] = {}
@@ -568,7 +574,7 @@ def run(
             # If no scenarios have ratings, mark evaluation as skipped
             evaluation["took"] = int((time.time() - started_at) * 1000)
             if store_results:
-                es("studio").update(
+                client.update(
                     index=INDEX_NAME,
                     id=evaluation_id,
                     doc=EvaluationSkip.model_validate(evaluation).serialize(),
@@ -725,8 +731,8 @@ def run(
         
         # Store results
         if store_results:
-            es_response = es("studio").update(
-                index="esrs-evaluations",
+            es_response = client.update(
+                index=INDEX_NAME,
                 id=evaluation_id,
                 doc=doc,
                 refresh=True
@@ -747,8 +753,9 @@ def run(
         evaluation["task"]["requests"] = rank_eval_requests_count
         doc = EvaluationFail.model_validate(evaluation).serialize()
         if store_results:
-            es("studio").update(
-                index="esrs-evaluations",
+            client = es_client if es_client is not None else es("studio")
+            client.update(
+                index=INDEX_NAME,
                 id=evaluation_id,
                 doc=doc,
                 refresh=True
@@ -765,6 +772,7 @@ def search(
         size: int = 10,
         page: int = 1,
         aggs: bool = False,
+        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Search for evaluations.
 
@@ -783,11 +791,12 @@ def search(
     """
     filters = [{ "term": { "benchmark_id": benchmark_id }}]
     response = utils.search_assets(
-        "evaluations", workspace_id, text, filters, sort, size, page
+        "evaluations", workspace_id, text, filters, sort, size, page,
+        es_client=es_client,
     )
     return response
 
-def get(_id: str) -> Dict[str, Any]:
+def get(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Get an evaluation by its _id.
 
     Args:
@@ -796,7 +805,8 @@ def get(_id: str) -> Dict[str, Any]:
     Returns:
         The evaluation document from Elasticsearch.
     """
-    es_response = es("studio").get(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.get(
         index=INDEX_NAME,
         id=_id,
         source_excludes="_search",
@@ -808,6 +818,8 @@ def create(
         benchmark_id: str,
         task: Dict[str, Any],
         user: str = None,
+        via: str = None,
+        es_client: Optional["Elasticsearch"] = None,
     ) -> Dict[str, Any]:
     """Create a pending evaluation for a given workspace and benchmark.
 
@@ -827,9 +839,10 @@ def create(
         "benchmark_id": benchmark_id,
         "task": task
     }
-    doc = EvaluationCreate.model_validate(doc, context={"user": user}).serialize()
+    doc = EvaluationCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
     
-    es_response = es("studio").index(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.index(
         index=INDEX_NAME,
         id=utils.unique_id(),
         document=doc,
@@ -837,7 +850,7 @@ def create(
     )
     return es_response
 
-def delete(_id: str) -> Dict[str, Any]:
+def delete(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Delete an evaluation from Elasticsearch.
 
     Args:
@@ -846,14 +859,15 @@ def delete(_id: str) -> Dict[str, Any]:
     Returns:
         The response from the Elasticsearch delete operation.
     """
-    es_response = es("studio").delete(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.delete(
         index=INDEX_NAME,
         id=_id,
         refresh=True,
     )
     return es_response
 
-def cleanup(time_ago: str = "2h") -> Dict[str, Any]:
+def cleanup(time_ago: str = "2h", es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Delete stale "running" evaluations from Elasticsearch.
 
     Args:
@@ -872,7 +886,8 @@ def cleanup(time_ago: str = "2h") -> Dict[str, Any]:
             }
         }
     }
-    es_response = es("studio").delete_by_query(
+    client = es_client if es_client is not None else es("studio")
+    es_response = client.delete_by_query(
         index=INDEX_NAME,
         body=body,
         refresh=True,
