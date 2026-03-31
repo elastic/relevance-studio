@@ -1,6 +1,6 @@
 {
   "name": "relevance-studio",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "license": "Elastic License 2.0",
   "source": "src/ui/index.html",
   "dependencies": {
