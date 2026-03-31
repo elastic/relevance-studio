@@ -16,6 +16,7 @@ and ESRS_TEST_AUTH_PASSWORD environment variables.
 """
 
 import os
+import base64
 
 import pytest
 import requests
@@ -75,3 +76,20 @@ def test_mcp_tool_call_without_auth_returns_error():
     assert r.status_code in (401, 403) or (
         r.status_code == 200 and "error" in r.json()
     )
+
+
+@requires_mcp_auth_env
+def test_mcp_tool_list_with_basic_auth_succeeds():
+    """MCP tools/list succeeds when valid Basic auth header is provided."""
+    basic = base64.b64encode(f"{_AUTH_USERNAME}:{_AUTH_PASSWORD}".encode("utf-8")).decode("utf-8")
+    r = requests.post(
+        f"{_AUTH_MCP_URL}/mcp",
+        json={"jsonrpc": "2.0", "method": "tools/list", "id": 2},
+        headers={"Authorization": f"Basic {basic}"},
+        timeout=10,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert "error" not in body
+    assert "result" in body
+    assert isinstance(body["result"].get("tools", []), list)
