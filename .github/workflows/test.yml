@@ -9,6 +9,11 @@ on:
         required: false
         type: boolean
         default: false
+      run_integration_ui:
+        description: "Run UI integration test tier."
+        required: false
+        type: boolean
+        default: false
       # Placeholders for future integration tiers:
       # run_integration_workspace:
       #   description: "Run workspace integration test tier."
@@ -52,7 +57,8 @@ on:
       #   default: false
 
 jobs:
-  unit:
+  unit_python:
+    name: Unit (python)
     runs-on: ubuntu-22.04
     
     steps:
@@ -85,12 +91,32 @@ jobs:
           pip install --cache-dir ~/.cache/pip -r requirements-dev.txt
 
       # Run unit tests.
-      - name: Run unit tests
+      - name: Run Python unit tests
         run: pytest tests/unit
+
+  unit_ui:
+    name: Unit (ui)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run UI unit tests
+        run: npm run test:ui -- --testPathIgnorePatterns=src/ui/js/__integration__/ --passWithNoTests
 
   integration_setup:
     name: Integration (setup/upgrade)
-    needs: unit
+    needs: [unit_python, unit_ui]
     if: ${{ inputs.run_integration_setup }}
     runs-on: ubuntu-22.04
 
@@ -123,6 +149,28 @@ jobs:
       # Optional parallel branch: integration_conversations
       - name: Run setup/upgrade integration tests
         run: pytest tests/integration -m integration_setup -p no:asyncio
+
+  integration_ui:
+    name: Integration (ui)
+    needs: [unit_python, unit_ui]
+    if: ${{ inputs.run_integration_ui }}
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run UI integration tests
+        run: npm run test:ui -- --testPathPatterns=src/ui/js/__integration__/ --passWithNoTests
 
   # Placeholder job for future tier expansion.
   # integration_workspace:

@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       run_integration_setup: ${{ steps.filter.outputs.setup_upgrade }}
+      run_integration_ui: ${{ steps.filter.outputs.ui_integration }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +31,14 @@ jobs:
               - 'tests/integration/test_setup_upgrade.py'
               - 'tests/conftest.py'
               - 'tests/docker-compose.yml'
+              - '.github/workflows/test.yml'
+            ui_integration:
+              - 'src/ui/js/**'
+              - 'src/ui/index.html'
+              - 'jest.config.js'
+              - 'webpack.config.js'
+              - 'package.json'
+              - 'package-lock.json'
               - '.github/workflows/test.yml'
             # Placeholder filters for future integration tiers.
             # workspace:
@@ -70,6 +79,7 @@ jobs:
     uses: ./.github/workflows/test.yml
     with:
       run_integration_setup: ${{ needs.detect-changes.outputs.run_integration_setup == 'true' }}
+      run_integration_ui: ${{ needs.detect-changes.outputs.run_integration_ui == 'true' }}
       # Placeholder future tier toggles.
       # run_integration_workspace: ${{ needs.detect-changes.outputs.workspace == 'true' }}
       # run_integration_displays: ${{ needs.detect-changes.outputs.displays == 'true' }}

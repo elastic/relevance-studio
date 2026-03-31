@@ -25,12 +25,18 @@ const title = 'Elasticsearch Relevance Studio'
 export const AuthGuard = ({ children }) => {
   const { isAuthenticated, hasCheckedSession, isLoading } = useAuthContext()
   const location = useLocation()
+  const isLoginPath = location.pathname === '/login'
+
+  useEffect(() => {
+    if (!isLoading && hasCheckedSession && !isAuthenticated && !isLoginPath) {
+      history.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`)
+    }
+  }, [isLoading, hasCheckedSession, isAuthenticated, isLoginPath, location.pathname, location.search])
 
   if (isLoading || !hasCheckedSession) {
     return null
   }
   if (!isAuthenticated) {
-    history.replace(`/login?next=${encodeURIComponent(location.pathname + location.search)}`)
     return null
   }
   return children
@@ -58,13 +64,19 @@ const LoginRoute = () => {
   const { isAuthenticated, hasCheckedSession, isLoading } = useAuthContext()
   const location = useLocation()
 
+  useEffect(() => {
+    if (!isLoading && hasCheckedSession && isAuthenticated) {
+      const params = new URLSearchParams(location.search)
+      const next = params.get('next') || '/'
+      const safeNext = next.startsWith('/login') ? '/' : next
+      history.replace(safeNext)
+    }
+  }, [isLoading, hasCheckedSession, isAuthenticated, location.search])
+
   if (isLoading || !hasCheckedSession) {
     return null
   }
   if (isAuthenticated) {
-    const params = new URLSearchParams(location.search)
-    const next = params.get('next') || '/'
-    history.replace(next)
     return null
   }
   document.title = `Sign in - ${title}`
