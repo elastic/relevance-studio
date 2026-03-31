@@ -4,7 +4,7 @@
 
 ### Features
 
-- Added per-user authentication with JWT sessions and pass-through Elasticsearch credentials for the studio deployment. Users log in with their own ES credentials; sessions use short-lived ES API keys. Controlled by `AUTH_ENABLED` (default: `true`). ([Auth API](docs/{{VERSION}}/reference/rest-api.md#auth-api), [Security](docs/{{VERSION}}/reference/security.md))
+- Added per-user authentication with JWT sessions and pass-through Elasticsearch credentials for the studio deployment. Users log in with their own ES credentials; username/password login creates a session API key, while API-key login reuses the provided API key. Controlled by `AUTH_ENABLED` (default: `true`). ([Auth API](docs/{{VERSION}}/reference/rest-api.md#auth-api), [Security](docs/{{VERSION}}/reference/security.md))
 - Added authentication for the MCP Server via `Authorization` header (Basic, ApiKey, Bearer schemes). ([MCP client auth](docs/{{VERSION}}/guide/mcp-client-auth.md))
 - Added native TLS support for the Server and MCP Server. Controlled by `TLS_ENABLED` (default: `true`). ([Getting started: TLS](docs/{{VERSION}}/guide/getting-started-tls.md))
 - Added `@meta.created_via` and `@meta.updated_via` channel-tracking fields to all asset documents (`"server"`, `"mcp"`, `"api"`). ([Data model](docs/{{VERSION}}/reference/data-model.md#common-fields))

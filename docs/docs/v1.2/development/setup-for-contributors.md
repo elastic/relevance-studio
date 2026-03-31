@@ -10,8 +10,8 @@ Tested on MacOS 15.5.
 
 Install dependencies:
 
-1. Install [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating) *(required by [UI](docs/{{VERSION}}/reference/architecture.md#application))*
-2. Install [python3](https://www.python.org/downloads/) (tested on version 3.10) *(required by [Server](docs/{{VERSION}}/reference/architecture.md#application), [Worker](docs/{{VERSION}}/reference/architecture.md#application), [MCP Server](docs/{{VERSION}}/reference/architecture.md#application), [MCP Proxy](docs/{{VERSION}}/reference/architecture.md#application))*
+1. Install [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating) *(required by [UI](docs/{{VERSION}}/reference/architecture.md#ui))*
+2. Install [python3](https://www.python.org/downloads/) (tested on version 3.10) *(required by [Server](docs/{{VERSION}}/reference/architecture.md#server), [Worker](docs/{{VERSION}}/reference/architecture.md#worker), [MCP Server](docs/{{VERSION}}/reference/architecture.md#mcp-server), [MCP Proxy](docs/{{VERSION}}/reference/architecture.md#mcp-proxy))*
 3. Install [docker](https://docs.docker.com/engine/install/) (tested on version 27.3.1) *(required for integration tests)*
 
 Clone this repo:

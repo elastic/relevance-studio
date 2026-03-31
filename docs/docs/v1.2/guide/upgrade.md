@@ -23,6 +23,10 @@ Update to a specific release:
 
 **`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) --dir ./relevance-studio --version v1.1.0`**
 
+For development/testing (non-release) upgrades, target a specific git ref:
+
+**`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) --dir ./relevance-studio --ref <branch-or-commit>`**
+
 What this does:
 
 - Reuses your existing repository in that directory.

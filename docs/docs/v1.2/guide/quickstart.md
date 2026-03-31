@@ -28,6 +28,10 @@ Use `--help` to see all available options:
 
 **`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) --help`**
 
+For development/testing installs, you can install from a specific git ref (branch, tag, or commit):
+
+**`bash <(curl -fsSL https://ela.st/relevance-studio-quickstart) --ref feature/auth`**
+
 💡 *Read [roles and permissions](docs/{{VERSION}}/reference/security.md#roles-and-permissions) to see the recommended configurations for security.*
 
 #### Step 2. Open Elasticsearch Relevance Studio to finish setup

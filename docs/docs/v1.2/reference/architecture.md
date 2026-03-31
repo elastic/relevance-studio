@@ -17,9 +17,7 @@
 
 This diagram shows all required and optional [components of Elasticsearch Relevance Studio](#components), the external components that interface with them, their lines of communication, and the protocols by which they communicate.
 
-<img src="https://storage.googleapis.com/esrs-docs/architecture/architecture-v1.1-reference.png" />
-
-*Note: This diagram reflects the v1.1 architecture. v1.2 adds native TLS and authentication to the Server and MCP Server. See [Security](docs/{{VERSION}}/reference/security.md) for details.*
+<img src="https://storage.googleapis.com/esrs-docs/architecture/architecture-v1.2-reference.png" />
 
 ## Components
 

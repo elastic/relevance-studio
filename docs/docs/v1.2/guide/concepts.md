@@ -63,7 +63,7 @@ See also:
 
 ## Content
 
-Content refers to the documents that your search application retrieves from the [content deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch). In Elasticsearch Relevance Studio, content is queried through index patterns, then reviewed and rated through scenarios and judgements.
+Content refers to the documents that your search application retrieves from the [content deployment](docs/{{VERSION}}/reference/architecture.md#content-deployment). In Elasticsearch Relevance Studio, content is queried through index patterns, then reviewed and rated through scenarios and judgements.
 
 Workspaces define the index pattern scope for content operations. Displays determine how content is retrieved and rendered for judging, while strategies define how content is searched.
 

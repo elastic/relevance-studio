@@ -4,7 +4,7 @@ Relevance Studio is designed to run in trusted environments.
 
 ## Authentication
 
-Authentication controls access to the [Server](docs/{{VERSION}}/reference/architecture.md#application) and [MCP Server](docs/{{VERSION}}/reference/architecture.md#application). See [Getting started: Authentication](docs/{{VERSION}}/guide/getting-started-auth.md) for setup steps.
+Authentication controls access to the [Server](docs/{{VERSION}}/reference/architecture.md#server) and [MCP Server](docs/{{VERSION}}/reference/architecture.md#mcp-server). See [Getting started: Authentication](docs/{{VERSION}}/guide/getting-started-auth.md) for setup steps.
 
 ### Auth configuration
 
@@ -18,7 +18,7 @@ See [Migration guide](docs/{{VERSION}}/guide/auth-tls-migration.md) for moving f
 
 ### MCP Server authentication
 
-When `AUTH_ENABLED=true` (default), the [MCP Server](docs/{{VERSION}}/reference/architecture.md#application) requires authentication for all tool calls and custom routes except `/healthz` and the `healthz_mcp` tool. MCP clients must send credentials via the `Authorization` header on each request.
+When `AUTH_ENABLED=true` (default), the [MCP Server](docs/{{VERSION}}/reference/architecture.md#mcp-server) requires authentication for all tool calls and custom routes except `/healthz` and the `healthz_mcp` tool. MCP clients must send credentials via the `Authorization` header on each request.
 
 **Supported schemes:**
 
@@ -35,9 +35,9 @@ Configure your MCP client to send credentials when connecting to Relevance Studi
 
 ### Flask Server authentication
 
-The [Server](docs/{{VERSION}}/reference/architecture.md#application) uses session-based auth when `AUTH_ENABLED=true`. See `/api/auth/login` and `/api/auth/session`.
+The [Server](docs/{{VERSION}}/reference/architecture.md#server) uses session-based auth when `AUTH_ENABLED=true`. See `/api/auth/login` and `/api/auth/session`.
 
-When Elasticsearch security is enabled **and** `AUTH_ENABLED=true`, authentication to the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) is configured by these environment variables in `.env`:
+When Elasticsearch security is enabled **and** `AUTH_ENABLED=true`, authentication to the [studio deployment](docs/{{VERSION}}/reference/architecture.md#studio-deployment) is configured by these environment variables in `.env`:
 
 **Option 1: [API Key](https://www.elastic.co/docs/deploy-manage/api-keys/elasticsearch-api-keys)**
 
@@ -68,7 +68,7 @@ Below are the recommended role configurations for the studio deployment and the 
 
 ### Studio deployment role configuration
 
-The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read and write** privileges to all indices prefixed with `esrs-`, grants `manage_index_templates` to create and read composable index templates during [setup](docs/{{VERSION}}/guide/quickstart.md), grants `manage_own_api_key` for creating session API keys during login, grants `monitor` to check the Elasticsearch license, and grants privilege to [call Elasticsearch Inference API endpoints](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-inference-chat-completion-unified), which is required when using the [Agent](docs/{{VERSION}}/guide/concepts.md#agent).
+The recommended role for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#studio-deployment) (below) grants **read and write** privileges to all indices prefixed with `esrs-`, grants `manage_index_templates` to create and read composable index templates during [setup](docs/{{VERSION}}/guide/quickstart.md), grants `manage_own_api_key` for creating session API keys during login, grants `monitor` to check the Elasticsearch license, and grants privilege to [call Elasticsearch Inference API endpoints](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-inference-chat-completion-unified), which is required when using the [Agent](docs/{{VERSION}}/guide/concepts.md#agent).
 
 ```json
 {
@@ -99,7 +99,7 @@ The recommended role for the [studio deployment](docs/{{VERSION}}/reference/arch
 
 ### Content deployment role configuration
 
-The recommended role for the [content deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) (below) grants **read** privileges for any index. You can limit the scope of indices by giving specific index names or index patterns in `"indices.names"`. Cluster monitoring is required for [workers](docs/{{VERSION}}/reference/architecture.md#application) to use the [Rank Eval API](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-rank-eval).
+The recommended role for the [content deployment](docs/{{VERSION}}/reference/architecture.md#content-deployment) (below) grants **read** privileges for any index. You can limit the scope of indices by giving specific index names or index patterns in `"indices.names"`. Cluster monitoring is required for [workers](docs/{{VERSION}}/reference/architecture.md#worker) to use the [Rank Eval API](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-rank-eval).
 
 ```json
 {
@@ -161,7 +161,7 @@ The recommended role for the evaluation worker and service account (below) grant
 
 ## TLS
 
-The [Server](docs/{{VERSION}}/reference/architecture.md#application) and [MCP Server](docs/{{VERSION}}/reference/architecture.md#application) support native TLS. TLS is enabled by default. When enabled, you must provide valid PEM certificate and key files via environment variables.
+The [Server](docs/{{VERSION}}/reference/architecture.md#server) and [MCP Server](docs/{{VERSION}}/reference/architecture.md#mcp-server) support native TLS. TLS is enabled by default. When enabled, you must provide valid PEM certificate and key files via environment variables.
 
 ### Configuration
 
@@ -198,14 +198,14 @@ Then set in `.env`:
 
 ```
 TLS_ENABLED=true
-TLS_CERT_FILE=/certs/cert.pem
-TLS_KEY_FILE=/certs/key.pem
+TLS_CERT_FILE=.certs/cert.pem
+TLS_KEY_FILE=.certs/key.pem
 ```
 
-For Docker, mount the certs directory and ensure the paths match (e.g. `-v ./.certs:/certs`).
+For Docker, mount the certs directory and ensure the paths match (for example, `-v ./.certs:/app/.certs:ro` when using `TLS_CERT_FILE=.certs/cert.pem` and `TLS_KEY_FILE=.certs/key.pem`).
 
 ### Production
 
 For production, use certificates from a trusted CA (e.g. Let's Encrypt) or your organization's PKI. Place the Server and MCP Server behind a reverse proxy that terminates TLS if you prefer to manage certificates centrally.
 
-Communications with [Elasticsearch](docs/{{VERSION}}/reference/architecture.md#elasticsearch) are encrypted using the TLS configurations of your chosen Elasticsearch deployments. On Elastic Cloud Hosted (ECH) and Elastic Cloud Serverless (ECS), TLS is enabled and enforced by default. If you are self-managing Elasticsearch, review the [Elasticsearch security documentation](https://www.elastic.co/docs/deploy-manage/security) to implement TLS for Elasticsearch.
+Communications with [Elasticsearch deployments](docs/{{VERSION}}/reference/architecture.md#external-components) are encrypted using the TLS configurations of your chosen Elasticsearch deployments. On Elastic Cloud Hosted (ECH) and Elastic Cloud Serverless (ECS), TLS is enabled and enforced by default. If you are self-managing Elasticsearch, review the [Elasticsearch security documentation](https://www.elastic.co/docs/deploy-manage/security) to implement TLS for Elasticsearch.

@@ -37,7 +37,7 @@ All REST API endpoints accept payloads as JSON and return payloads as JSON (`app
 
 ## Studio API
 
-The Studio API manages data assets in the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch).
+The Studio API manages data assets in the [studio deployment](docs/{{VERSION}}/reference/architecture.md#studio-deployment).
 
 ### Agent API
 
@@ -76,7 +76,9 @@ Requests cancellation of an in-flight chat stream.
 
 ### Conversations API
 
-The Conversations API manages stored chat conversations in the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch).
+The Conversations API manages stored chat conversations in the [studio deployment](docs/{{VERSION}}/reference/architecture.md#studio-deployment).
+
+When authentication is enabled, conversation access is scoped to the authenticated user: list/search returns only conversations created by that user, and get/update/delete are allowed only for the owner.
 
 #### Search conversations
 
@@ -854,7 +856,7 @@ Example payload with all required and optional fields from the [Benchmark data m
 
 #### Run evaluation
 
-Run an evaluation. Used by [workers](docs/{{VERSION}}/reference/architecture.md#application).
+Run an evaluation. Used by [workers](docs/{{VERSION}}/reference/architecture.md#worker).
 
 **`POST /api/workspaces/<workspace_id>/evaluations/_run`**
 
@@ -868,11 +870,11 @@ Delete an evaluation by its `_id` in a given workspace.
 
 ## Content API
 
-The Content API retrieves documents and other data from the [content deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch).
+The Content API retrieves documents and other data from the [content deployment](docs/{{VERSION}}/reference/architecture.md#content-deployment).
 
 ### Search API
 
-Search documents in the [content deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) by a given set of index patterns. Accepts any [Elasticsearch Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl) in the request payload.
+Search documents in the [content deployment](docs/{{VERSION}}/reference/architecture.md#content-deployment) by a given set of index patterns. Accepts any [Elasticsearch Query DSL](https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl) in the request payload.
 
 **`POST /api/content/_search/<index_patterns>`**
 
@@ -895,7 +897,7 @@ Example payload:
 
 ### Mappings API
 
-Retrieve all [mappings](https://www.elastic.co/docs/manage-data/data-store/mapping) from the [content deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) that match a given set of index patterns.
+Retrieve all [mappings](https://www.elastic.co/docs/manage-data/data-store/mapping) from the [content deployment](docs/{{VERSION}}/reference/architecture.md#content-deployment) that match a given set of index patterns.
 
 **`GET /api/content/mappings/<index_patterns>`**
 
@@ -990,13 +992,13 @@ The System API manages the Relevance Studio application.
 
 #### Run setup
 
-Create the index templates and indices in the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch).
+Create the index templates and indices in the [studio deployment](docs/{{VERSION}}/reference/architecture.md#studio-deployment).
 
 **`POST /api/setup`**
 
 #### Check setup
 
-Check deployment, setup, and upgrade status for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch). This includes setup health and whether an index-template upgrade is pending.
+Check deployment, setup, and upgrade status for the [studio deployment](docs/{{VERSION}}/reference/architecture.md#studio-deployment). This includes setup health and whether an index-template upgrade is pending.
 
 **`GET /api/setup`**
 
