@@ -1009,7 +1009,7 @@ generate_tls_cert() {
   elif openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \
     -keyout "$key_file" -out "$cert_file" \
     -subj "/CN=localhost" \
-    -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" 2>/dev/null; then
+    -addext "subjectAltName=IP:127.0.0.1,DNS:localhost,DNS:esrs-server-mcp" 2>/dev/null; then
     print_success "Certificate: ${CYAN}$cert_file${RESET}"
     print_success "Private key: ${CYAN}$key_file${RESET}"
     set_env_value "TLS_ENABLED" "true" "$env_file"
