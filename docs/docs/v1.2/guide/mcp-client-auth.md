@@ -45,7 +45,3 @@ In Cursor's MCP settings, add the server with custom headers. Example for Basic 
 ## Custom clients
 
 Include the `Authorization` header on every HTTP request to the MCP endpoint (e.g. `POST /mcp/`).
-
-## When AUTH_ENABLED=false
-
-When auth is disabled, the MCP server uses the service account from `.env`. No per-request credentials are required.

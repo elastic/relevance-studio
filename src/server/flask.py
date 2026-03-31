@@ -21,7 +21,7 @@ from elasticsearch.exceptions import ApiError, AuthenticationException
 # App packages
 from . import api
 from . import auth
-from .client import es, es_from_credentials
+from .client import _validate_endpoint_configuration, es, es_from_credentials
 from .models import *
 from .tls import get_tls_config
 
@@ -575,6 +575,11 @@ def home():
 ####  Main  ####################################################################
 
 if __name__ == "__main__":
+    try:
+        _validate_endpoint_configuration()
+    except ValueError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
     tls = get_tls_config()
     if tls["error"]:
         print(tls["error"], file=sys.stderr)

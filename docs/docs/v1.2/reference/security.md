@@ -10,11 +10,11 @@ Authentication controls access to the [Server](docs/{{VERSION}}/reference/archit
 
 | Variable | Default | Description |
 |----------|---------|--------------|
-| `AUTH_ENABLED` | `true` | Set to `false` to disable auth and use service-account (singleton) mode. |
+| `AUTH_ENABLED` | `true` | Set to `false` to disable authentication to the studio deployment. |
 | `AUTH_JWT_SECRET` | — | Secret for signing session JWTs. Required when `AUTH_ENABLED` is true. Generate with `openssl rand -hex 32`. |
 | `AUTH_SESSION_EXPIRY` | `24h` | Session expiry for JWT cookies (e.g. `24h`, `7d`, `30m`). |
 
-When `AUTH_ENABLED=false`, Studio uses a singleton Elasticsearch client (no per-request user auth) and communicates with the studio deployment without credentials. See [Migration guide](docs/{{VERSION}}/guide/auth-tls-migration.md) for moving from auth-disabled to auth-enabled.
+See [Migration guide](docs/{{VERSION}}/guide/auth-tls-migration.md) for moving from auth-disabled to auth-enabled.
 
 ### MCP Server authentication
 
@@ -33,15 +33,11 @@ Configure your MCP client to send credentials when connecting to Relevance Studi
 - **Claude Desktop / Cursor**: Add `headers` with `Authorization` to the MCP server config. For Basic auth, use `Authorization: Basic <base64(username:password)>`. For API key, use `Authorization: ApiKey <encoded>` where `encoded` is the base64 of `id:api_key`.
 - **Custom clients**: Include the `Authorization` header on every HTTP request to the MCP endpoint (e.g. `POST /mcp/`).
 
-When `AUTH_ENABLED=false`, the MCP server uses the singleton client with no per-request auth.
-
 ### Flask Server authentication
 
 The [Server](docs/{{VERSION}}/reference/architecture.md#application) uses session-based auth when `AUTH_ENABLED=true`. See `/api/auth/login` and `/api/auth/session`.
 
-When `AUTH_ENABLED=false`, the server uses a singleton Elasticsearch client and does not require login.
-
-When Elasticsearch security is enabled, authentication to the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) is configured by these environment variables in `.env`:
+When Elasticsearch security is enabled **and** `AUTH_ENABLED=true`, authentication to the [studio deployment](docs/{{VERSION}}/reference/architecture.md#elasticsearch) is configured by these environment variables in `.env`:
 
 **Option 1: [API Key](https://www.elastic.co/docs/deploy-manage/api-keys/elasticsearch-api-keys)**
 
@@ -52,7 +48,7 @@ When Elasticsearch security is enabled, authentication to the [studio deployment
 - `ELASTICSEARCH_USERNAME`
 - `ELASTICSEARCH_PASSWORD`
 
-When Elasticsearch security is enabled for a separate content deployment, configure authentication with these `.env` variables:
+When Elasticsearch security is enabled for a separate content deployment, configure authentication with these `.env` variables. This is independent of `AUTH_ENABLED`:
 
 **Option 1: [API Key](https://www.elastic.co/docs/deploy-manage/api-keys/elasticsearch-api-keys)**
 

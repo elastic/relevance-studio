@@ -34,11 +34,19 @@ _es_clients = None
 _valid_es_clients = set([ "studio", "content", ])
 
 
+def _validate_endpoint_configuration() -> None:
+    if ELASTIC_CLOUD_ID and ELASTICSEARCH_URL:
+        raise ValueError("Configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL, not both.")
+    if CONTENT_ELASTIC_CLOUD_ID and CONTENT_ELASTICSEARCH_URL:
+        raise ValueError("Configure either CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL, not both.")
+
+
 def es_studio_endpoint() -> Dict[str, Union[str, list]]:
     """
     Return endpoint configuration for the studio deployment without credentials.
     Prefers cloud_id when available, else url (hosts).
     """
+    _validate_endpoint_configuration()
     if ELASTIC_CLOUD_ID:
         return {"cloud_id": ELASTIC_CLOUD_ID}
     if ELASTICSEARCH_URL:
@@ -112,6 +120,7 @@ def _setup_clients() -> Dict[str, Elasticsearch]:
     """
 
     # Validate configuration
+    _validate_endpoint_configuration()
     if not ELASTIC_CLOUD_ID and not ELASTICSEARCH_URL:
         raise ValueError("You must configure either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL in .env")
     if AUTH_ENABLED and ELASTICSEARCH_API_KEY and (ELASTICSEARCH_USERNAME or ELASTICSEARCH_PASSWORD):

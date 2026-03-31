@@ -18,11 +18,11 @@ class TestEsStudioEndpoint:
         result = es_studio_endpoint()
         assert result == {"hosts": ["http://localhost:9200"]}
 
-    def test_es_studio_endpoint_prefers_cloud_id_over_url(self, monkeypatch):
+    def test_es_studio_endpoint_raises_when_cloud_id_and_url_both_configured(self, monkeypatch):
         monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "my-cloud-id")
         monkeypatch.setattr("server.client.ELASTICSEARCH_URL", "http://localhost:9200")
-        result = es_studio_endpoint()
-        assert result == {"cloud_id": "my-cloud-id"}
+        with pytest.raises(ValueError, match="either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL, not both"):
+            es_studio_endpoint()
 
     def test_es_studio_endpoint_raises_when_neither_configured(self, monkeypatch):
         monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "")
@@ -85,6 +85,22 @@ class TestEsFromCredentials:
 
 
 class TestSetupClients:
+    def test_setup_clients_rejects_studio_cloud_id_and_url_both_configured(self, monkeypatch):
+        monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "my-cloud-id")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_URL", "http://localhost:9200")
+
+        with pytest.raises(ValueError, match="either ELASTIC_CLOUD_ID or ELASTICSEARCH_URL, not both"):
+            _setup_clients()
+
+    def test_setup_clients_rejects_content_cloud_id_and_url_both_configured(self, monkeypatch):
+        monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "")
+        monkeypatch.setattr("server.client.ELASTICSEARCH_URL", "http://localhost:9200")
+        monkeypatch.setattr("server.client.CONTENT_ELASTIC_CLOUD_ID", "content-cloud-id")
+        monkeypatch.setattr("server.client.CONTENT_ELASTICSEARCH_URL", "http://localhost:9201")
+
+        with pytest.raises(ValueError, match="either CONTENT_ELASTIC_CLOUD_ID or CONTENT_ELASTICSEARCH_URL, not both"):
+            _setup_clients()
+
     def test_setup_clients_rejects_studio_api_key_with_basic_auth_when_auth_enabled(self, monkeypatch):
         monkeypatch.setattr("server.client.AUTH_ENABLED", True)
         monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "")
