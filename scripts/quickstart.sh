@@ -805,7 +805,7 @@ configure_env() {
     
     echo ""
     if prompt_yes_no "Does this deployment require authentication?" "y"; then
-      if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
+      if prompt_menu "How do you want the setup endpoints and worker process to authenticate to the studio deployment?" "API Key" "Username and Password"; then
         set_env_value "ELASTICSEARCH_API_KEY" "$(prompt_secret "API Key")" "$env_file"
       else
         set_env_value "ELASTICSEARCH_USERNAME" "$(prompt_value "Username")" "$env_file"
@@ -857,7 +857,7 @@ configure_env() {
       
       echo ""
       if prompt_yes_no "Does the content deployment require authentication?" "y"; then
-        if prompt_menu "How do you want to authenticate?" "API Key" "Username and Password"; then
+        if prompt_menu "How do you want the application to authenticate to the content deployment?" "API Key" "Username and Password"; then
           set_env_value "CONTENT_ELASTICSEARCH_API_KEY" "$(prompt_secret "Content API Key")" "$env_file"
         else
           set_env_value "CONTENT_ELASTICSEARCH_USERNAME" "$(prompt_value "Content Username")" "$env_file"
