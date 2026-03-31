@@ -10,6 +10,7 @@
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/elastic/relevance-studio/main/scripts/quickstart.sh | bash
 #   curl -fsSL ... | bash -s -- --version v1.0.0
+#   curl -fsSL ... | bash -s -- --ref feature/my-branch
 #   curl -fsSL ... | bash -s -- --uninstall
 #
 set -euo pipefail
@@ -21,6 +22,7 @@ set -euo pipefail
 REPO_URL="https://github.com/elastic/relevance-studio.git"
 DEFAULT_DIR="./relevance-studio"
 VERSION="latest"
+GIT_REF=""
 UNINSTALL=false
 
 # CLI overrides for .env configuration (empty = prompt interactively)
@@ -265,6 +267,10 @@ parse_args() {
         VERSION="$2"
         shift 2
         ;;
+      -r|--ref)
+        GIT_REF="$2"
+        shift 2
+        ;;
       -d|--dir)
         INSTALL_DIR="$2"
         shift 2
@@ -365,6 +371,12 @@ parse_args() {
 validate_args() {
   local errors=false
 
+  # Installation source controls
+  if [[ -n "$GIT_REF" ]] && [[ "$VERSION" != "latest" ]]; then
+    print_error "--ref and --version are mutually exclusive"
+    errors=true
+  fi
+
   # Studio: cloud ID and URL are mutually exclusive
   if [[ -n "$ARG_STUDIO_ELASTIC_CLOUD_ID" ]] && [[ -n "$ARG_STUDIO_ELASTICSEARCH_URL" ]]; then
     print_error "--studio-elastic-cloud-id and --studio-elasticsearch-url are mutually exclusive"
@@ -433,6 +445,8 @@ print_usage() {
   echo -e "${BOLD}General options:${RESET}"
   echo -e "  -v, --version <version>                 ${DIM}# Version to install (default: latest)${RESET}"
   echo -e "                                          ${DIM}# Accepts: latest, main, or v{major}.{minor}.{patch}${RESET}"
+  echo -e "  -r, --ref <git-ref>                     ${DIM}# Git branch, tag, or commit hash to install${RESET}"
+  echo -e "                                          ${DIM}# Mutually exclusive with --version${RESET}"
   echo -e "  -d, --dir <path>                        ${DIM}# Installation directory (default: ./relevance-studio)${RESET}"
   echo -e "      --no-start                          ${DIM}# Install and configure only; don't start services${RESET}"
   echo -e "      --generate-tls-cert                  ${DIM}# Generate self-signed TLS cert in ./.certs for local dev (HTTPS)${RESET}"
@@ -462,6 +476,8 @@ print_usage() {
   echo -e "${BOLD}Example usage:${RESET}"
   echo -e "  quickstart                              ${DIM}# Interactive setup${RESET}"
   echo -e "  quickstart --version v1.0.0             ${DIM}# Install specific version${RESET}"
+  echo -e "  quickstart --ref feature/auth           ${DIM}# Install from a development branch${RESET}"
+  echo -e "  quickstart --ref 9f3a1c2                ${DIM}# Install from a specific commit${RESET}"
   echo -e "  quickstart --dir ~/projects/esrs        ${DIM}# Custom directory${RESET}"
   echo -e "  quickstart --uninstall                  ${DIM}# Remove installation${RESET}"
   echo ""
@@ -577,9 +593,19 @@ clone_or_update_repo() {
     print_success "Repository updated"
   else
     print_info "Cloning repository..."
-    if ! git clone --quiet "$REPO_URL" "$INSTALL_DIR"; then
-      print_error "Failed to clone repository"
-      exit 1
+    if [[ -n "$GIT_REF" ]] && [[ ! "$GIT_REF" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+      if ! git clone --quiet --branch "$GIT_REF" "$REPO_URL" "$INSTALL_DIR"; then
+        print_warning "Failed to clone directly from ref '$GIT_REF', retrying with full clone..."
+        if ! git clone --quiet "$REPO_URL" "$INSTALL_DIR"; then
+          print_error "Failed to clone repository"
+          exit 1
+        fi
+      fi
+    else
+      if ! git clone --quiet "$REPO_URL" "$INSTALL_DIR"; then
+        print_error "Failed to clone repository"
+        exit 1
+      fi
     fi
     print_success "Cloned to: ${CYAN}$INSTALL_DIR${RESET}"
   fi
@@ -590,7 +616,19 @@ clone_or_update_repo() {
   fi
   
   # Checkout appropriate version
-  if [[ "$VERSION" == "latest" ]]; then
+  if [[ -n "$GIT_REF" ]]; then
+    print_info "Checking out ref $GIT_REF..."
+    if git rev-parse "origin/$GIT_REF" >/dev/null 2>&1; then
+      if ! git checkout --quiet -B "$GIT_REF" "origin/$GIT_REF" 2>/dev/null; then
+        print_error "Failed to checkout branch $GIT_REF"
+        exit 1
+      fi
+    elif ! git checkout --quiet "$GIT_REF" 2>/dev/null; then
+      print_error "Ref $GIT_REF not found"
+      exit 1
+    fi
+    print_success "Ref: ${BOLD}$GIT_REF${RESET}"
+  elif [[ "$VERSION" == "latest" ]]; then
     local latest
     latest="$(get_latest_version)"
     if [[ -n "$latest" ]]; then
