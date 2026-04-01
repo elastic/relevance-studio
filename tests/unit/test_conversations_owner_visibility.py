@@ -92,5 +92,5 @@ def test_fastmcp_conversations_search_passes_user(monkeypatch):
 
     monkeypatch.setattr("server.fastmcp.api.conversations.search", mock_search)
 
-    fastmcp.conversations_search.fn(ctx=None)
+    fastmcp.conversations_search(ctx=None)
     assert captured["user"] == "alice"
