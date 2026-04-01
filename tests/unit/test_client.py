@@ -113,6 +113,7 @@ class TestSetupClients:
             _setup_clients()
 
     def test_setup_clients_rejects_content_api_key_with_basic_auth(self, monkeypatch):
+        monkeypatch.setattr("server.client.AUTH_ENABLED", False)
         monkeypatch.setattr("server.client.ELASTIC_CLOUD_ID", "")
         monkeypatch.setattr("server.client.ELASTICSEARCH_URL", "http://localhost:9200")
         monkeypatch.setattr("server.client.CONTENT_ELASTIC_CLOUD_ID", "")
