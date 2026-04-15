@@ -65,21 +65,26 @@ def search(
     )
     return response
 
-def get(_id: str, user: Optional[str] = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def get(_id: str, user: Optional[str] = None, source_includes: Optional[List[str]] = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Get a conversation by its _id.
 
     Args:
         _id: The UUID of the conversation.
+        source_includes: Optional list of source fields to return (e.g. ["messages"]).
 
     Returns:
         The conversation document from Elasticsearch.
     """
     client = es_client if es_client is not None else es("studio")
-    es_response = client.get(
-        index=INDEX_NAME,
-        id=_id,
-        source_excludes="_search",
-    )
+    # Ensure ownership field is always fetched for the access check
+    includes = source_includes
+    if includes is not None and user is not None:
+        if "@meta.created_by" not in includes:
+            includes = list(includes) + ["@meta.created_by"]
+    kwargs = dict(index=INDEX_NAME, id=_id, source_excludes="_search")
+    if includes is not None:
+        kwargs["source_includes"] = includes
+    es_response = client.get(**kwargs)
     _assert_owner(es_response, user)
     return es_response
 

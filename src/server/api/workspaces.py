@@ -54,21 +54,21 @@ def tags(es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     es_response = utils.search_tags("workspaces", es_client=es_client)
     return es_response
 
-def get(_id: str, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
+def get(_id: str, source_includes: Optional[List[str]] = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:
     """Get a workspace by its _id.
 
     Args:
         _id: The UUID of the workspace.
+        source_includes: Optional list of source fields to return (e.g. ["name", "params"]).
 
     Returns:
         The workspace document from Elasticsearch.
     """
     client = es_client if es_client is not None else es("studio")
-    es_response = client.get(
-        index=INDEX_NAME,
-        id=_id,
-        source_excludes="_search",
-    )
+    kwargs = dict(index=INDEX_NAME, id=_id, source_excludes="_search")
+    if source_includes is not None:
+        kwargs["source_includes"] = source_includes
+    es_response = client.get(**kwargs)
     return es_response
 
 def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = None, es_client: Optional["Elasticsearch"] = None) -> Dict[str, Any]:

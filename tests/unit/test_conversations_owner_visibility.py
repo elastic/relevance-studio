@@ -67,6 +67,21 @@ def test_delete_forbidden_when_owner_differs():
     assert client.delete_called is False
 
 
+def test_get_with_source_includes_still_checks_owner():
+    """source_includes auto-adds @meta.created_by so ownership check works."""
+    client = MockEsClient(owner="bob")
+
+    with pytest.raises(Forbidden):
+        conversations.get("conv-1", user="alice", source_includes=["messages"], es_client=client)
+
+
+def test_get_with_source_includes_returns_when_owner_matches():
+    client = MockEsClient(owner="alice")
+
+    result = conversations.get("conv-1", user="alice", source_includes=["messages"], es_client=client)
+    assert result["_source"]["@meta"]["created_by"] == "alice"
+
+
 def test_flask_conversation_get_returns_403_for_other_owner(monkeypatch):
     client = app.test_client()
     mock_es_client = MockEsClient(owner="alice")

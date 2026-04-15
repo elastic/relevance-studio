@@ -84,6 +84,32 @@ class TestDisplaysEsClientFallback:
         assert client.calls[0][1]["id"] == "some-id"
 
 
+class TestSourceIncludes:
+    """Test that get() passes source_includes to ES when provided."""
+
+    def test_workspaces_get_passes_source_includes(self, monkeypatch):
+        client = _MockSearchClient()
+        monkeypatch.setattr(workspaces, "es", lambda name: pytest.fail("es() should not be called"))
+        workspaces.get("some-id", source_includes=["name", "params"], es_client=client)
+        assert len(client.calls) == 1
+        assert client.calls[0][1]["source_includes"] == ["name", "params"]
+        assert client.calls[0][1]["source_excludes"] == "_search"
+
+    def test_workspaces_get_omits_source_includes_when_none(self, monkeypatch):
+        client = _MockSearchClient()
+        monkeypatch.setattr(workspaces, "es", lambda name: pytest.fail("es() should not be called"))
+        workspaces.get("some-id", es_client=client)
+        assert len(client.calls) == 1
+        assert "source_includes" not in client.calls[0][1]
+
+    def test_displays_get_passes_source_includes(self, monkeypatch):
+        client = _MockSearchClient()
+        monkeypatch.setattr(displays, "es", lambda name: pytest.fail("es() should not be called"))
+        displays.get("some-id", source_includes=["index_pattern"], es_client=client)
+        assert client.calls[0][1]["source_includes"] == ["index_pattern"]
+        assert client.calls[0][1]["source_excludes"] == "_search"
+
+
 class TestContentEsClientFallback:
     """Test that content API uses es_client when provided, else es('content')."""
 
