@@ -53,10 +53,17 @@ def set_request_clients(studio_client: Optional[Elasticsearch], content_client: 
         # If no explicit content client is provided, we use the studio client
         # ONLY if the deployments are shared.
         global _es_clients
-        if _es_clients is None:
-            _es_clients = _setup_clients()
+        
+        # Check if they are shared. We prefer checking the already-initialized 
+        # singletons if available, to support mocking in tests.
+        if _es_clients is not None:
+            is_shared = (_es_clients["studio"] == _es_clients["content"])
+        else:
+            # Otherwise check environment variables directly to avoid eager 
+            # initialization of singletons (which might fail if config is missing).
+            is_shared = (not CONTENT_ELASTIC_CLOUD_ID and not CONTENT_ELASTICSEARCH_URL)
             
-        if _es_clients["studio"] == _es_clients["content"]:
+        if is_shared:
             _request_content_client.set(studio_client)
         else:
             _request_content_client.set(None) # Fall back to content singleton

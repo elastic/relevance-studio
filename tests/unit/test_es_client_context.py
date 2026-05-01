@@ -58,8 +58,8 @@ def test_content_client_determined_by_deployment_sharing(monkeypatch):
     content_singleton = MockClient("content-singleton")
     
     # Case 1: Shared deployment
-    monkeypatch.setattr("server.client._setup_clients", lambda: {"studio": studio_singleton, "content": studio_singleton})
-    monkeypatch.setattr("server.client._es_clients", None)
+    # By setting _es_clients, we simulate that setup has already happened and they are shared.
+    monkeypatch.setattr("server.client._es_clients", {"studio": studio_singleton, "content": studio_singleton})
     
     user_client = MockClient("user-client")
     set_request_clients(user_client)
@@ -71,8 +71,8 @@ def test_content_client_determined_by_deployment_sharing(monkeypatch):
         set_request_clients(None)
 
     # Case 2: Separate deployment
-    monkeypatch.setattr("server.client._setup_clients", lambda: {"studio": studio_singleton, "content": content_singleton})
-    monkeypatch.setattr("server.client._es_clients", None)
+    # By setting _es_clients, we simulate they are separate.
+    monkeypatch.setattr("server.client._es_clients", {"studio": studio_singleton, "content": content_singleton})
     
     set_request_clients(user_client)
     
