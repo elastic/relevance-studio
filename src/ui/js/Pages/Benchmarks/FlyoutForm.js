@@ -411,11 +411,11 @@ const FlyoutForm = ({
               },
               {
                 id: 'precision',
-                label: (<EuiText size='xs'>Recall</EuiText>),
+                label: (<EuiText size='xs'>Precision</EuiText>),
               },
               {
                 id: 'recall',
-                label: (<EuiText size='xs'>Precision</EuiText>),
+                label: (<EuiText size='xs'>Recall</EuiText>),
               },
             ]}
             type='multi'
