@@ -130,7 +130,7 @@ const Benchmarks = () => {
         return (
           <EuiLink onClick={(e) => {
             history.push({
-              pathname: `/workspaces/${workspace._id}/bencharms/${doc._id}/evaluations`,
+              pathname: `/workspaces/${workspace._id}/benchmarks/${doc._id}/evaluations`,
             })
           }}>
             {count.toLocaleString()}
