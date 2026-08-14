@@ -224,9 +224,13 @@ def run_loop():
         try:
             evaluation = poll_evaluations()
             if evaluation:
-                # Attempt to claim and run a pending evaluation
-                claim_evaluation(evaluation)
-                run_evaluation(evaluation)
+                # Attempt to claim and run a pending evaluation. The claim is
+                # an atomic compare-and-set, so only run if we actually won it;
+                # another worker may have claimed the same oldest pending
+                # evaluation between our poll and claim (result == "noop").
+                claim = claim_evaluation(evaluation)
+                if claim.get("result") != "noop":
+                    run_evaluation(evaluation)
         except Exception as e:
             logger.exception(e)
         finally:
