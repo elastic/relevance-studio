@@ -113,7 +113,7 @@ class WorkspaceUpdate(AssetUpdate):
     def validate_params(cls, value: Optional[List[str]]):
         if value is None:
             return value
-        if not all(isinstance(p, str) and p.strip() for p in value):
+        if not value or not all(isinstance(p, str) and p.strip() for p in value):
             raise ValueError("params must be a non-empty list of non-empty strings if given")
         return value
 
