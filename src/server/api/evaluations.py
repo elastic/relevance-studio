@@ -408,7 +408,7 @@ def run(
         # Fetch strategies for given candidates
         if strategies_to_fetch:
             body = {
-                "query": { "ids": { "values": evaluation["strategy_id"] }},
+                "query": { "ids": { "values": strategies_to_fetch }},
                 "size": size,
                 "version": True,
                 "_source": { "excludes": [ "_search" ]},
