@@ -111,8 +111,7 @@ def search(
         if _source.get("includes"):
             body["_source"]["includes"] = _source["includes"]
         if _source.get("excludes"):
-            for field in _source["excludes"]:
-                body["_source"]["excludes"].append(field)
+            body["_source"]["excludes"] = _source["excludes"]
     if query:
         # From strategy editor UI
         body.update(query)
