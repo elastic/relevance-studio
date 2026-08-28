@@ -28,6 +28,7 @@ import {
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useResources, useAdditionalResources } from '../../Contexts/ResourceContext'
+import { useDisplays } from '../../Hooks'
 import {
   Page,
   SearchCount,
@@ -48,6 +49,7 @@ const Judgements = () => {
   const { workspace, displays } = usePageResources()
   useAdditionalResources(['displays'])
   const isReady = useResources().hasResources(['workspace', 'displays'])
+  const { sourceFilters, resolveIndexToDisplay } = useDisplays(displays, workspace?.index_pattern)
 
   ////  Defaults  //////////////////////////////////////////////////////////////
 
@@ -69,7 +71,6 @@ const Judgements = () => {
   const [filterSelected, setFilterSelected] = useState({ label: 'Rated docs', value: 'rated', checked: 'on' })
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filtersOptions, setFiltersOptions] = useState(defaultFilterOptions.map(o => ({ ...o, checked: o.value === 'rated' ? 'on' : undefined })))
-  const [indexPatternMap, setIndexPatternMap] = useState({})
   const [initialScenarioLoaded, setInitialScenarioLoaded] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
@@ -84,7 +85,6 @@ const Judgements = () => {
   const [sortOpen, setSortOpen] = useState(false)
   const [sortOptions, setSortOptions] = useState(defaultSortOptions.map(o => ({ ...o, checked: o.value === 'rating-newest' ? 'on' : undefined })))
   const [sortSelected, setSortSelected] = useState({ label: 'By newest ratings', value: 'rating-newest', checked: 'on' })
-  const [sourceFilters, setSourceFilters] = useState([])
 
   // Helper to get URL params
   const getUrlParams = () => {
@@ -137,27 +137,6 @@ const Judgements = () => {
       return
     onSearch()
   }, [isReady, scenario])
-
-  /**
-   * Get index patterns and source filters from displays
-   */
-  useEffect(() => {
-    if (!displays)
-      return
-    const _indexPatternMap = {}
-    const _sourceFilters = {}
-    displays.forEach((display) => {
-      _indexPatternMap[display.index_pattern] = {
-        display: display,
-        regex: new RegExp(`^${display.index_pattern.replace(/\*/g, '.*')}$`)
-      }
-      display.fields?.forEach((field) => {
-        _sourceFilters[field] = true
-      })
-    })
-    setIndexPatternMap(_indexPatternMap)
-    setSourceFilters(Object.keys(_sourceFilters))
-  }, [displays])
 
   // Fetch scenarios immediately when opening the dropdown OR when component mounts
   useEffect(() => {
@@ -420,7 +399,7 @@ const Judgements = () => {
   const renderResults = () => (
     <SearchResultsJudgements
       displays={displays}
-      indexPatternMap={indexPatternMap}
+      resolveIndexToDisplay={resolveIndexToDisplay}
       workspace={workspace}
       scenario={scenario}
       results={results}

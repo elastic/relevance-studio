@@ -182,13 +182,12 @@ const Displays = () => {
    * then consider the whole thing to be a match.
    */
   const isIndexPatternInWorkspaceScope = (inputPattern, targetPattern) => {
-    const toParts = (pattern) => pattern.split(',').map(p => p.trim()).filter(Boolean)
-    const toRegex = (glob) => new RegExp('^' + glob.replace(/[-[\]/{}()+?.\\^$|]/g, '\\$&').replace(/\*/g, '.*') + '$')
-    const inputs = toParts(inputPattern)
-    const targets = toParts(targetPattern)
+    const inputs = utils.splitIndexPatterns(inputPattern)
+    const targets = utils.splitIndexPatterns(targetPattern)
     return inputs.some(input =>
       targets.some(target =>
-        toRegex(target).test(input) || toRegex(input).test(target)
+        utils.indexPatternToRegex(target).test(input) ||
+        utils.indexPatternToRegex(input).test(target)
       )
     )
   }

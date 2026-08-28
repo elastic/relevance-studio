@@ -19,6 +19,7 @@ All REST API endpoints accept payloads as JSON and return payloads as JSON (`app
 <span style="font-size: 18px;">**[Content API](#content-api)**</span>
 
 - [Search API](#search-api)
+- [Aliases API](#aliases-api)
 - [Mappings API](#mappings-api)
 
 <span style="font-size: 18px;">**[Auth API](#auth-api)**</span>
@@ -892,6 +893,21 @@ Example payload:
       "description"
     ]
   }
+}
+```
+
+### Aliases API
+
+Retrieve the [aliases](https://www.elastic.co/docs/manage-data/data-store/aliases) of each index in the [content deployment](docs/{{VERSION}}/reference/architecture.md#content-deployment) that matches a given set of index patterns. Documents report the concrete index they live in, so this lets Relevance Studio match a document to a [display](docs/{{VERSION}}/reference/data-model.md#displays) whose index pattern names an alias of that index.
+
+**`GET /api/content/aliases/<index_patterns>`**
+
+Example response:
+
+```json
+{
+  "products-000001": [ "products" ],
+  "products-000002": [ "current", "products" ]
 }
 ```
 

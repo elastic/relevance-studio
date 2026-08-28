@@ -111,6 +111,7 @@ Maps to [Content API](docs/{{VERSION}}/reference/rest-api.md#content-api).
 |MCP tool|REST API|
 |---|---|
 |`content_search`|[Search API](docs/{{VERSION}}/reference/rest-api.md#search-api)|
+|`content_aliases`|[Aliases API](docs/{{VERSION}}/reference/rest-api.md#aliases-api)|
 |`content_mappings_browse`|[Mappings API](docs/{{VERSION}}/reference/rest-api.md#mappings-api)|
 
 ### Setup

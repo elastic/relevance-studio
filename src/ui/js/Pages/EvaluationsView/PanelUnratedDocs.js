@@ -24,6 +24,7 @@ import {
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useAdditionalResources } from '../../Contexts/ResourceContext'
+import { useDisplays } from '../../Hooks'
 import { DocCard, SearchCount } from '../../Layout'
 import api from '../../api'
 
@@ -34,10 +35,10 @@ const PanelUnratedDocs = ({ evaluation }) => {
   const { addToast } = useAppContext()
   const { workspace, displays } = usePageResources()
   useAdditionalResources(['displays'])
+  const { sourceFilters, resolveIndexToDisplay } = useDisplays(displays, workspace?.index_pattern)
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const [indexPatternMap, setIndexPatternMap] = useState({})
   const [isLoadingResults, setIsLoadingResults] = useState(false)
   const [results, setResults] = useState({})
   const [resultsPerRow, setResultsPerRow] = useState(3)
@@ -45,25 +46,13 @@ const PanelUnratedDocs = ({ evaluation }) => {
   ////  Effects  ///////////////////////////////////////////////////////////////
 
   /**
-   * Get index patterns and source filters from displays,
-   * and search unrated docs.
+   * Search unrated docs once the displays are known, because their fields
+   * determine the _source of the search results.
    */
   useEffect(() => {
     if (!displays)
       return
-    const _indexPatternMap = {}
-    const _sourceFilters = {}
-    displays.forEach((display) => {
-      _indexPatternMap[display.index_pattern] = {
-        display: display,
-        regex: new RegExp(`^${display.index_pattern.replace(/\*/g, '.*')}$`)
-      }
-      display.fields?.forEach((field) => {
-        _sourceFilters[field] = true
-      })
-    })
-    setIndexPatternMap(_indexPatternMap)
-    onSearchUnratedDocs(Object.keys(_sourceFilters))
+    onSearchUnratedDocs(sourceFilters)
   }, [displays])
 
   /**
@@ -118,23 +107,6 @@ const PanelUnratedDocs = ({ evaluation }) => {
         setIsLoadingResults(false)
       }
     })()
-  }
-
-  /**
-   * Given an index name, find the display whose index pattern matches it
-   * with the most specificity.
-   */
-  const resolveIndexToDisplay = (index) => {
-    const matches = []
-    for (const indexPattern in indexPatternMap)
-      if (indexPatternMap[indexPattern].regex.test(index))
-        matches.push(indexPattern)
-    if (matches.length === 0)
-      return null
-    const bestMatch = matches.reduce((mostSpecific, current) =>
-      current.length > mostSpecific.length ? current : mostSpecific
-    )
-    return indexPatternMap[bestMatch].display
   }
 
   const runtimeScenario = (scenarioId) => evaluation.runtime?.scenarios[scenarioId]

@@ -4,5 +4,6 @@
  * you may not use this file except in compliance with the Elastic License.
  */
 
+import useDisplays from './useDisplays'
 import useSearchHandler from './useSearchHandler'
-export { useSearchHandler }
+export { useDisplays, useSearchHandler }

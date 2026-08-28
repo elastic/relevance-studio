@@ -384,6 +384,10 @@ def evaluations_delete(ctx: Context, _id: str) -> Dict[str, Any]:
 def content_search(ctx: Context, index_patterns: str, body: Dict[str, Any]) -> Dict[str, Any]:
     return dict(api.content.search(index_patterns, body))
 
+@mcp.tool(description=api.content.aliases.__doc__)
+def content_aliases(ctx: Context, index_patterns: str) -> Dict[str, Any]:
+    return dict(api.content.aliases(index_patterns))
+
 @mcp.tool(description=api.content.mappings_browse.__doc__)
 def content_mappings_browse(ctx: Context, index_patterns: str) -> Dict[str, Any]:
     return dict(api.content.mappings_browse(index_patterns))

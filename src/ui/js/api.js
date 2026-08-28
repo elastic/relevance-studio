@@ -457,6 +457,11 @@ api.content_search = async (index_pattern, body, params) => {
   return await client.post(`/api/content/_search/${index_pattern}`, { data: body, param: params })
 }
 
+api.content_aliases = async (index_pattern) => {
+  validateArgs('api.content_aliases', { index_pattern, })
+  return await client.get(`/api/content/aliases/${index_pattern}`)
+}
+
 api.content_mappings_browse = async (index_pattern) => {
   validateArgs('api.content_mappings_browse', { index_pattern, })
   return await client.get(`/api/content/mappings/${index_pattern}`)
