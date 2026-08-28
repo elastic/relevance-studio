@@ -23,6 +23,9 @@ venv/
 # Sample data
 /sample-data
 
+# IDEs
+.idea/
+
 # macOS
 .DS_Store
 
