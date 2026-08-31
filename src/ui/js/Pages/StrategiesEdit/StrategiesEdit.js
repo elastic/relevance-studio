@@ -27,6 +27,7 @@ import {
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useResources, useAdditionalResources } from '../../Contexts/ResourceContext'
+import { useDisplays } from '../../Hooks'
 import {
   Page,
   SelectScenario,
@@ -47,6 +48,7 @@ const StrategiesEdit = () => {
   const { workspace, strategy, displays } = usePageResources()
   useAdditionalResources(['displays'])
   const isReady = useResources().hasResources(['workspace', 'strategy', 'displays'])
+  const { sourceFilters, resolveIndexToDisplay } = useDisplays(displays, workspace?.index_pattern)
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -59,7 +61,6 @@ const StrategiesEdit = () => {
   // Strategy testing
   const [errorContent, setErrorContent] = useState(null)
   const [hasSearched, setHasSearched] = useState(false)
-  const [indexPatternMap, setIndexPatternMap] = useState({})
   const [initialScenarioLoaded, setInitialScenarioLoaded] = useState(false)
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(false)
   const [isLoadingResults, setIsLoadingResults] = useState(false)
@@ -71,7 +72,6 @@ const StrategiesEdit = () => {
   const [scenario, setScenario] = useState(null)
   const [scenarioOptions, setScenarioOptions] = useState([])
   const [scenarioSearchString, setScenarioSearchString] = useState('')
-  const [sourceFilters, setSourceFilters] = useState([])
   const editorRef = useRef(null)
   const monacoRef = useRef(null)
 
@@ -197,27 +197,6 @@ const StrategiesEdit = () => {
   }
 
   ////  Strategy testing  //////////////////////////////////////////////////////
-
-  /**
-   * Get index patterns and source filters from displays
-   */
-  useEffect(() => {
-    if (!displays)
-      return
-    const _indexPatternMap = {}
-    const _sourceFilters = {}
-    displays.forEach((display) => {
-      _indexPatternMap[display.index_pattern] = {
-        display: display,
-        regex: new RegExp(`^${display.index_pattern.replace(/\*/g, '.*')}$`)
-      }
-      display.fields?.forEach((field) => {
-        _sourceFilters[field] = true
-      })
-    })
-    setIndexPatternMap(_indexPatternMap)
-    setSourceFilters(Object.keys(_sourceFilters))
-  }, [displays])
 
   // Fetch scenarios immediately when opening the dropdown, show all scenarios
   useEffect(() => {
@@ -516,7 +495,7 @@ const StrategiesEdit = () => {
   const renderResults = () => (<>
     {results.length > 0 &&
       <SearchResultsJudgements
-        indexPatternMap={indexPatternMap}
+        resolveIndexToDisplay={resolveIndexToDisplay}
         workspace={workspace}
         scenario={scenario}
         results={results}

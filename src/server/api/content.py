@@ -76,6 +76,37 @@ def get(index_patterns: str) -> Dict[str, Any]:
         return {}
     return response.body
 
+def aliases(index_patterns: str) -> Dict[str, Any]:
+    """Retrieve the aliases of each index in an index pattern.
+
+    Documents report the concrete index they live in, but a display can name an
+    alias of that index instead. The UX needs the aliases of an index to match
+    it to such a display.
+
+    Note that a filtered alias covers only some of the documents of its index,
+    but this reports it like any other alias, so the UX will match every
+    document of that index to a display that names the alias.
+
+    Args:
+        index_patterns: Comma-separated string of index patterns.
+
+    Returns:
+        A dictionary mapping index names to their list of aliases.
+    """
+    # ignore_unavailable keeps one missing index in a comma-separated pattern
+    # from discarding the aliases of the indices that do exist.
+    client = es("content")
+    response = client.options(ignore_status=404).indices.get_alias(
+        index=index_patterns,
+        ignore_unavailable=True,
+    )
+    if response.get("status") == 404:
+        return {}
+    return {
+        index: sorted((value.get("aliases") or {}).keys())
+        for index, value in response.body.items()
+    }
+
 def mappings_browse(index_patterns: str) -> Dict[str, Any]:
     """Retrieve flattened index mappings for browsing.
 

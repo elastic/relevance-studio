@@ -14,30 +14,13 @@ import {
 } from '.'
 
 const SearchResultsJudgements = ({
-  indexPatternMap,
+  resolveIndexToDisplay,
   workspace,
   scenario,
   results,
   resultsPerRow,
   showScore,
 }) => {
-
-  /**
-   * Given an index name, find the display whose index pattern matches it
-   * with the most specificity.
-   */
-  const resolveIndexToDisplay = (index) => {
-    const matches = []
-    for (const indexPattern in indexPatternMap)
-      if (indexPatternMap[indexPattern].regex.test(index))
-        matches.push(indexPattern)
-    if (matches.length === 0)
-      return null
-    const bestMatch = matches.reduce((mostSpecific, current) =>
-      current.length > mostSpecific.length ? current : mostSpecific
-    )
-    return indexPatternMap[bestMatch].display
-  }
 
   const cards = []
   results.forEach((result) => {

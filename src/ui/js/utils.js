@@ -433,4 +433,119 @@ utils.iconTypeFromFieldType = (fieldType) => {
   return { color: iconColor, type: iconType }
 }
 
+/**
+ * Split an index pattern on commas, which workspaces and displays allow.
+ */
+utils.splitIndexPatterns = (indexPattern) =>
+  (indexPattern || '').split(',').map((part) => part.trim()).filter(Boolean)
+
+/**
+ * Convert an index pattern into a regex that matches index names, treating
+ * '*' as a wildcard and every other character literally.
+ */
+utils.indexPatternToRegex = (indexPattern) => {
+  const escaped = indexPattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^${escaped.replace(/\*/g, '.*')}$`)
+}
+
+/**
+ * Given displays, return a matcher per display: the regexes of the index
+ * patterns it includes, and the regexes of the index patterns it excludes.
+ * An index pattern can name several indices with commas, and can exclude one
+ * of them by prefixing it with '-', as Elasticsearch does.
+ *
+ * This is a list rather than a map keyed by index pattern, so that two
+ * displays naming the same index pattern don't silently overwrite each other.
+ */
+utils.makeDisplayMatchers = (displays) => {
+  const matchers = []
+  displays?.forEach((display) => {
+    const includes = []
+    const excludes = []
+    utils.splitIndexPatterns(display.index_pattern).forEach((part) => {
+      const isExcluded = part.startsWith('-')
+      const indexPattern = isExcluded ? part.slice(1) : part
+      if (!indexPattern)
+        return
+      const matcher = { indexPattern, regex: utils.indexPatternToRegex(indexPattern) }
+      isExcluded ? excludes.push(matcher) : includes.push(matcher)
+    })
+    if (includes.length)
+      matchers.push({ display: display, includes: includes, excludes: excludes })
+  })
+  return matchers
+}
+
+/**
+ * Given displays, return the deduplicated list of their fields, which is used
+ * to filter the _source of documents in search requests.
+ */
+utils.makeSourceFilters = (displays) => {
+  const sourceFilters = {}
+  displays?.forEach((display) => {
+    display.fields?.forEach((field) => {
+      sourceFilters[field] = true
+    })
+  })
+  return Object.keys(sourceFilters)
+}
+
+/**
+ * How strongly a matcher matches an index: by the index name itself, which is
+ * more direct than by one of its aliases, and then by the length of the index
+ * pattern, which is the same "most specific wins" heuristic used elsewhere.
+ * Returns null if the matcher doesn't match the index at all.
+ */
+const matchStrength = (matcher, index, aliases) => {
+  let strength = null
+  matcher.includes.forEach(({ indexPattern, regex }) => {
+    let rank = 0
+    if (regex.test(index))
+      rank = 2
+    else if (aliases.some((alias) => regex.test(alias)))
+      rank = 1
+    if (!rank)
+      return
+    if (
+      !strength ||
+      rank > strength.rank ||
+      (rank === strength.rank && indexPattern.length > strength.length)
+    )
+      strength = { rank: rank, length: indexPattern.length }
+  })
+  return strength
+}
+
+/**
+ * Given an index name, find the display whose index pattern matches it with
+ * the most specificity.
+ *
+ * Documents report the concrete index they live in, but a display can name an
+ * alias of that index instead. So consider the aliases of the index, too,
+ * while preferring a display that names the index itself. aliasMap maps index
+ * names to their aliases, as returned by api.content_aliases().
+ */
+utils.resolveIndexToDisplay = (matchers, index, aliasMap) => {
+  if (!index)
+    return null
+  const aliasesOfIndex = aliasMap?.[index]
+  const aliases = Array.isArray(aliasesOfIndex) ? aliasesOfIndex : []
+  const names = [index, ...aliases]
+  let best = null
+  matchers?.forEach((matcher) => {
+    if (matcher.excludes.some(({ regex }) => names.some((name) => regex.test(name))))
+      return
+    const strength = matchStrength(matcher, index, aliases)
+    if (!strength)
+      return
+    if (
+      !best ||
+      strength.rank > best.strength.rank ||
+      (strength.rank === best.strength.rank && strength.length > best.strength.length)
+    )
+      best = { display: matcher.display, strength: strength }
+  })
+  return best ? best.display : null
+}
+
 export default utils

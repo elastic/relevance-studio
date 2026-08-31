@@ -524,6 +524,10 @@ def content_search(index_patterns):
     body = request.get_json()
     return api.content.search(index_patterns, body)
 
+@api_route("/api/content/aliases/<string:index_patterns>", methods=["GET"])
+def content_aliases(index_patterns):
+    return api.content.aliases(index_patterns)
+
 @api_route("/api/content/mappings/<string:index_patterns>", methods=["GET"])
 def content_mappings_browse(index_patterns):
     return api.content.mappings_browse(index_patterns)
