@@ -22,6 +22,7 @@ import {
   EuiFlexGroup,
   EuiFlexItem,
   EuiFlyout,
+  EuiFlyoutBody,
   EuiFlyoutFooter,
   EuiInMemoryTable,
   EuiNotificationBadge,
@@ -762,10 +763,11 @@ const FlyoutForm = ({
   return (
     <EuiForm>
       <EuiFlyout hideCloseButton onClose={onClose} ownFocus size='l'>
-        <EuiFlexGroup gutterSize='none'>
+        <EuiFlexGroup gutterSize='none' style={{ height: '100%' }}>
 
           {/* Inputs */}
-          <EuiFlexItem grow={5}>
+          <EuiFlexItem grow={5} style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <EuiFlyoutBody style={{ flex: 1 }}>
             <EuiPanel color='transparent' paddingSize='l'>
               <EuiTitle>
                 <EuiText>
@@ -910,6 +912,7 @@ const FlyoutForm = ({
                 </EuiFormRow>
               </EuiAccordion>
             </EuiPanel>
+            </EuiFlyoutBody>
 
             {/* Footer */}
             <EuiFlyoutFooter>
@@ -940,7 +943,7 @@ const FlyoutForm = ({
           </EuiFlexItem>
 
           {/* Preview */}
-          <EuiFlexItem grow={5} style={{ borderLeft: darkMode ? '1px solid rgb(0, 0, 0)' : '1px solid rgb(211, 218, 230)', position: 'relative' }}>
+          <EuiFlexItem grow={5} style={{ borderLeft: darkMode ? '1px solid rgb(0, 0, 0)' : '1px solid rgb(211, 218, 230)', position: 'relative', overflowY: 'auto' }}>
             {isLoadingCandidates &&
               <EuiProgress
                 color='accent'
