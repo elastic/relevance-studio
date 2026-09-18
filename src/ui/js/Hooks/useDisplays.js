@@ -29,11 +29,11 @@ const useDisplays = (displays, indexPattern) => {
   ////  Effects  ///////////////////////////////////////////////////////////////
 
   useEffect(() => {
-    if (!indexPattern)
-      return
     // Drop the aliases of any prior index pattern, so that displays never
     // match a document through the aliases of another workspace.
     setAliasMap((prior) => Object.keys(prior).length ? {} : prior)
+    if (!indexPattern)
+      return
     let isStale = false;
     (async () => {
       let response
