@@ -57,6 +57,19 @@ describe('useDisplays', () => {
     expect(api.content_aliases).not.toHaveBeenCalled()
   })
 
+  it('drops the aliases of a prior index pattern when the index pattern is cleared', async () => {
+    api.content_aliases.mockReturnValue(ok({ 'products-000001': ['products'] }))
+    const { result, rerender } = renderHook(
+      ({ p }) => useDisplays(displays, p),
+      { initialProps: { p: 'products' } }
+    )
+    await waitFor(() =>
+      expect(result.current.resolveIndexToDisplay('products-000001')?._id).toBe('d1')
+    )
+    rerender({ p: undefined })
+    expect(result.current.resolveIndexToDisplay('products-000001')).toBe(null)
+  })
+
   it('ignores a stale response that lost the race with a newer index pattern', async () => {
     let resolveSlow
     api.content_aliases.mockImplementation((indexPattern) =>
