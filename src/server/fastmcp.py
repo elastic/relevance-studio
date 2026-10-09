@@ -105,7 +105,7 @@ def workspaces_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dic
     return dict(api.workspaces.create(doc, _id, user=user, via="mcp"))
 
 @mcp.tool(description=api.workspaces.update.__doc__ + f"""\n
-JSON schema for doc_partial:\n\n{DisplayCreate.model_input_json_schema()}
+JSON schema for doc_partial:\n\n{WorkspaceUpdate.model_input_json_schema()}
 """)
 def workspaces_update(ctx: Context, _id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
