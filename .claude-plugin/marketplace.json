@@ -1,0 +1,42 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
+  "name": "elastic-relevance-studio",
+  "description": "Official plugin marketplace for Elasticsearch Relevance Studio",
+  "owner": {
+    "name": "Elastic"
+  },
+  "plugins": [
+    {
+      "name": "relevance-studio",
+      "version": "1.2.4",
+      "description": "Manage the full search relevance engineering lifecycle in Elasticsearch Relevance Studio: scenarios, judgements, strategies, benchmarks, and evaluations.",
+      "source": "./",
+      "strict": false,
+      "skills": "./src/skills",
+      "userConfig": {
+        "mcp_url": {
+          "type": "string",
+          "title": "Relevance Studio MCP URL",
+          "description": "URL of the Relevance Studio MCP Server, including the /mcp path, e.g. https://localhost:4200/mcp (use http:// when TLS_ENABLED=false)",
+          "required": true
+        },
+        "auth_header": {
+          "type": "string",
+          "title": "Authorization header value",
+          "description": "Full Authorization header value for the MCP Server, e.g. 'ApiKey <base64 id:api_key>', 'Basic <base64 username:password>', or 'Bearer <base64 id:api_key>'. Leave blank if AUTH_ENABLED=false on the MCP Server.",
+          "sensitive": true,
+          "required": false
+        }
+      },
+      "mcpServers": {
+        "relevance-studio": {
+          "type": "http",
+          "url": "${user_config.mcp_url}",
+          "headers": {
+            "Authorization": "${user_config.auth_header}"
+          }
+        }
+      }
+    }
+  ]
+}

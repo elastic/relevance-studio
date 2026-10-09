@@ -133,7 +133,7 @@ if _tls["enabled"]:
 else:
     _transport = StreamableHttpTransport(_upstream, headers=_headers)
 
-mcp = FastMCP.as_proxy(ProxyClient(_transport), name="Relevance Studio")
+mcp = FastMCP.as_proxy(ProxyClient(_transport), name="relevance-studio")
 
 
 ####  Main  ####################################################################

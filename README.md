@@ -86,6 +86,100 @@ With an opinionated framework, intuitive human interface, and integration with A
 
 ---
 
+## Integrations
+
+The `relevance-studio` Claude plugin teaches Claude Code and Claude Desktop how to run the
+full search relevance engineering lifecycle — workspaces, displays, scenarios, judgements,
+strategies, benchmarks, and evaluations — through the MCP server. It ships from this
+repository's root as a marketplace: `.claude-plugin/marketplace.json`.
+
+Both clients connect to the same MCP endpoint
+(`{MCP_SERVER_URL}` or `https://localhost:4200/mcp` by default — use `http://` when
+`TLS_ENABLED=false`). For custom clients or auth scheme details, see
+[MCP client auth configuration](https://elastic.github.io/relevance-studio/#/docs/guide/mcp-client-auth).
+
+### Claude Code
+
+**Install the plugin:**
+
+```sh
+claude plugin marketplace add elastic/relevance-studio
+claude plugin install relevance-studio
+```
+
+**Configure** the MCP URL and, if auth is enabled, the Authorization header, either
+interactively:
+
+```
+/plugin configure relevance-studio@elastic-relevance-studio
+```
+
+or at install time:
+
+```sh
+claude plugin install relevance-studio \
+  --config mcp_url=https://localhost:4200/mcp \
+  --config auth_header="ApiKey <base64 id:api_key>"
+```
+
+`auth_header` is the full `Authorization` header value the MCP Server expects: `ApiKey
+<base64 id:api_key>`, `Basic <base64 username:password>`, or `Bearer <base64 id:api_key>` —
+whichever scheme the deployment uses.
+
+If `AUTH_ENABLED=false` on the MCP Server, **omit `--config auth_header` entirely** rather
+than passing an empty value — the CLI rejects `--config auth_header=` (empty string) as
+invalid:
+
+```sh
+claude plugin install relevance-studio --config mcp_url=http://localhost:4200/mcp
+```
+
+**Test:**
+
+```
+/relevance-studio:connect-and-verify
+```
+
+**Uninstall:**
+
+```sh
+claude plugin uninstall relevance-studio
+claude plugin marketplace remove elastic-relevance-studio
+```
+
+### Claude Desktop
+
+**Install the plugin:** Customize → Plugins → Add → Add marketplace → "Add from a
+repository" → enter `elastic/relevance-studio` → keep "Sync automatically" enabled → Sync.
+
+**Configure the connector**, either:
+
+- **stdio proxy (all plans):** run `python scripts/integrate_claude_desktop.py` from the
+  project root, then fully restart Claude Desktop (Cmd+Q, then reopen). Re-run after any
+  `.env` change.
+- **Remote URL (paid plans):** add a `url` + `headers` entry to
+  `claude_desktop_config.json` directly — see
+  [MCP client auth configuration](https://elastic.github.io/relevance-studio/#/docs/guide/mcp-client-auth)
+  for the exact JSON.
+
+> **Security:** the stdio proxy integration script stores Elasticsearch credentials in
+> plaintext in `claude_desktop_config.json`. Use a scoped, revocable API key rather than a
+> long-lived username/password.
+
+**Test:** ask Claude to check the Relevance Studio connection, which should trigger the
+`connect-and-verify` skill.
+
+**Uninstall:** remove the `relevance-studio` entry from `claude_desktop_config.json`,
+uninstall the plugin (Customize → Plugins → Relevance Studio → uninstall), then restart.
+
+### Contributing to the plugin's skills
+
+Skill-authoring conventions, the skill catalog, and the add/rename/remove checklist live in
+[`src/skills/AGENTS.md`](src/skills/AGENTS.md) — read it before changing anything under
+`src/skills/` or `.claude-plugin/`.
+
+---
+
 ### Ready to start?
 
 🚀  **[Get started](https://elastic.github.io/relevance-studio/#/docs/guide/quickstart)**

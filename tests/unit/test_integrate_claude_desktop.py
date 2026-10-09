@@ -173,32 +173,32 @@ class TestMain:
 
     def test_creates_config_when_absent(self, tmp_path):
         cfg = self._run(tmp_path, "TLS_ENABLED=false\n")
-        assert "Relevance Studio" in cfg["mcpServers"]
+        assert "relevance-studio" in cfg["mcpServers"]
 
     def test_command_is_absolute_venv_python(self, tmp_path):
         cfg = self._run(tmp_path, "TLS_ENABLED=false\n")
-        entry = cfg["mcpServers"]["Relevance Studio"]
+        entry = cfg["mcpServers"]["relevance-studio"]
         assert entry["command"].endswith("python")
         assert Path(entry["command"]).is_absolute()
 
     def test_args_contains_entry_point(self, tmp_path):
         cfg = self._run(tmp_path, "TLS_ENABLED=false\n")
-        entry = cfg["mcpServers"]["Relevance Studio"]
+        entry = cfg["mcpServers"]["relevance-studio"]
         assert any("fastmcp_proxy_entry" in a for a in entry["args"])
 
     def test_api_key_included_in_env(self, tmp_path):
         cfg = self._run(tmp_path, "TLS_ENABLED=false\nELASTICSEARCH_API_KEY=mykey\n")
-        env = cfg["mcpServers"]["Relevance Studio"]["env"]
+        env = cfg["mcpServers"]["relevance-studio"]["env"]
         assert env["ELASTICSEARCH_API_KEY"] == "mykey"
 
     def test_empty_values_excluded_from_env(self, tmp_path):
         cfg = self._run(tmp_path, "TLS_ENABLED=false\nELASTICSEARCH_API_KEY=\n")
-        env = cfg["mcpServers"]["Relevance Studio"]["env"]
+        env = cfg["mcpServers"]["relevance-studio"]["env"]
         assert "ELASTICSEARCH_API_KEY" not in env
 
     def test_non_proxy_vars_excluded(self, tmp_path):
         cfg = self._run(tmp_path, "ELASTICSEARCH_URL=https://es.example.com\n")
-        env = cfg["mcpServers"]["Relevance Studio"]["env"]
+        env = cfg["mcpServers"]["relevance-studio"]["env"]
         assert "ELASTICSEARCH_URL" not in env
 
     def test_preserves_existing_other_servers(self, tmp_path):
@@ -209,12 +209,12 @@ class TestMain:
         }
         cfg = self._run(tmp_path, "TLS_ENABLED=false\n", existing_config=existing)
         assert "Other Server" in cfg["mcpServers"]
-        assert "Relevance Studio" in cfg["mcpServers"]
+        assert "relevance-studio" in cfg["mcpServers"]
 
     def test_overwrites_existing_relevance_studio_entry(self, tmp_path):
         existing = {
             "mcpServers": {
-                "Relevance Studio": {"command": "old", "args": ["old"], "env": {}}
+                "relevance-studio": {"command": "old", "args": ["old"], "env": {}}
             }
         }
         cfg = self._run(
@@ -222,7 +222,7 @@ class TestMain:
             "TLS_ENABLED=false\nELASTICSEARCH_API_KEY=newkey\n",
             existing_config=existing,
         )
-        entry = cfg["mcpServers"]["Relevance Studio"]
+        entry = cfg["mcpServers"]["relevance-studio"]
         assert entry["command"] != "old"
         assert entry["env"].get("ELASTICSEARCH_API_KEY") == "newkey"
 
@@ -233,7 +233,7 @@ class TestMain:
             "TLS_KEY_FILE=/path/key.pem\n"
         )
         cfg = self._run(tmp_path, env)
-        env_block = cfg["mcpServers"]["Relevance Studio"]["env"]
+        env_block = cfg["mcpServers"]["relevance-studio"]["env"]
         assert env_block.get("TLS_CERT_FILE") == "/path/cert.pem"
         assert env_block.get("TLS_KEY_FILE") == "/path/key.pem"
 
@@ -246,7 +246,7 @@ class TestMain:
             "TLS_KEY_FILE=.certs/key.pem\n"
         )
         cfg = self._run(tmp_path, env)
-        env_block = cfg["mcpServers"]["Relevance Studio"]["env"]
+        env_block = cfg["mcpServers"]["relevance-studio"]["env"]
         assert Path(env_block["TLS_CERT_FILE"]).is_absolute()
         assert Path(env_block["TLS_KEY_FILE"]).is_absolute()
         assert env_block["TLS_CERT_FILE"].endswith("cert.pem")
@@ -259,7 +259,7 @@ class TestMain:
             "TLS_KEY_FILE=/etc/ssl/private/key.pem\n"
         )
         cfg = self._run(tmp_path, env)
-        env_block = cfg["mcpServers"]["Relevance Studio"]["env"]
+        env_block = cfg["mcpServers"]["relevance-studio"]["env"]
         assert env_block["TLS_CERT_FILE"] == "/etc/ssl/certs/ca.pem"
         assert env_block["TLS_KEY_FILE"] == "/etc/ssl/private/key.pem"
 

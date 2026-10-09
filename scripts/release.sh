@@ -19,6 +19,7 @@ set -euo pipefail
 
 VERSION=""
 SERVER_VERSION_FILE="src/server/VERSION"
+MARKETPLACE_JSON=".claude-plugin/marketplace.json"
 
 # =============================================================================
 # Colors and Formatting
@@ -147,6 +148,8 @@ print_usage() {
   echo -e "  4. Updates version number implementations:"
   echo -e "     - Updates package.json version field"
   echo -e "     - Updates src/server/VERSION"
+  echo -e "     - Updates .claude-plugin/marketplace.json plugin version"
+  echo -e "     - Verifies all three agree before committing"
   echo ""
   echo -e "  5. Commits and tags:"
   echo -e "     - git commit -m \"Release v{version}\""
@@ -403,13 +406,78 @@ update_package_json() {
   # Persist the runtime version for the server API.
   printf "%s\n" "${VERSION}" > "$SERVER_VERSION_FILE"
   print_success "$SERVER_VERSION_FILE"
-  
+
+  # Keep the Claude plugin's marketplace manifest version in lockstep.
+  if [[ ! -f "$MARKETPLACE_JSON" ]]; then
+    print_error "$MARKETPLACE_JSON not found"
+    exit 1
+  fi
+  python3 -c "
+import json, sys
+path = '$MARKETPLACE_JSON'
+data = json.load(open(path))
+plugins = data.get('plugins', [])
+if not plugins:
+    sys.exit('no plugins in marketplace.json')
+plugins[0]['version'] = '$VERSION'
+with open(path, 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+"
+  print_success "$MARKETPLACE_JSON"
+
   # TODO: Add version to UI
   # Examples:
   # - Create src/ui/js/version.js with exported VERSION constant
   # - Update webpack config to inject VERSION via DefinePlugin
   # - Update .env-production with VERSION variable
-  
+
+  echo ""
+}
+
+# =============================================================================
+# Version Consistency Check
+# =============================================================================
+
+check_version_consistency() {
+  print_step "Checking version lockstep..."
+
+  local package_json_version
+  package_json_version=$(sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)".*/\1/p' package.json | head -n1)
+
+  local server_version
+  server_version=$(cat "$SERVER_VERSION_FILE")
+
+  local marketplace_version
+  marketplace_version=$(python3 -c "
+import json
+data = json.load(open('$MARKETPLACE_JSON'))
+plugins = data.get('plugins', [])
+print(plugins[0].get('version', '') if plugins else '')
+")
+
+  local errors=false
+
+  if [[ "$package_json_version" != "$VERSION" ]]; then
+    print_error "package.json version ($package_json_version) != $VERSION"
+    errors=true
+  fi
+  if [[ "$server_version" != "$VERSION" ]]; then
+    print_error "$SERVER_VERSION_FILE ($server_version) != $VERSION"
+    errors=true
+  fi
+  if [[ "$marketplace_version" != "$VERSION" ]]; then
+    print_error "$MARKETPLACE_JSON plugin version ($marketplace_version) != $VERSION"
+    errors=true
+  fi
+
+  if [[ "$errors" == true ]]; then
+    echo ""
+    print_error "Version lockstep check failed"
+    exit 1
+  fi
+
+  print_success "package.json, $SERVER_VERSION_FILE, and $MARKETPLACE_JSON all at $VERSION"
   echo ""
 }
 
@@ -427,7 +495,10 @@ create_release() {
   
   # Update versions
   update_package_json
-  
+
+  # Verify package.json, VERSION, and marketplace.json all agree before committing
+  check_version_consistency
+
   # Commit
   print_step "Committing changes..."
   git add -A

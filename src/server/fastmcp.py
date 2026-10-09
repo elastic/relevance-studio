@@ -33,7 +33,7 @@ load_dotenv()
 
 ####  Application  #############################################################
 
-mcp = FastMCP(name="Relevance Studio")
+mcp = FastMCP(name="relevance-studio")
 mcp.add_middleware(MCPAuthMiddleware())
     
 

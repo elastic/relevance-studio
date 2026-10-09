@@ -32,7 +32,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _SCRIPT_DIR.parent
 ENV_FILE = PROJECT_ROOT / ".env"
 ENTRY_POINT = PROJECT_ROOT / "src" / "fastmcp_proxy_entry.py"
-SERVER_NAME = "Relevance Studio"
+SERVER_NAME = "relevance-studio"
 
 # Platform-appropriate venv Python
 if platform.system() == "Windows":

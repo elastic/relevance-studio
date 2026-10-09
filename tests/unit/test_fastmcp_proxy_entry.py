@@ -92,7 +92,7 @@ class TestMcpObject:
 
     def test_mcp_named_relevance_studio(self, monkeypatch):
         mod = _import_entry(monkeypatch)
-        assert mod.mcp.name == "Relevance Studio"
+        assert mod.mcp.name == "relevance-studio"
 
 
 ####  __main__ block  ##########################################################

@@ -85,6 +85,9 @@ When `TLS_ENABLED=true`, also set `TLS_CERT_FILE` and `TLS_KEY_FILE` in `.env`.
 > - **Re-run** `python scripts/integrate_claude_desktop.py` after rotation so the
 >   new key is written into Claude Desktop's config.
 
+For the `relevance-studio` Claude plugin specifically (which wraps the stdio proxy and
+remote-URL options above with managed skills), see the [Claude plugin](docs/{{VERSION}}/guide/claude-plugin.md) guide.
+
 ## Cursor
 
 In Cursor's MCP settings, add the server with custom headers. Example for Basic auth:
