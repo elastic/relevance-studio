@@ -1,5 +1,33 @@
 # Release notes
 
+## v1.2.4
+
+### Bug fixes
+
+- Fixed `workspaces_update` MCP tool reporting the wrong JSON schema (`DisplayCreate` instead of `WorkspaceUpdate`) for partial updates. ([e5eca73](https://github.com/elastic/relevance-studio/commit/e5eca73))
+- Fixed displays failing to render document cards as JSON instead of markdown templates when a workspace or display's `index_pattern` names an index alias rather than a concrete index. ([Issue 8](https://github.com/elastic/relevance-studio/issues/8)) ([PR 44](https://github.com/elastic/relevance-studio/pull/44))
+- Fixed stale alias matches persisting after a workspace's index pattern was cleared, following up on the alias-resolution fix above. ([PR 46](https://github.com/elastic/relevance-studio/pull/46))
+- Fixed benchmarks flyout form being unable to scroll due to an incorrect flex layout height chain. ([PR 45](https://github.com/elastic/relevance-studio/pull/45))
+- Fixed evaluations refetching duplicate `rank_eval` templates by only fetching strategies not already supplied inline. ([PR 43](https://github.com/elastic/relevance-studio/pull/43))
+- Fixed a `KeyError` when a judgements search request included `_source.excludes`. ([PR 42](https://github.com/elastic/relevance-studio/pull/42))
+- Fixed workspace update accepting an empty `params` list, which could clear configured parameters unintentionally. ([PR 41](https://github.com/elastic/relevance-studio/pull/41))
+- Fixed a race condition where an evaluation could run twice because the worker loop didn't check whether its atomic claim actually won. ([PR 40](https://github.com/elastic/relevance-studio/pull/40))
+- Fixed a typo in the Benchmarks evaluations link that broke navigation. ([PR 39](https://github.com/elastic/relevance-studio/pull/39))
+- Fixed a 500 error on workspace create/edit when rating scale fields were submitted as strings instead of integers. ([Issue 36](https://github.com/elastic/relevance-studio/issues/36)) ([PR 38](https://github.com/elastic/relevance-studio/pull/38))
+- Fixed swapped Precision/Recall labels in the benchmark metrics selector. ([PR 37](https://github.com/elastic/relevance-studio/pull/37))
+- Fixed pip dependencies to address reported security vulnerabilities. ([PR 29](https://github.com/elastic/relevance-studio/pull/29))
+
+### Removed
+
+- Removed a build-time entitlement for host network access that was no longer needed. ([PR 17](https://github.com/elastic/relevance-studio/pull/17))
+
+## v1.2.3
+
+### Bug fixes
+
+- Fixed a bug that caused a permission error when searching content deployments. ([2296afd](https://github.com/elastic/relevance-studio/commit/2296afd))
+- Fixed `set_request_clients` triggering `_setup_clients` in unit tests. ([87ff497](https://github.com/elastic/relevance-studio/commit/87ff497))
+
 ## v1.2.2
 
 ### Improvements
