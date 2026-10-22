@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   EuiButton,
   EuiNotificationBadge,
@@ -41,12 +42,27 @@ const RunsView = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
+  const location = useLocation()
   const history = getHistory()
   const { addToast } = useAppContext()
   const { workspace, benchmark, run } = usePageResources()
   const isReady = useResources().hasResources(['workspace', 'benchmark', 'run'])
 
   ////  State  /////////////////////////////////////////////////////////////////
+
+  // The active tab (summary/chart/heatmap/unrated) is mirrored to the `?tab=`
+  // query param so the view is shareable via URL. Updates use history.replace
+  // (not push) so clicking between tabs doesn't pile up browser-history
+  // entries -- the back button leaves the page instead of cycling tabs.
+  const [selectedTabId, setSelectedTabId] = useState(
+    () => new URLSearchParams(location.search).get('tab') || 'summary'
+  )
+  const onTabClick = (tab) => {
+    setSelectedTabId(tab.id)
+    const params = new URLSearchParams(location.search)
+    params.set('tab', tab.id)
+    history.replace(`${location.pathname}?${params.toString()}`)
+  }
 
   const [strategyInFocus, setStrategyInFocus] = useState(null)
   const [isFlyoutRuntimeOpen, setIsFlyoutRuntimeOpen] = useState(false)
@@ -511,108 +527,116 @@ const RunsView = () => {
       {/* Summary / Chart / Heatmap / Unrated docs, tabbed into a single panel */}
       {run?.summary &&
         <>
-          <EuiPanel paddingSize='none'>
-            <EuiPanel color='transparent'>
-              <EuiTabbedContent
-                tabs={[
-                  {
-                    id: 'summary',
-                    name: 'Summary',
-                    content: (
-                      <>
-                        <EuiSpacer size='l' />
-                        <EuiFlexGroup>
-                          <EuiFlexItem>
-                            <TableMetrics evaluation={runWithForensics} rowOnHover={setStrategyInFocus} />
-                          </EuiFlexItem>
-                        </EuiFlexGroup>
-                      </>
-                    ),
-                  },
-                  {
-                    id: 'chart',
-                    name: 'Chart',
-                    content: (
-                      <>
-                        <EuiSpacer size='l' />
-                        <ChartMetricsTradeoff
-                          evaluation={runWithForensics}
-                          onStrategyClick={(strategyId) => history.push(`/workspaces/${workspace._id}/strategies/${strategyId}`)}
-                        />
-                      </>
-                    ),
-                  },
-                  {
-                    id: 'heatmap',
-                    name: 'Strategies by scenario',
-                    content: (
-                      <>
-                        <EuiSpacer size='l' />
-                        {renderHeatmapControls()}
-                        <EuiSpacer size='m' />
-                        {metricSelected &&
-                          <ChartMetricsHeatmap
-                            evaluation={runWithForensics}
-                            metric={metricSelected._id}
-                            xGroupBy={xGroupBySelected._id}
-                            yGroupBy={yGroupBySelected._id}
-                            ySortBy={ySortBySelected._id}
-                          />
-                        }
-                      </>
-                    ),
-                  },
-                  ...((unratedPage?.total ?? 0) > 0 ? [{
-                    id: 'unrated',
-                    name: <>Unrated docs <EuiNotificationBadge color='subdued'>{unratedPage.total}</EuiNotificationBadge></>,
-                    content: (
-                      <>
-                        <EuiSpacer size='l' />
-                        <EuiFlexGroup justifyContent='flexEnd'>
-                          <EuiFlexItem grow={false}>
-                            <EuiButton onClick={(e) => {
-                              const pairs = []
-                              ;(unratedPage.items || []).forEach((doc) => {
-                                pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
-                              })
-                              const query = encodeURIComponent(pairs.join(' OR '))
-                              history.push(`/workspaces/${workspace._id}/judgements?query=${query}`)
-                            }}>
-                              Judge this page
-                            </EuiButton>
-                          </EuiFlexItem>
-                        </EuiFlexGroup>
-                        <EuiSpacer size='m' />
-                        <div style={{ height: '600px', overflowY: 'scroll' }}>
-                          <PanelUnratedDocs evaluation={runWithForensics} />
-                        </div>
-                        <EuiSpacer size='m' />
-                        <EuiFlexGroup justifyContent='flexEnd' alignItems='center' gutterSize='s'>
-                          <EuiFlexItem grow={false}>
-                            <small>Page {unratedPage.page} of {Math.max(1, Math.ceil(unratedPage.total / unratedPage.size))}</small>
-                          </EuiFlexItem>
-                          <EuiFlexItem grow={false}>
-                            <EuiButton size='s' iconType='arrowLeft'
-                              isDisabled={unratedPage.page <= 1}
-                              onClick={() => loadUnratedPage(unratedPage.page - 1, unratedPage.size)}>
-                              Previous
-                            </EuiButton>
-                          </EuiFlexItem>
-                          <EuiFlexItem grow={false}>
-                            <EuiButton size='s' iconType='arrowRight' iconSide='right'
-                              isDisabled={unratedPage.page >= Math.ceil(unratedPage.total / unratedPage.size)}
-                              onClick={() => loadUnratedPage(unratedPage.page + 1, unratedPage.size)}>
-                              Next
-                            </EuiButton>
-                          </EuiFlexItem>
-                        </EuiFlexGroup>
-                      </>
-                    ),
-                  }] : []),
-                ]}
-              />
-            </EuiPanel>
-          </EuiPanel>
+          {(() => {
+            const tabs = [
+              {
+                id: 'summary',
+                name: 'Summary',
+                content: (
+                  <>
+                    <EuiSpacer size='l' />
+                    <EuiFlexGroup>
+                      <EuiFlexItem>
+                        <TableMetrics evaluation={runWithForensics} rowOnHover={setStrategyInFocus} />
+                      </EuiFlexItem>
+                    </EuiFlexGroup>
+                  </>
+                ),
+              },
+              {
+                id: 'chart',
+                name: 'Chart',
+                content: (
+                  <>
+                    <EuiSpacer size='l' />
+                    <ChartMetricsTradeoff
+                      evaluation={runWithForensics}
+                      onStrategyClick={(strategyId) => history.push(`/workspaces/${workspace._id}/strategies/${strategyId}`)}
+                    />
+                  </>
+                ),
+              },
+              {
+                id: 'heatmap',
+                name: 'Strategies by scenario',
+                content: (
+                  <>
+                    <EuiSpacer size='l' />
+                    {renderHeatmapControls()}
+                    <EuiSpacer size='m' />
+                    {metricSelected &&
+                      <ChartMetricsHeatmap
+                        evaluation={runWithForensics}
+                        metric={metricSelected._id}
+                        xGroupBy={xGroupBySelected._id}
+                        yGroupBy={yGroupBySelected._id}
+                        ySortBy={ySortBySelected._id}
+                      />
+                    }
+                  </>
+                ),
+              },
+              ...((unratedPage?.total ?? 0) > 0 ? [{
+                id: 'unrated',
+                name: <>Unrated docs <EuiNotificationBadge color='subdued'>{unratedPage.total}</EuiNotificationBadge></>,
+                content: (
+                  <>
+                    <EuiSpacer size='l' />
+                    <EuiFlexGroup justifyContent='flexEnd'>
+                      <EuiFlexItem grow={false}>
+                        <EuiButton onClick={(e) => {
+                          const pairs = []
+                          ;(unratedPage.items || []).forEach((doc) => {
+                            pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
+                          })
+                          const query = encodeURIComponent(pairs.join(' OR '))
+                          history.push(`/workspaces/${workspace._id}/judgements?query=${query}`)
+                        }}>
+                          Judge this page
+                        </EuiButton>
+                      </EuiFlexItem>
+                    </EuiFlexGroup>
+                    <EuiSpacer size='m' />
+                    <div style={{ height: '600px', overflowY: 'scroll' }}>
+                      <PanelUnratedDocs evaluation={runWithForensics} />
+                    </div>
+                    <EuiSpacer size='m' />
+                    <EuiFlexGroup justifyContent='flexEnd' alignItems='center' gutterSize='s'>
+                      <EuiFlexItem grow={false}>
+                        <small>Page {unratedPage.page} of {Math.max(1, Math.ceil(unratedPage.total / unratedPage.size))}</small>
+                      </EuiFlexItem>
+                      <EuiFlexItem grow={false}>
+                        <EuiButton size='s' iconType='arrowLeft'
+                          isDisabled={unratedPage.page <= 1}
+                          onClick={() => loadUnratedPage(unratedPage.page - 1, unratedPage.size)}>
+                          Previous
+                        </EuiButton>
+                      </EuiFlexItem>
+                      <EuiFlexItem grow={false}>
+                        <EuiButton size='s' iconType='arrowRight' iconSide='right'
+                          isDisabled={unratedPage.page >= Math.ceil(unratedPage.total / unratedPage.size)}
+                          onClick={() => loadUnratedPage(unratedPage.page + 1, unratedPage.size)}>
+                          Next
+                        </EuiButton>
+                      </EuiFlexItem>
+                    </EuiFlexGroup>
+                  </>
+                ),
+              }] : []),
+            ]
+            const selectedTab = tabs.find((t) => t.id === selectedTabId) || tabs[0]
+            return (
+              <EuiPanel paddingSize='none'>
+                <EuiPanel color='transparent'>
+                  <EuiTabbedContent
+                    tabs={tabs}
+                    selectedTab={selectedTab}
+                    onTabClick={onTabClick}
+                  />
+                </EuiPanel>
+              </EuiPanel>
+            )
+          })()}
           <EuiSpacer size='m' />
         </>
       }
