@@ -74,6 +74,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         tags: runtimeStrategy(_id)?.tags || [],
         metrics: evaluation.summary.strategy_id[_id]._total.metrics,
         unrated_docs: evaluation.summary.strategy_id[_id]._total.unrated_docs,
+        took: evaluation.summary.strategy_id[_id]._total.took,
       }
       row['rated_docs'] = {
         percent: 100 - row.unrated_docs.percent
@@ -210,6 +211,19 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
           value={item?.rated_docs?.percent / 100.0}
         />
       </div>
+    )
+  })
+  columns.push({
+    field: 'took.avg',
+    name: 'Latency',
+    sortable: true,
+    style: { width: '100px' },
+    render: (name, item) => (
+      <EuiText size='s'>
+        {typeof item?.took?.avg === 'number'
+          ? `${Math.round(item.took.avg).toLocaleString('en-US')}ms`
+          : '-'}
+      </EuiText>
     )
   })
   columns.push({

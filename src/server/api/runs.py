@@ -96,7 +96,8 @@ def _generate_summary_metrics(searches_list):
         searches_list: A list of search result dictionaries containing hits and metrics.
 
     Returns:
-        A dictionary containing aggregated 'metrics' and 'unrated_docs' statistics.
+        A dictionary containing aggregated 'metrics', 'unrated_docs', and 'took'
+        statistics.
     """
     metrics = {}
     unrated_count = 0
@@ -104,6 +105,11 @@ def _generate_summary_metrics(searches_list):
     
     # Group metrics by metric name
     metric_values = {}
+    # "took" (ms to run the search) is only present in Elasticsearch 9.6.0+
+    # rank_eval responses; collect only the values that are actually present
+    # so older clusters (where no search reports `took`) yield an empty list
+    # rather than a misleading average of zeros.
+    took_values = []
     for search in searches_list:
         # Count unrated documents from hits
         if 'hits' in search:
@@ -118,6 +124,10 @@ def _generate_summary_metrics(searches_list):
                 if metric_name not in metric_values:
                     metric_values[metric_name] = []
                 metric_values[metric_name].append(value)
+
+        # Collect "took" values
+        if search.get('took') is not None:
+            took_values.append(search['took'])
     
     # Calculate aggregated metrics
     for metric_name, values in metric_values.items():
@@ -133,9 +143,17 @@ def _generate_summary_metrics(searches_list):
         'count': unrated_count,
         'percent': (unrated_count / total_hits * 100) if total_hits > 0 else 0.0
     }
+
+    # Calculate "took" stats. `avg` is None when no search in this group
+    # reported a `took` value (e.g. against Elasticsearch < 9.6.0).
+    took = {
+        'avg': (sum(took_values) / len(took_values)) if took_values else None
+    }
+
     return {
         'metrics': metrics,
-        'unrated_docs': unrated_docs
+        'unrated_docs': unrated_docs,
+        'took': took
     }
 
 def generate_summary(evaluation, strategies: List, scenarios: List):
@@ -989,8 +1007,9 @@ def get(_id: str) -> Dict[str, Any]:
 
     Returns the small run document (status, task, summary, error, took). The
     heavy per-search results and the runtime/unrated-docs audit trail are NOT on
-    this document; fetch them from the results stream or the paginated
-    get_runtime_*/get_unrated_docs/get_failures endpoints.
+    this document; fetch them via the paginated get_results/get_runtime_*/
+    get_unrated_docs/get_failures endpoints, or get everything in one call via
+    get_full.
 
     Args:
         _id: The UUID of the run.
@@ -1015,6 +1034,8 @@ def get(_id: str) -> Dict[str, Any]:
 #   * Runtime flyout tabs     -> get_runtime_{indices,scenarios,judgements} (paginated)
 #   * Unrated-docs panel      -> get_unrated_docs (paginated)
 #   * Debug                   -> get_failures
+#   * Per-search metrics/took -> get_results (paginated)
+#   * Full-run export         -> get_full (NOT paginated; assembles everything server-side)
 
 MAX_RUNTIME_STRATEGIES = 10000  # strategies are bounded by the run's task; fetched whole
 
@@ -1155,6 +1176,77 @@ def get_unrated_docs(run_id: str, size: int = 25, page: int = 1) -> Dict[str, An
 def get_failures(run_id: str, size: int = 25, page: int = 1) -> Dict[str, Any]:
     """Get a page of a run's per-strategy failures."""
     return _paginate_run_collection(FAILURES_INDEX_NAME, run_id, size, page)
+
+
+def get_results(run_id: str, size: int = 25, page: int = 1) -> Dict[str, Any]:
+    """Get a page of a run's scored (strategy x scenario) results.
+
+    Items are the stored shape {run_id, workspace_id, benchmark_id, strategy_id,
+    scenario_id, metrics, hits, took (if the cluster reported it), @timestamp}.
+    This is the only way to retrieve the heavy per-search results (and `took`)
+    for a run -- they're deliberately excluded from the run doc itself.
+    """
+    return _paginate_run_collection(
+        RESULTS_INDEX_NAME, run_id, size, page,
+        sort=[{"strategy_id": "asc"}, {"scenario_id": "asc"}],
+    )
+
+
+def _fetch_all_run_collection(index: str, run_id: str, **kwargs) -> List[Dict[str, Any]]:
+    """Fetch every item in a per-run data stream, not just one page.
+
+    Pages internally against Elasticsearch (so no single request there is
+    unbounded either), but the caller gets back one complete list -- no
+    pagination is exposed to callers of `get_full` below.
+    """
+    items: List[Dict[str, Any]] = []
+    page = 1
+    size = 1000
+    while True:
+        result = _paginate_run_collection(index, run_id, size=size, page=page, **kwargs)
+        items.extend(result["items"])
+        if not result["items"] or len(items) >= result["total"]:
+            break
+        page += 1
+    return items
+
+
+def get_full(run_id: str) -> Dict[str, Any]:
+    """Get EVERYTHING about a run, assembled server-side in a single call.
+
+    Unlike `get` (the slim run doc) or the paginated get_results/get_runtime_*/
+    get_unrated_docs/get_failures endpoints above (meant for incremental/UI
+    consumption), this fetches every item from every per-run collection --
+    not paginated from the caller's perspective -- and merges them onto the
+    run doc. This is what backs the "Download run" UI action and the
+    equivalent REST/MCP endpoints, so a comprehensive export is available in
+    one round trip instead of requiring N client-orchestrated paginated calls.
+
+    Returns the run doc's fields plus:
+      - results: every (strategy, scenario) scored result (metrics, hits, took)
+      - runtime: {strategies, indices, scenarios, judgements}, each a full list
+      - unrated_docs: every unrated doc
+      - failures: every per-strategy failure doc
+    """
+    client = es("studio")
+    es_response = client.get(index=INDEX_NAME, id=run_id, source_excludes="_search")
+    run = dict(es_response["_source"])
+    run["_id"] = es_response["_id"]
+    run["results"] = _fetch_all_run_collection(
+        RESULTS_INDEX_NAME, run_id, sort=[{"strategy_id": "asc"}, {"scenario_id": "asc"}],
+    )
+    run["runtime"] = {
+        "strategies": _fetch_all_run_collection(RUNTIME_STRATEGIES_INDEX_NAME, run_id),
+        "indices": _fetch_all_run_collection(RUNTIME_INDICES_INDEX_NAME, run_id),
+        "scenarios": _fetch_all_run_collection(RUNTIME_SCENARIOS_INDEX_NAME, run_id),
+        "judgements": _fetch_all_run_collection(RUNTIME_JUDGEMENTS_INDEX_NAME, run_id),
+    }
+    run["unrated_docs"] = _fetch_all_run_collection(
+        UNRATED_DOCS_INDEX_NAME, run_id, sort=[{"count": "desc"}],
+    )
+    run["failures"] = _fetch_all_run_collection(FAILURES_INDEX_NAME, run_id)
+    return run
+
 
 def create(
         workspace_id: str,

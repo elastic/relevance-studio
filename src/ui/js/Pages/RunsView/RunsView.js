@@ -25,6 +25,7 @@ import {
   EuiTitle,
 } from '@elastic/eui'
 import { Page } from '../../Layout'
+import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import FlyoutRuntime from './FlyoutRuntime'
 import ChartMetricsHeatmap from './ChartMetricsHeatmap'
@@ -39,6 +40,7 @@ const RunsView = () => {
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const history = getHistory()
+  const { addToast } = useAppContext()
   const { workspace, benchmark, run } = usePageResources()
   const isReady = useResources().hasResources(['workspace', 'benchmark', 'run'])
 
@@ -54,6 +56,7 @@ const RunsView = () => {
   //    paginated, only when that tab is opened.
   const [runtimeStrategies, setRuntimeStrategies] = useState(null)  // {id: item} map, whole
   const [unratedPage, setUnratedPage] = useState(null)              // { items, total, size, page }
+  const [isDownloading, setIsDownloading] = useState(false)
   const [metricOpen, setMetricOpen] = useState(false)
   const [metricOptions, setMetricOptions] = useState([])
   const [metricSelected, setMetricSelected] = useState(null)
@@ -170,20 +173,30 @@ const RunsView = () => {
     }
   }, [run, runtimeStrategies, unratedPage])
 
-  // Download the run doc. Forensics collections are paginated and potentially
-  // unbounded, so the in-app download exports the run doc (status + summary);
-  // the full per-collection forensics are available via the paginated API/MCP
-  // endpoints for programmatic export.
-  const downloadRun = () => {
-    const blob = new Blob([utils.jsonStringifySortedKeys(run, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `run-${run._id}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+  // Download everything about the run (results, runtime, unrated docs,
+  // failures -- not just the slim run doc). The full object is assembled
+  // server-side in a single call (api.runs.get_full), so the browser makes
+  // one request and isn't left orchestrating N paginated round trips itself.
+  const downloadRun = async () => {
+    if (!workspace?._id || !benchmark?._id || !run?._id) return
+    setIsDownloading(true)
+    try {
+      const response = await api.runs_get_full(workspace._id, benchmark._id, run._id)
+      const full = response?.data ?? {}
+      const blob = new Blob([utils.jsonStringifySortedKeys(full, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `run-${run._id}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      addToast(api.errorToast(e, { title: 'Failed to download run' }))
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   ////  Render  ////////////////////////////////////////////////////////////////
@@ -382,6 +395,7 @@ const RunsView = () => {
   const renderButtonDownload = () => (
     <EuiButton
       iconType='download'
+      isLoading={isDownloading}
       onClick={() => downloadRun()}>
       Download run
     </EuiButton>

@@ -83,12 +83,22 @@ class SearchResult(BaseModel):
     scenario_id: str
     metrics: MetricsModel
     hits: List[RatedHit]
+    took: Optional[int] = None
 
     @field_validator("scenario_id")
     @classmethod
     def validate_scenario_id(cls, value: str):
         if not value.strip():
             raise ValueError("scenario_id must be a non-empty string")
+        return value
+
+    @field_validator("took", mode="before")
+    @classmethod
+    def validate_took(cls, value):
+        if value is None:
+            return value
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError("took must be a non-negative integer")
         return value
 
 class Results(BaseModel):
@@ -252,8 +262,16 @@ class RunStop(Run):
         unexpected_keys = set(meta.keys()) - allowed_keys
         if unexpected_keys:
             raise ValueError(f"@meta only accepts these fields as input: {allowed_keys}")
-        meta["stopped_at"] = utils.timestamp()
-        input["@meta"] = meta
+        # Return copies rather than mutating `input`/`meta` in place: callers
+        # (e.g. api.runs.run()) may reuse the same `evaluation` dict across
+        # multiple finalization attempts -- e.g. a RunComplete/RunSkip
+        # validation succeeds, a later persistence step throws, and the
+        # except block falls back to RunFail.model_validate(evaluation). If
+        # this mutated the shared dict, that fallback would see a polluted
+        # `@meta` (with `stopped_at`/`status` already added) and incorrectly
+        # fail with "unexpected keys", masking the real error.
+        input = dict(input)
+        input["@meta"] = { **meta, "stopped_at": utils.timestamp() }
         return input
 
     @model_validator(mode="after")

@@ -439,9 +439,10 @@ api.runs_get = async (workspace_id, benchmark_id, run_id) => {
 // A run's forensics are fanned out into per-collection data streams, each fetched
 // independently and paginated server-side so no single response is unbounded.
 // Strategies are small (bounded by the run's task) and returned whole; the
-// runtime index/scenario/judgement collections, unrated docs, and failures are
-// paginated via { size, page } (and judgements optionally by scenario_id;
-// strategies/scenarios optionally by a `tags` array, OR-matched server-side).
+// runtime index/scenario/judgement collections, unrated docs, failures, and
+// scored results are paginated via { size, page } (and judgements optionally
+// by scenario_id; strategies/scenarios optionally by a `tags` array,
+// OR-matched server-side).
 const _pageQs = ({ size, page, scenario_id, tags, text } = {}) => {
   const p = new URLSearchParams()
   if (size != null) p.set('size', size)
@@ -498,6 +499,21 @@ api.runs_get_unrated_docs = async (workspace_id, benchmark_id, run_id, opts) => 
 api.runs_get_failures = async (workspace_id, benchmark_id, run_id, opts) => {
   validateArgs('api.runs_get_failures', { workspace_id, benchmark_id, run_id, })
   const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/failures${_pageQs(opts)}`)
+  return responseOrFallbackSetup(response)
+}
+
+api.runs_get_results = async (workspace_id, benchmark_id, run_id, opts) => {
+  validateArgs('api.runs_get_results', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/results${_pageQs(opts)}`)
+  return responseOrFallbackSetup(response)
+}
+
+// Everything about a run (run doc + every results/forensics collection, not
+// paginated) assembled server-side in one call. Backs the "Download run" UI
+// action so the browser only makes a single request.
+api.runs_get_full = async (workspace_id, benchmark_id, run_id) => {
+  validateArgs('api.runs_get_full', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/_full`)
   return responseOrFallbackSetup(response)
 }
 

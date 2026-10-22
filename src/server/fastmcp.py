@@ -390,6 +390,16 @@ def runs_get_failures(ctx: Context, run_id: str, size: Optional[int] = 25, page:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.runs.get_failures(run_id, size=size, page=page))
 
+@mcp.tool(description=api.runs.get_results.__doc__)
+def runs_get_results(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_results(run_id, size=size, page=page))
+
+@mcp.tool(description=api.runs.get_full.__doc__)
+def runs_get_full(ctx: Context, run_id: str) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_full(run_id))
+
 @mcp.tool(description=api.runs.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{RunCreate.model_input_json_schema()}
 """)

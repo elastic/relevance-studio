@@ -560,6 +560,15 @@ def runs_get_failures(workspace_id, benchmark_id, _id):
     size, page = _page_args()
     return api.runs.get_failures(_id, size=size, page=page)
 
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/results", methods=["GET"])
+def runs_get_results(workspace_id, benchmark_id, _id):
+    size, page = _page_args()
+    return api.runs.get_results(_id, size=size, page=page)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/_full", methods=["GET"])
+def runs_get_full(workspace_id, benchmark_id, _id):
+    return api.runs.get_full(_id)
+
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs", methods=["POST"])
 def runs_create(workspace_id, benchmark_id):
     task = request.get_json()
