@@ -473,7 +473,7 @@ const RunsView = () => {
 
                 {/* Table */}
                 <EuiFlexItem>
-                  <TableMetrics evaluation={run} rowOnHover={setStrategyInFocus} />
+                  <TableMetrics evaluation={runWithForensics} rowOnHover={setStrategyInFocus} />
                 </EuiFlexItem>
               </EuiFlexGroup>
             </EuiPanel>
@@ -498,7 +498,7 @@ const RunsView = () => {
                 <EuiSpacer size='m' />
                 {metricSelected &&
                   <ChartMetricsHeatmap
-                    evaluation={run}
+                    evaluation={runWithForensics}
                     metric={metricSelected._id}
                     xGroupBy={xGroupBySelected._id}
                     yGroupBy={yGroupBySelected._id}

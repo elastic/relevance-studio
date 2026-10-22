@@ -85,7 +85,9 @@ const ChartMetricsHeatmap = (props) => {
    * ]
    */
   useEffect(() => {
-    if (!evaluation.results || !xGroupBy || !xSortBy || !yGroupBy || !ySortBy)
+    // Driven entirely by `summary` (on the run doc); the per-search results now
+    // live in a separate store and are not needed here.
+    if (!evaluation?.summary || !xGroupBy || !xSortBy || !yGroupBy || !ySortBy)
       return
     const _data = []
     const summary = { ...evaluation.summary }

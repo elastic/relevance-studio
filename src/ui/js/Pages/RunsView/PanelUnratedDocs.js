@@ -109,8 +109,8 @@ const PanelUnratedDocs = ({ evaluation }) => {
     })()
   }
 
-  const runtimeScenario = (scenarioId) => evaluation.runtime?.scenarios[scenarioId]
-  const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]
+  const runtimeScenario = (scenarioId) => evaluation.runtime?.scenarios?.[scenarioId]
+  const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies?.[strategyId]
 
   ////  Render  ////////////////////////////////////////////////////////////////
 

@@ -43,7 +43,7 @@ const ChartMetricsScatterplot = ({ evaluation, groupBy = 'strategy_id', strategy
    * Create chart data from evaluation results.
    */
   useEffect(() => {
-    if (!evaluation.results || !groupBy)
+    if (!evaluation?.summary || !groupBy)
       return
     const _data = []
     for (const key in evaluation.summary[groupBy]) {

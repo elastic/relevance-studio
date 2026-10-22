@@ -44,7 +44,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     })
   }
 
-  const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies[strategyId]
+  const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies?.[strategyId]
 
   const sortPriority = ['ndcg', 'precision', 'recall', 'mrr']
   const metricLabels = {
@@ -60,14 +60,18 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
    * Create chart data from evaluation results.
    */
   useEffect(() => {
-    if (!evaluation.results)
+    // The per-search results now live in a separate store; the summary table
+    // is driven by `summary` (on the run doc) plus strategy names/tags from the
+    // runtime snapshot (lazy-loaded from forensics), which may arrive after the
+    // first render — so gate on `summary` and fall back to the id for the name.
+    if (!evaluation?.summary?.strategy_id)
       return
     const rows = []
     for (const _id in evaluation.summary.strategy_id) {
       let row = {
         strategy_id: _id,
-        name: runtimeStrategy(_id).name,
-        tags: runtimeStrategy(_id).tags,
+        name: runtimeStrategy(_id)?.name || _id,
+        tags: runtimeStrategy(_id)?.tags || [],
         metrics: evaluation.summary.strategy_id[_id]._total.metrics,
         unrated_docs: evaluation.summary.strategy_id[_id]._total.unrated_docs,
       }
