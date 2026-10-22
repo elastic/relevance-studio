@@ -7,10 +7,12 @@
 
 import {
   EuiButtonEmpty,
+  EuiEmptyPrompt,
   EuiFlyout,
   EuiFlyoutBody,
   EuiFlyoutFooter,
   EuiFlyoutHeader,
+  EuiLoadingSpinner,
   EuiNotificationBadge,
   EuiSpacer,
   EuiTabbedContent,
@@ -68,7 +70,7 @@ const FlyoutRuntime = ({ runtime, isLoading, onClose }) => {
   const renderBadgeCount = (assetType) => {
     return (
       <EuiNotificationBadge color='subdued' style={{ marginLeft: '8px' }}>
-        <small>{Object.keys(runtime[assetType] || []).length || 0}</small>
+        <small>{Object.keys(rt[assetType] || {}).length || 0}</small>
       </EuiNotificationBadge>
     )
   }
@@ -81,6 +83,14 @@ const FlyoutRuntime = ({ runtime, isLoading, onClose }) => {
         </EuiTitle>
       </EuiFlyoutHeader>
       <EuiFlyoutBody>
+        {isLoading && !runtime &&
+          <EuiEmptyPrompt
+            icon={<EuiLoadingSpinner size='xl' />}
+            title={<h3>Loading runtime assets…</h3>}
+            body={<p>Fetching the full runtime snapshot (strategies, scenarios, judgements) for this run.</p>}
+          />
+        }
+        {!(isLoading && !runtime) &&
         <EuiTabbedContent
           tabs={[
             {
@@ -121,6 +131,7 @@ const FlyoutRuntime = ({ runtime, isLoading, onClose }) => {
             }
           ]}
         />
+        }
       </EuiFlyoutBody>
       <EuiFlyoutFooter>
         <EuiButtonEmpty flush='left' iconType='cross' onClick={onClose}>
