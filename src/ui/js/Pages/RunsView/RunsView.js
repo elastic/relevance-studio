@@ -22,6 +22,7 @@ import {
   EuiSelectable,
   EuiSkeletonTitle,
   EuiSpacer,
+  EuiTabbedContent,
   EuiTitle,
 } from '@elastic/eui'
 import { Page } from '../../Layout'
@@ -507,139 +508,114 @@ const RunsView = () => {
         </>
       }
 
-      {/* Metrics */}
+      {/* Summary / Chart / Heatmap / Unrated docs, tabbed into a single panel */}
       {run?.summary &&
         <>
           <EuiPanel paddingSize='none'>
             <EuiPanel color='transparent'>
-              <EuiTitle size='s'>
-                <h2>Summary</h2>
-              </EuiTitle>
-            </EuiPanel>
-            <EuiHorizontalRule margin='none' />
-            <EuiPanel color='transparent'>
-              <EuiFlexGroup>
-
-                {/* Table */}
-                <EuiFlexItem>
-                  <TableMetrics evaluation={runWithForensics} rowOnHover={setStrategyInFocus} />
-                </EuiFlexItem>
-              </EuiFlexGroup>
-            </EuiPanel>
-          </EuiPanel>
-          <EuiSpacer size='m' />
-        </>
-      }
-
-      {/* Chart */}
-      {run?.summary &&
-        <>
-          <EuiPanel paddingSize='none'>
-            <EuiPanel color='transparent'>
-              <EuiTitle size='s'>
-                <h2>Chart</h2>
-              </EuiTitle>
-            </EuiPanel>
-            <EuiHorizontalRule margin='none' />
-            <EuiPanel color='transparent'>
-              <ChartMetricsTradeoff
-                evaluation={runWithForensics}
-                onStrategyClick={(strategyId) => history.push(`/workspaces/${workspace._id}/strategies/${strategyId}`)}
+              <EuiTabbedContent
+                tabs={[
+                  {
+                    id: 'summary',
+                    name: 'Summary',
+                    content: (
+                      <>
+                        <EuiSpacer size='l' />
+                        <EuiFlexGroup>
+                          <EuiFlexItem>
+                            <TableMetrics evaluation={runWithForensics} rowOnHover={setStrategyInFocus} />
+                          </EuiFlexItem>
+                        </EuiFlexGroup>
+                      </>
+                    ),
+                  },
+                  {
+                    id: 'chart',
+                    name: 'Chart',
+                    content: (
+                      <>
+                        <EuiSpacer size='l' />
+                        <ChartMetricsTradeoff
+                          evaluation={runWithForensics}
+                          onStrategyClick={(strategyId) => history.push(`/workspaces/${workspace._id}/strategies/${strategyId}`)}
+                        />
+                      </>
+                    ),
+                  },
+                  {
+                    id: 'heatmap',
+                    name: 'Strategies by scenario',
+                    content: (
+                      <>
+                        <EuiSpacer size='l' />
+                        {renderHeatmapControls()}
+                        <EuiSpacer size='m' />
+                        {metricSelected &&
+                          <ChartMetricsHeatmap
+                            evaluation={runWithForensics}
+                            metric={metricSelected._id}
+                            xGroupBy={xGroupBySelected._id}
+                            yGroupBy={yGroupBySelected._id}
+                            ySortBy={ySortBySelected._id}
+                          />
+                        }
+                      </>
+                    ),
+                  },
+                  ...((unratedPage?.total ?? 0) > 0 ? [{
+                    id: 'unrated',
+                    name: <>Unrated docs <EuiNotificationBadge color='subdued'>{unratedPage.total}</EuiNotificationBadge></>,
+                    content: (
+                      <>
+                        <EuiSpacer size='l' />
+                        <EuiFlexGroup justifyContent='flexEnd'>
+                          <EuiFlexItem grow={false}>
+                            <EuiButton onClick={(e) => {
+                              const pairs = []
+                              ;(unratedPage.items || []).forEach((doc) => {
+                                pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
+                              })
+                              const query = encodeURIComponent(pairs.join(' OR '))
+                              history.push(`/workspaces/${workspace._id}/judgements?query=${query}`)
+                            }}>
+                              Judge this page
+                            </EuiButton>
+                          </EuiFlexItem>
+                        </EuiFlexGroup>
+                        <EuiSpacer size='m' />
+                        <div style={{ height: '600px', overflowY: 'scroll' }}>
+                          <PanelUnratedDocs evaluation={runWithForensics} />
+                        </div>
+                        <EuiSpacer size='m' />
+                        <EuiFlexGroup justifyContent='flexEnd' alignItems='center' gutterSize='s'>
+                          <EuiFlexItem grow={false}>
+                            <small>Page {unratedPage.page} of {Math.max(1, Math.ceil(unratedPage.total / unratedPage.size))}</small>
+                          </EuiFlexItem>
+                          <EuiFlexItem grow={false}>
+                            <EuiButton size='s' iconType='arrowLeft'
+                              isDisabled={unratedPage.page <= 1}
+                              onClick={() => loadUnratedPage(unratedPage.page - 1, unratedPage.size)}>
+                              Previous
+                            </EuiButton>
+                          </EuiFlexItem>
+                          <EuiFlexItem grow={false}>
+                            <EuiButton size='s' iconType='arrowRight' iconSide='right'
+                              isDisabled={unratedPage.page >= Math.ceil(unratedPage.total / unratedPage.size)}
+                              onClick={() => loadUnratedPage(unratedPage.page + 1, unratedPage.size)}>
+                              Next
+                            </EuiButton>
+                          </EuiFlexItem>
+                        </EuiFlexGroup>
+                      </>
+                    ),
+                  }] : []),
+                ]}
               />
             </EuiPanel>
           </EuiPanel>
           <EuiSpacer size='m' />
         </>
       }
-
-      {/* Heatmap */}
-      {run?.summary &&
-        <>
-          <EuiPanel paddingSize='none'>
-            <EuiPanel color='transparent'>
-              <EuiTitle size='s'>
-                <h2>Strategies by scenario</h2>
-              </EuiTitle>
-            </EuiPanel>
-            <EuiHorizontalRule margin='none' />
-            <EuiPanel color='transparent'>
-              <>
-                {renderHeatmapControls()}
-                <EuiSpacer size='m' />
-                {metricSelected &&
-                  <ChartMetricsHeatmap
-                    evaluation={runWithForensics}
-                    metric={metricSelected._id}
-                    xGroupBy={xGroupBySelected._id}
-                    yGroupBy={yGroupBySelected._id}
-                    ySortBy={ySortBySelected._id}
-                  />
-                }
-              </>
-            </EuiPanel>
-          </EuiPanel>
-          <EuiSpacer size='m' />
-        </>
-      }
-
-      {/* Unrated docs (paginated from the forensics store) */}
-      {run?.summary && (unratedPage?.total ?? 0) > 0 &&
-        <>
-          <EuiPanel paddingSize='none'>
-            <EuiFlexGroup>
-              <EuiFlexItem grow>
-                <EuiPanel color='transparent'>
-                  <EuiTitle size='s'>
-                    <h2>Unrated docs <EuiNotificationBadge color='subdued'>{unratedPage.total}</EuiNotificationBadge></h2>
-                  </EuiTitle>
-                </EuiPanel>
-              </EuiFlexItem>
-              <EuiFlexItem grow={false}>
-                <EuiPanel color='transparent' paddingSize='none'>
-                  <EuiButton style={{ margin: '8px 16px' }} onClick={(e) => {
-                    const pairs = []
-                    ;(unratedPage.items || []).forEach((doc) => {
-                      pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
-                    })
-                    const query = encodeURIComponent(pairs.join(' OR '))
-                    history.push(`/workspaces/${workspace._id}/judgements?query=${query}`)
-                  }}>
-                    Judge this page
-                  </EuiButton>
-                </EuiPanel>
-              </EuiFlexItem>
-            </EuiFlexGroup>
-            <EuiHorizontalRule margin='none' />
-            <EuiPanel color='transparent' style={{ height: '600px', overflowY: 'scroll' }}>
-              <PanelUnratedDocs evaluation={runWithForensics} />
-            </EuiPanel>
-            <EuiHorizontalRule margin='none' />
-            <EuiPanel color='transparent'>
-              <EuiFlexGroup justifyContent='flexEnd' alignItems='center' gutterSize='s'>
-                <EuiFlexItem grow={false}>
-                  <small>Page {unratedPage.page} of {Math.max(1, Math.ceil(unratedPage.total / unratedPage.size))}</small>
-                </EuiFlexItem>
-                <EuiFlexItem grow={false}>
-                  <EuiButton size='s' iconType='arrowLeft'
-                    isDisabled={unratedPage.page <= 1}
-                    onClick={() => loadUnratedPage(unratedPage.page - 1, unratedPage.size)}>
-                    Previous
-                  </EuiButton>
-                </EuiFlexItem>
-                <EuiFlexItem grow={false}>
-                  <EuiButton size='s' iconType='arrowRight' iconSide='right'
-                    isDisabled={unratedPage.page >= Math.ceil(unratedPage.total / unratedPage.size)}
-                    onClick={() => loadUnratedPage(unratedPage.page + 1, unratedPage.size)}>
-                    Next
-                  </EuiButton>
-                </EuiFlexItem>
-              </EuiFlexGroup>
-            </EuiPanel>
-          </EuiPanel>
-          <EuiSpacer size='m' />
-        </>
-      }
-
 
     </Page>
   )
