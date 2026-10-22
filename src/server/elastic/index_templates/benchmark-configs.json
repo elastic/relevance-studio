@@ -1,0 +1,127 @@
+{
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Benchmark Configs",
+    "version": "2.0.0"
+  },
+  "index_patterns": [
+    "esrs-benchmark-configs*"
+  ],
+  "template": {
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@meta": {
+          "properties": {
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "created_via": {
+              "type": "keyword"
+            },
+            "updated_at": {
+              "type": "date"
+            },
+            "updated_by": {
+              "type": "keyword"
+            },
+            "updated_via": {
+              "type": "keyword"
+            }
+          }
+        },
+        "workspace_id": {
+          "type": "keyword"
+        },
+        "name": {
+          "type": "keyword"
+        },
+        "description": {
+          "type": "text"
+        },
+        "tags": {
+          "type": "keyword"
+        },
+        "task": {
+          "properties": {
+            "metrics": {
+              "type": "keyword"
+            },
+            "k": {
+              "type": "short"
+            },
+            "requests": {
+              "type": "integer"
+            },
+            "strategies": {
+              "properties": {
+                "_ids": {
+                  "type": "keyword"
+                },
+                "tags": {
+                  "type": "keyword"
+                },
+                "docs": {
+                  "type": "object",
+                  "enabled": false
+                }
+              }
+            },
+            "scenarios": {
+              "properties": {
+                "_ids": {
+                  "type": "keyword"
+                },
+                "tags": {
+                  "type": "keyword"
+                },
+                "sample_size": {
+                  "type": "integer"
+                },
+                "sample_seed": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        },
+        "_search": {
+          "properties": {
+            "name": {
+              "type": "text"
+            },
+            "description": {
+              "type": "text"
+            },
+            "tags": {
+              "type": "text"
+            },
+            "task": {
+              "properties": {
+                "metrics": {
+                  "type": "text"
+                },
+                "strategies": {
+                  "properties": {
+                    "tags": {
+                      "type": "text"
+                    }
+                  }
+                },
+                "scenarios": {
+                  "properties": {
+                    "tags": {
+                      "type": "text"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

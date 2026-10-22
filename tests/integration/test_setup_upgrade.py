@@ -33,7 +33,7 @@ def _request_with_retry(method, url, max_attempts=3, **kwargs):
 # - tests/integration/test_strategies_flow.py
 # - tests/integration/test_judgements_flow.py
 # - tests/integration/test_benchmarks_flow.py
-# - tests/integration/test_evaluations_flow.py
+# - tests/integration/test_runs_flow.py
 # - tests/integration/test_conversations_flow.py
 #
 # Suggested progression:
@@ -44,7 +44,7 @@ def _request_with_retry(method, url, max_attempts=3, **kwargs):
 # 5) strategies
 # 6) judgements
 # 7) benchmarks
-# 8) evaluations
+# 8) runs
 # Parallel from setup: conversations
 
 

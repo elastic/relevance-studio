@@ -18,7 +18,7 @@ const RESOURCE_LOADERS = {
   // Individual resources (by _id)
   workspace: (params) => api.workspaces_get(params.workspace_id),
   benchmark: (params) => api.benchmarks_get(params.workspace_id, params.benchmark_id),
-  evaluation: (params) => api.evaluations_get(params.workspace_id, params.benchmark_id, params.evaluation_id),
+  run: (params) => api.runs_get(params.workspace_id, params.benchmark_id, params.run_id),
   display: (params) => api.displays_get(params.workspace_id, params.display_id),
   strategy: (params) => api.strategies_get(params.workspace_id, params.strategy_id),
   scenario: (params) => api.scenarios_get(params.workspace_id, params.scenario_id),
@@ -33,7 +33,7 @@ const RESOURCE_DATA_EXTRACTORS = {
   // Individual resources (by _id)
   workspace: (response) => ({ ...response.data._source, _id: response.data._id }),
   benchmark: (response) => ({ ...response.data._source, _id: response.data._id }),
-  evaluation: (response) => ({ ...response.data._source, _id: response.data._id }),
+  run: (response) => ({ ...response.data._source, _id: response.data._id }),
   display: (response) => ({ ...response.data._source, _id: response.data._id }),
   strategy: (response) => ({ ...response.data._source, _id: response.data._id }),
   scenario: (response) => ({ ...response.data._source, _id: response.data._id }),
@@ -46,7 +46,7 @@ const RESOURCE_DATA_EXTRACTORS = {
 const PARAM_TO_RESOURCE = {
   workspace_id: 'workspace',
   benchmark_id: 'benchmark',
-  evaluation_id: 'evaluation',
+  run_id: 'run',
   display_id: 'display',
   strategy_id: 'strategy',
   scenario_id: 'scenario',

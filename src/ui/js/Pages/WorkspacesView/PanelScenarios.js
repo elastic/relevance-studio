@@ -13,7 +13,7 @@ import {
   EuiText,
 } from '@elastic/eui'
 
-const PanelScenarios = ({ evaluation, rowOnHover }) => {
+const PanelScenarios = ({ run, rowOnHover }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -54,7 +54,7 @@ const PanelScenarios = ({ evaluation, rowOnHover }) => {
     },
   ]
   for (const metric of sortPriority) {
-    if ((evaluation.task?.metrics || []).includes(metric)) {
+    if ((run.task?.metrics || []).includes(metric)) {
       columns.push({
         field: `metrics.${metric}`,
         name: (
@@ -80,7 +80,7 @@ const PanelScenarios = ({ evaluation, rowOnHover }) => {
   }
 
   return (
-    <div className='evaluations-table-metrics' style={{ height: '390px', overflow: 'auto' }}>
+    <div className='runs-table-metrics' style={{ height: '390px', overflow: 'auto' }}>
       <EuiInMemoryTable
         columns={columns}
         itemId='strategy_id'

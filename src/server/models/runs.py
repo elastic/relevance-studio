@@ -154,7 +154,7 @@ class UnratedDocs(BaseModel):
             raise ValueError("strategies must be a list of non-empty strings")
         return value
     
-class Evaluation(BaseModel):
+class Run(BaseModel):
     model_config = { "extra": "forbid", "strict": True }
     meta: Dict[str, Optional[str]] = Field(alias='@meta')
     
@@ -170,7 +170,7 @@ class Evaluation(BaseModel):
             schema["required"].remove("@meta")
         return schema
 
-class EvaluationCreate(Evaluation):
+class RunCreate(Run):
     
     # Required fields
     workspace_id: str
@@ -227,7 +227,7 @@ class EvaluationCreate(Evaluation):
     def serialize(self) -> Dict[str, Any]:
         return self.model_dump(by_alias=True)
     
-class EvaluationStop(Evaluation):
+class RunStop(Run):
     
     # Required fields
     workspace_id: Optional[str] = None
@@ -321,7 +321,7 @@ class EvaluationStop(Evaluation):
     def serialize(self) -> Dict[str, Any]:
         return self.model_dump(by_alias=True, exclude_unset=True, exclude_none=True)
 
-class EvaluationComplete(EvaluationStop):
+class RunComplete(RunStop):
     
     @model_validator(mode="before")
     @classmethod
@@ -330,7 +330,7 @@ class EvaluationComplete(EvaluationStop):
         input["@meta"]["status"] = "completed"
         return input
     
-class EvaluationFail(EvaluationStop):
+class RunFail(RunStop):
     
     @model_validator(mode="before")
     @classmethod
@@ -339,11 +339,52 @@ class EvaluationFail(EvaluationStop):
         input["@meta"]["status"] = "failed"
         return input
     
-class EvaluationSkip(EvaluationStop):
-    
+class RunSkip(RunStop):
+
     @model_validator(mode="before")
     @classmethod
     def enrich_meta(cls, input, info):
         input = super().enrich_meta(input, info)
         input["@meta"]["status"] = "skipped"
         return input
+
+
+class BenchmarkResult(BaseModel):
+    """One immutable scored result for a (run x strategy x scenario) search.
+
+    Written (op_type: create) to the esrs-benchmark-results data stream. Carries
+    workspace_id/benchmark_id on every document so the stream is directly
+    filterable and deletable by workspace without joining back to the run doc.
+    """
+    model_config = { "extra": "forbid", "strict": True }
+    run_id: str
+    workspace_id: str
+    benchmark_id: str
+    strategy_id: str
+    scenario_id: str
+    metrics: MetricsModel
+    hits: List[RatedHit]
+    timestamp: str = Field(alias="@timestamp")
+
+    def serialize(self) -> Dict[str, Any]:
+        return self.model_dump(by_alias=True)
+
+
+class BenchmarkForensics(BaseModel):
+    """Immutable per-run audit trail: runtime snapshot, unrated docs, failures.
+
+    Written (op_type: create) to the esrs-benchmark-forensics data stream. One
+    document per run. Carries workspace_id/benchmark_id on every document for
+    the same workspace-scoping reason as BenchmarkResult.
+    """
+    model_config = { "extra": "forbid", "strict": True }
+    run_id: str
+    workspace_id: str
+    benchmark_id: str
+    runtime: Optional[Runtime] = None
+    unrated_docs: Optional[List[UnratedDocs]] = None
+    failures: Optional[List[Any]] = None
+    timestamp: str = Field(alias="@timestamp")
+
+    def serialize(self) -> Dict[str, Any]:
+        return self.model_dump(by_alias=True, exclude_none=True)

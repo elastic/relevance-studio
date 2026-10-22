@@ -384,10 +384,10 @@ const StrategiesEdit = () => {
       if (sourceFilters)
         body._source = { includes: sourceFilters }
 
-      // Prepare request body for rank evaluation (if enabled)
-      let evaluation
+      // Prepare request body for the ad-hoc rank-eval run (if enabled)
+      let run
       if (isRankEvalEnabled) {
-        evaluation = {
+        run = {
           "@meta": {
             "status": "pending",
             "created_at": new Date().toISOString(),
@@ -428,7 +428,7 @@ const StrategiesEdit = () => {
         const promises = [
           api.judgements_search(workspace._id, scenario._id, body),
           isRankEvalEnabled
-            ? api.evaluations_run(workspace._id, evaluation)
+            ? api.runs_run(workspace._id, run)
             : Promise.resolve(null),
         ]
         const [response_search, response_rank_eval] = await Promise.all(promises)

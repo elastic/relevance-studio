@@ -7,7 +7,10 @@ from .asset import AssetCreate, AssetUpdate
 from .benchmarks import BenchmarkCreate, BenchmarkUpdate
 from .conversations import ConversationsCreate, ConversationsUpdate
 from .displays import DisplayCreate, DisplayUpdate
-from .evaluations import EvaluationCreate, EvaluationSkip, EvaluationFail, EvaluationComplete
+from .runs import (
+    RunCreate, RunSkip, RunFail, RunComplete,
+    BenchmarkResult, BenchmarkForensics,
+)
 from .judgements import JudgementCreate
 from .scenarios import ScenarioCreate, ScenarioUpdate
 from .strategies import StrategyCreate, StrategyUpdate

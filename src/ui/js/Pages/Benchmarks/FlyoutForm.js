@@ -880,8 +880,8 @@ const FlyoutForm = ({
                   </>
                 </EuiFormRow>
 
-                {/* Rank evaluation settings */}
-                <EuiFormRow label='Rank evaluation settings'>
+                {/* Rank-eval settings */}
+                <EuiFormRow label='Rank-eval settings'>
                   <>
                     <EuiFieldNumber
                       compressed

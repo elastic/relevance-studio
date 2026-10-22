@@ -122,15 +122,15 @@ const Benchmarks = () => {
       )
     },
     {
-      field: 'evaluations',
-      name: 'Evaluations',
+      field: 'runs',
+      name: 'Runs',
       width: '100px',
       render: (name, doc) => {
-        const count = searchAggs?.[doc._id]?.evaluations ?? 0
+        const count = searchAggs?.[doc._id]?.runs ?? 0
         return (
           <EuiLink onClick={(e) => {
             history.push({
-              pathname: `/workspaces/${workspace._id}/benchmarks/${doc._id}/evaluations`,
+              pathname: `/workspaces/${workspace._id}/benchmarks/${doc._id}/runs`,
             })
           }}>
             {count.toLocaleString()}
@@ -212,9 +212,9 @@ const Benchmarks = () => {
   const renderModalDelete = () => (
     <ModalDelete
       description={
-        !!searchAggs[modalDelete._id]?.evaluations &&
+        !!searchAggs[modalDelete._id]?.runs &&
         <EuiText>
-          This will delete {searchAggs[modalDelete._id]?.evaluations == 1 ? ' ' : 'all '}{searchAggs[modalDelete._id]?.evaluations} evaluation{searchAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'} related to this benchmark.
+          This will delete {searchAggs[modalDelete._id]?.runs == 1 ? ' ' : 'all '}{searchAggs[modalDelete._id]?.runs} run{searchAggs[modalDelete._id]?.runs == 1 ? '' : 's'} related to this benchmark.
         </EuiText>
       }
       doc={modalDelete}

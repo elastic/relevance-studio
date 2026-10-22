@@ -14,8 +14,8 @@ from ..models import BenchmarkCreate, BenchmarkUpdate
 if TYPE_CHECKING:
     from elasticsearch import Elasticsearch
 
-INDEX_NAME = "esrs-benchmarks"
-SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmarks")
+INDEX_NAME = "esrs-benchmark-configs"
+SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmark-configs")
 
 def search(
         workspace_id: str,
@@ -42,7 +42,7 @@ def search(
     """
     response = utils.search_assets(
         "benchmarks", workspace_id, text, filters, sort, size, page,
-        counts=[ "evaluations" ] if aggs else [],
+        counts=[ "runs" ] if aggs else [],
     )
     return response
 
@@ -91,7 +91,7 @@ def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = No
     doc = BenchmarkCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
 
     # Copy searchable fields to _search
-    doc = utils.copy_fields_to_search("benchmarks", doc)
+    doc = utils.copy_fields_to_search("benchmark-configs", doc)
     
     # Submit
     client = es("studio")
@@ -119,7 +119,7 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = N
     doc_partial = BenchmarkUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
     
     # Copy searchable fields to _search
-    doc_partial = utils.copy_fields_to_search("benchmarks", doc_partial)
+    doc_partial = utils.copy_fields_to_search("benchmark-configs", doc_partial)
     
     # Submit
     client = es("studio")
@@ -132,14 +132,19 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = N
     return es_response
 
 def delete(_id: str) -> Dict[str, Any]:
-    """Delete a benchmark and its associated evaluations.
+    """Delete a benchmark config and all of its runs, results, and forensics.
 
     Args:
         _id: The UUID of the benchmark to delete.
 
     Returns:
-        The response from the Elasticsearch delete_by_query operation.
+        The response from the delete_by_query operation on the config + runs
+        indices. The two data streams (results/forensics) are also swept by
+        benchmark_id.
     """
+    client = es("studio")
+
+    # Plain indices: the config doc (by _id) + its runs (by benchmark_id).
     body = {
         "query": {
             "bool": {
@@ -147,7 +152,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-benchmarks" }},
+                                { "term": { "_index": "esrs-benchmark-configs" }},
                                 { "term": { "_id": _id }}
                             ]
                         }
@@ -155,7 +160,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-evaluations" }},
+                                { "term": { "_index": "esrs-benchmark-runs" }},
                                 { "term": { "benchmark_id": _id }}
                             ]
                         }
@@ -165,13 +170,25 @@ def delete(_id: str) -> Dict[str, Any]:
             }
         }
     }
-    client = es("studio")
     es_response = client.delete_by_query(
-        index="esrs-benchmarks,esrs-evaluations",
+        index="esrs-benchmark-configs,esrs-benchmark-runs",
         body=body,
         refresh=True,
         conflicts="proceed"
     )
+
+    # Data streams: results/forensics carry benchmark_id on every document, so a
+    # single term query sweeps them directly (no _index filter — data-stream docs
+    # live in rolling backing indices). Tolerant of streams that don't exist yet.
+    stream_body = { "query": { "term": { "benchmark_id": _id }}}
+    for stream in ("esrs-benchmark-results", "esrs-benchmark-forensics"):
+        try:
+            client.delete_by_query(
+                index=stream, body=stream_body, refresh=True, conflicts="proceed",
+            )
+        except Exception:
+            pass
+
     return es_response
 
 ####  Candidate Selection  #####################################################

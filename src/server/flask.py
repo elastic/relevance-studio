@@ -487,34 +487,41 @@ def benchmarks_delete(workspace_id, _id):
     return api.benchmarks.delete(_id)
 
 
-####  API: Evaluations  ########################################################
+####  API: Runs  ###############################################################
 
-@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations/_search", methods=["POST"])
-def evaluations_search(workspace_id, benchmark_id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/_search", methods=["POST"])
+def runs_search(workspace_id, benchmark_id):
     body = request.get_json() or {}
-    return api.evaluations.search(workspace_id, benchmark_id, **body)
+    return api.runs.search(workspace_id, benchmark_id, **body)
 
-@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["GET"])
-def evaluations_get(workspace_id, benchmark_id, _id):
-    return api.evaluations.get(_id)
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>", methods=["GET"])
+def runs_get(workspace_id, benchmark_id, _id):
+    return api.runs.get(_id)
 
-@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations", methods=["POST"])
-def evaluations_create(workspace_id, benchmark_id):
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/forensics", methods=["GET"])
+def runs_get_forensics(workspace_id, benchmark_id, _id):
+    return api.runs.get_forensics(_id)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs", methods=["POST"])
+def runs_create(workspace_id, benchmark_id):
     task = request.get_json()
-    return api.evaluations.create(workspace_id, benchmark_id, task, user=_request_user(), via="server")
+    return api.runs.create(workspace_id, benchmark_id, task, user=_request_user(), via="server")
 
-@api_route("/api/workspaces/<string:workspace_id>/evaluations/_run", methods=["POST"])
-def evaluations_run(workspace_id):
+# NOTE: the synchronous dry-run endpoint is intentionally workspace-scoped (not
+# nested under /benchmarks/<id>/), matching the ad-hoc strategy/scenario runs it
+# serves. Preserve this scoping asymmetry.
+@api_route("/api/workspaces/<string:workspace_id>/runs/_run", methods=["POST"])
+def runs_run(workspace_id):
     body = request.get_json()
     validate_workspace_id_match(body, workspace_id)
     body["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
     user = _request_user()
     started_by = user or "unknown"
-    return api.evaluations.run(body, started_by=started_by)
+    return api.runs.run(body, started_by=started_by)
 
-@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/evaluations/<string:_id>", methods=["DELETE"])
-def evaluations_delete(workspace_id, benchmark_id, _id):
-    return api.evaluations.delete(_id)
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>", methods=["DELETE"])
+def runs_delete(workspace_id, benchmark_id, _id):
+    return api.runs.delete(_id)
 
 
 ####  API: Content  ############################################################

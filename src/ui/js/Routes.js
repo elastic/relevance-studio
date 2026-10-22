@@ -114,7 +114,7 @@ const RouteWithSetupCheck = ({ component: Component, render, ...rest }) => {
 }
 
 const allOtherPaths = [
-  '/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations/:evaluation_id',
+  '/workspaces/:workspace_id/benchmarks/:benchmark_id/runs/:run_id',
   '/workspaces/:workspace_id/benchmarks/:benchmark_id',
   '/workspaces/:workspace_id/strategies/:strategy_id',
   '/workspaces/:workspace_id/displays/:display_id',
@@ -185,13 +185,13 @@ const Routes = () => {
                     document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
                     return <Pages.BenchmarksView />
                   }} />
-                  <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations' exact render={(r) => {
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/runs' exact render={(r) => {
                     document.title = `Benchmarks - ${r.match.params.benchmark_id} - ${title}`
                     return <Pages.BenchmarksView />
                   }} />
-                  <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations/:evaluation_id' exact render={(r) => {
-                    document.title = `Evaluations - ${r.match.params.evaluation_id} - ${title}`
-                    return <Pages.EvaluationsView />
+                  <RouteWithSetupCheck path='/workspaces/:workspace_id/benchmarks/:benchmark_id/runs/:run_id' exact render={(r) => {
+                    document.title = `Runs - ${r.match.params.run_id} - ${title}`
+                    return <Pages.RunsView />
                   }} />
 
                   {/* Fallback route */}

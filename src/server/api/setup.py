@@ -28,10 +28,28 @@ PATH_INDEX_TEMPLATES = [
     ("esrs-scenarios", os.path.join(PATH_INDEX_TEMPLATE_DIR, "scenarios.json")),
     ("esrs-judgements", os.path.join(PATH_INDEX_TEMPLATE_DIR, "judgements.json")),
     ("esrs-strategies", os.path.join(PATH_INDEX_TEMPLATE_DIR, "strategies.json")),
+    ("esrs-benchmark-configs", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-configs.json")),
+    ("esrs-benchmark-runs", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-runs.json")),
+    ("esrs-benchmark-results", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-results.json")),
+    ("esrs-benchmark-forensics", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-forensics.json")),
+]
+
+# Legacy v1 templates. Intentionally NOT in PATH_INDEX_TEMPLATES, so fresh v2.0
+# installs do not recreate these indices and the setup-state check does not
+# require them. They remain loadable for the migration runner because pending
+# pre-2.0 manifest steps (e.g. 1.2.0 mapping additions) still reference them,
+# and because they are the reindex sources for the 2.0.0 split. The migration
+# never deletes them (additive-and-copy only).
+PATH_LEGACY_INDEX_TEMPLATES = [
     ("esrs-benchmarks", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmarks.json")),
     ("esrs-evaluations", os.path.join(PATH_INDEX_TEMPLATE_DIR, "evaluations.json")),
 ]
-VALID_STEP_ACTIONS = set(["create_template", "update_template"])
+
+# Data-stream-backed templates (created via create_data_stream, not indices.create)
+# and immutable (op_type: create only). The "index_name" derived from their
+# index_patterns is the data stream name.
+DATA_STREAM_TEMPLATES = set(["esrs-benchmark-results", "esrs-benchmark-forensics"])
+VALID_STEP_ACTIONS = set(["create_template", "update_template", "reindex_and_cutover"])
 LEDGER_INDEX = "esrs-system"
 LEDGER_DOC_ID = "index-template-migrations"
 
@@ -79,6 +97,25 @@ def get_cluster_info():
     return client.info()
 
 
+def _is_additive_reindex_step(step: Dict[str, Any]) -> bool:
+    """True if a step is an additive-and-copy reindex that may run under
+    additive-only upgrades.
+
+    ``reindex_and_cutover`` only ever creates new templates/indices/data streams
+    and copies data from a source it never mutates or deletes, so it is safe to
+    execute during the normal additive upgrade. The relaxation is scoped to this
+    action plus an explicit ``additive_reindex: true`` flag, so a hypothetical
+    future *destructive* reindex (requires_reindex without this flag/action)
+    still blocks exactly as before.
+    """
+    return bool(step.get("additive_reindex")) or step.get("action") == "reindex_and_cutover"
+
+
+def _step_blocks_additive_upgrade(step: Dict[str, Any]) -> bool:
+    """True if a step requires a reindex that is NOT additive-and-copy."""
+    return bool(step.get("requires_reindex")) and not _is_additive_reindex_step(step)
+
+
 def _parse_semver(version: str) -> Tuple[int, int, int]:
     parts = version.split(".")
     if len(parts) != 3:
@@ -109,8 +146,11 @@ def _read_server_version() -> Optional[str]:
 
 
 def _load_index_templates() -> Dict[str, Dict[str, Any]]:
+    # Include the legacy templates so the migration runner can resolve pending
+    # pre-2.0 steps that still target them; fresh-setup/check paths iterate
+    # PATH_INDEX_TEMPLATES directly and never see the legacy entries.
     templates = {}
-    for template_name, path_index_template in PATH_INDEX_TEMPLATES:
+    for template_name, path_index_template in (PATH_INDEX_TEMPLATES + PATH_LEGACY_INDEX_TEMPLATES):
         body = _load_json(path_index_template)
         index_name = body["index_patterns"][0].replace("*", "")
         templates[template_name] = {
@@ -160,6 +200,24 @@ def _load_migration_manifest() -> Dict[str, Any]:
                 raise ValueError(
                     f"'mapping_additions' for template '{template}' in '{version}' must be an object."
                 )
+            if "additive_reindex" in step and not isinstance(step["additive_reindex"], bool):
+                raise ValueError(
+                    f"'additive_reindex' for template '{template}' in '{version}' must be a boolean."
+                )
+            if action == "reindex_and_cutover":
+                reindex = step.get("reindex")
+                if not isinstance(reindex, dict):
+                    raise ValueError(
+                        f"'reindex_and_cutover' step for template '{template}' in '{version}' must define object 'reindex'."
+                    )
+                if not isinstance(reindex.get("source"), str) or not reindex.get("source"):
+                    raise ValueError(
+                        f"'reindex.source' for template '{template}' in '{version}' must be a non-empty string."
+                    )
+                if reindex.get("mode") not in ("copy", "runs", "results", "forensics"):
+                    raise ValueError(
+                        f"'reindex.mode' for template '{template}' in '{version}' must be one of copy|runs|results|forensics."
+                    )
 
     ordered = sorted(versions, key=_version_sort_key)
     if [v["version"] for v in ordered] != [v["version"] for v in versions]:
@@ -243,9 +301,25 @@ def _effective_current_version(applied_versions: List[str], manifest_versions: L
     return current
 
 
+def _index_or_data_stream_exists(client, template_name: str, index_name: str) -> bool:
+    """Existence check that understands data streams.
+
+    ``indices.exists`` returns False for a data stream (it is not a concrete
+    index), so data-stream-backed templates are checked with
+    ``indices.exists_index_template`` + the data-stream API instead.
+    """
+    if template_name in DATA_STREAM_TEMPLATES:
+        try:
+            client.indices.get_data_stream(name=index_name)
+            return True
+        except NotFoundError:
+            return False
+    return bool(client.indices.exists(index=index_name))
+
+
 def check_setup_state():
     result = {"failures": 0, "requests": []}
-    for _, path_index_template in PATH_INDEX_TEMPLATES:
+    for template_name, path_index_template in PATH_INDEX_TEMPLATES:
         body = _load_json(path_index_template)
         index_name = body["index_patterns"][0].replace("*", "")
 
@@ -264,7 +338,7 @@ def check_setup_state():
             })
 
         try:
-            exists = client.indices.exists(index=index_name)
+            exists = _index_or_data_stream_exists(client, template_name, index_name)
             result["requests"].append({
                 "index": index_name,
                 "response": {"body": "OK" if exists else "Not Found", "status": 200 if exists else 404},
@@ -301,7 +375,11 @@ def check_upgrade_state():
     for release in pending_releases:
         for step in release["steps"]:
             requires_reindex = step.get("requires_reindex", False)
-            if requires_reindex:
+            additive_reindex = _is_additive_reindex_step(step)
+            # Only a *blocking* (non-additive) reindex sets reindex_required,
+            # which is what gates the additive-only upgrade path. Additive
+            # reindex_and_cutover steps execute through the normal upgrade.
+            if _step_blocks_additive_upgrade(step):
                 reindex_required = True
                 blocking_reasons.append(
                     f"Version {release['version']} step for '{step['template']}' requires reindex."
@@ -311,6 +389,7 @@ def check_upgrade_state():
                 "template": step["template"],
                 "action": step["action"],
                 "requires_reindex": requires_reindex,
+                "additive_reindex": additive_reindex,
                 "description": step.get("description", ""),
                 "mapping_additions": step.get("mapping_additions", {}),
             })
@@ -332,14 +411,47 @@ def check_upgrade_state():
             "steps_pending": len(pending_steps),
             "templates_pending": len(set(step["template"] for step in pending_steps)),
             "reindex_steps": len([step for step in pending_steps if step["requires_reindex"]]),
+            "additive_reindex_steps": len([step for step in pending_steps if step.get("additive_reindex")]),
         },
     }
+
+
+def _create_index_or_data_stream(client, template_name: str, index_name: str) -> Dict[str, Any]:
+    """Create a plain index, or a data stream when the template declares one.
+
+    Data-stream-backed templates (a top-level ``data_stream`` block) cannot be
+    created with ``indices.create`` — Elasticsearch rejects it because the name
+    matches a data-stream template — so they are created with
+    ``indices.create_data_stream``. Returns a request record; swallows
+    ``resource_already_exists_exception`` so setup/upgrade stay idempotent.
+    """
+    is_data_stream = template_name in DATA_STREAM_TEMPLATES
+    action = "create_data_stream" if is_data_stream else "create_index"
+    try:
+        if is_data_stream:
+            response = client.indices.create_data_stream(name=index_name)
+        else:
+            response = client.indices.create(index=index_name)
+        return {
+            "index": index_name,
+            "action": action,
+            "response": {"body": response.body, "status": response.meta.status},
+            "ok": True,
+        }
+    except RequestError as e:
+        already_exists = getattr(e, "error", None) == "resource_already_exists_exception"
+        return {
+            "index": index_name,
+            "action": action,
+            "response": {"body": e.body, "status": e.meta.status},
+            "ok": already_exists,
+        }
 
 
 def run_setup():
     client = es("studio")
     result = {"failures": 0, "requests": []}
-    for _, path_index_template in PATH_INDEX_TEMPLATES:
+    for template_name, path_index_template in PATH_INDEX_TEMPLATES:
         body = _load_json(path_index_template)
         index_name = body["index_patterns"][0].replace("*", "")
         try:
@@ -356,18 +468,10 @@ def run_setup():
             })
 
         try:
-            response = client.indices.create(index=index_name)
-            result["requests"].append({
-                "index": index_name,
-                "response": {"body": response.body, "status": response.meta.status},
-            })
-        except RequestError as e:
-            result["requests"].append({
-                "index": index_name,
-                "response": {"body": e.body, "status": e.meta.status},
-            })
-            if e.error != "resource_already_exists_exception":
+            record = _create_index_or_data_stream(client, template_name, index_name)
+            if not record.pop("ok", False):
                 result["failures"] += 1
+            result["requests"].append(record)
         except ApiError as e:
             result["failures"] += 1
             result["requests"].append({
@@ -420,8 +524,66 @@ def _execute_upgrade_step(step: Dict[str, Any], index_templates: Dict[str, Dict[
                 "action": "put_mapping",
                 "response": {"body": response.body, "status": response.meta.status},
             })
+    elif step["action"] == "reindex_and_cutover":
+        requests.extend(_execute_reindex_and_cutover(step, template))
     else:
         raise ValueError(f"Unsupported upgrade action '{step['action']}'.")
+    return requests
+
+
+def _execute_reindex_and_cutover(step: Dict[str, Any], template: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Create the destination index/data stream, copy/split data into it, and
+    verify the destination count. Never deletes the source (additive-only).
+
+    The destination template was already registered by the shared
+    ``put_index_template`` prelude in ``_execute_upgrade_step``.
+    """
+    from .migrations import run_reindex_transform
+
+    requests: List[Dict[str, Any]] = []
+    client = es("studio")
+    dest = template["index_name"]
+    template_name = template["name"]
+    source = step["reindex"]["source"]
+    mode = step["reindex"]["mode"]
+
+    # 1. Create destination (data-stream-aware), idempotently.
+    record = _create_index_or_data_stream(client, template_name, dest)
+    created_ok = record.pop("ok", False)
+    requests.append(record)
+    if not created_ok:
+        raise ValueError(f"Failed to create destination '{dest}' for reindex_and_cutover.")
+
+    # 2. Copy/split source -> dest.
+    summary = run_reindex_transform(source, dest, mode)
+    requests.append({
+        "index": dest,
+        "action": "reindex_transform",
+        "response": {"status": 200, "body": {"source": source, "mode": mode, **summary}},
+    })
+    if summary.get("error_count"):
+        raise ValueError(
+            f"reindex_and_cutover for '{dest}' had {summary['error_count']} write errors: {summary.get('errors')}"
+        )
+
+    # 3. Verify destination count (fan-out aware: 'expected' is the number of
+    #    docs the transform intended to write). Refresh first so the count is
+    #    current; data streams refresh their backing indices.
+    try:
+        client.indices.refresh(index=dest)
+    except (ApiError, RequestError):
+        pass
+    actual = client.count(index=dest).body.get("count", 0)
+    expected = summary.get("expected", 0)
+    requests.append({
+        "index": dest,
+        "action": "verify_count",
+        "response": {"status": 200, "body": {"expected": expected, "actual": actual}},
+    })
+    if actual < expected:
+        raise ValueError(
+            f"reindex_and_cutover count mismatch for '{dest}': expected >= {expected}, found {actual}."
+        )
     return requests
 
 
@@ -452,7 +614,7 @@ def run_upgrade(additive_only: bool = True, via: str = "api"):
     for release in versions:
         release_failed = False
         for step in release["steps"]:
-            if additive_only and step.get("requires_reindex"):
+            if additive_only and _step_blocks_additive_upgrade(step):
                 release_failed = True
                 result["upgrade"]["failures"] += 1
                 result["upgrade"]["requests"].append({
@@ -521,7 +683,9 @@ def _has_upgrade_only_setup_failures(setup_state: Dict[str, Any], upgrade_state:
         if not template_name:
             continue
         template_fixable.add(template_name)
-        if step.get("action") == "create_template":
+        # Both create_template and reindex_and_cutover create the destination
+        # index/data stream, so a missing index for either is fixable by upgrade.
+        if step.get("action") in ("create_template", "reindex_and_cutover"):
             index_fixable.add(template_name)
 
     if not template_fixable:

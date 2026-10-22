@@ -43,7 +43,7 @@ const FlyoutHelp = ({ onClose }) => {
             What is a strategy?
           </h4>
           <p>
-            A <b>strategy</b> is a <EuiLink href='https://www.elastic.co/docs/solutions/search/retrievers-overview' target='_blank'>retriever</EuiLink> or <EuiLink href='https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl' target='_blank'>query</EuiLink> that you want to test in your search relevance evaluations. It becomes the contents of the <EuiCode>"source"</EuiCode> field of a <EuiLink href='https://www.elastic.co/docs/solutions/search/search-templates' target='_blank'>search template</EuiLink> in the <EuiLink href='https://www.elastic.co/guide/en/elasticsearch/reference/8.18/search-rank-eval.html' target='_blank'>Ranking Evaluation API</EuiLink>.
+            A <b>strategy</b> is a <EuiLink href='https://www.elastic.co/docs/solutions/search/retrievers-overview' target='_blank'>retriever</EuiLink> or <EuiLink href='https://www.elastic.co/docs/explore-analyze/query-filter/languages/querydsl' target='_blank'>query</EuiLink> that you want to test in your search relevance benchmark runs. It becomes the contents of the <EuiCode>"source"</EuiCode> field of a <EuiLink href='https://www.elastic.co/docs/solutions/search/search-templates' target='_blank'>search template</EuiLink> in the <EuiLink href='https://www.elastic.co/guide/en/elasticsearch/reference/8.18/search-rank-eval.html' target='_blank'>Ranking Evaluation API</EuiLink>.
           </p>
           <h4>
             How do I let my strategy accept variable inputs?

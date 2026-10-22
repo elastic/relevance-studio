@@ -184,7 +184,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-benchmarks" }},
+                                { "term": { "_index": "esrs-benchmark-configs" }},
                                 { "term": { "workspace_id": _id }}
                             ]
                         }
@@ -192,7 +192,7 @@ def delete(_id: str) -> Dict[str, Any]:
                     {
                         "bool": {
                             "filter": [
-                                { "term": { "_index": "esrs-evaluations" }},
+                                { "term": { "_index": "esrs-benchmark-runs" }},
                                 { "term": { "workspace_id": _id }}
                             ]
                         }
@@ -210,11 +210,25 @@ def delete(_id: str) -> Dict[str, Any]:
             "esrs-scenarios",
             "esrs-judgements",
             "esrs-strategies",
-            "esrs-benchmarks",
-            "esrs-evaluations",
+            "esrs-benchmark-configs",
+            "esrs-benchmark-runs",
         ]),
         body=body,
         refresh=True,
         conflicts="proceed",
     )
+
+    # Benchmark results/forensics are data streams that carry workspace_id on
+    # every document, so they are swept directly by workspace_id in a single
+    # query each (no _index filter — data-stream docs live in rolling backing
+    # indices). Tolerant of streams that don't exist yet.
+    stream_body = { "query": { "term": { "workspace_id": _id }}}
+    for stream in ("esrs-benchmark-results", "esrs-benchmark-forensics"):
+        try:
+            client.delete_by_query(
+                index=stream, body=stream_body, refresh=True, conflicts="proceed",
+            )
+        except Exception:
+            pass
+
     return es_response

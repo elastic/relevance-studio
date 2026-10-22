@@ -7,6 +7,7 @@
 
 import { useState } from 'react'
 import {
+  EuiBadge,
   EuiButtonIcon,
   EuiCode,
   EuiCodeBlock,
@@ -18,7 +19,7 @@ import {
 } from '@elastic/eui'
 import utils from '../../utils'
 
-const TableRuntimeJudgements = ({ items }) => {
+const TableRuntimeStrategies = ({ items }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -35,18 +36,16 @@ const TableRuntimeJudgements = ({ items }) => {
   ////  Render  ////////////////////////////////////////////////////////////////
 
   const renderDetails = (item) => {
-    const _item = { ...item }
-    delete _item.scenario
     return (
       <EuiPanel color='transparent' paddingSize='none'>
         <EuiCodeBlock
           isCopyable
           language='json'
           paddingSize='m'
-          overflowHeight={300}
+          overflowHeight={400}
           style={{ width: '100%' }}
         >
-          {utils.jsonStringifySortedKeys(_item, null, 2)}
+          {utils.jsonStringifySortedKeysWithTripleQuotes(item)}
         </EuiCodeBlock>
       </EuiPanel>
     )
@@ -79,38 +78,30 @@ const TableRuntimeJudgements = ({ items }) => {
       },
     },
     {
-      field: 'scenario',
-      name: 'Scenario',
+      field: 'name',
+      name: 'Strategy',
       sortable: true,
       truncateText: true,
-      render: (name, item) => item.scenario
+      render: (name, item) => item.name
     },
     {
-      field: 'index',
-      name: 'Index',
-      sortable: true,
-      truncateText: true,
-      render: (name, item) => item.index
-    },
-    {
-      field: 'doc_id',
-      name: 'Doc _id',
-      sortable: true,
-      truncateText: true,
-      render: (name, item) => item.doc_id
-    },
-    {
-      field: 'rating',
-      name: 'Rating',
-      sortable: true,
+      field: 'tags',
+      name: 'Tags',
       width: '100px',
-      render: (name, item) => item.rating
+      render: (name, item) => {
+        const tags = (item.tags ?? []).map(tag => (
+          <EuiBadge color='hollow' key={tag}>
+            {tag}
+          </EuiBadge>
+        ))
+        return tags
+      },
     },
     {
       field: '_fingerprint',
       style: { width: '275px' },
       name: <>
-        <EuiToolTip content='A hash of the judgement _id (which is a hash of its scenario_id, index, and doc_id) and its rating. If this fingerprint changes between evaluations, it can affect relevance metrics in subsequent evaluations.'>
+        <EuiToolTip content='A hash of the strategy template. If this fingerprint changes between runs, it can affect relevance metrics in subsequent runs.'>
           <span>
             Fingerprint <EuiIcon type='question' />
           </span>
@@ -126,7 +117,6 @@ const TableRuntimeJudgements = ({ items }) => {
 
   return (
     <EuiInMemoryTable
-      allowNeutralSort={false}
       columns={columns}
       itemId='_id'
       itemIdToExpandedRowMap={itemsToExpandedRows}
@@ -141,31 +131,11 @@ const TableRuntimeJudgements = ({ items }) => {
         filters: [
           {
             autoSortOptions: false,
-            field: 'scenario',
+            field: 'tags',
             multiSelect: 'or',
-            name: 'Scenario',
-            options: Array.from(new Set(items.map(({ scenario }) => scenario))).map(scenario => ({
-              value: scenario
-            })),
-            type: 'field_value_selection',
-          },
-          {
-            autoSortOptions: false,
-            field: 'index',
-            multiSelect: 'or',
-            name: 'Index',
-            options: Array.from(new Set(items.map(({ index }) => index))).map(index => ({
-              value: index
-            })),
-            type: 'field_value_selection',
-          },
-          {
-            autoSortOptions: false,
-            field: 'doc_id',
-            multiSelect: 'or',
-            name: 'Doc _id',
-            options: Array.from(new Set(items.map(({ doc_id }) => doc_id))).map(doc_id => ({
-              value: doc_id
+            name: 'Tags',
+            options: Array.from(new Set(items.flatMap(({ tags }) => tags ?? []))).map(tag => ({
+              value: tag
             })),
             type: 'field_value_selection',
           },
@@ -182,4 +152,4 @@ const TableRuntimeJudgements = ({ items }) => {
   )
 }
 
-export default TableRuntimeJudgements
+export default TableRuntimeStrategies

@@ -1,0 +1,122 @@
+{
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Benchmark Runs",
+    "version": "2.0.0"
+  },
+  "index_patterns": [
+    "esrs-benchmark-runs*"
+  ],
+  "template": {
+    "settings": {
+      "index": {
+        "sort.field": "@meta.created_at",
+        "sort.order": "desc"
+      }
+    },
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@meta": {
+          "properties": {
+            "status": {
+              "type": "keyword"
+            },
+            "created_at": {
+              "type": "date"
+            },
+            "created_by": {
+              "type": "keyword"
+            },
+            "created_via": {
+              "type": "keyword"
+            },
+            "started_at": {
+              "type": "date"
+            },
+            "started_by": {
+              "type": "keyword"
+            },
+            "stopped_at": {
+              "type": "date"
+            }
+          }
+        },
+        "workspace_id": {
+          "type": "keyword"
+        },
+        "benchmark_id": {
+          "type": "keyword"
+        },
+        "scenario_id": {
+          "type": "keyword"
+        },
+        "strategy_id": {
+          "type": "keyword"
+        },
+        "summary": {
+          "type": "object",
+          "enabled": false
+        },
+        "task": {
+          "properties": {
+            "metrics": {
+              "type": "keyword"
+            },
+            "k": {
+              "type": "short"
+            },
+            "requests": {
+              "type": "integer"
+            },
+            "strategies": {
+              "properties": {
+                "_ids": {
+                  "type": "keyword"
+                },
+                "tags": {
+                  "type": "keyword"
+                },
+                "docs": {
+                  "type": "object",
+                  "enabled": false
+                }
+              }
+            },
+            "scenarios": {
+              "properties": {
+                "_ids": {
+                  "type": "keyword"
+                },
+                "tags": {
+                  "type": "keyword"
+                },
+                "sample_size": {
+                  "type": "integer"
+                },
+                "sample_seed": {
+                  "type": "keyword"
+                }
+              }
+            }
+          }
+        },
+        "error": {
+          "properties": {
+            "type": {
+              "type": "keyword"
+            },
+            "message": {
+              "type": "text"
+            },
+            "traceback": {
+              "type": "text"
+            }
+          }
+        },
+        "took": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

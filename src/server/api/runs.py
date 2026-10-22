@@ -14,6 +14,7 @@ import logging
 # Elastic packages
 from elastic_transport import ConnectionError, ConnectionTimeout
 from elasticsearch import ApiError
+from elasticsearch.exceptions import NotFoundError
 
 # App packages
 from . import benchmarks, content
@@ -23,14 +24,20 @@ from ..client import es
 if TYPE_CHECKING:
     from elasticsearch import Elasticsearch
 from ..models import (
-    EvaluationComplete,
-    EvaluationCreate,
-    EvaluationFail,
-    EvaluationSkip,
+    RunComplete,
+    RunCreate,
+    RunFail,
+    RunSkip,
+    BenchmarkResult,
+    BenchmarkForensics,
 )
+from elasticsearch import helpers
 
-INDEX_NAME = "esrs-evaluations"
-SEARCH_FIELDS = utils.get_search_fields_from_mapping("evaluations")
+INDEX_NAME = "esrs-benchmark-runs"
+CONFIGS_INDEX_NAME = "esrs-benchmark-configs"
+RESULTS_INDEX_NAME = "esrs-benchmark-results"
+FORENSICS_INDEX_NAME = "esrs-benchmark-forensics"
+SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmark-runs")
 VALID_METRICS = set([ "mrr", "ndcg", "precision", "recall" ])
 RANK_EVAL_BATCH_SIZE = int(os.getenv("RANK_EVAL_BATCH_SIZE", "0"))
 def _parse_rank_eval_batch_delay_seconds(value: str) -> float:
@@ -253,6 +260,96 @@ def generate_summary(evaluation, strategies: List, scenarios: List):
 
     return summary
 
+
+def _write_results_and_forensics(evaluation: Dict[str, Any], run_id: str) -> None:
+    """Persist scored results and the forensics audit doc for a finished run.
+
+    This MUST run before the run doc's terminal status is flipped, so that the
+    run doc's @meta.status is the single source of truth for "this run's data is
+    complete and trustworthy." If this succeeds and the subsequent terminal
+    update fails/crashes, the run is left "running" (not falsely complete) and
+    any results/forensics already written are harmless orphans until a stale
+    sweep removes them.
+
+    Writes are append-only (op_type: create) into the two data streams, each
+    document tagged with run_id + workspace_id + benchmark_id and a populated
+    @timestamp (the run's stopped_at). _ids are deterministic so a retry after a
+    partial write is idempotent (duplicates return a benign 409).
+    """
+    client = es("studio")
+    workspace_id = evaluation.get("workspace_id")
+    benchmark_id = evaluation.get("benchmark_id")
+    # @timestamp: the terminal @meta.stopped_at set during model validation,
+    # falling back to write-time if somehow absent.
+    stopped_at = (evaluation.get("@meta") or {}).get("stopped_at") or utils.timestamp()
+
+    actions: List[Dict[str, Any]] = []
+
+    # One results document per (strategy_id, scenario_id) search, flattening the
+    # nested results[].searches[] structure.
+    for result in (evaluation.get("results") or []):
+        strategy_id = result.get("strategy_id")
+        for search in (result.get("searches") or []):
+            scenario_id = search.get("scenario_id")
+            doc = BenchmarkResult.model_validate({
+                "run_id": run_id,
+                "workspace_id": workspace_id,
+                "benchmark_id": benchmark_id,
+                "strategy_id": strategy_id,
+                "scenario_id": scenario_id,
+                "metrics": search.get("metrics") or {},
+                "hits": search.get("hits") or [],
+                "@timestamp": stopped_at,
+            }).serialize()
+            actions.append({
+                "_op_type": "create",
+                "_index": RESULTS_INDEX_NAME,
+                "_id": utils.unique_id([run_id, strategy_id, scenario_id]),
+                "_source": doc,
+            })
+
+    # Exactly one forensics document per run (runtime + unrated_docs + per-strategy
+    # failures). Always written for completed/failed runs so forensics count
+    # tracks run count.
+    failures = [
+        {"strategy_id": r.get("strategy_id"), "failures": r.get("failures")}
+        for r in (evaluation.get("results") or [])
+        if r.get("failures")
+    ]
+    forensics_input: Dict[str, Any] = {
+        "run_id": run_id,
+        "workspace_id": workspace_id,
+        "benchmark_id": benchmark_id,
+        "@timestamp": stopped_at,
+    }
+    if evaluation.get("runtime") is not None:
+        forensics_input["runtime"] = evaluation["runtime"]
+    if evaluation.get("unrated_docs") is not None:
+        forensics_input["unrated_docs"] = evaluation["unrated_docs"]
+    if failures:
+        forensics_input["failures"] = failures
+    forensics_doc = BenchmarkForensics.model_validate(forensics_input).serialize()
+    actions.append({
+        "_op_type": "create",
+        "_index": FORENSICS_INDEX_NAME,
+        "_id": utils.unique_id([run_id, "forensics"]),
+        "_source": forensics_doc,
+    })
+
+    # Bulk write; tolerate benign already-exists conflicts from idempotent
+    # retries, but surface any real error so the caller does NOT flip the run to
+    # a terminal "complete" state over incomplete data.
+    _, errors = helpers.bulk(
+        client, actions, raise_on_error=False, refresh="wait_for", stats_only=False,
+    )
+    real_errors = [
+        e for e in (errors or [])
+        if (e.get("create", e.get("index", {})) or {}).get("status") != 409
+    ]
+    if real_errors:
+        raise RuntimeError(f"Failed to write run results/forensics: {real_errors[:5]}")
+
+
 def run(
         evaluation: Dict[str, Any],
         store_results: Optional[bool] = False,
@@ -288,7 +385,7 @@ def run(
     if benchmark_id:
         try:
             es_response = es("studio").get(
-                index="esrs-benchmarks",
+                index=CONFIGS_INDEX_NAME,
                 id=benchmark_id,
                 source_includes=["task.rank_eval_batch_size", "task.rank_eval_batch_delay"]
             )
@@ -307,7 +404,7 @@ def run(
             return
         try:
             es("studio").update(
-                index="esrs-benchmarks",
+                index=CONFIGS_INDEX_NAME,
                 id=benchmark_id,
                 script={
                     "source": """
@@ -346,7 +443,7 @@ def run(
                 doc_updates = {
                     "took": int((time.time() - started_at) * 1000)
                 }
-                doc_updates = EvaluationSkip.model_validate(doc_updates).serialize()
+                doc_updates = RunSkip.model_validate(doc_updates).serialize()
                 client = es("studio")
                 es_response = client.update(
                     index=INDEX_NAME,
@@ -573,10 +670,16 @@ def run(
             # If no scenarios have ratings, mark evaluation as skipped
             evaluation["took"] = int((time.time() - started_at) * 1000)
             if store_results:
+                # Skipped: no scored results and no runtime snapshot to persist;
+                # write only the run doc's terminal status. Strip any heavy
+                # fields so they never land on the small run doc.
+                skip_doc = RunSkip.model_validate(evaluation).serialize()
+                for heavy in ("results", "runtime", "unrated_docs"):
+                    skip_doc.pop(heavy, None)
                 client.update(
                     index=INDEX_NAME,
                     id=evaluation_id,
-                    doc=EvaluationSkip.model_validate(evaluation).serialize(),
+                    doc=skip_doc,
                     refresh=True
                 )
             return evaluation
@@ -726,14 +829,22 @@ def run(
         # Create final response
         stopped_at = time.time()
         evaluation["took"] = int(( stopped_at - started_at) * 1000)
-        doc = EvaluationComplete.model_validate(evaluation).serialize()
-        
+        doc = RunComplete.model_validate(evaluation).serialize()
+
         # Store results
         if store_results:
+            # Write results + forensics into the data streams BEFORE flipping the
+            # run doc's terminal status, so the run doc's status is the single
+            # source of truth for "this run's data is complete and trustworthy."
+            _write_results_and_forensics(doc, evaluation_id)
+
+            # The run doc itself stays small: strip the heavy fields that now live
+            # in the data streams before writing it.
+            run_doc = {k: v for k, v in doc.items() if k not in ("results", "runtime", "unrated_docs")}
             es_response = client.update(
                 index=INDEX_NAME,
                 id=evaluation_id,
-                doc=doc,
+                doc=run_doc,
                 refresh=True
             )
             persist_benchmark_requests_count(rank_eval_requests_count)
@@ -750,13 +861,25 @@ def run(
             "traceback": "".join(traceback.format_exception(type(e), e, e.__traceback__))
         }
         evaluation["task"]["requests"] = rank_eval_requests_count
-        doc = EvaluationFail.model_validate(evaluation).serialize()
+        doc = RunFail.model_validate(evaluation).serialize()
         if store_results:
             client = es("studio")
+            # Persist whatever results/forensics were accumulated before the
+            # failure (best-effort) before flipping the terminal status, same
+            # ordering guarantee as the completed path. A secondary failure here
+            # must not mask the original error, so it is swallowed and logged.
+            try:
+                _write_results_and_forensics(doc, evaluation_id)
+            except Exception:
+                logger.exception(
+                    "Failed to persist results/forensics for failed run",
+                    extra={"run_id": evaluation_id},
+                )
+            run_doc = {k: v for k, v in doc.items() if k not in ("results", "runtime", "unrated_docs")}
             client.update(
                 index=INDEX_NAME,
                 id=evaluation_id,
-                doc=doc,
+                doc=run_doc,
                 refresh=True
             )
             persist_benchmark_requests_count(rank_eval_requests_count)
@@ -789,18 +912,22 @@ def search(
     """
     filters = [{ "term": { "benchmark_id": benchmark_id }}]
     response = utils.search_assets(
-        "evaluations", workspace_id, text, filters, sort, size, page,
+        "runs", workspace_id, text, filters, sort, size, page,
     )
     return response
 
 def get(_id: str) -> Dict[str, Any]:
-    """Get an evaluation by its _id.
+    """Get a run by its _id.
+
+    Returns the small run document (status, task, summary, error, took). The
+    heavy per-search results and the runtime/unrated-docs audit trail are NOT on
+    this document; fetch them from the results stream or via get_forensics().
 
     Args:
-        _id: The UUID of the evaluation.
+        _id: The UUID of the run.
 
     Returns:
-        The evaluation document from Elasticsearch.
+        The run document from Elasticsearch.
     """
     client = es("studio")
     es_response = client.get(
@@ -809,6 +936,36 @@ def get(_id: str) -> Dict[str, Any]:
         source_excludes="_search",
     )
     return es_response
+
+def get_forensics(run_id: str) -> Dict[str, Any]:
+    """Get the forensics audit document (runtime, unrated_docs, failures) for a run.
+
+    The forensics data lives in the esrs-benchmark-forensics data stream (one
+    document per run), keyed by run_id. This is read-rarely data needed only by
+    the runtime-assets flyout and the unrated-docs/judgement-gap-fill workflow,
+    so it is fetched on demand rather than loaded with the run doc.
+
+    Args:
+        run_id: The UUID of the run.
+
+    Returns:
+        A dict shaped like a single-doc get: {"_id", "found", "_source"} where
+        _source has {run_id, workspace_id, benchmark_id, runtime, unrated_docs,
+        failures, @timestamp}. `found` is False if no forensics exist (e.g. a
+        skipped run, which writes none).
+    """
+    client = es("studio")
+    try:
+        es_response = client.search(
+            index=FORENSICS_INDEX_NAME,
+            body={"query": {"term": {"run_id": run_id}}, "size": 1},
+        )
+    except NotFoundError:
+        return {"_id": run_id, "found": False, "_source": {}}
+    hits = es_response.body.get("hits", {}).get("hits", [])
+    if not hits:
+        return {"_id": run_id, "found": False, "_source": {}}
+    return {"_id": run_id, "found": True, "_source": hits[0]["_source"]}
 
 def create(
         workspace_id: str,
@@ -835,7 +992,7 @@ def create(
         "benchmark_id": benchmark_id,
         "task": task
     }
-    doc = EvaluationCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
+    doc = RunCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
     
     client = es("studio")
     es_response = client.index(
@@ -846,16 +1003,38 @@ def create(
     )
     return es_response
 
+def _delete_stream_docs_by_run_ids(client, run_ids: List[str]) -> None:
+    """Delete results/forensics data-stream docs for the given run_ids.
+
+    delete_by_query against a data stream removes matching documents (it does
+    not remove backing indices; DLM handles those). Safe no-op if the streams
+    do not exist yet.
+    """
+    if not run_ids:
+        return
+    body = { "query": { "terms": { "run_id": run_ids }}}
+    for stream in (RESULTS_INDEX_NAME, FORENSICS_INDEX_NAME):
+        try:
+            client.delete_by_query(
+                index=stream, body=body, refresh=True, conflicts="proceed",
+            )
+        except NotFoundError:
+            # Stream not created yet (e.g. only skipped runs so far) — nothing to delete.
+            pass
+
+
 def delete(_id: str) -> Dict[str, Any]:
-    """Delete an evaluation from Elasticsearch.
+    """Delete a run and its results/forensics from Elasticsearch.
 
     Args:
-        _id: The UUID of the evaluation to delete.
+        _id: The UUID of the run.
 
     Returns:
-        The response from the Elasticsearch delete operation.
+        The response from the Elasticsearch delete operation on the run doc.
     """
     client = es("studio")
+    # Remove the run's immutable results/forensics first, then the run doc.
+    _delete_stream_docs_by_run_ids(client, [_id])
     es_response = client.delete(
         index=INDEX_NAME,
         id=_id,
@@ -864,29 +1043,47 @@ def delete(_id: str) -> Dict[str, Any]:
     return es_response
 
 def cleanup(time_ago: str = "2h") -> Dict[str, Any]:
-    """Delete stale "running" evaluations from Elasticsearch.
+    """Delete stale "running" runs and their orphaned results/forensics.
+
+    A run that crashed mid-flight is left "running"; sweeping it must also remove
+    any results/forensics documents already written for that run_id, otherwise
+    orphans accumulate forever in the append-only data streams.
 
     Args:
         time_ago: A relative time string (e.g., "2h") defining what is considered stale.
 
     Returns:
-        The response from the Elasticsearch delete_by_query operation.
+        The response from the Elasticsearch delete_by_query operation on the run docs.
     """
-    body = {
-        "query": {
-            "bool": {
-                "must": [
-                    { "term": { "@meta.status": "running" }},
-                    { "range": { "@meta.started_at": { "lt": f"now-{time_ago}" }}}
-                ]
-            }
+    client = es("studio")
+
+    # Identify the stale running runs first so we can clean their stream docs by
+    # run_id before deleting the run docs themselves.
+    stale_query = {
+        "bool": {
+            "must": [
+                { "term": { "@meta.status": "running" }},
+                { "range": { "@meta.started_at": { "lt": f"now-{time_ago}" }}}
+            ]
         }
     }
-    client = es("studio")
+    stale_ids: List[str] = []
+    try:
+        found = client.search(
+            index=INDEX_NAME,
+            body={"query": stale_query, "_source": False, "size": 10000},
+        )
+        stale_ids = [hit["_id"] for hit in found.body["hits"]["hits"]]
+    except NotFoundError:
+        stale_ids = []
+
+    _delete_stream_docs_by_run_ids(client, stale_ids)
+
     es_response = client.delete_by_query(
         index=INDEX_NAME,
-        body=body,
+        body={"query": stale_query},
         refresh=True,
+        conflicts="proceed",
     )
     return es_response
     

@@ -338,10 +338,10 @@ def benchmarks_delete(ctx: Context, _id: str) -> Dict[str, Any]:
     return dict(api.benchmarks.delete(_id))
 
 
-####  API: Evaluations  ########################################################
+####  API: Runs  ###############################################################
 
-@mcp.tool(description=api.evaluations.search.__doc__)
-def evaluations_search(
+@mcp.tool(description=api.runs.search.__doc__)
+def runs_search(
         ctx: Context,
         workspace_id: str = "",
         benchmark_id: str = "",
@@ -353,29 +353,34 @@ def evaluations_search(
         aggs: Optional[bool] = False,
     ) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.evaluations.search(workspace_id, benchmark_id, text, filters, sort, size, page, aggs))
+    return dict(api.runs.search(workspace_id, benchmark_id, text, filters, sort, size, page, aggs))
 
-@mcp.tool(description=api.evaluations.get.__doc__)
-def evaluations_get(ctx: Context, _id: str) -> Dict[str, Any]:
+@mcp.tool(description=api.runs.get.__doc__)
+def runs_get(ctx: Context, _id: str) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.evaluations.get(_id))
+    return dict(api.runs.get(_id))
 
-@mcp.tool(description=api.evaluations.create.__doc__ + f"""\n
-JSON schema for doc:\n\n{EvaluationCreate.model_input_json_schema()}
+@mcp.tool(description=api.runs.get_forensics.__doc__)
+def runs_get_forensics(ctx: Context, run_id: str) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_forensics(run_id))
+
+@mcp.tool(description=api.runs.create.__doc__ + f"""\n
+JSON schema for doc:\n\n{RunCreate.model_input_json_schema()}
 """)
-def evaluations_create(ctx: Context, workspace_id: str, benchmark_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
+def runs_create(ctx: Context, workspace_id: str, benchmark_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.evaluations.create(workspace_id, benchmark_id, task, user=user, via="mcp"))
+    return dict(api.runs.create(workspace_id, benchmark_id, task, user=user, via="mcp"))
 
-@mcp.tool(description=api.evaluations.run.__doc__)
-def evaluations_run(ctx: Context, evaluation: Dict[str, Any], store_results: Optional[bool] = False) -> Dict[str, Any]:
+@mcp.tool(description=api.runs.run.__doc__)
+def runs_run(ctx: Context, run: Dict[str, Any], store_results: Optional[bool] = False) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.evaluations.run(evaluation, store_results, started_by=user))
+    return dict(api.runs.run(run, store_results, started_by=user))
 
-@mcp.tool(description=api.evaluations.delete.__doc__)
-def evaluations_delete(ctx: Context, _id: str) -> Dict[str, Any]:
+@mcp.tool(description=api.runs.delete.__doc__)
+def runs_delete(ctx: Context, _id: str) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.evaluations.delete(_id))
+    return dict(api.runs.delete(_id))
 
 
 ####  API: Content  ############################################################

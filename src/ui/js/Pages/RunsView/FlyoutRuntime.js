@@ -21,17 +21,21 @@ import TableRuntimeJudgements from './TableRuntimeJudgements'
 import TableRuntimeScenarios from './TableRuntimeScenarios'
 import TableRuntimeStrategies from './TableRuntimeStrategies'
 
-const FlyoutRuntime = ({ runtime, onClose }) => {
+const FlyoutRuntime = ({ runtime, isLoading, onClose }) => {
+
+  // Runtime assets are loaded on demand from the forensics store, so `runtime`
+  // may be undefined while loading or for runs that have no forensics.
+  const rt = runtime || {}
 
   // Runtime assets as arrays for table components.
-  const indices = Object.entries(runtime.indices || {})
+  const indices = Object.entries(rt.indices || {})
     .map(([key, value]) => ({ _id: key, ...value }))
-  const strategies = Object.entries(runtime.strategies || {})
+  const strategies = Object.entries(rt.strategies || {})
     .map(([key, value]) => ({ _id: key, ...value }))
-  const scenarios = Object.entries(runtime.scenarios || {})
+  const scenarios = Object.entries(rt.scenarios || {})
     .map(([key, value]) => ({ _id: key, ...value }))
-  const judgements = Object.entries(runtime.judgements || {})
-    .map(([key, value]) => ({ _id: key, ...value, scenario: runtime.scenarios?.[value.scenario_id]?.name }))
+  const judgements = Object.entries(rt.judgements || {})
+    .map(([key, value]) => ({ _id: key, ...value, scenario: rt.scenarios?.[value.scenario_id]?.name }))
 
   const renderIndices = () => {
     return (<>

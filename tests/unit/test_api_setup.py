@@ -279,7 +279,7 @@ def test_has_upgrade_only_setup_failures_false_when_any_failure_is_not_upgrade_r
         "failures": 2,
         "requests": [
             {"index_template": "esrs-conversations", "response": {"status": 404}},
-            {"index_template": "esrs-benchmarks", "response": {"status": 404}},
+            {"index_template": "esrs-benchmark-configs", "response": {"status": 404}},
         ],
     }
     upgrade_state = {
@@ -302,8 +302,8 @@ def test_has_upgrade_only_setup_failures_false_for_fresh_install():
         "esrs-scenarios",
         "esrs-judgements",
         "esrs-strategies",
-        "esrs-benchmarks",
-        "esrs-evaluations",
+        "esrs-benchmark-configs",
+        "esrs-benchmark-runs",
     ]
     requests = []
     for name in templates:

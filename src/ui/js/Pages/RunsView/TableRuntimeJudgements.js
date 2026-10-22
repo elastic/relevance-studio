@@ -18,7 +18,7 @@ import {
 } from '@elastic/eui'
 import utils from '../../utils'
 
-const TableRuntimeIndices = ({ items }) => {
+const TableRuntimeJudgements = ({ items }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -36,14 +36,14 @@ const TableRuntimeIndices = ({ items }) => {
 
   const renderDetails = (item) => {
     const _item = { ...item }
-    delete _item._id
+    delete _item.scenario
     return (
       <EuiPanel color='transparent' paddingSize='none'>
         <EuiCodeBlock
           isCopyable
           language='json'
           paddingSize='m'
-          overflowHeight={400}
+          overflowHeight={300}
           style={{ width: '100%' }}
         >
           {utils.jsonStringifySortedKeys(_item, null, 2)}
@@ -79,32 +79,38 @@ const TableRuntimeIndices = ({ items }) => {
       },
     },
     {
-      field: '_index',
+      field: 'scenario',
+      name: 'Scenario',
+      sortable: true,
+      truncateText: true,
+      render: (name, item) => item.scenario
+    },
+    {
+      field: 'index',
       name: 'Index',
       sortable: true,
       truncateText: true,
-      render: (name, item) => item._index
+      render: (name, item) => item.index
     },
     {
-      field: 'settings.index.creation_date',
-      name: 'Created',
-      render: (name, item) => item.settings?.index?.creation_date ? new Date(Number(item.settings?.index?.creation_date)).toISOString() : ''
+      field: 'doc_id',
+      name: 'Doc _id',
+      sortable: true,
+      truncateText: true,
+      render: (name, item) => item.doc_id
     },
     {
-      field: 'settings.index.uuid',
-      name: 'UUID',
-      style: { width: '200px' },
-      render: (name, item) => (
-        <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
-          {item.settings?.index?.uuid}
-        </EuiCode>
-      )
+      field: 'rating',
+      name: 'Rating',
+      sortable: true,
+      width: '100px',
+      render: (name, item) => item.rating
     },
     {
       field: '_fingerprint',
       style: { width: '275px' },
       name: <>
-        <EuiToolTip content='A hash of the index UUID and the max_seq_no of its shards. If this fingerprint changes between evaluations, it means the index executed write operations, which can affect relevance metrics in subsequent evaluations.'>
+        <EuiToolTip content='A hash of the judgement _id (which is a hash of its scenario_id, index, and doc_id) and its rating. If this fingerprint changes between runs, it can affect relevance metrics in subsequent runs.'>
           <span>
             Fingerprint <EuiIcon type='question' />
           </span>
@@ -131,11 +137,43 @@ const TableRuntimeIndices = ({ items }) => {
         box: {
           incremental: true,
           schema: true,
-        }
+        },
+        filters: [
+          {
+            autoSortOptions: false,
+            field: 'scenario',
+            multiSelect: 'or',
+            name: 'Scenario',
+            options: Array.from(new Set(items.map(({ scenario }) => scenario))).map(scenario => ({
+              value: scenario
+            })),
+            type: 'field_value_selection',
+          },
+          {
+            autoSortOptions: false,
+            field: 'index',
+            multiSelect: 'or',
+            name: 'Index',
+            options: Array.from(new Set(items.map(({ index }) => index))).map(index => ({
+              value: index
+            })),
+            type: 'field_value_selection',
+          },
+          {
+            autoSortOptions: false,
+            field: 'doc_id',
+            multiSelect: 'or',
+            name: 'Doc _id',
+            options: Array.from(new Set(items.map(({ doc_id }) => doc_id))).map(doc_id => ({
+              value: doc_id
+            })),
+            type: 'field_value_selection',
+          },
+        ]
       }}
       sorting={{
         sort: {
-          field: '_index',
+          field: 'name',
           direction: 'asc',
         }
       }}
@@ -144,4 +182,4 @@ const TableRuntimeIndices = ({ items }) => {
   )
 }
 
-export default TableRuntimeIndices
+export default TableRuntimeJudgements

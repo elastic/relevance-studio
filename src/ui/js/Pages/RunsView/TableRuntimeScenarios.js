@@ -19,7 +19,7 @@ import {
 } from '@elastic/eui'
 import utils from '../../utils'
 
-const TableRuntimeStrategies = ({ items }) => {
+const TableRuntimeScenarios = ({ items }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -42,10 +42,10 @@ const TableRuntimeStrategies = ({ items }) => {
           isCopyable
           language='json'
           paddingSize='m'
-          overflowHeight={400}
+          overflowHeight={300}
           style={{ width: '100%' }}
         >
-          {utils.jsonStringifySortedKeysWithTripleQuotes(item)}
+          {utils.jsonStringifySortedKeys(item, null, 2)}
         </EuiCodeBlock>
       </EuiPanel>
     )
@@ -79,10 +79,29 @@ const TableRuntimeStrategies = ({ items }) => {
     },
     {
       field: 'name',
-      name: 'Strategy',
+      name: 'Scenario',
       sortable: true,
       truncateText: true,
+      width: '100px',
       render: (name, item) => item.name
+    },
+    {
+      field: 'values',
+      name: 'Values',
+      render: (name, item) => {
+        return (
+          <div style={{ width: '100%' }}>
+            <EuiCodeBlock
+              language='json'
+              paddingSize='xs'
+              style={{ fontSize: '11px' }}
+              transparentBackground
+            >
+              {JSON.stringify(item.values)}
+            </EuiCodeBlock>
+          </div>
+        )
+      },
     },
     {
       field: 'tags',
@@ -101,7 +120,7 @@ const TableRuntimeStrategies = ({ items }) => {
       field: '_fingerprint',
       style: { width: '275px' },
       name: <>
-        <EuiToolTip content='A hash of the strategy template. If this fingerprint changes between evaluations, it can affect relevance metrics in subsequent evaluations.'>
+        <EuiToolTip content='A hash of the scenario values. If this fingerprint changes between runs, it can affect relevance metrics in subsequent runs.'>
           <span>
             Fingerprint <EuiIcon type='question' />
           </span>
@@ -117,6 +136,7 @@ const TableRuntimeStrategies = ({ items }) => {
 
   return (
     <EuiInMemoryTable
+      allowNeutralSort={false}
       columns={columns}
       itemId='_id'
       itemIdToExpandedRowMap={itemsToExpandedRows}
@@ -152,4 +172,4 @@ const TableRuntimeStrategies = ({ items }) => {
   )
 }
 
-export default TableRuntimeStrategies
+export default TableRuntimeScenarios

@@ -30,20 +30,25 @@ import ChartMetricsHeatmap from './ChartMetricsHeatmap'
 import PanelUnratedDocs from './PanelUnratedDocs'
 import TableMetrics from './TableMetrics'
 import { getHistory } from '../../history'
+import api from '../../api'
 import utils from '../../utils'
 
-const EvaluationsView = () => {
+const RunsView = () => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const history = getHistory()
-  const { workspace, benchmark, evaluation } = usePageResources()
-  const isReady = useResources().hasResources(['workspace', 'benchmark', 'evaluation'])
+  const { workspace, benchmark, run } = usePageResources()
+  const isReady = useResources().hasResources(['workspace', 'benchmark', 'run'])
 
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [strategyInFocus, setStrategyInFocus] = useState(null)
   const [isFlyoutRuntimeOpen, setIsFlyoutRuntimeOpen] = useState(false)
+  // Forensics (runtime + unrated_docs) live in a separate store and are loaded
+  // on demand to keep the run doc (and this page's initial load) small.
+  const [forensics, setForensics] = useState(null)
+  const [isForensicsLoading, setIsForensicsLoading] = useState(false)
   const [metricOpen, setMetricOpen] = useState(false)
   const [metricOptions, setMetricOptions] = useState([])
   const [metricSelected, setMetricSelected] = useState(null)
@@ -108,12 +113,41 @@ const EvaluationsView = () => {
     setMetricSelected({ _id: first, label: labelForMetric(first), checked: 'on' })
   }, [normalizedBenchmarkMetrics])
 
-  const downloadEvaluation = () => {
-    const blob = new Blob([utils.jsonStringifySortedKeys(evaluation, null, 2)], { type: 'application/json' })
+  // Lazy-load the forensics doc (runtime + unrated_docs) once the run is ready.
+  // Skipped runs have no forensics; the endpoint simply returns found: false.
+  useEffect(() => {
+    if (!workspace?._id || !benchmark?._id || !run?._id) return
+    if (forensics !== null || isForensicsLoading) return
+    let cancelled = false
+    setIsForensicsLoading(true)
+    api.runs_get_forensics(workspace._id, benchmark._id, run._id)
+      .then((response) => {
+        if (cancelled) return
+        setForensics(response?.data?._source ?? {})
+      })
+      .catch(() => { if (!cancelled) setForensics({}) })
+      .finally(() => { if (!cancelled) setIsForensicsLoading(false) })
+    return () => { cancelled = true }
+  }, [workspace?._id, benchmark?._id, run?._id])
+
+  // A run-shaped object that merges the small run doc with the lazily-loaded
+  // forensics (runtime + unrated_docs), so the existing child components (which
+  // expect those fields together) keep working unchanged.
+  const runWithForensics = useMemo(() => {
+    if (!run) return run
+    return {
+      ...run,
+      runtime: forensics?.runtime,
+      unrated_docs: forensics?.unrated_docs ?? [],
+    }
+  }, [run, forensics])
+
+  const downloadRun = () => {
+    const blob = new Blob([utils.jsonStringifySortedKeys(runWithForensics, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `evaluation-${evaluation._id}.json`
+    a.download = `run-${run._id}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -316,8 +350,8 @@ const EvaluationsView = () => {
   const renderButtonDownload = () => (
     <EuiButton
       iconType='download'
-      onClick={() => downloadEvaluation()}>
-      Download evaluation
+      onClick={() => downloadRun()}>
+      Download run
     </EuiButton>
   )
 
@@ -347,13 +381,14 @@ const EvaluationsView = () => {
     >
       {isFlyoutRuntimeOpen &&
         <FlyoutRuntime
-          runtime={evaluation?.runtime}
+          runtime={forensics?.runtime}
+          isLoading={isForensicsLoading}
           onClose={() => setIsFlyoutRuntimeOpen(false)}
         />
       }
 
       {/* Error */}
-      {!!Object.keys(evaluation?.error ?? {}).length &&
+      {!!Object.keys(run?.error ?? {}).length &&
         <>
           <EuiPanel paddingSize='none'>
             <EuiPanel color='transparent'>
@@ -364,16 +399,16 @@ const EvaluationsView = () => {
             <EuiHorizontalRule margin='none' />
             <EuiPanel color='transparent'>
               <p>
-                Evaluation failed due to this error:
+                This run failed due to this error:
               </p>
               <br />
-              <EuiCallOut color='danger' title={evaluation.error.type || 'Unknown error'}>
-                {evaluation.error.traceback &&
+              <EuiCallOut color='danger' title={run.error.type || 'Unknown error'}>
+                {run.error.traceback &&
                   <EuiCodeBlock language='python'>
-                    {evaluation.error.traceback}
+                    {run.error.traceback}
                   </EuiCodeBlock>
                 }
-                {!evaluation.error.traceback &&
+                {!run.error.traceback &&
                   <p>No other information was given for this error.</p>
                 }
               </EuiCallOut>
@@ -384,7 +419,7 @@ const EvaluationsView = () => {
       }
 
       {/* Running */}
-      {evaluation && evaluation['@meta']?.status == 'running' &&
+      {run && run['@meta']?.status == 'running' &&
         <>
           <EuiPanel paddingSize='none'>
             <EuiPanel color='transparent'>
@@ -395,7 +430,7 @@ const EvaluationsView = () => {
             <EuiHorizontalRule margin='none' />
             <EuiPanel color='transparent'>
               <EuiCallOut>
-                This evaluation is still running. You can return to this page when the evaluation is completed.
+                This run is still running. You can return to this page when the run is completed.
               </EuiCallOut>
             </EuiPanel>
           </EuiPanel>
@@ -404,7 +439,7 @@ const EvaluationsView = () => {
       }
 
       {/* Skipped */}
-      {evaluation && evaluation['@meta']?.status == 'skipped' &&
+      {run && run['@meta']?.status == 'skipped' &&
         <>
           <EuiPanel paddingSize='none'>
             <EuiPanel color='transparent'>
@@ -415,7 +450,7 @@ const EvaluationsView = () => {
             <EuiHorizontalRule margin='none' />
             <EuiPanel color='transparent'>
               <EuiCallOut>
-                This evaluation was skipped. This happens when the scenarios have no judgements with ratings.
+                This run was skipped. This happens when the scenarios have no judgements with ratings.
               </EuiCallOut>
             </EuiPanel>
           </EuiPanel>
@@ -424,7 +459,7 @@ const EvaluationsView = () => {
       }
 
       {/* Metrics */}
-      {evaluation?.summary &&
+      {run?.summary &&
         <>
           <EuiPanel paddingSize='none'>
             <EuiPanel color='transparent'>
@@ -438,7 +473,7 @@ const EvaluationsView = () => {
 
                 {/* Table */}
                 <EuiFlexItem>
-                  <TableMetrics evaluation={evaluation} rowOnHover={setStrategyInFocus} />
+                  <TableMetrics evaluation={run} rowOnHover={setStrategyInFocus} />
                 </EuiFlexItem>
               </EuiFlexGroup>
             </EuiPanel>
@@ -448,7 +483,7 @@ const EvaluationsView = () => {
       }
 
       {/* Heatmap */}
-      {evaluation?.summary &&
+      {run?.summary &&
         <>
           <EuiPanel paddingSize='none'>
             <EuiPanel color='transparent'>
@@ -463,7 +498,7 @@ const EvaluationsView = () => {
                 <EuiSpacer size='m' />
                 {metricSelected &&
                   <ChartMetricsHeatmap
-                    evaluation={evaluation}
+                    evaluation={run}
                     metric={metricSelected._id}
                     xGroupBy={xGroupBySelected._id}
                     yGroupBy={yGroupBySelected._id}
@@ -477,8 +512,8 @@ const EvaluationsView = () => {
         </>
       }
 
-      {/* Unrated docs */}
-      {evaluation?.summary &&
+      {/* Unrated docs (from the forensics store) */}
+      {run?.summary && (forensics?.unrated_docs?.length ?? 0) > 0 &&
         <>
           <EuiPanel paddingSize='none'>
             <EuiFlexGroup>
@@ -493,7 +528,7 @@ const EvaluationsView = () => {
                 <EuiPanel color='transparent' paddingSize='none'>
                   <EuiButton style={{ margin: '8px 16px' }} onClick={(e) => {
                     const pairs = []
-                    evaluation.unrated_docs.forEach((doc) => {
+                    forensics.unrated_docs.forEach((doc) => {
                       pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
                     })
                     const query = encodeURIComponent(pairs.join(' OR '))
@@ -506,7 +541,7 @@ const EvaluationsView = () => {
             </EuiFlexGroup>
             <EuiHorizontalRule margin='none' />
             <EuiPanel color='transparent' style={{ height: '600px', overflowY: 'scroll' }}>
-              <PanelUnratedDocs evaluation={evaluation} />
+              <PanelUnratedDocs evaluation={runWithForensics} />
             </EuiPanel>
           </EuiPanel>
           <EuiSpacer size='m' />
@@ -518,4 +553,4 @@ const EvaluationsView = () => {
   )
 }
 
-export default EvaluationsView
+export default RunsView

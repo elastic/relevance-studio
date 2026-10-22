@@ -86,7 +86,7 @@ const BenchmarksView = () => {
    * Search handler
    */
   const onSubmitSearch = useSearchHandler({
-    searchFn: api.evaluations_search, // search evaluations
+    searchFn: api.runs_search, // search runs
     workspaceId: workspace?._id,
     resourceId: benchmark?._id,
     searchText,
@@ -94,22 +94,22 @@ const BenchmarksView = () => {
     searchSize,
     searchSortField,
     searchSortOrder,
-    useAggs: false, // evaluations don't have aggs
+    useAggs: false, // runs don't have aggs
     setDocs: (docs) => {
       /**
-       * Evaluations as an array for the table component.
+       * Runs as an array for the table component.
        * Add additional fields for the table.
        */
-      const evaluationsList = Object.values(docs) || []
+      const runsList = Object.values(docs) || []
       const dateFields = ['created_at', 'started_at', 'stopped_at']
-      for (const e in evaluationsList) {
+      for (const e in runsList) {
         const lastUpdated = new Date(Math.max(
           ...dateFields
-            .map(k => new Date(evaluationsList[e]["@meta"]?.[k] || 0).getTime())
+            .map(k => new Date(runsList[e]["@meta"]?.[k] || 0).getTime())
         )).toISOString()
-        evaluationsList[e]['@meta']['last_updated'] = lastUpdated
+        runsList[e]['@meta']['last_updated'] = lastUpdated
       }
-      setSearchDocs(evaluationsList)
+      setSearchDocs(runsList)
     },
     setTotal: setSearchTotal,
     setLoading: setIsSearchLoading,
@@ -130,19 +130,19 @@ const BenchmarksView = () => {
     return () => clearInterval(interval)
   }, [isReady, autoRefresh])
 
-  const onRunEvaluationSubmit = async (e) => {
+  const onRunBenchmarkSubmit = async (e) => {
     // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
     let response
     try {
       setIsProcessing(true)
-      response = await api.evaluations_create(
+      response = await api.runs_create(
         workspace._id,
         benchmark._id,
         benchmark.task
       )
     } catch (e) {
-      return addToast(api.errorToast(e, { title: 'Failed to queue evaluation' }))
+      return addToast(api.errorToast(e, { title: 'Failed to queue run' }))
     } finally {
       setIsProcessing(false)
     }
@@ -150,7 +150,7 @@ const BenchmarksView = () => {
     // Handle API response
     if (response.status > 299)
       return addToast(utils.toastClientResponse(response))
-    addToast(utils.toastDocCreateUpdateDelete('queue', 'evaluation', response.data._id))
+    addToast(utils.toastDocCreateUpdateDelete('queue', 'run', response.data._id))
 
     // Reload table
     onSubmitSearch()
@@ -162,11 +162,11 @@ const BenchmarksView = () => {
   const columns = [
     {
       field: '_id',
-      name: 'Evaluation',
+      name: 'Run',
       sortable: true,
       style: { width: '300px' },
       render: (name, doc) => (
-        <EuiLink href={`#/workspaces/${workspace._id}/benchmarks/${benchmark._id}/evaluations/${doc._id}`}>
+        <EuiLink href={`#/workspaces/${workspace._id}/benchmarks/${benchmark._id}/runs/${doc._id}`}>
           <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
             {doc._id}
           </EuiCode>
@@ -198,7 +198,7 @@ const BenchmarksView = () => {
             </EuiBadge>
           )
         if (doc['@meta']?.status == 'running')
-          // Evaluations are "stale" if they are running for more than 2 hours
+          // Runs are "stale" if they are running for more than 2 hours
           if (Date.now() - new Date(doc['@meta']?.started_at).getTime() > 2 * 60 * 60 * 1000) {
             return (
               <EuiBadge color='accent'>
@@ -262,7 +262,7 @@ const BenchmarksView = () => {
       actions: [
         {
           color: 'danger',
-          description: 'Delete this evaluation',
+          description: 'Delete this run',
           icon: 'trash',
           name: 'delete',
           onClick: (doc) => setModalDelete(doc),
@@ -275,10 +275,10 @@ const BenchmarksView = () => {
   const renderModalDelete = () => (
     <ModalDelete
       doc={modalDelete}
-      docType='evaluation'
+      docType='run'
       isProcessing={isProcessing}
       onClose={() => setModalDelete(null)}
-      onDelete={async () => await api.evaluations_delete(workspace._id, benchmark._id, modalDelete._id)}
+      onDelete={async () => await api.runs_delete(workspace._id, benchmark._id, modalDelete._id)}
       onSuccess={onSubmitSearch}
       setIsProcessing={setIsProcessing}
     />
@@ -289,8 +289,8 @@ const BenchmarksView = () => {
       fill
       iconType='play'
       isLoading={isProcessing}
-      onClick={onRunEvaluationSubmit}>
-      Run evaluation
+      onClick={onRunBenchmarkSubmit}>
+      Run benchmark
     </EuiButton>
   )
 
@@ -316,7 +316,7 @@ const BenchmarksView = () => {
               title='Welcome!'
             >
               <EuiText>
-                Run your first evaluation for this benchmark.
+                Run this benchmark for the first time.
               </EuiText>
               <EuiSpacer size='m' />
               {renderButtonRun()}

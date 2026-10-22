@@ -30,8 +30,27 @@ ASSET_TYPES = set([
     "judgements",
     "strategies",
     "benchmarks",
-    "evaluations",
+    "runs",
 ])
+
+# Most asset types map to index "esrs-{asset_type}". These two break that
+# convention — the v2.0 storage split renamed their backing indices without
+# renaming the asset concept's short name, so the mapping is explicit here.
+ASSET_TYPE_INDEX_OVERRIDES = {
+    "benchmarks": "esrs-benchmark-configs",
+    "runs": "esrs-benchmark-runs",
+}
+
+
+def asset_index(asset_type: str) -> str:
+    """Return the Elasticsearch index/data stream backing an asset type.
+
+    Defaults to ``esrs-{asset_type}`` but honors ASSET_TYPE_INDEX_OVERRIDES for
+    asset types whose backing index name diverges from their short name.
+    """
+    return ASSET_TYPE_INDEX_OVERRIDES.get(asset_type, f"esrs-{asset_type}")
+
+
 ASSET_TYPES_RELATIONAL_ID_NAMES = {
     "conversations": "conversation_id",
     "workspaces": "workspace_id",
@@ -40,7 +59,7 @@ ASSET_TYPES_RELATIONAL_ID_NAMES = {
     "judgements": "judgement_id",
     "strategies": "strategy_id",
     "benchmarks": "benchmark_id",
-    "evaluations": "evaluation_id",
+    "runs": "run_id",
 }
 
 def unique_id(input=None):
@@ -243,11 +262,11 @@ def search_tags(asset_type: str, workspace_id: str = None) -> Dict[str, Any]:
     client = es("studio")
     # Submit search
     es_response = client.search(
-        index=f"esrs-{asset_type}",
+        index=asset_index(asset_type),
         body=body
     )
     return es_response
-    
+
 def search_assets(
         asset_type: str,
         workspace_id: str = None,
@@ -326,7 +345,7 @@ def search_assets(
     client = es("studio")
     # Submit search
     es_response = client.search(
-        index=f"esrs-{asset_type}",
+        index=asset_index(asset_type),
         body=body
     )
     if not counts:
@@ -350,9 +369,9 @@ def search_assets(
     indices = []
     for relational_asset_type in counts:
         body["aggs"]["counts"]["aggs"][relational_asset_type] = {
-            "filter": { "term": {  "_index": f"esrs-{relational_asset_type}" }}
+            "filter": { "term": {  "_index": asset_index(relational_asset_type) }}
         }
-        indices.append(f"esrs-{relational_asset_type}")
+        indices.append(asset_index(relational_asset_type))
     aggs_response = client.search(
         index=",".join(indices),
         body=body

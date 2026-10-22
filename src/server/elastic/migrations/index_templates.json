@@ -145,6 +145,55 @@
           }
         }
       ]
+    },
+    {
+      "version": "2.0.0",
+      "steps": [
+        {
+          "template": "esrs-benchmark-configs",
+          "action": "reindex_and_cutover",
+          "requires_reindex": true,
+          "additive_reindex": true,
+          "description": "Create esrs-benchmark-configs and copy esrs-benchmarks (1:1 rename). Source is never deleted.",
+          "reindex": {
+            "source": "esrs-benchmarks",
+            "mode": "copy"
+          }
+        },
+        {
+          "template": "esrs-benchmark-runs",
+          "action": "reindex_and_cutover",
+          "requires_reindex": true,
+          "additive_reindex": true,
+          "description": "Create esrs-benchmark-runs and copy run-level fields (status/config/summary/error/took) from esrs-evaluations (1:1), stripping results/runtime/unrated_docs. Source is never deleted.",
+          "reindex": {
+            "source": "esrs-evaluations",
+            "mode": "runs"
+          }
+        },
+        {
+          "template": "esrs-benchmark-results",
+          "action": "reindex_and_cutover",
+          "requires_reindex": true,
+          "additive_reindex": true,
+          "description": "Create esrs-benchmark-results data stream and fan out one document per (strategy_id, scenario_id) search from esrs-evaluations results[].searches[]. No DLM retention set (infinite). Source is never deleted.",
+          "reindex": {
+            "source": "esrs-evaluations",
+            "mode": "results"
+          }
+        },
+        {
+          "template": "esrs-benchmark-forensics",
+          "action": "reindex_and_cutover",
+          "requires_reindex": true,
+          "additive_reindex": true,
+          "description": "Create esrs-benchmark-forensics data stream and copy runtime, unrated_docs, and per-strategy failures (one document per run) from esrs-evaluations. No DLM retention set (infinite). Source is never deleted.",
+          "reindex": {
+            "source": "esrs-evaluations",
+            "mode": "forensics"
+          }
+        }
+      ]
     }
   ]
 }

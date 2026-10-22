@@ -7,7 +7,6 @@
 
 import { useState } from 'react'
 import {
-  EuiBadge,
   EuiButtonIcon,
   EuiCode,
   EuiCodeBlock,
@@ -19,7 +18,7 @@ import {
 } from '@elastic/eui'
 import utils from '../../utils'
 
-const TableRuntimeScenarios = ({ items }) => {
+const TableRuntimeIndices = ({ items }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -36,16 +35,18 @@ const TableRuntimeScenarios = ({ items }) => {
   ////  Render  ////////////////////////////////////////////////////////////////
 
   const renderDetails = (item) => {
+    const _item = { ...item }
+    delete _item._id
     return (
       <EuiPanel color='transparent' paddingSize='none'>
         <EuiCodeBlock
           isCopyable
           language='json'
           paddingSize='m'
-          overflowHeight={300}
+          overflowHeight={400}
           style={{ width: '100%' }}
         >
-          {utils.jsonStringifySortedKeys(item, null, 2)}
+          {utils.jsonStringifySortedKeys(_item, null, 2)}
         </EuiCodeBlock>
       </EuiPanel>
     )
@@ -78,49 +79,32 @@ const TableRuntimeScenarios = ({ items }) => {
       },
     },
     {
-      field: 'name',
-      name: 'Scenario',
+      field: '_index',
+      name: 'Index',
       sortable: true,
       truncateText: true,
-      width: '100px',
-      render: (name, item) => item.name
+      render: (name, item) => item._index
     },
     {
-      field: 'values',
-      name: 'Values',
-      render: (name, item) => {
-        return (
-          <div style={{ width: '100%' }}>
-            <EuiCodeBlock
-              language='json'
-              paddingSize='xs'
-              style={{ fontSize: '11px' }}
-              transparentBackground
-            >
-              {JSON.stringify(item.values)}
-            </EuiCodeBlock>
-          </div>
-        )
-      },
+      field: 'settings.index.creation_date',
+      name: 'Created',
+      render: (name, item) => item.settings?.index?.creation_date ? new Date(Number(item.settings?.index?.creation_date)).toISOString() : ''
     },
     {
-      field: 'tags',
-      name: 'Tags',
-      width: '100px',
-      render: (name, item) => {
-        const tags = (item.tags ?? []).map(tag => (
-          <EuiBadge color='hollow' key={tag}>
-            {tag}
-          </EuiBadge>
-        ))
-        return tags
-      },
+      field: 'settings.index.uuid',
+      name: 'UUID',
+      style: { width: '200px' },
+      render: (name, item) => (
+        <EuiCode transparentBackground style={{ color: 'inherit', fontSize: '12px', fontWeight: 'normal', padding: 0 }}>
+          {item.settings?.index?.uuid}
+        </EuiCode>
+      )
     },
     {
       field: '_fingerprint',
       style: { width: '275px' },
       name: <>
-        <EuiToolTip content='A hash of the scenario values. If this fingerprint changes between evaluations, it can affect relevance metrics in subsequent evaluations.'>
+        <EuiToolTip content='A hash of the index UUID and the max_seq_no of its shards. If this fingerprint changes between runs, it means the index executed write operations, which can affect relevance metrics in subsequent runs.'>
           <span>
             Fingerprint <EuiIcon type='question' />
           </span>
@@ -147,23 +131,11 @@ const TableRuntimeScenarios = ({ items }) => {
         box: {
           incremental: true,
           schema: true,
-        },
-        filters: [
-          {
-            autoSortOptions: false,
-            field: 'tags',
-            multiSelect: 'or',
-            name: 'Tags',
-            options: Array.from(new Set(items.flatMap(({ tags }) => tags ?? []))).map(tag => ({
-              value: tag
-            })),
-            type: 'field_value_selection',
-          },
-        ]
+        }
       }}
       sorting={{
         sort: {
-          field: 'name',
+          field: '_index',
           direction: 'asc',
         }
       }}
@@ -172,4 +144,4 @@ const TableRuntimeScenarios = ({ items }) => {
   )
 }
 
-export default TableRuntimeScenarios
+export default TableRuntimeIndices

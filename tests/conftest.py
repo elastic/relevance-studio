@@ -48,9 +48,11 @@ ESRS_INDICES = [
     "esrs-scenarios",
     "esrs-judgements",
     "esrs-strategies",
-    "esrs-benchmarks",
-    "esrs-evaluations",
-] 
+    "esrs-benchmark-configs",
+    "esrs-benchmark-runs",
+    "esrs-benchmark-results",
+    "esrs-benchmark-forensics",
+]
 
 def wait_for_es(url, attempts=30):
     es_client = Elasticsearch(url, request_timeout=4000)

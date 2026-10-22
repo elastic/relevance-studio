@@ -85,7 +85,7 @@ logger.addHandler(handler)
 def _cleanup():
     try:
         logger.info("Cleaning up any stale evaluations...")
-        return api.evaluations.cleanup(WORKER_CLEANUP_TIME_RANGE)
+        return api.runs.cleanup(WORKER_CLEANUP_TIME_RANGE)
     except NotFoundError as e:
         logger.debug(f"{e.meta.status} {e.body['error']['reason']}")
     except Exception as e:
@@ -93,12 +93,12 @@ def _cleanup():
 
 def _run_evaluation(evaluation):
     """
-    Execute api.evaluations.run()
+    Execute api.runs.run()
     """
     _id = evaluation["_id"]
     logger.info(f"Running evaluation: {_id}")
     try:
-        return api.evaluations.run(evaluation, store_results=True, started_by=WORKER_ID)
+        return api.runs.run(evaluation, store_results=True, started_by=WORKER_ID)
     finally:
         logger.info(f"Finished evaluation: {_id}")
         
@@ -129,7 +129,7 @@ def _claim_evaluation(evaluation):
         }
     }
     response = es("studio").update(
-        index="esrs-evaluations",
+        index="esrs-benchmark-runs",
         id=evaluation['_id'],
         body=body
     )    
@@ -153,7 +153,7 @@ def _poll_evaluations():
         "sort": [{ "@meta.created_at": "asc" }]
     }
     response = es("studio").options(ignore_status=404).search(
-        index="esrs-evaluations",
+        index="esrs-benchmark-runs",
         body=body
     )
     

@@ -417,35 +417,44 @@ api.benchmarks_make_candidate_pool = async (workspace_id, body) => {
 }
 
 
-////  API: Evaluations  ////////////////////////////////////////////////////////
+////  API: Runs  ////////////////////////////////////////////////////////////////
 
-api.evaluations_search = async (workspace_id, benchmark_id, body) => {
-  validateArgs('api.evaluations_search', { workspace_id, benchmark_id, })
-  const response = await client.post(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/evaluations/_search`, body ? { data: body } : {})
+api.runs_search = async (workspace_id, benchmark_id, body) => {
+  validateArgs('api.runs_search', { workspace_id, benchmark_id, })
+  const response = await client.post(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/_search`, body ? { data: body } : {})
   return responseOrFallbackSetup(response)
 }
 
-api.evaluations_get = async (workspace_id, benchmark_id, evaluation_id) => {
-  validateArgs('api.evaluations_get', { workspace_id, benchmark_id, evaluation_id, })
-  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/evaluations/${evaluation_id}`)
+api.runs_get = async (workspace_id, benchmark_id, run_id) => {
+  validateArgs('api.runs_get', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}`)
   return responseOrFallbackSetup(response)
 }
 
-api.evaluations_create = async (workspace_id, benchmark_id, body) => {
-  validateArgs('api.evaluations_create', { workspace_id, benchmark_id, body, })
-  const response = await client.post(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/evaluations`, { data: clean(body) })
+// Fetches the forensics audit doc (runtime, unrated_docs, failures) for a run.
+// Loaded on demand (runtime flyout / unrated-docs panel) to keep the run page light.
+api.runs_get_forensics = async (workspace_id, benchmark_id, run_id) => {
+  validateArgs('api.runs_get_forensics', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/forensics`)
   return responseOrFallbackSetup(response)
 }
 
-api.evaluations_run = async (workspace_id, body) => {
-  validateArgs('api.evaluations_run', { workspace_id, body, })
-  const response = await client.post(`/api/workspaces/${workspace_id}/evaluations/_run`, { data: body })
+api.runs_create = async (workspace_id, benchmark_id, body) => {
+  validateArgs('api.runs_create', { workspace_id, benchmark_id, body, })
+  const response = await client.post(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs`, { data: clean(body) })
   return responseOrFallbackSetup(response)
 }
 
-api.evaluations_delete = async (workspace_id, benchmark_id, evaluation_id) => {
-  validateArgs('api.evaluations_delete', { workspace_id, benchmark_id, evaluation_id, })
-  const response = await client.del(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/evaluations/${evaluation_id}`)
+// NOTE: the synchronous dry-run endpoint is workspace-scoped (not benchmark-nested).
+api.runs_run = async (workspace_id, body) => {
+  validateArgs('api.runs_run', { workspace_id, body, })
+  const response = await client.post(`/api/workspaces/${workspace_id}/runs/_run`, { data: body })
+  return responseOrFallbackSetup(response)
+}
+
+api.runs_delete = async (workspace_id, benchmark_id, run_id) => {
+  validateArgs('api.runs_delete', { workspace_id, benchmark_id, run_id, })
+  const response = await client.del(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}`)
   return responseOrFallbackSetup(response)
 }
 

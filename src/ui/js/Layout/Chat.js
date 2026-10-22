@@ -586,7 +586,7 @@ const Chat = () => {
   const location = useLocation()
   const match = matchPath(location.pathname, {
     path: [
-      '/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations/:evaluation_id',
+      '/workspaces/:workspace_id/benchmarks/:benchmark_id/runs/:run_id',
       '/workspaces/:workspace_id/benchmarks/:benchmark_id',
       '/workspaces/:workspace_id/strategies/:strategy_id',
       '/workspaces/:workspace_id/displays/:display_id',

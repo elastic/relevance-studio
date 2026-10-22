@@ -5,4 +5,4 @@
  * 2.0.
  */
 
-export { default as EvaluationsView } from './EvaluationsView'
+export { default as RunsView } from './RunsView'

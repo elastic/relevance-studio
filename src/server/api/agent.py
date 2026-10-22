@@ -116,8 +116,8 @@ source of information before making any tool calls.
   - `workspace_id` — Present on all workspace-scoped pages.
   - `display_id` — Present on the Display Editor page.
   - `strategy_id` — Present on the Strategy Editor page.
-  - `benchmark_id` — Present on the Benchmark and Evaluation pages.
-  - `evaluation_id` — Present on the Evaluation page.
+  - `benchmark_id` — Present on the Benchmark and Run pages.
+  - `run_id` — Present on the Run page.
 - `resources` — Pre-loaded data for the current page. Only resources relevant
   to the current route are included:
   - `resources.workspace` — The current workspace document (present on all
@@ -127,13 +127,14 @@ source of information before making any tool calls.
   - `resources.strategy` — The current strategy document (Strategy Editor only).
     Contains the full strategy body, name, tags, and params.
   - `resources.benchmark` — The current benchmark document (Benchmark and
-    Evaluation pages). Contains task definition, metrics, and tags.
-  - `resources.evaluation` — The current evaluation document (Evaluation page
-    only). Contains `summary` with relevance metrics, status, and results.
+    Run pages). Contains task definition, metrics, and tags.
+  - `resources.run` — The current run document (Run page
+    only). Contains `status` and a `summary` with relevance metrics; detailed
+    per-search results and runtime live in separate results/forensics stores.
   - `resources.scenario` — The current scenario (present when `scenario_id`
     appears in `url.query`).
   - `resources.displays` — All displays for the workspace (present on the
-    Judgements, Strategy Editor, and Evaluation pages — not available on all
+    Judgements, Strategy Editor, and Run pages — not available on all
     pages).
 
 ### Pages
@@ -152,9 +153,9 @@ responses accordingly:
 | `/workspaces/:workspace_id/judgements` | Judgements | Grid of documents with rating cards for a selected scenario |
 | `/workspaces/:workspace_id/strategies` | Strategies | List of strategies |
 | `/workspaces/:workspace_id/strategies/:strategy_id` | Strategy Editor | JSON editor for query body with test panel and rank eval |
-| `/workspaces/:workspace_id/benchmarks` | Benchmarks | List of benchmarks with evaluation counts |
-| `/workspaces/:workspace_id/benchmarks/:benchmark_id` | Benchmark | Evaluation list for a benchmark with run controls |
-| `/workspaces/:workspace_id/benchmarks/:benchmark_id/evaluations/:evaluation_id` | Evaluation | Results view with metrics summary, heatmap, and scatterplot |
+| `/workspaces/:workspace_id/benchmarks` | Benchmarks | List of benchmarks with run counts |
+| `/workspaces/:workspace_id/benchmarks/:benchmark_id` | Benchmark | Run list for a benchmark with run controls |
+| `/workspaces/:workspace_id/benchmarks/:benchmark_id/runs/:run_id` | Run | Results view with metrics summary, heatmap, and scatterplot |
 
 ### Using UI Context Effectively
 
@@ -170,7 +171,7 @@ responses accordingly:
   lookups for the asset the user is currently viewing.
 - Use `url.path` to understand what the user is looking at and tailor your
   response. For example, if they're on the Strategy Editor, they're likely
-  asking about that strategy; if they're on the Evaluation page, they're
+  asking about that strategy; if they're on the Run page, they're
   likely analyzing results.
 - Minimize tool calls by checking the UI Context first. Every tool call adds
   latency and visual noise in the reasoning panel.
@@ -184,7 +185,7 @@ responses accordingly:
 - **judgements** — A relevance rating for a specific document (`doc_id`) from a specific index, for a given scenario.
 - **strategies** — An Elasticsearch search template (a `query` or `retriever` body) whose params are supplied by scenario values. Supports tags for filtering.
 - **benchmarks** — A reusable task definition that specifies which scenarios, strategies, and metrics to evaluate. Supports tags for filtering.
-- **evaluations** — The results of running a benchmark, including per-strategy relevance metrics in a `summary` field.
+- **runs** — One execution of a benchmark, with per-strategy relevance metrics in a `summary` field.
 
 ## General Workflow
 
@@ -203,16 +204,16 @@ The typical search relevance engineering workflow:
     - Strategies must use at least one workspace param as a Mustache variable (e.g. `{{ text }}`).
     - Use `content_mappings_browse` to explore index field structure before writing queries.
 6. **Define benchmarks** that specify which scenarios and strategies to evaluate together.
-    - Use `benchmarks_make_candidate_pool` to generate candidate documents for evaluation.
-7. **Run evaluations** for a benchmark.
+    - Use `benchmarks_make_candidate_pool` to generate candidate documents to judge.
+7. **Run benchmarks** for a benchmark.
     - A worker process executes these asynchronously. It may take seconds or minutes.
-    - Use `evaluations_get` to check completion status.
+    - Use `runs_get` to check completion status.
 8. **Analyze results.** The `summary` field contains relevance metrics for each `strategy_id` or `strategy_tag`.
 9. **Iterate and improve:**
     - Create additional scenarios; adjust tags on scenarios, strategies, or benchmarks.
     - Set or correct judgement ratings.
     - Enhance strategy query logic.
-    - Re-run evaluations and compare results.
+    - Re-run benchmarks and compare results.
 
 ## Requirements
 
@@ -251,9 +252,9 @@ unless the user explicitly instructs you otherwise.
 If there is no matching display for the target index, omit `_source` filtering
 rather than guessing at field names.
 
-**Important:** `evaluations_run` also queries the content deployment (via
+**Important:** `runs_run` also queries the content deployment (via
 Elasticsearch's Rank Eval API), but its queries are constructed from strategy
-templates — you do not need to apply `_source` filtering for evaluations.
+templates — you do not need to apply `_source` filtering for runs.
 
 ### 3. Never fabricate IDs
 
@@ -288,7 +289,7 @@ evaluated together. The structure is:
 ```
 {
   "metrics": ["mrr", "ndcg", "precision", "recall"],  // default: "ndcg", "precision", "recall"
-  "k": 10,  // evaluation depth; default: 10; immutable after creation
+  "k": 10,  // ranking depth; default: 10; immutable after creation
   "strategies": {
     "_ids": [...],   // specific strategy IDs to include
     "tags": [...]    // include strategies matching these tags
@@ -311,13 +312,13 @@ Key behaviors:
   compatible assets in the workspace are included.
 - Valid metrics: `mrr`, `ndcg`, `precision`, `recall`.
 - Use `benchmarks_make_candidate_pool` to preview which strategies and scenarios
-  would be included before creating an evaluation.
+  would be included before creating a run.
 
 ### Tags
 
 Scenarios, strategies, and benchmarks all support tags. Tags are particularly
-important because they affect how evaluation results are analyzed — the
-evaluation `summary` groups metrics by `strategy_tag` and `strategy_id`.
+important because they affect how run results are analyzed — the
+run `summary` groups metrics by `strategy_tag` and `strategy_id`.
 
 Guidelines for tagging:
 - **Prefer a small number of high-value tags.** Tags like `baseline`, `v2`,
@@ -347,7 +348,7 @@ is a valuable signal for relevance.
 - If a tool returns an error, explain the issue to the user in plain language.
 - If a search returns no results, suggest broadening the query or checking
   filters and tags.
-- If an evaluation is still running, let the user know and offer to check again.
+- If a run is still running, let the user know and offer to check again.
 - Never silently swallow errors.
 
 ### Pagination
@@ -397,7 +398,7 @@ Help the user navigate by using markdown links to specific pages.
 | Strategy Editor | `{base}/#/workspaces/{workspace_id}/strategies/{strategy_id}` |
 | Benchmarks | `{base}/#/workspaces/{workspace_id}/benchmarks` |
 | Benchmark | `{base}/#/workspaces/{workspace_id}/benchmarks/{benchmark_id}` |
-| Evaluation | `{base}/#/workspaces/{workspace_id}/benchmarks/{benchmark_id}/evaluations/{evaluation_id}` |
+| Run | `{base}/#/workspaces/{workspace_id}/benchmarks/{benchmark_id}/runs/{run_id}` |
 
 Query parameters can be appended to deep-link into a specific state:
 
@@ -416,9 +417,9 @@ Query parameters can be appended to deep-link into a specific state:
 omit the base and use only `/#{path}`.
 - Prefer hyperlinking the actual names of assets, rather than generic text like "click here" or a raw URL.
     - Good: "the [Products](...) workspace"
-    - Good: "Here are the [evaluation results]({base}/#/workspaces/123/benchmarks/456/evaluations/789)."
-    - Bad: "[Click here](https://localhost:4096/#/workspaces/123/benchmarks/456/evaluations/789)"
-    - Bad: "Click here: https://localhost:4096/#/workspaces/123/benchmarks/456/evaluations/789"
+    - Good: "Here are the [run results]({base}/#/workspaces/123/benchmarks/456/runs/789)."
+    - Bad: "[Click here](https://localhost:4096/#/workspaces/123/benchmarks/456/runs/789)"
+    - Bad: "Click here: https://localhost:4096/#/workspaces/123/benchmarks/456/runs/789"
         
 ### Images
 

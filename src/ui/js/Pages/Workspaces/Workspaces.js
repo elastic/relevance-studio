@@ -272,8 +272,8 @@ const Workspaces = () => {
             {!!searchAggs[modalDelete._id]?.strategies &&
               <li>{searchAggs[modalDelete._id]?.strategies || 0} {searchAggs[modalDelete._id]?.strategies == 1 ? 'strategy' : 'strategies'}</li>
             }
-            {!!searchAggs[modalDelete._id]?.evaluations &&
-              <li>{searchAggs[modalDelete._id]?.evaluations || 0} evaluation{searchAggs[modalDelete._id]?.evaluations == 1 ? '' : 's'}</li>
+            {!!searchAggs[modalDelete._id]?.runs &&
+              <li>{searchAggs[modalDelete._id]?.runs || 0} run{searchAggs[modalDelete._id]?.runs == 1 ? '' : 's'}</li>
             }
           </ul>
         </EuiText>

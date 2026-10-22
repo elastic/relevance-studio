@@ -9,7 +9,7 @@ import { Benchmarks } from './Benchmarks'
 import { BenchmarksView } from './BenchmarksView'
 import { Displays } from './Displays'
 import { DisplaysEdit } from './DisplaysEdit'
-import { EvaluationsView } from './EvaluationsView'
+import { RunsView } from './RunsView'
 import { Home } from './Home'
 import { Judgements } from './Judgements'
 import { NotFound } from './NotFound'
@@ -25,7 +25,7 @@ Pages.Benchmarks = Benchmarks
 Pages.BenchmarksView = BenchmarksView
 Pages.Displays = Displays
 Pages.DisplaysEdit = DisplaysEdit
-Pages.EvaluationsView = EvaluationsView
+Pages.RunsView = RunsView
 Pages.Home = Home
 Pages.Judgements = Judgements
 Pages.NotFound = NotFound
