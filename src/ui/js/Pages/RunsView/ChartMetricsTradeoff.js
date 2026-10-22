@@ -48,6 +48,7 @@ import {
   EuiFlexGroup,
   EuiFlexItem,
   EuiFormRow,
+  EuiIconTip,
   EuiPanel,
   EuiSelect,
   EuiSpacer,
@@ -77,6 +78,19 @@ export const METRIC_DEFINITIONS = [
 
 const LATENCY_METRIC_KEY = 'latency_avg_ms'
 const UNGROUPED_FAMILY = 'Untagged'
+const POINT_RADIUS = 7
+// Axis title (metric name) one size up, and its "(higher/lower is better)"
+// qualifier one size down, from the chart's base 12px text.
+const AXIS_TITLE_FONT_SIZE = 13
+const AXIS_SUBTITLE_FONT_SIZE = 11
+// Relevance metrics (nDCG, precision, recall, MRR) are always bounded to
+// [0, 1] by definition, so by default their axis is pinned to that fixed
+// range instead of the padded range of the current data — otherwise the
+// axis rescales every time the user switches metrics, which is disorienting.
+// The "Fit axes to data" switch opts back into the padded, data-driven
+// range. Latency has no fixed range to pin to, so it always fits the data
+// regardless of that switch.
+const RELEVANCE_METRIC_DOMAIN = { min: 0, max: 1 }
 
 /* -------------------------------------------------------------------------- */
 /* Pure helpers (exported for unit tests)                                     */
@@ -154,6 +168,28 @@ export function paretoFrontier(points) {
 }
 
 /**
+ * Resolve the initial X/Y axis metric keys, falling back to an *available*
+ * metric (one at least one strategy actually has a value for) rather than
+ * just a known one. Latency (`took`) is the usual default X axis, but older
+ * content-deployment Elasticsearch versions (<9.6.0) don't return `took` in
+ * search responses, so no strategy will have a latency metric in that case —
+ * defaulting to it anyway would select an option missing from the dropdown
+ * and render a blank chart.
+ */
+export function resolveAxisDefaults(availableMetrics, initialXMetric, initialYMetric) {
+  const availableKeys = new Set(availableMetrics.map((m) => m.key))
+  const firstAvailable = availableMetrics[0]?.key ?? METRIC_DEFINITIONS[0].key
+  const yKey = availableKeys.has(initialYMetric) ? initialYMetric : firstAvailable
+  // Prefer a metric other than the Y default so the chart isn't a
+  // degenerate diagonal when both axes would otherwise fall back to the
+  // same metric.
+  const xKey = availableKeys.has(initialXMetric)
+    ? initialXMetric
+    : (availableMetrics.find((m) => m.key !== yKey)?.key ?? firstAvailable)
+  return { xKey, yKey }
+}
+
+/**
  * Step shape that traces the boundary of the dominated region. When x is
  * lower-is-better, each frontier point holds its y until the next x
  * (step-after). When x is higher-is-better, the next point's y applies
@@ -187,6 +223,53 @@ export function buildPlotPoints(results, xMetric, yMetric, logX, logY) {
   return markDominated(raw, xMetric.direction, yMetric.direction)
 }
 
+/**
+ * Style override for a single BubbleSeries point. `datum` is the internal
+ * Elastic Charts record (`{ ..., datum: originalPoint }`) passed to a
+ * `pointStyleAccessor`. Elastic Charts unions x-values across the per-family
+ * BubbleSeries (they share a groupId) and fills in gap points for families
+ * missing a value at another family's x — those synthetic points carry no
+ * original datum and are dropped before rendering, but this accessor still
+ * runs on them first, so it must tolerate a missing datum rather than throw.
+ *
+ * Dominated points are only dimmed when `showFrontier` is on — otherwise the
+ * "Pareto frontier" switch would have no visible effect on a run where only
+ * one strategy is ever non-dominated (so there's never a 2+ point line to
+ * draw, the switch's *other* effect), leaving no way to tell it's working.
+ */
+export function pointStyleOverride(datum, familyColor, familyShape, showFrontier = true) {
+  const p = datum?.datum
+  if (!p) return undefined
+  // Set fill explicitly: DARK_THEME's default bubble fill is the background
+  // color (hollow markers), LIGHT_THEME's is the series color.
+  const color = familyColor(p.family)
+  return {
+    shape: familyShape(p.family),
+    fill: color,
+    stroke: color,
+    radius: POINT_RADIUS,
+    strokeWidth: 1.5,
+    opacity: (showFrontier && p.dominated) ? 0.35 : 1,
+  }
+}
+
+/**
+ * Reorder a color palette so maximally distinct hues are assigned first.
+ * `useEuiPaletteColorBlind` returns colors in hue pairs — a saturated shade
+ * of each hue followed immediately by a lighter shade of that *same* hue
+ * (e.g. teal, teal, blue, blue, pink, pink, ...) — so by default the first
+ * two families (the common case) land on two shades of the same color,
+ * which are hard to tell apart on a scatterplot. Taking the even-indexed
+ * (saturated) colors first, then the odd-indexed (lighter) ones, spreads
+ * adjacent families across different hues instead; the lighter shades are
+ * only reused once every distinct hue is already in use.
+ */
+export function spreadPaletteByHue(palette) {
+  const evens = palette.filter((_, i) => i % 2 === 0)
+  const odds = palette.filter((_, i) => i % 2 === 1)
+  return [...evens, ...odds]
+}
+
 /** Domain covering points and their ranges, padded; log-safe. */
 export function computeDomain(values, log, nonNegative, paddingRatio = 0.08) {
   const finite = values.filter((v) => Number.isFinite(v) && (!log || v > 0))
@@ -207,6 +290,18 @@ export function computeDomain(values, log, nonNegative, paddingRatio = 0.08) {
   return { min, max }
 }
 
+/**
+ * Resolve the domain for one axis. Relevance metrics are pinned to the fixed
+ * [0, 1] domain (see RELEVANCE_METRIC_DOMAIN) unless `fitToData` is on, in
+ * which case (and always, for latency, which has no fixed range to pin to)
+ * the domain is a padded range computed from the current points (and their
+ * range whiskers, if shown).
+ */
+export function resolveAxisDomain(metric, values, log, fitToData) {
+  if (metric.kind === 'relevance' && !fitToData) return RELEVANCE_METRIC_DOMAIN
+  return computeDomain(values, log, metric.kind === 'latency')
+}
+
 /* -------------------------------------------------------------------------- */
 /* Formatting                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -221,12 +316,52 @@ const formatTick = (metric) => (v) =>
     ? `${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
     : Number(v).toFixed(2)
 
-const axisTitle = (metric, axis) => {
-  const better =
-    axis === 'x'
-      ? metric.direction === 'higher_is_better' ? 'better →' : '← better'
-      : metric.direction === 'higher_is_better' ? 'better ↑' : 'better ↓'
-  return `${metric.label}  (${better})`
+/**
+ * The "(higher/lower is better)" qualifier shown under a metric's axis
+ * title. Not exported as part of a combined title string: Elastic Charts'
+ * native axis `title` only ever renders a single line in one font weight
+ * (it strips `\n` to a space and draws just the first wrapped line), so a
+ * two-line title with a bold metric name and a non-bold qualifier is built
+ * as plain DOM/CSS instead of passed through the chart's `title` prop —
+ * see the AxisTitle component below.
+ */
+export function metricBetterText(metric) {
+  return metric.direction === 'higher_is_better' ? '(higher is better)' : '(lower is better)'
+}
+
+/**
+ * Two-line axis title: the metric name bolded, then its "(higher/lower is
+ * better)" qualifier underneath in normal weight. Rendered as plain DOM
+ * (not the chart's native axis `title`) so the two lines can have different
+ * font weights. `vertical` rotates it -90° for the Y axis, centered in a
+ * narrow fixed-width column to the left of the chart.
+ */
+const AxisTitle = ({ metric, vertical }) => {
+  const text = (
+    <>
+      <strong style={{ fontSize: AXIS_TITLE_FONT_SIZE }}>{metric.label}</strong>
+      <div style={{ fontWeight: 'normal', fontSize: AXIS_SUBTITLE_FONT_SIZE }}>{metricBetterText(metric)}</div>
+    </>
+  )
+  if (!vertical) {
+    return <div style={{ textAlign: 'center', marginTop: 4 }}>{text}</div>
+  }
+  return (
+    <div style={{ width: 40, position: 'relative', flexShrink: 0 }}>
+      <div
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%) rotate(-90deg)',
+          whiteSpace: 'nowrap',
+          textAlign: 'center',
+        }}
+      >
+        {text}
+      </div>
+    </div>
+  )
 }
 
 /* -------------------------------------------------------------------------- */
@@ -235,7 +370,6 @@ const axisTitle = (metric, axis) => {
 
 const FAMILY_SHAPES = ['circle', 'triangle', 'square', 'diamond', 'x', 'plus']
 const FRONTIER_SPEC_ID = 'pareto-frontier'
-const POINT_RADIUS = 7
 
 const ChartMetricsTradeoff = ({
   evaluation,
@@ -256,20 +390,30 @@ const ChartMetricsTradeoff = ({
 
   const metricByKey = useMemo(() => new Map(METRIC_DEFINITIONS.map((m) => [m.key, m])), [])
 
-  // Only offer metrics that at least one strategy has.
+  // Only offer metrics that at least one strategy has. Latency is absent
+  // for every strategy when the content deployment is Elasticsearch <9.6.0,
+  // since those versions don't return `took` in search responses.
   const availableMetrics = useMemo(
     () => METRIC_DEFINITIONS.filter((m) => results.some((r) => r.metrics[m.key] !== undefined)),
     [results],
   )
+  const latencyAvailable = useMemo(
+    () => availableMetrics.some((m) => m.kind === 'latency'),
+    [availableMetrics],
+  )
 
   ////  State  /////////////////////////////////////////////////////////////////
 
-  const firstAvailable = availableMetrics[0]?.key ?? METRIC_DEFINITIONS[0].key
-  const [xKey, setXKey] = useState(metricByKey.has(initialXMetric) ? initialXMetric : firstAvailable)
-  const [yKey, setYKey] = useState(metricByKey.has(initialYMetric) ? initialYMetric : firstAvailable)
+  const { xKey: xDefault, yKey: yDefault } = useMemo(
+    () => resolveAxisDefaults(availableMetrics, initialXMetric, initialYMetric),
+    [availableMetrics, initialXMetric, initialYMetric],
+  )
+  const [xKey, setXKey] = useState(xDefault)
+  const [yKey, setYKey] = useState(yDefault)
   const [logLatency, setLogLatency] = useState(false)
-  const [showRange, setShowRange] = useState(true)
+  const [showRange, setShowRange] = useState(false)
   const [showFrontier, setShowFrontier] = useState(true)
+  const [fitAxesToData, setFitAxesToData] = useState(false)
 
   const xMetric = metricByKey.get(xKey) ?? METRIC_DEFINITIONS[0]
   const yMetric = metricByKey.get(yKey) ?? METRIC_DEFINITIONS[0]
@@ -287,25 +431,28 @@ const ChartMetricsTradeoff = ({
     () => Array.from(new Set(results.map((r) => r.family ?? UNGROUPED_FAMILY))).sort(),
     [results],
   )
-  const palette = useEuiPaletteColorBlind()
+  const rawPalette = useEuiPaletteColorBlind()
+  const palette = useMemo(() => spreadPaletteByHue(rawPalette), [rawPalette])
   const familyColor = useCallback((f) => palette[families.indexOf(f) % palette.length], [palette, families])
   const familyShape = useCallback((f) => FAMILY_SHAPES[families.indexOf(f) % FAMILY_SHAPES.length], [families])
 
   const xDomain = useMemo(
-    () => computeDomain(
+    () => resolveAxisDomain(
+      xMetric,
       points.flatMap((p) => [p.x, ...(showRange ? [p.xLower, p.xUpper] : [])].filter((v) => v !== undefined)),
       logX,
-      xMetric.kind === 'latency',
+      fitAxesToData,
     ),
-    [points, showRange, logX, xMetric.kind],
+    [points, showRange, logX, xMetric, fitAxesToData],
   )
   const yDomain = useMemo(
-    () => computeDomain(
+    () => resolveAxisDomain(
+      yMetric,
       points.flatMap((p) => [p.y, ...(showRange ? [p.yLower, p.yUpper] : [])].filter((v) => v !== undefined)),
       logY,
-      yMetric.kind === 'latency',
+      fitAxesToData,
     ),
-    [points, showRange, logY, yMetric.kind],
+    [points, showRange, logY, yMetric, fitAxesToData],
   )
 
   // Range whiskers (min-max across scenarios) as zero-thickness RectAnnotations,
@@ -317,7 +464,8 @@ const ChartMetricsTradeoff = ({
     if (!showRange) return byFamily
     for (const p of points) {
       const entry = byFamily.get(p.family) ?? { frontier: [], dominated: [] }
-      const bucket = p.dominated ? entry.dominated : entry.frontier
+      // See pointStyleOverride: dimming only applies while showFrontier is on.
+      const bucket = (showFrontier && p.dominated) ? entry.dominated : entry.frontier
       if (p.xLower !== undefined && p.xUpper !== undefined)
         bucket.push({ coordinates: { x0: p.xLower, x1: p.xUpper, y0: p.y, y1: p.y } })
       if (p.yLower !== undefined && p.yUpper !== undefined)
@@ -325,22 +473,12 @@ const ChartMetricsTradeoff = ({
       byFamily.set(p.family, entry)
     }
     return byFamily
-  }, [points, showRange])
+  }, [points, showRange, showFrontier])
 
-  const pointStyleAccessor = useCallback((datum) => {
-    const p = datum.datum
-    // Set fill explicitly: DARK_THEME's default bubble fill is the background
-    // color (hollow markers), LIGHT_THEME's is the series color.
-    const color = familyColor(p.family)
-    return {
-      shape: familyShape(p.family),
-      fill: color,
-      stroke: color,
-      radius: POINT_RADIUS,
-      strokeWidth: 1.5,
-      opacity: p.dominated ? 0.35 : 1,
-    }
-  }, [familyShape, familyColor])
+  const pointStyleAccessor = useCallback(
+    (datum) => pointStyleOverride(datum, familyColor, familyShape, showFrontier),
+    [familyShape, familyColor, showFrontier],
+  )
 
   const handleElementClick = useCallback((elements) => {
     if (!onStrategyClick) return
@@ -430,118 +568,140 @@ const ChartMetricsTradeoff = ({
             />
           </EuiFormRow>
         </EuiFlexItem>
+        {latencyAvailable &&
+          <EuiFlexItem grow={false}>
+            <EuiSwitch compressed label='Log latency axis' checked={logLatency} onChange={(e) => setLogLatency(e.target.checked)} />
+          </EuiFlexItem>
+        }
         <EuiFlexItem grow={false}>
-          <EuiSwitch compressed label='Log latency axis' checked={logLatency} onChange={(e) => setLogLatency(e.target.checked)} />
+          <EuiSwitch compressed label='Show ranges' checked={showRange} onChange={(e) => setShowRange(e.target.checked)} />
         </EuiFlexItem>
         <EuiFlexItem grow={false}>
-          <EuiSwitch compressed label='Range (min–max)' checked={showRange} onChange={(e) => setShowRange(e.target.checked)} />
+          <EuiSwitch compressed label='Fit axes to data' checked={fitAxesToData} onChange={(e) => setFitAxesToData(e.target.checked)} />
         </EuiFlexItem>
         <EuiFlexItem grow={false}>
-          <EuiSwitch compressed label='Pareto frontier' checked={showFrontier} onChange={(e) => setShowFrontier(e.target.checked)} />
+          <EuiSwitch
+            compressed
+            label={
+              <span>
+                Pareto frontier{' '}
+                <EuiIconTip
+                  content="Dims any strategy that's outperformed on both metrics by another strategy."
+                />
+              </span>
+            }
+            checked={showFrontier}
+            onChange={(e) => setShowFrontier(e.target.checked)}
+          />
         </EuiFlexItem>
       </EuiFlexGroup>
 
       <EuiSpacer size='m' />
 
-      <Chart size={{ height }}>
-        <Settings
-          baseTheme={baseTheme}
-          theme={themeOverrides}
-          showLegend
-          legendPosition={Position.Right}
-          xDomain={xDomain}
-          onElementClick={onStrategyClick ? handleElementClick : undefined}
-          locale='en-US'
-        />
-        {/* Tooltip for the point under the pointer; no x-crosshair (an
-            x-aligned cursor is meaningless on a scatter). */}
-        <Tooltip type={TooltipType.Follow} customTooltip={tooltip} />
-
-        <Axis
-          id='x'
-          position={Position.Bottom}
-          title={axisTitle(xMetric, 'x')}
-          tickFormat={formatTick(xMetric)}
-          gridLine={{ visible: true }}
-        />
-        <Axis
-          id='y'
-          position={Position.Left}
-          title={axisTitle(yMetric, 'y')}
-          tickFormat={formatTick(yMetric)}
-          gridLine={{ visible: true }}
-          domain={yDomain}
-        />
-
-        {families.map((family) => {
-          const whiskers = whiskersByFamily.get(family)
-          if (!whiskers) return null
-          const color = familyColor(family)
-          return (
-            <React.Fragment key={`range-${family}`}>
-              {whiskers.frontier.length > 0 &&
-                <RectAnnotation
-                  id={`range-${family}-frontier`}
-                  dataValues={whiskers.frontier}
-                  hideTooltips
-                  zIndex={-1}
-                  style={{ stroke: color, strokeWidth: 1.5, fill: color, opacity: 0.7 }}
-                />
-              }
-              {whiskers.dominated.length > 0 &&
-                <RectAnnotation
-                  id={`range-${family}-dominated`}
-                  dataValues={whiskers.dominated}
-                  hideTooltips
-                  zIndex={-1}
-                  style={{ stroke: color, strokeWidth: 1.5, fill: color, opacity: 0.3 }}
-                />
-              }
-            </React.Fragment>
-          )
-        })}
-
-        {showFrontier && frontier.length > 1 &&
-          <LineSeries
-            id={FRONTIER_SPEC_ID}
-            name='Pareto frontier'
-            data={frontier}
-            xAccessor='x'
-            yAccessors={['y']}
-            xScaleType={logX ? ScaleType.Log : ScaleType.Linear}
-            yScaleType={logY ? ScaleType.Log : ScaleType.Linear}
-            curve={frontierCurve(xMetric.direction)}
-            color={euiTheme.colors.textSubdued}
-            lineSeriesStyle={{
-              line: { strokeWidth: 1.5, dash: [5, 4] },
-              point: { visible: 'never' },
-            }}
-          />
-        }
-
-        {families.map((family) => {
-          const data = points.filter((p) => p.family === family)
-          if (data.length === 0) return null
-          return (
-            <BubbleSeries
-              key={family}
-              id={`family-${family}`}
-              name={family}
-              data={data}
-              xAccessor='x'
-              yAccessors={['y']}
-              xScaleType={logX ? ScaleType.Log : ScaleType.Linear}
-              yScaleType={logY ? ScaleType.Log : ScaleType.Linear}
-              color={familyColor(family)}
-              pointStyleAccessor={pointStyleAccessor}
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        <AxisTitle metric={yMetric} vertical />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Chart size={{ height }}>
+            <Settings
+              baseTheme={baseTheme}
+              theme={themeOverrides}
+              showLegend
+              legendPosition={Position.Right}
+              xDomain={xDomain}
+              onElementClick={onStrategyClick ? handleElementClick : undefined}
+              locale='en-US'
             />
-          )
-        })}
-      </Chart>
+            {/* Tooltip for the point under the pointer; no x-crosshair (an
+                x-aligned cursor is meaningless on a scatter). */}
+            <Tooltip type={TooltipType.Follow} customTooltip={tooltip} />
+
+            <Axis
+              id='x'
+              position={Position.Bottom}
+              tickFormat={formatTick(xMetric)}
+              gridLine={{ visible: true }}
+            />
+            <Axis
+              id='y'
+              position={Position.Left}
+              tickFormat={formatTick(yMetric)}
+              gridLine={{ visible: true }}
+              domain={yDomain}
+            />
+
+            {families.map((family) => {
+              const whiskers = whiskersByFamily.get(family)
+              if (!whiskers) return null
+              const color = familyColor(family)
+              return (
+                <React.Fragment key={`range-${family}`}>
+                  {whiskers.frontier.length > 0 &&
+                    <RectAnnotation
+                      id={`range-${family}-frontier`}
+                      dataValues={whiskers.frontier}
+                      hideTooltips
+                      zIndex={-1}
+                      style={{ stroke: color, strokeWidth: 1.5, fill: color, opacity: 0.7 }}
+                    />
+                  }
+                  {whiskers.dominated.length > 0 &&
+                    <RectAnnotation
+                      id={`range-${family}-dominated`}
+                      dataValues={whiskers.dominated}
+                      hideTooltips
+                      zIndex={-1}
+                      style={{ stroke: color, strokeWidth: 1.5, fill: color, opacity: 0.3 }}
+                    />
+                  }
+                </React.Fragment>
+              )
+            })}
+
+            {showFrontier && frontier.length > 1 &&
+              <LineSeries
+                id={FRONTIER_SPEC_ID}
+                name='Pareto frontier'
+                data={frontier}
+                xAccessor='x'
+                yAccessors={['y']}
+                xScaleType={logX ? ScaleType.Log : ScaleType.Linear}
+                yScaleType={logY ? ScaleType.Log : ScaleType.Linear}
+                curve={frontierCurve(xMetric.direction)}
+                color={euiTheme.colors.textSubdued}
+                lineSeriesStyle={{
+                  line: { strokeWidth: 1.5, dash: [5, 4] },
+                  point: { visible: 'never' },
+                }}
+              />
+            }
+
+            {families.map((family) => {
+              const data = points.filter((p) => p.family === family)
+              if (data.length === 0) return null
+              return (
+                <BubbleSeries
+                  key={family}
+                  id={`family-${family}`}
+                  name={family}
+                  data={data}
+                  xAccessor='x'
+                  yAccessors={['y']}
+                  xScaleType={logX ? ScaleType.Log : ScaleType.Linear}
+                  yScaleType={logY ? ScaleType.Log : ScaleType.Linear}
+                  color={familyColor(family)}
+                  pointStyleAccessor={pointStyleAccessor}
+                />
+              )
+            })}
+          </Chart>
+          <AxisTitle metric={xMetric} />
+        </div>
+      </div>
 
       <EuiSpacer size='s' />
       <EuiText size='xs' color='subdued'>
-        {frontier.length} of {points.length} strategies on the frontier. Dimmed points are dominated.
+        {frontier.length} of {points.length} strategies on the frontier.
+        {showFrontier && ' Dimmed points are dominated.'}
         {excluded > 0 && ` ${excluded} strategies hidden (missing metric${logX || logY ? ' or non-positive value on a log axis' : ''}).`}
       </EuiText>
     </div>

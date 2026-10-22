@@ -166,6 +166,12 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
   ]
   for (const metric of sortPriority) {
     if ((evaluation.task?.metrics || []).includes(metric)) {
+      // Highest average across strategies for this metric, so that
+      // strategy's value can be bolded (ties all bold too, via ===).
+      const bestAvg = items.reduce((best, item) => {
+        const avg = item?.metrics?.[metric]?.avg
+        return typeof avg === 'number' && (best === undefined || avg > best) ? avg : best
+      }, undefined)
       columns.push({
         field: `metrics.${metric}.avg`,
         name: (
@@ -175,20 +181,30 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         ),
         sortable: true,
         style: { width: '100px' },
-        render: (name, item) => (
-          <div style={{ position: 'relative', width: '100%' }}>
-            {item?.metrics?.[metric]?.avg === undefined
-              ? <EuiText size='s'>-</EuiText>
-              : <EuiProgress
-                color='vis0'
-                label={item.metrics[metric].avg ? item.metrics[metric].avg.toFixed(4) : '-'}
-                max={1}
-                size='s'
-                value={item.metrics[metric].avg}
-              />
-            }
-          </div>
-        )
+        render: (name, item) => {
+          const avg = item?.metrics?.[metric]?.avg
+          const isBest = typeof avg === 'number' && avg === bestAvg
+          return (
+            <div style={{ position: 'relative', width: '100%' }}>
+              {avg === undefined
+                ? <EuiText size='s'>-</EuiText>
+                // `EuiProgress` resets font-weight on its internal data
+                // wrapper (see .euiProgress__data), so bolding the outer
+                // element here wouldn't survive that reset — it has to be
+                // set via `labelProps`, which lands as an inline style
+                // directly on the label `<div>`, taking precedence over it.
+                : <EuiProgress
+                  color='vis0'
+                  label={avg ? avg.toFixed(4) : '-'}
+                  labelProps={{ style: { fontWeight: isBest ? 'bold' : undefined } }}
+                  max={1}
+                  size='s'
+                  value={avg}
+                />
+              }
+            </div>
+          )
+        }
       })
     }
   }
@@ -213,19 +229,32 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       </div>
     )
   })
-  columns.push({
-    field: 'took.avg',
-    name: 'Latency',
-    sortable: true,
-    style: { width: '100px' },
-    render: (name, item) => (
-      <EuiText size='s'>
-        {typeof item?.took?.avg === 'number'
-          ? `${Math.round(item.took.avg).toLocaleString('en-US')}ms`
-          : '-'}
-      </EuiText>
-    )
-  })
+  {
+    // Lowest average latency across strategies (lower is better), so that
+    // strategy's value can be bolded (ties all bold too, via ===). A
+    // strategy with no latency value is never a candidate and never bolded.
+    const bestTook = items.reduce((best, item) => {
+      const avg = item?.took?.avg
+      return typeof avg === 'number' && (best === undefined || avg < best) ? avg : best
+    }, undefined)
+    columns.push({
+      field: 'took.avg',
+      name: 'Latency',
+      sortable: true,
+      style: { width: '100px' },
+      render: (name, item) => {
+        const avg = item?.took?.avg
+        const isBest = typeof avg === 'number' && avg === bestTook
+        return (
+          <EuiText size='s' style={{ fontWeight: isBest ? 'bold' : undefined }}>
+            {typeof avg === 'number'
+              ? `${Math.round(avg).toLocaleString('en-US')}ms`
+              : '-'}
+          </EuiText>
+        )
+      }
+    })
+  }
   columns.push({
     name: 'Actions',
     actions: [
