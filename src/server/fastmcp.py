@@ -361,9 +361,9 @@ def runs_get(ctx: Context, _id: str) -> Dict[str, Any]:
     return dict(api.runs.get(_id))
 
 @mcp.tool(description=api.runs.get_forensics.__doc__)
-def runs_get_forensics(ctx: Context, run_id: str) -> Dict[str, Any]:
+def runs_get_forensics(ctx: Context, run_id: str, parts: Optional[List[str]] = None) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.runs.get_forensics(run_id))
+    return dict(api.runs.get_forensics(run_id, parts=parts))
 
 @mcp.tool(description=api.runs.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{RunCreate.model_input_json_schema()}

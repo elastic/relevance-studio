@@ -45,10 +45,17 @@ const RunsView = () => {
 
   const [strategyInFocus, setStrategyInFocus] = useState(null)
   const [isFlyoutRuntimeOpen, setIsFlyoutRuntimeOpen] = useState(false)
-  // Forensics (runtime + unrated_docs) live in a separate store and are loaded
-  // on demand to keep the run doc (and this page's initial load) small.
-  const [forensics, setForensics] = useState(null)
-  const [isForensicsLoading, setIsForensicsLoading] = useState(false)
+  // Forensics (runtime + unrated_docs) live in a separate store and are fetched
+  // on demand, field-selectively, to keep each fetch bounded. The runtime
+  // snapshot is split: `meta` holds only the small strategy/scenario name+tag
+  // metadata needed by the Summary table and heatmap; the FULL runtime (which
+  // includes the large runtime.judgements map that scales with rated docs) is
+  // loaded only when the "View runtime assets" flyout opens; `unrated_docs` is
+  // loaded only for the unrated-docs panel.
+  const [forensicsMeta, setForensicsMeta] = useState(null)     // runtime.strategies + runtime.scenarios
+  const [unratedDocs, setUnratedDocs] = useState(null)         // unrated_docs
+  const [fullRuntime, setFullRuntime] = useState(null)         // full runtime (incl. judgements)
+  const [isFullRuntimeLoading, setIsFullRuntimeLoading] = useState(false)
   const [metricOpen, setMetricOpen] = useState(false)
   const [metricOptions, setMetricOptions] = useState([])
   const [metricSelected, setMetricSelected] = useState(null)
@@ -113,37 +120,81 @@ const RunsView = () => {
     setMetricSelected({ _id: first, label: labelForMetric(first), checked: 'on' })
   }, [normalizedBenchmarkMetrics])
 
-  // Lazy-load the forensics doc (runtime + unrated_docs) once the run is ready.
-  // Skipped runs have no forensics; the endpoint simply returns found: false.
+  // On load, fetch ONLY the small runtime metadata (strategy/scenario names +
+  // tags) that the Summary table and heatmap need. This is bounded by the number
+  // of assets, not by the number of judgements, so it stays small at scale.
+  // Skipped runs have no forensics; the endpoint returns found: false.
   useEffect(() => {
     if (!workspace?._id || !benchmark?._id || !run?._id) return
-    if (forensics !== null || isForensicsLoading) return
+    if (forensicsMeta !== null) return
     let cancelled = false
-    setIsForensicsLoading(true)
-    api.runs_get_forensics(workspace._id, benchmark._id, run._id)
+    api.runs_get_forensics(workspace._id, benchmark._id, run._id,
+      ['runtime.strategies', 'runtime.scenarios'])
       .then((response) => {
         if (cancelled) return
-        setForensics(response?.data?._source ?? {})
+        setForensicsMeta(response?.data?._source?.runtime ?? {})
       })
-      .catch(() => { if (!cancelled) setForensics({}) })
-      .finally(() => { if (!cancelled) setIsForensicsLoading(false) })
+      .catch(() => { if (!cancelled) setForensicsMeta({}) })
     return () => { cancelled = true }
   }, [workspace?._id, benchmark?._id, run?._id])
 
-  // A run-shaped object that merges the small run doc with the lazily-loaded
-  // forensics (runtime + unrated_docs), so the existing child components (which
-  // expect those fields together) keep working unchanged.
+  // Fetch unrated_docs on their own (only this slice) once the run is ready.
+  useEffect(() => {
+    if (!workspace?._id || !benchmark?._id || !run?._id) return
+    if (unratedDocs !== null) return
+    let cancelled = false
+    api.runs_get_forensics(workspace._id, benchmark._id, run._id, ['unrated_docs'])
+      .then((response) => {
+        if (cancelled) return
+        setUnratedDocs(response?.data?._source?.unrated_docs ?? [])
+      })
+      .catch(() => { if (!cancelled) setUnratedDocs([]) })
+    return () => { cancelled = true }
+  }, [workspace?._id, benchmark?._id, run?._id])
+
+  // Fetch the FULL runtime (including the large judgements snapshot) lazily, the
+  // first time the user opens the runtime-assets flyout.
+  useEffect(() => {
+    if (!isFlyoutRuntimeOpen) return
+    if (fullRuntime !== null || isFullRuntimeLoading) return
+    if (!workspace?._id || !benchmark?._id || !run?._id) return
+    let cancelled = false
+    setIsFullRuntimeLoading(true)
+    api.runs_get_forensics(workspace._id, benchmark._id, run._id, ['runtime'])
+      .then((response) => {
+        if (cancelled) return
+        setFullRuntime(response?.data?._source?.runtime ?? {})
+      })
+      .catch(() => { if (!cancelled) setFullRuntime({}) })
+      .finally(() => { if (!cancelled) setIsFullRuntimeLoading(false) })
+    return () => { cancelled = true }
+  }, [isFlyoutRuntimeOpen, workspace?._id, benchmark?._id, run?._id])
+
+  // A run-shaped object that merges the small run doc with the lightweight
+  // runtime metadata + unrated_docs, so the summary/heatmap/unrated children
+  // keep working. It deliberately does NOT carry runtime.judgements (that only
+  // flows to the flyout via `fullRuntime`).
   const runWithForensics = useMemo(() => {
     if (!run) return run
     return {
       ...run,
-      runtime: forensics?.runtime,
-      unrated_docs: forensics?.unrated_docs ?? [],
+      runtime: forensicsMeta || undefined,
+      unrated_docs: unratedDocs ?? [],
     }
-  }, [run, forensics])
+  }, [run, forensicsMeta, unratedDocs])
 
-  const downloadRun = () => {
-    const blob = new Blob([utils.jsonStringifySortedKeys(runWithForensics, null, 2)], { type: 'application/json' })
+  // Download a faithful full export: the run doc plus the COMPLETE forensics
+  // (including runtime.judgements), fetched on demand so the page itself never
+  // carries that payload unless explicitly exported.
+  const downloadRun = async () => {
+    let full = { runtime: fullRuntime, unrated_docs: unratedDocs }
+    try {
+      const response = await api.runs_get_forensics(workspace._id, benchmark._id, run._id)
+      const src = response?.data?._source
+      if (src) full = { runtime: src.runtime, unrated_docs: src.unrated_docs, failures: src.failures }
+    } catch (e) { /* fall back to whatever is already loaded */ }
+    const exported = { ...run, ...full }
+    const blob = new Blob([utils.jsonStringifySortedKeys(exported, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -381,8 +432,8 @@ const RunsView = () => {
     >
       {isFlyoutRuntimeOpen &&
         <FlyoutRuntime
-          runtime={forensics?.runtime}
-          isLoading={isForensicsLoading}
+          runtime={fullRuntime}
+          isLoading={isFullRuntimeLoading}
           onClose={() => setIsFlyoutRuntimeOpen(false)}
         />
       }
@@ -513,7 +564,7 @@ const RunsView = () => {
       }
 
       {/* Unrated docs (from the forensics store) */}
-      {run?.summary && (forensics?.unrated_docs?.length ?? 0) > 0 &&
+      {run?.summary && (unratedDocs?.length ?? 0) > 0 &&
         <>
           <EuiPanel paddingSize='none'>
             <EuiFlexGroup>
@@ -528,7 +579,7 @@ const RunsView = () => {
                 <EuiPanel color='transparent' paddingSize='none'>
                   <EuiButton style={{ margin: '8px 16px' }} onClick={(e) => {
                     const pairs = []
-                    forensics.unrated_docs.forEach((doc) => {
+                    unratedDocs.forEach((doc) => {
                       pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
                     })
                     const query = encodeURIComponent(pairs.join(' OR '))

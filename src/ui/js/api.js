@@ -432,10 +432,13 @@ api.runs_get = async (workspace_id, benchmark_id, run_id) => {
 }
 
 // Fetches the forensics audit doc (runtime, unrated_docs, failures) for a run.
-// Loaded on demand (runtime flyout / unrated-docs panel) to keep the run page light.
-api.runs_get_forensics = async (workspace_id, benchmark_id, run_id) => {
+// Loaded on demand to keep the run page light. `parts` (array of field paths,
+// e.g. ['runtime.strategies','runtime.scenarios']) returns only those slices so
+// the large runtime.judgements map is pulled only when actually needed.
+api.runs_get_forensics = async (workspace_id, benchmark_id, run_id, parts) => {
   validateArgs('api.runs_get_forensics', { workspace_id, benchmark_id, run_id, })
-  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/forensics`)
+  const qs = (parts && parts.length) ? `?parts=${encodeURIComponent(parts.join(','))}` : ''
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/forensics${qs}`)
   return responseOrFallbackSetup(response)
 }
 

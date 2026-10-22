@@ -937,29 +937,64 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def get_forensics(run_id: str) -> Dict[str, Any]:
-    """Get the forensics audit document (runtime, unrated_docs, failures) for a run.
+# Field paths within the forensics document that may be fetched selectively.
+# The runtime snapshot is split so callers can pull the small, bounded
+# name/tag metadata (strategies, scenarios) without the large `runtime.judgements`
+# map, which scales with every rated document across every scenario.
+FORENSICS_PARTS = set([
+    "runtime",              # the whole runtime snapshot (large: includes judgements)
+    "runtime.indices",
+    "runtime.scenarios",
+    "runtime.strategies",
+    "runtime.judgements",   # the largest field; scales with rated docs
+    "unrated_docs",
+    "failures",
+])
+
+# Fields always returned regardless of `parts` (cheap identifiers/timestamp),
+# so every response is self-describing.
+_FORENSICS_ALWAYS = ["run_id", "workspace_id", "benchmark_id", "@timestamp"]
+
+
+def get_forensics(run_id: str, parts: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Get the forensics audit document for a run, optionally field-selective.
 
     The forensics data lives in the esrs-benchmark-forensics data stream (one
-    document per run), keyed by run_id. This is read-rarely data needed only by
-    the runtime-assets flyout and the unrated-docs/judgement-gap-fill workflow,
-    so it is fetched on demand rather than loaded with the run doc.
+    document per run), keyed by run_id. It is read-rarely and can be large (the
+    `runtime.judgements` snapshot scales with the number of rated documents), so
+    callers should request only the parts they need:
+
+      * Summary table / heatmap -> ["runtime.strategies", "runtime.scenarios"]
+        (small, bounded by the number of assets, not by judgements)
+      * Runtime-assets flyout / full download -> ["runtime"] (or None for all)
+      * Unrated-docs / judgement-gap-fill -> ["unrated_docs"]
 
     Args:
         run_id: The UUID of the run.
+        parts: Optional list of forensics field paths to include (see
+            FORENSICS_PARTS). When omitted/empty, the full document is returned
+            (back-compatible). Unknown parts are ignored.
 
     Returns:
-        A dict shaped like a single-doc get: {"_id", "found", "_source"} where
-        _source has {run_id, workspace_id, benchmark_id, runtime, unrated_docs,
-        failures, @timestamp}. `found` is False if no forensics exist (e.g. a
+        A dict shaped like a single-doc get: {"_id", "found", "_source"}. The
+        `_source` always carries the identifiers + @timestamp, plus whichever
+        requested parts exist. `found` is False if no forensics exist (e.g. a
         skipped run, which writes none).
     """
     client = es("studio")
+
+    source_includes = None
+    if parts:
+        requested = [p for p in parts if p in FORENSICS_PARTS]
+        # Always include cheap identifiers so the response is self-describing.
+        source_includes = _FORENSICS_ALWAYS + requested
+
+    body = {"query": {"term": {"run_id": run_id}}, "size": 1}
+    if source_includes is not None:
+        body["_source"] = {"includes": source_includes}
+
     try:
-        es_response = client.search(
-            index=FORENSICS_INDEX_NAME,
-            body={"query": {"term": {"run_id": run_id}}, "size": 1},
-        )
+        es_response = client.search(index=FORENSICS_INDEX_NAME, body=body)
     except NotFoundError:
         return {"_id": run_id, "found": False, "_source": {}}
     hits = es_response.body.get("hits", {}).get("hits", [])

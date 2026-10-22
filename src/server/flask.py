@@ -500,7 +500,12 @@ def runs_get(workspace_id, benchmark_id, _id):
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/forensics", methods=["GET"])
 def runs_get_forensics(workspace_id, benchmark_id, _id):
-    return api.runs.get_forensics(_id)
+    # Optional `parts` query param (comma-separated field paths) returns only
+    # the requested slices of the forensics doc, e.g.
+    # ?parts=runtime.strategies,runtime.scenarios
+    parts_raw = request.args.get("parts")
+    parts = [p.strip() for p in parts_raw.split(",") if p.strip()] if parts_raw else None
+    return api.runs.get_forensics(_id, parts=parts)
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs", methods=["POST"])
 def runs_create(workspace_id, benchmark_id):
