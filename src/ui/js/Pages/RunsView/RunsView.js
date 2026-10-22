@@ -29,6 +29,7 @@ import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import FlyoutRuntime from './FlyoutRuntime'
 import ChartMetricsHeatmap from './ChartMetricsHeatmap'
+import ChartMetricsTradeoff from './ChartMetricsTradeoff'
 import PanelUnratedDocs from './PanelUnratedDocs'
 import TableMetrics from './TableMetrics'
 import { getHistory } from '../../history'
@@ -524,6 +525,27 @@ const RunsView = () => {
                   <TableMetrics evaluation={runWithForensics} rowOnHover={setStrategyInFocus} />
                 </EuiFlexItem>
               </EuiFlexGroup>
+            </EuiPanel>
+          </EuiPanel>
+          <EuiSpacer size='m' />
+        </>
+      }
+
+      {/* Chart */}
+      {run?.summary &&
+        <>
+          <EuiPanel paddingSize='none'>
+            <EuiPanel color='transparent'>
+              <EuiTitle size='s'>
+                <h2>Chart</h2>
+              </EuiTitle>
+            </EuiPanel>
+            <EuiHorizontalRule margin='none' />
+            <EuiPanel color='transparent'>
+              <ChartMetricsTradeoff
+                evaluation={runWithForensics}
+                onStrategyClick={(strategyId) => history.push(`/workspaces/${workspace._id}/strategies/${strategyId}`)}
+              />
             </EuiPanel>
           </EuiPanel>
           <EuiSpacer size='m' />
