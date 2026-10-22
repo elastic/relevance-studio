@@ -119,11 +119,14 @@ const PanelUnratedDocs = ({ evaluation }) => {
     for (const i in evaluation.unrated_docs) {
       const doc = evaluation.unrated_docs[i]
       const template = resolveIndexToDisplay(doc._index)?.template
+      // Strategy names come from the whole strategies snapshot; scenario names
+      // are not loaded on this page (scenarios are paginated in the runtime
+      // flyout), so fall back to the id when a name isn't available.
       const scenarios = (doc.scenarios || [])
-        .map(_id => ({ _id, name: runtimeScenario(_id).name }))
+        .map(_id => ({ _id, name: runtimeScenario(_id)?.name || _id }))
         .sort((a, b) => a.name.localeCompare(b.name))
       const strategies = (doc.strategies || [])
-        .map(_id => ({ _id, name: runtimeStrategy(_id).name }))
+        .map(_id => ({ _id, name: runtimeStrategy(_id)?.name || _id }))
         .sort((a, b) => a.name.localeCompare(b.name))
       const scenarioList = []
       const strategyList = []
