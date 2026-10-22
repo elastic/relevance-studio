@@ -431,14 +431,53 @@ api.runs_get = async (workspace_id, benchmark_id, run_id) => {
   return responseOrFallbackSetup(response)
 }
 
-// Fetches the forensics audit doc (runtime, unrated_docs, failures) for a run.
-// Loaded on demand to keep the run page light. `parts` (array of field paths,
-// e.g. ['runtime.strategies','runtime.scenarios']) returns only those slices so
-// the large runtime.judgements map is pulled only when actually needed.
-api.runs_get_forensics = async (workspace_id, benchmark_id, run_id, parts) => {
-  validateArgs('api.runs_get_forensics', { workspace_id, benchmark_id, run_id, })
-  const qs = (parts && parts.length) ? `?parts=${encodeURIComponent(parts.join(','))}` : ''
-  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/forensics${qs}`)
+// A run's forensics are fanned out into per-collection data streams, each fetched
+// independently and paginated server-side so no single response is unbounded.
+// Strategies are small (bounded by the run's task) and returned whole; the
+// runtime index/scenario/judgement collections, unrated docs, and failures are
+// paginated via { size, page } (and judgements optionally by scenario_id).
+const _pageQs = ({ size, page, scenario_id } = {}) => {
+  const p = new URLSearchParams()
+  if (size != null) p.set('size', size)
+  if (page != null) p.set('page', page)
+  if (scenario_id) p.set('scenario_id', scenario_id)
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
+
+api.runs_get_runtime_strategies = async (workspace_id, benchmark_id, run_id) => {
+  validateArgs('api.runs_get_runtime_strategies', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/runtime/strategies`)
+  return responseOrFallbackSetup(response)
+}
+
+api.runs_get_runtime_indices = async (workspace_id, benchmark_id, run_id, opts) => {
+  validateArgs('api.runs_get_runtime_indices', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/runtime/indices${_pageQs(opts)}`)
+  return responseOrFallbackSetup(response)
+}
+
+api.runs_get_runtime_scenarios = async (workspace_id, benchmark_id, run_id, opts) => {
+  validateArgs('api.runs_get_runtime_scenarios', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/runtime/scenarios${_pageQs(opts)}`)
+  return responseOrFallbackSetup(response)
+}
+
+api.runs_get_runtime_judgements = async (workspace_id, benchmark_id, run_id, opts) => {
+  validateArgs('api.runs_get_runtime_judgements', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/runtime/judgements${_pageQs(opts)}`)
+  return responseOrFallbackSetup(response)
+}
+
+api.runs_get_unrated_docs = async (workspace_id, benchmark_id, run_id, opts) => {
+  validateArgs('api.runs_get_unrated_docs', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/unrated_docs${_pageQs(opts)}`)
+  return responseOrFallbackSetup(response)
+}
+
+api.runs_get_failures = async (workspace_id, benchmark_id, run_id, opts) => {
+  validateArgs('api.runs_get_failures', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/failures${_pageQs(opts)}`)
   return responseOrFallbackSetup(response)
 }
 

@@ -31,7 +31,12 @@ PATH_INDEX_TEMPLATES = [
     ("esrs-benchmark-configs", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-configs.json")),
     ("esrs-benchmark-runs", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-runs.json")),
     ("esrs-benchmark-results", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-results.json")),
-    ("esrs-benchmark-forensics", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-forensics.json")),
+    ("esrs-benchmark-runtime-indices", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-runtime-indices.json")),
+    ("esrs-benchmark-runtime-strategies", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-runtime-strategies.json")),
+    ("esrs-benchmark-runtime-scenarios", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-runtime-scenarios.json")),
+    ("esrs-benchmark-runtime-judgements", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-runtime-judgements.json")),
+    ("esrs-benchmark-unrated-docs", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-unrated-docs.json")),
+    ("esrs-benchmark-failures", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-failures.json")),
 ]
 
 # Legacy v1 templates. Intentionally NOT in PATH_INDEX_TEMPLATES, so fresh v2.0
@@ -48,7 +53,15 @@ PATH_LEGACY_INDEX_TEMPLATES = [
 # Data-stream-backed templates (created via create_data_stream, not indices.create)
 # and immutable (op_type: create only). The "index_name" derived from their
 # index_patterns is the data stream name.
-DATA_STREAM_TEMPLATES = set(["esrs-benchmark-results", "esrs-benchmark-forensics"])
+DATA_STREAM_TEMPLATES = set([
+    "esrs-benchmark-results",
+    "esrs-benchmark-runtime-indices",
+    "esrs-benchmark-runtime-strategies",
+    "esrs-benchmark-runtime-scenarios",
+    "esrs-benchmark-runtime-judgements",
+    "esrs-benchmark-unrated-docs",
+    "esrs-benchmark-failures",
+])
 VALID_STEP_ACTIONS = set(["create_template", "update_template", "reindex_and_cutover"])
 LEDGER_INDEX = "esrs-system"
 LEDGER_DOC_ID = "index-template-migrations"
@@ -214,9 +227,14 @@ def _load_migration_manifest() -> Dict[str, Any]:
                     raise ValueError(
                         f"'reindex.source' for template '{template}' in '{version}' must be a non-empty string."
                     )
-                if reindex.get("mode") not in ("copy", "runs", "results", "forensics"):
+                valid_modes = (
+                    "copy", "runs", "results",
+                    "runtime_indices", "runtime_strategies", "runtime_scenarios",
+                    "runtime_judgements", "unrated_docs", "failures",
+                )
+                if reindex.get("mode") not in valid_modes:
                     raise ValueError(
-                        f"'reindex.mode' for template '{template}' in '{version}' must be one of copy|runs|results|forensics."
+                        f"'reindex.mode' for template '{template}' in '{version}' must be one of {'|'.join(valid_modes)}."
                     )
 
     ordered = sorted(versions, key=_version_sort_key)

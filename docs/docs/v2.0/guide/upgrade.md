@@ -56,12 +56,12 @@ After the new code is running, apply index upgrades:
 v2.0 adds migration manifest version `2.0.0`, which introduces a new `reindex_and_cutover` step action. When you upgrade to v2.0 through the normal upgrade flow (`POST /api/upgrade`), this step runs automatically to create the new stores and copy your existing data into them:
 
 - Creates the new `esrs-benchmark-configs` index and the `esrs-benchmark-runs` index.
-- Creates the new `esrs-benchmark-results` and `esrs-benchmark-forensics` data streams.
-- Copies data from the old `esrs-benchmarks` and `esrs-evaluations` indices into the new stores.
+- Creates the new `esrs-benchmark-results` data stream, and the six per-item runtime data streams: `esrs-benchmark-runtime-indices`, `esrs-benchmark-runtime-strategies`, `esrs-benchmark-runtime-scenarios`, `esrs-benchmark-runtime-judgements`, `esrs-benchmark-unrated-docs`, and `esrs-benchmark-failures`.
+- Copies data from the old `esrs-benchmarks` and `esrs-evaluations` indices into the new stores. The old nested `runtime`, `unrated_docs`, and `failures` audit trail is fanned out into the six per-item runtime data streams, with one document per item and deterministic `_id`s so the reindex is idempotent on retry.
 
 This migration is **additive**: the old `esrs-benchmarks` and `esrs-evaluations` indices are left in place and are **not** deleted. You can remove them manually once you have verified the upgrade.
 
-The `esrs-benchmark-results` and `esrs-benchmark-forensics` data streams use [Data Stream Lifecycle (DLM)](https://www.elastic.co/docs/manage-data/lifecycle/data-stream) with no retention limit set by default, so data is retained indefinitely. Each stream's index template has a single place to set a retention period later if you want the streams to roll off automatically.
+The `esrs-benchmark-results` data stream and the six per-item runtime data streams use [Data Stream Lifecycle (DLM)](https://www.elastic.co/docs/manage-data/lifecycle/data-stream) with no retention limit set by default, so data is retained indefinitely. Each stream's index template has a single place to set a retention period later if you want the streams to roll off automatically.
 
 ## Verify upgrade status
 

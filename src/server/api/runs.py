@@ -29,14 +29,30 @@ from ..models import (
     RunFail,
     RunSkip,
     BenchmarkResult,
-    BenchmarkForensics,
 )
 from elasticsearch import helpers
 
 INDEX_NAME = "esrs-benchmark-runs"
 CONFIGS_INDEX_NAME = "esrs-benchmark-configs"
 RESULTS_INDEX_NAME = "esrs-benchmark-results"
-FORENSICS_INDEX_NAME = "esrs-benchmark-forensics"
+RUNTIME_INDICES_INDEX_NAME = "esrs-benchmark-runtime-indices"
+RUNTIME_STRATEGIES_INDEX_NAME = "esrs-benchmark-runtime-strategies"
+RUNTIME_SCENARIOS_INDEX_NAME = "esrs-benchmark-runtime-scenarios"
+RUNTIME_JUDGEMENTS_INDEX_NAME = "esrs-benchmark-runtime-judgements"
+UNRATED_DOCS_INDEX_NAME = "esrs-benchmark-unrated-docs"
+FAILURES_INDEX_NAME = "esrs-benchmark-failures"
+
+# All immutable per-run data streams that hold a run's results + forensics.
+# Used by cleanup / delete cascades to sweep everything owned by a run_id.
+RUN_DATA_STREAMS = [
+    RESULTS_INDEX_NAME,
+    RUNTIME_INDICES_INDEX_NAME,
+    RUNTIME_STRATEGIES_INDEX_NAME,
+    RUNTIME_SCENARIOS_INDEX_NAME,
+    RUNTIME_JUDGEMENTS_INDEX_NAME,
+    UNRATED_DOCS_INDEX_NAME,
+    FAILURES_INDEX_NAME,
+]
 SEARCH_FIELDS = utils.get_search_fields_from_mapping("benchmark-runs")
 VALID_METRICS = set([ "mrr", "ndcg", "precision", "recall" ])
 RANK_EVAL_BATCH_SIZE = int(os.getenv("RANK_EVAL_BATCH_SIZE", "0"))
@@ -308,33 +324,68 @@ def _write_results_and_forensics(evaluation: Dict[str, Any], run_id: str) -> Non
                 "_source": doc,
             })
 
-    # Exactly one forensics document per run (runtime + unrated_docs + per-strategy
-    # failures). Always written for completed/failed runs so forensics count
-    # tracks run count.
-    failures = [
-        {"strategy_id": r.get("strategy_id"), "failures": r.get("failures")}
-        for r in (evaluation.get("results") or [])
-        if r.get("failures")
-    ]
-    forensics_input: Dict[str, Any] = {
+    # Forensics is fanned out into per-item documents across dedicated data
+    # streams so each collection can be paginated/queried server-side without
+    # ever loading the whole thing (runtime.judgements in particular scales with
+    # the number of rated docs). Every document is tagged run_id + workspace_id +
+    # benchmark_id + @timestamp, with a deterministic _id for idempotent retries.
+    base = {
         "run_id": run_id,
         "workspace_id": workspace_id,
         "benchmark_id": benchmark_id,
         "@timestamp": stopped_at,
     }
-    if evaluation.get("runtime") is not None:
-        forensics_input["runtime"] = evaluation["runtime"]
-    if evaluation.get("unrated_docs") is not None:
-        forensics_input["unrated_docs"] = evaluation["unrated_docs"]
-    if failures:
-        forensics_input["failures"] = failures
-    forensics_doc = BenchmarkForensics.model_validate(forensics_input).serialize()
-    actions.append({
-        "_op_type": "create",
-        "_index": FORENSICS_INDEX_NAME,
-        "_id": utils.unique_id([run_id, "forensics"]),
-        "_source": forensics_doc,
-    })
+
+    def _append_runtime(collection_index: str, id_field: str, runtime_key: str):
+        """One doc per entry in evaluation['runtime'][runtime_key] (a dict keyed
+        by asset id). The full asset snapshot is stored under `item`."""
+        for item_key, item_value in ((evaluation.get("runtime") or {}).get(runtime_key) or {}).items():
+            doc = {**base, id_field: item_key, "item": item_value}
+            # judgements also carry scenario_id for filtered pagination
+            if runtime_key == "judgements" and isinstance(item_value, dict) and item_value.get("scenario_id"):
+                doc["scenario_id"] = item_value["scenario_id"]
+            actions.append({
+                "_op_type": "create",
+                "_index": collection_index,
+                "_id": utils.unique_id([run_id, runtime_key, item_key]),
+                "_source": doc,
+            })
+
+    _append_runtime(RUNTIME_INDICES_INDEX_NAME, "index", "indices")
+    _append_runtime(RUNTIME_STRATEGIES_INDEX_NAME, "strategy_id", "strategies")
+    _append_runtime(RUNTIME_SCENARIOS_INDEX_NAME, "scenario_id", "scenarios")
+    _append_runtime(RUNTIME_JUDGEMENTS_INDEX_NAME, "judgement_id", "judgements")
+
+    # One doc per unrated document. _id/_index are stored as doc_id/doc_index so
+    # they don't collide with Elasticsearch metadata fields; count/strategies/
+    # scenarios stay queryable.
+    for u in (evaluation.get("unrated_docs") or []):
+        doc = {
+            **base,
+            "doc_id": u.get("_id"),
+            "doc_index": u.get("_index"),
+            "count": u.get("count"),
+            "strategies": u.get("strategies") or [],
+            "scenarios": u.get("scenarios") or [],
+        }
+        actions.append({
+            "_op_type": "create",
+            "_index": UNRATED_DOCS_INDEX_NAME,
+            "_id": utils.unique_id([run_id, "unrated", u.get("_index"), u.get("_id")]),
+            "_source": doc,
+        })
+
+    # One doc per strategy that had failures (per-strategy blob preserved).
+    for r in (evaluation.get("results") or []):
+        if not r.get("failures"):
+            continue
+        strategy_id = r.get("strategy_id")
+        actions.append({
+            "_op_type": "create",
+            "_index": FAILURES_INDEX_NAME,
+            "_id": utils.unique_id([run_id, "failures", strategy_id]),
+            "_source": {**base, "strategy_id": strategy_id, "failures": r.get("failures")},
+        })
 
     # Bulk write; tolerate benign already-exists conflicts from idempotent
     # retries, but surface any real error so the caller does NOT flip the run to
@@ -921,7 +972,8 @@ def get(_id: str) -> Dict[str, Any]:
 
     Returns the small run document (status, task, summary, error, took). The
     heavy per-search results and the runtime/unrated-docs audit trail are NOT on
-    this document; fetch them from the results stream or via get_forensics().
+    this document; fetch them from the results stream or the paginated
+    get_runtime_*/get_unrated_docs/get_failures endpoints.
 
     Args:
         _id: The UUID of the run.
@@ -937,70 +989,102 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-# Field paths within the forensics document that may be fetched selectively.
-# The runtime snapshot is split so callers can pull the small, bounded
-# name/tag metadata (strategies, scenarios) without the large `runtime.judgements`
-# map, which scales with every rated document across every scenario.
-FORENSICS_PARTS = set([
-    "runtime",              # the whole runtime snapshot (large: includes judgements)
-    "runtime.indices",
-    "runtime.scenarios",
-    "runtime.strategies",
-    "runtime.judgements",   # the largest field; scales with rated docs
-    "unrated_docs",
-    "failures",
-])
+####  Run forensics (per-item data streams, paginated)  ########################
+#
+# A run's forensics are fanned out into dedicated per-item data streams so each
+# collection can be fetched independently and paginated server-side. The UI/MCP
+# should fetch only the collection(s) a given view needs:
+#   * Summary/heatmap labels -> get_runtime_strategies (whole; bounded by #strategies)
+#   * Runtime flyout tabs     -> get_runtime_{indices,scenarios,judgements} (paginated)
+#   * Unrated-docs panel      -> get_unrated_docs (paginated)
+#   * Debug                   -> get_failures
 
-# Fields always returned regardless of `parts` (cheap identifiers/timestamp),
-# so every response is self-describing.
-_FORENSICS_ALWAYS = ["run_id", "workspace_id", "benchmark_id", "@timestamp"]
+MAX_RUNTIME_STRATEGIES = 10000  # strategies are bounded by the run's task; fetched whole
 
 
-def get_forensics(run_id: str, parts: Optional[List[str]] = None) -> Dict[str, Any]:
-    """Get the forensics audit document for a run, optionally field-selective.
+def _paginate_run_collection(
+        index: str,
+        run_id: str,
+        size: int = 25,
+        page: int = 1,
+        extra_filters: Optional[List[Dict[str, Any]]] = None,
+        sort: Optional[List[Any]] = None,
+    ) -> Dict[str, Any]:
+    """Page over a per-run forensics data stream, filtered by run_id.
 
-    The forensics data lives in the esrs-benchmark-forensics data stream (one
-    document per run), keyed by run_id. It is read-rarely and can be large (the
-    `runtime.judgements` snapshot scales with the number of rated documents), so
-    callers should request only the parts they need:
-
-      * Summary table / heatmap -> ["runtime.strategies", "runtime.scenarios"]
-        (small, bounded by the number of assets, not by judgements)
-      * Runtime-assets flyout / full download -> ["runtime"] (or None for all)
-      * Unrated-docs / judgement-gap-fill -> ["unrated_docs"]
-
-    Args:
-        run_id: The UUID of the run.
-        parts: Optional list of forensics field paths to include (see
-            FORENSICS_PARTS). When omitted/empty, the full document is returned
-            (back-compatible). Unknown parts are ignored.
-
-    Returns:
-        A dict shaped like a single-doc get: {"_id", "found", "_source"}. The
-        `_source` always carries the identifiers + @timestamp, plus whichever
-        requested parts exist. `found` is False if no forensics exist (e.g. a
-        skipped run, which writes none).
+    Returns {"run_id", "total", "size", "page", "items": [_source, ...]}.
+    Empty (total 0) if the stream doesn't exist yet (e.g. a skipped run).
     """
     client = es("studio")
-
-    source_includes = None
-    if parts:
-        requested = [p for p in parts if p in FORENSICS_PARTS]
-        # Always include cheap identifiers so the response is self-describing.
-        source_includes = _FORENSICS_ALWAYS + requested
-
-    body = {"query": {"term": {"run_id": run_id}}, "size": 1}
-    if source_includes is not None:
-        body["_source"] = {"includes": source_includes}
-
+    filters = [{"term": {"run_id": run_id}}]
+    if extra_filters:
+        filters.extend(extra_filters)
+    body = {
+        "query": {"bool": {"filter": filters}},
+        "size": max(0, size),
+        "from": max(0, (page - 1) * size),
+        "track_total_hits": True,
+    }
+    if sort:
+        body["sort"] = sort
     try:
-        es_response = client.search(index=FORENSICS_INDEX_NAME, body=body)
+        es_response = client.search(index=index, body=body)
     except NotFoundError:
-        return {"_id": run_id, "found": False, "_source": {}}
-    hits = es_response.body.get("hits", {}).get("hits", [])
-    if not hits:
-        return {"_id": run_id, "found": False, "_source": {}}
-    return {"_id": run_id, "found": True, "_source": hits[0]["_source"]}
+        return {"run_id": run_id, "total": 0, "size": size, "page": page, "items": []}
+    hits = es_response.body.get("hits", {})
+    total = hits.get("total", {}).get("value", 0) if isinstance(hits.get("total"), dict) else hits.get("total", 0)
+    items = [h["_source"] for h in hits.get("hits", [])]
+    return {"run_id": run_id, "total": total, "size": size, "page": page, "items": items}
+
+
+def get_runtime_strategies(run_id: str) -> Dict[str, Any]:
+    """Get ALL runtime strategy snapshots for a run (not paginated).
+
+    Strategies are bounded by the run's task definition, so the Summary table and
+    heatmap fetch the whole set to label rows/axes.
+
+    Returns {"run_id", "total", "items": [{strategy_id, item, ...}, ...]}.
+    """
+    result = _paginate_run_collection(
+        RUNTIME_STRATEGIES_INDEX_NAME, run_id, size=MAX_RUNTIME_STRATEGIES, page=1,
+    )
+    return {"run_id": run_id, "total": result["total"], "items": result["items"]}
+
+
+def get_runtime_indices(run_id: str, size: int = 25, page: int = 1) -> Dict[str, Any]:
+    """Get a page of runtime index snapshots for a run."""
+    return _paginate_run_collection(RUNTIME_INDICES_INDEX_NAME, run_id, size, page)
+
+
+def get_runtime_scenarios(run_id: str, size: int = 25, page: int = 1) -> Dict[str, Any]:
+    """Get a page of runtime scenario snapshots for a run."""
+    return _paginate_run_collection(RUNTIME_SCENARIOS_INDEX_NAME, run_id, size, page)
+
+
+def get_runtime_judgements(run_id: str, size: int = 25, page: int = 1, scenario_id: str = "") -> Dict[str, Any]:
+    """Get a page of runtime judgement snapshots for a run.
+
+    Optionally filter by `scenario_id` (every judgement doc carries one), which
+    makes the judgement-gap-fill workflow cheap even for very large runs.
+    """
+    extra = [{"term": {"scenario_id": scenario_id}}] if scenario_id else None
+    return _paginate_run_collection(RUNTIME_JUDGEMENTS_INDEX_NAME, run_id, size, page, extra_filters=extra)
+
+
+def get_unrated_docs(run_id: str, size: int = 25, page: int = 1) -> Dict[str, Any]:
+    """Get a page of a run's unrated documents, most-unrated first.
+
+    Items are the stored shape {doc_id, doc_index, count, strategies, scenarios}.
+    """
+    return _paginate_run_collection(
+        UNRATED_DOCS_INDEX_NAME, run_id, size, page,
+        sort=[{"count": "desc"}],
+    )
+
+
+def get_failures(run_id: str, size: int = 25, page: int = 1) -> Dict[str, Any]:
+    """Get a page of a run's per-strategy failures."""
+    return _paginate_run_collection(FAILURES_INDEX_NAME, run_id, size, page)
 
 def create(
         workspace_id: str,
@@ -1048,7 +1132,7 @@ def _delete_stream_docs_by_run_ids(client, run_ids: List[str]) -> None:
     if not run_ids:
         return
     body = { "query": { "terms": { "run_id": run_ids }}}
-    for stream in (RESULTS_INDEX_NAME, FORENSICS_INDEX_NAME):
+    for stream in RUN_DATA_STREAMS:
         try:
             client.delete_by_query(
                 index=stream, body=body, refresh=True, conflicts="proceed",

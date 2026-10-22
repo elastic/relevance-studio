@@ -218,12 +218,20 @@ def delete(_id: str) -> Dict[str, Any]:
         conflicts="proceed",
     )
 
-    # Benchmark results/forensics are data streams that carry workspace_id on
-    # every document, so they are swept directly by workspace_id in a single
-    # query each (no _index filter — data-stream docs live in rolling backing
-    # indices). Tolerant of streams that don't exist yet.
+    # Benchmark results + forensics collections are data streams that carry
+    # workspace_id on every document, so each is swept directly by workspace_id
+    # in a single query (no _index filter — data-stream docs live in rolling
+    # backing indices). Tolerant of streams that don't exist yet.
     stream_body = { "query": { "term": { "workspace_id": _id }}}
-    for stream in ("esrs-benchmark-results", "esrs-benchmark-forensics"):
+    for stream in (
+        "esrs-benchmark-results",
+        "esrs-benchmark-runtime-indices",
+        "esrs-benchmark-runtime-strategies",
+        "esrs-benchmark-runtime-scenarios",
+        "esrs-benchmark-runtime-judgements",
+        "esrs-benchmark-unrated-docs",
+        "esrs-benchmark-failures",
+    ):
         try:
             client.delete_by_query(
                 index=stream, body=stream_body, refresh=True, conflicts="proceed",

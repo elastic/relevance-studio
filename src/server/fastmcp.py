@@ -360,10 +360,35 @@ def runs_get(ctx: Context, _id: str) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.runs.get(_id))
 
-@mcp.tool(description=api.runs.get_forensics.__doc__)
-def runs_get_forensics(ctx: Context, run_id: str, parts: Optional[List[str]] = None) -> Dict[str, Any]:
+@mcp.tool(description=api.runs.get_runtime_strategies.__doc__)
+def runs_get_runtime_strategies(ctx: Context, run_id: str) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.runs.get_forensics(run_id, parts=parts))
+    return dict(api.runs.get_runtime_strategies(run_id))
+
+@mcp.tool(description=api.runs.get_runtime_indices.__doc__)
+def runs_get_runtime_indices(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_runtime_indices(run_id, size=size, page=page))
+
+@mcp.tool(description=api.runs.get_runtime_scenarios.__doc__)
+def runs_get_runtime_scenarios(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_runtime_scenarios(run_id, size=size, page=page))
+
+@mcp.tool(description=api.runs.get_runtime_judgements.__doc__)
+def runs_get_runtime_judgements(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1, scenario_id: str = "") -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_runtime_judgements(run_id, size=size, page=page, scenario_id=scenario_id))
+
+@mcp.tool(description=api.runs.get_unrated_docs.__doc__)
+def runs_get_unrated_docs(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_unrated_docs(run_id, size=size, page=page))
+
+@mcp.tool(description=api.runs.get_failures.__doc__)
+def runs_get_failures(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_failures(run_id, size=size, page=page))
 
 @mcp.tool(description=api.runs.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{RunCreate.model_input_json_schema()}

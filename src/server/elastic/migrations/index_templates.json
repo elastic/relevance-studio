@@ -183,14 +183,69 @@
           }
         },
         {
-          "template": "esrs-benchmark-forensics",
+          "template": "esrs-benchmark-runtime-indices",
           "action": "reindex_and_cutover",
           "requires_reindex": true,
           "additive_reindex": true,
-          "description": "Create esrs-benchmark-forensics data stream and copy runtime, unrated_docs, and per-strategy failures (one document per run) from esrs-evaluations. No DLM retention set (infinite). Source is never deleted.",
+          "description": "Create esrs-benchmark-runtime-indices data stream and fan out one document per index from esrs-evaluations runtime.indices. No DLM retention set (infinite). Source is never deleted.",
           "reindex": {
             "source": "esrs-evaluations",
-            "mode": "forensics"
+            "mode": "runtime_indices"
+          }
+        },
+        {
+          "template": "esrs-benchmark-runtime-strategies",
+          "action": "reindex_and_cutover",
+          "requires_reindex": true,
+          "additive_reindex": true,
+          "description": "Create esrs-benchmark-runtime-strategies data stream and fan out one document per strategy from esrs-evaluations runtime.strategies. No DLM retention set (infinite). Source is never deleted.",
+          "reindex": {
+            "source": "esrs-evaluations",
+            "mode": "runtime_strategies"
+          }
+        },
+        {
+          "template": "esrs-benchmark-runtime-scenarios",
+          "action": "reindex_and_cutover",
+          "requires_reindex": true,
+          "additive_reindex": true,
+          "description": "Create esrs-benchmark-runtime-scenarios data stream and fan out one document per scenario from esrs-evaluations runtime.scenarios. No DLM retention set (infinite). Source is never deleted.",
+          "reindex": {
+            "source": "esrs-evaluations",
+            "mode": "runtime_scenarios"
+          }
+        },
+        {
+          "template": "esrs-benchmark-runtime-judgements",
+          "action": "reindex_and_cutover",
+          "requires_reindex": true,
+          "additive_reindex": true,
+          "description": "Create esrs-benchmark-runtime-judgements data stream and fan out one document per judgement from esrs-evaluations runtime.judgements. No DLM retention set (infinite). Source is never deleted.",
+          "reindex": {
+            "source": "esrs-evaluations",
+            "mode": "runtime_judgements"
+          }
+        },
+        {
+          "template": "esrs-benchmark-unrated-docs",
+          "action": "reindex_and_cutover",
+          "requires_reindex": true,
+          "additive_reindex": true,
+          "description": "Create esrs-benchmark-unrated-docs data stream and fan out one document per unrated document from esrs-evaluations unrated_docs. No DLM retention set (infinite). Source is never deleted.",
+          "reindex": {
+            "source": "esrs-evaluations",
+            "mode": "unrated_docs"
+          }
+        },
+        {
+          "template": "esrs-benchmark-failures",
+          "action": "reindex_and_cutover",
+          "requires_reindex": true,
+          "additive_reindex": true,
+          "description": "Create esrs-benchmark-failures data stream and fan out one document per strategy with failures from esrs-evaluations results[].failures. No DLM retention set (infinite). Source is never deleted.",
+          "reindex": {
+            "source": "esrs-evaluations",
+            "mode": "failures"
           }
         }
       ]

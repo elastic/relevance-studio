@@ -819,26 +819,41 @@ Retrieve a run by its `_id` in a given workspace.
 
 **`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>`**
 
-#### Get run forensics
+#### Get run runtime strategies
 
-Retrieve the forensics for a run by its `_id` in a given workspace. Returns the run's runtime assets, the documents that appeared unrated, and any per-strategy failures as `{runtime, unrated_docs, failures}`. See the [esrs-benchmark-forensics data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-forensics).
+Retrieve all runtime strategies for a run by its `_id` in a given workspace. See the [esrs-benchmark-runtime-strategies data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-runtime-strategies). This endpoint is **not paginated**: the number of strategies is bounded by the run's `task`, so it always returns them all. Response: `{run_id, total, items: [...]}`.
 
-**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/forensics`**
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/runtime/strategies`**
 
-Because the runtime snapshot embeds a full copy of every strategy, scenario, and judgement used in the run, `runtime.judgements` scales with the number of rated documents and can be large. Pass an optional `parts` query parameter (comma-separated field paths) to fetch only the slices you need instead of the whole document:
+#### Get run runtime indices
 
-| Part | Returns |
-|---|---|
-|`runtime.strategies`, `runtime.scenarios`|Small per-asset name/tag metadata (bounded by the number of assets) — enough to label the summary table and heatmap.|
-|`runtime.indices`|Per-index relevance fingerprints.|
-|`runtime.judgements`|The full judgements snapshot (large; scales with rated documents).|
-|`runtime`|The entire runtime snapshot (all of the above).|
-|`unrated_docs`|Only the unrated-documents list.|
-|`failures`|Only the per-strategy failures.|
+Retrieve the runtime indices for a run by its `_id` in a given workspace. See the [esrs-benchmark-runtime-indices data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-runtime-indices). Paginated with the optional `size` (default `25`) and `page` (default `1`) query parameters. Response: `{run_id, total, size, page, items: [...]}`.
 
-The `run_id`, `workspace_id`, `benchmark_id`, and `@timestamp` fields are always returned. When `parts` is omitted, the complete forensics document is returned. Unknown parts are ignored.
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/runtime/indices?size=&page=`**
 
-**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/forensics?parts=runtime.strategies,runtime.scenarios`**
+#### Get run runtime scenarios
+
+Retrieve the runtime scenarios for a run by its `_id` in a given workspace. See the [esrs-benchmark-runtime-scenarios data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-runtime-scenarios). Paginated with the optional `size` (default `25`) and `page` (default `1`) query parameters. Response: `{run_id, total, size, page, items: [...]}`.
+
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/runtime/scenarios?size=&page=`**
+
+#### Get run runtime judgements
+
+Retrieve the runtime judgements for a run by its `_id` in a given workspace. See the [esrs-benchmark-runtime-judgements data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-runtime-judgements). This stream scales with the number of rated documents, so it is always paginated with the optional `size` (default `25`) and `page` (default `1`) query parameters. Pass an optional `scenario_id` query parameter to return only the judgements for a single scenario. Response: `{run_id, total, size, page, items: [...]}`.
+
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/runtime/judgements?size=&page=&scenario_id=`**
+
+#### Get run unrated docs
+
+Retrieve the documents that appeared in a run's results but had no judgement, by the run's `_id` in a given workspace. See the [esrs-benchmark-unrated-docs data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-unrated-docs). Paginated with the optional `size` (default `25`) and `page` (default `1`) query parameters, sorted by `count` descending. Response: `{run_id, total, size, page, items: [...]}`.
+
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/unrated_docs?size=&page=`**
+
+#### Get run failures
+
+Retrieve the per-strategy failures for a run by its `_id` in a given workspace. See the [esrs-benchmark-failures data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-failures). Paginated with the optional `size` (default `25`) and `page` (default `1`) query parameters. Response: `{run_id, total, size, page, items: [...]}`.
+
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/failures?size=&page=`**
 
 #### Create run
 

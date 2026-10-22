@@ -210,7 +210,7 @@ See also:
 
 ## Run
 
-A run is one execution of a [benchmark](#benchmark). Each run records the frozen task definition, its status, and a precomputed `summary` of relevance metrics for each [strategy](#strategy) and [scenario](#scenario) and their tags. The run record itself stays small so it's fast to list and check for status. The detailed per-search results live in a separate results store, while the runtime audit trail — the index states and [workspace](#workspace) assets used at runtime, the documents that appeared unrated in the results, and any failures that occurred — lives in a separate forensics store. Together they give great explanatory insight into the relevance of the strategies.
+A run is one execution of a [benchmark](#benchmark). Each run records the frozen task definition, its status, and a precomputed `summary` of relevance metrics for each [strategy](#strategy) and [scenario](#scenario) and their tags. The run record itself stays small so it's fast to list and check for status. The detailed per-search results live in a separate results store, while the runtime audit trail — the index states and [workspace](#workspace) assets used at runtime, the documents that appeared unrated in the results, and any failures that occurred — is fanned out across several per-item stores so each collection can be paginated and queried independently. Together they give great explanatory insight into the relevance of the strategies.
 
 <img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-summary-v1.1.png" class="screenshot" />
 

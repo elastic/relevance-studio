@@ -498,14 +498,51 @@ def runs_search(workspace_id, benchmark_id):
 def runs_get(workspace_id, benchmark_id, _id):
     return api.runs.get(_id)
 
-@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/forensics", methods=["GET"])
-def runs_get_forensics(workspace_id, benchmark_id, _id):
-    # Optional `parts` query param (comma-separated field paths) returns only
-    # the requested slices of the forensics doc, e.g.
-    # ?parts=runtime.strategies,runtime.scenarios
-    parts_raw = request.args.get("parts")
-    parts = [p.strip() for p in parts_raw.split(",") if p.strip()] if parts_raw else None
-    return api.runs.get_forensics(_id, parts=parts)
+# Run forensics are fanned out into per-collection data streams, each fetched
+# independently and paginated server-side so no single response is unbounded.
+# Strategies are small (bounded by the run's task) and returned whole; the
+# others accept ?size= & ?page= (defaults 25 / 1).
+
+def _page_args():
+    try:
+        size = int(request.args.get("size", 25))
+    except (TypeError, ValueError):
+        size = 25
+    try:
+        page = int(request.args.get("page", 1))
+    except (TypeError, ValueError):
+        page = 1
+    return size, page
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/strategies", methods=["GET"])
+def runs_get_runtime_strategies(workspace_id, benchmark_id, _id):
+    return api.runs.get_runtime_strategies(_id)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/indices", methods=["GET"])
+def runs_get_runtime_indices(workspace_id, benchmark_id, _id):
+    size, page = _page_args()
+    return api.runs.get_runtime_indices(_id, size=size, page=page)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/scenarios", methods=["GET"])
+def runs_get_runtime_scenarios(workspace_id, benchmark_id, _id):
+    size, page = _page_args()
+    return api.runs.get_runtime_scenarios(_id, size=size, page=page)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/judgements", methods=["GET"])
+def runs_get_runtime_judgements(workspace_id, benchmark_id, _id):
+    size, page = _page_args()
+    scenario_id = request.args.get("scenario_id", "")
+    return api.runs.get_runtime_judgements(_id, size=size, page=page, scenario_id=scenario_id)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/unrated_docs", methods=["GET"])
+def runs_get_unrated_docs(workspace_id, benchmark_id, _id):
+    size, page = _page_args()
+    return api.runs.get_unrated_docs(_id, size=size, page=page)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/failures", methods=["GET"])
+def runs_get_failures(workspace_id, benchmark_id, _id):
+    size, page = _page_args()
+    return api.runs.get_failures(_id, size=size, page=page)
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs", methods=["POST"])
 def runs_create(workspace_id, benchmark_id):

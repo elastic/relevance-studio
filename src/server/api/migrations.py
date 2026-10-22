@@ -6,21 +6,26 @@
 """Reindex-and-cutover transforms for the v2.0 benchmark-run storage split.
 
 This module performs the one-time data migration that splits the monolithic
-``esrs-evaluations`` document into three stores:
+``esrs-evaluations`` document into many stores:
 
   * ``esrs-benchmark-runs``      (plain index)  — one doc per run (1:1)
   * ``esrs-benchmark-results``   (data stream)  — one doc per (run x strategy x
                                                   scenario) search (1:N fan-out)
-  * ``esrs-benchmark-forensics`` (data stream)  — one doc per run: runtime,
-                                                  unrated_docs, failures (1:1)
+  * ``esrs-benchmark-runtime-{indices,strategies,scenarios,judgements}``
+                                 (data streams) — one doc per runtime item,
+                                                  so each collection paginates
+                                                  independently (judgements in
+                                                  particular scale with rated docs)
+  * ``esrs-benchmark-unrated-docs`` (data stream) — one doc per unrated document
+  * ``esrs-benchmark-failures``     (data stream) — one doc per strategy failure
 
 and renames ``esrs-benchmarks`` -> ``esrs-benchmark-configs`` (1:1 copy).
 
 Why Python instead of the Elasticsearch ``_reindex`` API: ``_reindex`` is
-strictly one-source-doc -> one-dest-doc, so the results fan-out (one run -> N
-search rows) is impossible with a reindex script. A single ``helpers.bulk``
-pass over the source, fanning out in Python, handles all four destinations
-uniformly and lets us assign deterministic ``_id`` values for retry-safety.
+strictly one-source-doc -> one-dest-doc, so the per-item fan-outs (one run -> N
+rows) are impossible with a reindex script. A single ``helpers.bulk`` pass over
+the source, fanning out in Python, handles every destination uniformly and lets
+us assign deterministic ``_id`` values for retry-safety.
 
 Retry-safety: data streams are append-only (``op_type: create`` only), so a
 partial failure followed by a retry would duplicate every already-written doc
@@ -170,46 +175,100 @@ def _transform_results(hit: Dict[str, Any], dest: str) -> List[Dict[str, Any]]:
     return docs
 
 
-def _transform_forensics(hit: Dict[str, Any], dest: str) -> List[Dict[str, Any]]:
-    """esrs-evaluations -> esrs-benchmark-forensics (exactly one doc per run).
-
-    Carries ``runtime``, ``unrated_docs``, and the per-strategy ``failures``
-    blobs (collected from ``results[].{strategy_id,failures}``). Always emits
-    exactly one doc per source run so the destination count equals the source
-    count (clean verification), even for skipped/failed runs with no content.
-    """
+def _forensics_base(hit: Dict[str, Any]) -> Dict[str, Any]:
     src = hit["_source"]
-    run_id = hit["_id"]
-    failures = [
-        {"strategy_id": r.get("strategy_id"), "failures": r.get("failures")}
-        for r in (src.get("results") or [])
-        if r.get("failures")
-    ]
-    body: Dict[str, Any] = {
-        "run_id": run_id,
+    return {
+        "run_id": hit["_id"],
         "workspace_id": src.get("workspace_id"),
         "benchmark_id": src.get("benchmark_id"),
         "@timestamp": _timestamp_for(src),
     }
-    if src.get("runtime") is not None:
-        body["runtime"] = src["runtime"]
-    if src.get("unrated_docs") is not None:
-        body["unrated_docs"] = src["unrated_docs"]
-    if failures:
-        body["failures"] = failures
-    return [{
-        "_op_type": "create",
-        "_index": dest,
-        "_id": utils.unique_id([run_id, "forensics"]),
-        "_source": {k: v for k, v in body.items() if v is not None},
-    }]
+
+
+def _transform_runtime_collection(hit: Dict[str, Any], dest: str, runtime_key: str, id_field: str) -> List[Dict[str, Any]]:
+    """esrs-evaluations -> one per-item doc per entry in runtime[runtime_key]."""
+    src = hit["_source"]
+    run_id = hit["_id"]
+    base = _forensics_base(hit)
+    docs = []
+    for item_key, item_value in ((src.get("runtime") or {}).get(runtime_key) or {}).items():
+        doc = {**base, id_field: item_key, "item": item_value}
+        if runtime_key == "judgements" and isinstance(item_value, dict) and item_value.get("scenario_id"):
+            doc["scenario_id"] = item_value["scenario_id"]
+        docs.append({
+            "_op_type": "create",
+            "_index": dest,
+            "_id": utils.unique_id([run_id, runtime_key, item_key]),
+            "_source": doc,
+        })
+    return docs
+
+
+def _transform_runtime_indices(hit, dest):
+    return _transform_runtime_collection(hit, dest, "indices", "index")
+
+def _transform_runtime_strategies(hit, dest):
+    return _transform_runtime_collection(hit, dest, "strategies", "strategy_id")
+
+def _transform_runtime_scenarios(hit, dest):
+    return _transform_runtime_collection(hit, dest, "scenarios", "scenario_id")
+
+def _transform_runtime_judgements(hit, dest):
+    return _transform_runtime_collection(hit, dest, "judgements", "judgement_id")
+
+
+def _transform_unrated_docs(hit: Dict[str, Any], dest: str) -> List[Dict[str, Any]]:
+    """esrs-evaluations -> one doc per unrated document."""
+    src = hit["_source"]
+    run_id = hit["_id"]
+    base = _forensics_base(hit)
+    docs = []
+    for u in (src.get("unrated_docs") or []):
+        docs.append({
+            "_op_type": "create",
+            "_index": dest,
+            "_id": utils.unique_id([run_id, "unrated", u.get("_index"), u.get("_id")]),
+            "_source": {
+                **base,
+                "doc_id": u.get("_id"),
+                "doc_index": u.get("_index"),
+                "count": u.get("count"),
+                "strategies": u.get("strategies") or [],
+                "scenarios": u.get("scenarios") or [],
+            },
+        })
+    return docs
+
+
+def _transform_failures(hit: Dict[str, Any], dest: str) -> List[Dict[str, Any]]:
+    """esrs-evaluations -> one doc per strategy that had failures."""
+    src = hit["_source"]
+    run_id = hit["_id"]
+    base = _forensics_base(hit)
+    docs = []
+    for r in (src.get("results") or []):
+        if not r.get("failures"):
+            continue
+        strategy_id = r.get("strategy_id")
+        docs.append({
+            "_op_type": "create",
+            "_index": dest,
+            "_id": utils.unique_id([run_id, "failures", strategy_id]),
+            "_source": {**base, "strategy_id": strategy_id, "failures": r.get("failures")},
+        })
+    return docs
 
 
 _TRANSFORMS = {
     "copy": _transform_configs,
     "runs": _transform_runs,
     "results": _transform_results,
-    "forensics": _transform_forensics,
+    "runtime_indices": _transform_runtime_indices,
+    "runtime_strategies": _transform_runtime_strategies,
+    "runtime_scenarios": _transform_runtime_scenarios,
+    "runtime_judgements": _transform_runtime_judgements,
+    "unrated_docs": _transform_unrated_docs,
+    "failures": _transform_failures,
 }
 
 
@@ -225,7 +284,9 @@ def _is_version_conflict(error: Dict[str, Any]) -> bool:
 def run_reindex_transform(source_index: str, dest_index: str, mode: str) -> Dict[str, Any]:
     """Copy/split ``source_index`` into ``dest_index`` using ``mode``.
 
-    ``mode`` is one of ``copy`` (configs), ``runs``, ``results``, ``forensics``.
+    ``mode`` is one of ``copy`` (configs), ``runs``, ``results``,
+    ``runtime_indices``, ``runtime_strategies``, ``runtime_scenarios``,
+    ``runtime_judgements``, ``unrated_docs``, ``failures``.
     Returns a summary ``{expected, written, conflicts, errors}`` where
     ``expected`` is the number of destination docs the transform intended to
     write (used for fan-out-aware count verification), ``conflicts`` are benign

@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Benchmark Runtime Judgements (data stream)",
+    "version": "2.0.0"
+  },
+  "index_patterns": [
+    "esrs-benchmark-runtime-judgements*"
+  ],
+  "priority": 500,
+  "data_stream": {},
+  "template": {
+    "lifecycle": {
+      "enabled": true
+    },
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "run_id": {
+          "type": "keyword"
+        },
+        "workspace_id": {
+          "type": "keyword"
+        },
+        "benchmark_id": {
+          "type": "keyword"
+        },
+        "judgement_id": {
+          "type": "keyword"
+        },
+        "scenario_id": {
+          "type": "keyword"
+        },
+        "item": {
+          "type": "object",
+          "enabled": false
+        }
+      }
+    }
+  }
+}

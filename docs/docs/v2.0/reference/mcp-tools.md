@@ -100,7 +100,12 @@ Maps to [Runs API](docs/{{VERSION}}/reference/rest-api.md#runs-api).
 |---|---|
 |`runs_search`|[Search runs](docs/{{VERSION}}/reference/rest-api.md#search-runs)|
 |`runs_get`|[Get run](docs/{{VERSION}}/reference/rest-api.md#get-run)|
-|`runs_get_forensics`|[Get run forensics](docs/{{VERSION}}/reference/rest-api.md#get-run-forensics)|
+|`runs_get_runtime_strategies`|[Get run runtime strategies](docs/{{VERSION}}/reference/rest-api.md#get-run-runtime-strategies)|
+|`runs_get_runtime_indices`|[Get run runtime indices](docs/{{VERSION}}/reference/rest-api.md#get-run-runtime-indices)|
+|`runs_get_runtime_scenarios`|[Get run runtime scenarios](docs/{{VERSION}}/reference/rest-api.md#get-run-runtime-scenarios)|
+|`runs_get_runtime_judgements`|[Get run runtime judgements](docs/{{VERSION}}/reference/rest-api.md#get-run-runtime-judgements)|
+|`runs_get_unrated_docs`|[Get run unrated docs](docs/{{VERSION}}/reference/rest-api.md#get-run-unrated-docs)|
+|`runs_get_failures`|[Get run failures](docs/{{VERSION}}/reference/rest-api.md#get-run-failures)|
 |`runs_create`|[Create run](docs/{{VERSION}}/reference/rest-api.md#create-run)|
 |`runs_run`|[Run](docs/{{VERSION}}/reference/rest-api.md#run)|
 |`runs_delete`|[Delete run](docs/{{VERSION}}/reference/rest-api.md#delete-run)|

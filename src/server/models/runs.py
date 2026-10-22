@@ -368,23 +368,3 @@ class BenchmarkResult(BaseModel):
 
     def serialize(self) -> Dict[str, Any]:
         return self.model_dump(by_alias=True)
-
-
-class BenchmarkForensics(BaseModel):
-    """Immutable per-run audit trail: runtime snapshot, unrated docs, failures.
-
-    Written (op_type: create) to the esrs-benchmark-forensics data stream. One
-    document per run. Carries workspace_id/benchmark_id on every document for
-    the same workspace-scoping reason as BenchmarkResult.
-    """
-    model_config = { "extra": "forbid", "strict": True }
-    run_id: str
-    workspace_id: str
-    benchmark_id: str
-    runtime: Optional[Runtime] = None
-    unrated_docs: Optional[List[UnratedDocs]] = None
-    failures: Optional[List[Any]] = None
-    timestamp: str = Field(alias="@timestamp")
-
-    def serialize(self) -> Dict[str, Any]:
-        return self.model_dump(by_alias=True, exclude_none=True)

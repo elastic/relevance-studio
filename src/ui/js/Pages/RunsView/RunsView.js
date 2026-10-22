@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   EuiButton,
+  EuiNotificationBadge,
   EuiCallOut,
   EuiCodeBlock,
   EuiFilterButton,
@@ -45,17 +46,14 @@ const RunsView = () => {
 
   const [strategyInFocus, setStrategyInFocus] = useState(null)
   const [isFlyoutRuntimeOpen, setIsFlyoutRuntimeOpen] = useState(false)
-  // Forensics (runtime + unrated_docs) live in a separate store and are fetched
-  // on demand, field-selectively, to keep each fetch bounded. The runtime
-  // snapshot is split: `meta` holds only the small strategy/scenario name+tag
-  // metadata needed by the Summary table and heatmap; the FULL runtime (which
-  // includes the large runtime.judgements map that scales with rated docs) is
-  // loaded only when the "View runtime assets" flyout opens; `unrated_docs` is
-  // loaded only for the unrated-docs panel.
-  const [forensicsMeta, setForensicsMeta] = useState(null)     // runtime.strategies + runtime.scenarios
-  const [unratedDocs, setUnratedDocs] = useState(null)         // unrated_docs
-  const [fullRuntime, setFullRuntime] = useState(null)         // full runtime (incl. judgements)
-  const [isFullRuntimeLoading, setIsFullRuntimeLoading] = useState(false)
+  // A run's forensics live in per-collection data streams, fetched independently
+  // and paginated server-side. Only what a given view needs is requested:
+  //  - On page load: ALL runtime strategies (bounded by the run's task — labels
+  //    the summary table + heatmap y-axis) and the FIRST PAGE of unrated docs.
+  //  - The runtime-assets flyout loads indices/scenarios/judgements per tab,
+  //    paginated, only when that tab is opened.
+  const [runtimeStrategies, setRuntimeStrategies] = useState(null)  // {id: item} map, whole
+  const [unratedPage, setUnratedPage] = useState(null)              // { items, total, size, page }
   const [metricOpen, setMetricOpen] = useState(false)
   const [metricOptions, setMetricOptions] = useState([])
   const [metricSelected, setMetricSelected] = useState(null)
@@ -120,81 +118,64 @@ const RunsView = () => {
     setMetricSelected({ _id: first, label: labelForMetric(first), checked: 'on' })
   }, [normalizedBenchmarkMetrics])
 
-  // On load, fetch ONLY the small runtime metadata (strategy/scenario names +
-  // tags) that the Summary table and heatmap need. This is bounded by the number
-  // of assets, not by the number of judgements, so it stays small at scale.
-  // Skipped runs have no forensics; the endpoint returns found: false.
+  // On load, fetch ALL runtime strategies (bounded by the run's task) so the
+  // Summary table and heatmap y-axis can show strategy names. Reshaped into a
+  // {strategy_id: item} map to match what the child components expect.
   useEffect(() => {
     if (!workspace?._id || !benchmark?._id || !run?._id) return
-    if (forensicsMeta !== null) return
+    if (runtimeStrategies !== null) return
     let cancelled = false
-    api.runs_get_forensics(workspace._id, benchmark._id, run._id,
-      ['runtime.strategies', 'runtime.scenarios'])
+    api.runs_get_runtime_strategies(workspace._id, benchmark._id, run._id)
       .then((response) => {
         if (cancelled) return
-        setForensicsMeta(response?.data?._source?.runtime ?? {})
+        const map = {}
+        for (const d of (response?.data?.items ?? []))
+          map[d.strategy_id] = d.item
+        setRuntimeStrategies(map)
       })
-      .catch(() => { if (!cancelled) setForensicsMeta({}) })
+      .catch(() => { if (!cancelled) setRuntimeStrategies({}) })
     return () => { cancelled = true }
   }, [workspace?._id, benchmark?._id, run?._id])
 
-  // Fetch unrated_docs on their own (only this slice) once the run is ready.
-  useEffect(() => {
+  // Fetch the FIRST PAGE of unrated docs on load (the panel paginates the rest).
+  const loadUnratedPage = (page = 1, size = 25) => {
     if (!workspace?._id || !benchmark?._id || !run?._id) return
-    if (unratedDocs !== null) return
-    let cancelled = false
-    api.runs_get_forensics(workspace._id, benchmark._id, run._id, ['unrated_docs'])
+    api.runs_get_unrated_docs(workspace._id, benchmark._id, run._id, { page, size })
       .then((response) => {
-        if (cancelled) return
-        setUnratedDocs(response?.data?._source?.unrated_docs ?? [])
+        const data = response?.data ?? {}
+        // Normalize stored shape (doc_id/doc_index) back to _id/_index for the panel.
+        const items = (data.items ?? []).map((d) => ({
+          _id: d.doc_id, _index: d.doc_index,
+          count: d.count, strategies: d.strategies, scenarios: d.scenarios,
+        }))
+        setUnratedPage({ items, total: data.total ?? 0, size: data.size ?? size, page: data.page ?? page })
       })
-      .catch(() => { if (!cancelled) setUnratedDocs([]) })
-    return () => { cancelled = true }
+      .catch(() => { setUnratedPage({ items: [], total: 0, size, page }) })
+  }
+  useEffect(() => {
+    if (unratedPage !== null) return
+    loadUnratedPage(1)
   }, [workspace?._id, benchmark?._id, run?._id])
 
-  // Fetch the FULL runtime (including the large judgements snapshot) lazily, the
-  // first time the user opens the runtime-assets flyout.
-  useEffect(() => {
-    if (!isFlyoutRuntimeOpen) return
-    if (fullRuntime !== null || isFullRuntimeLoading) return
-    if (!workspace?._id || !benchmark?._id || !run?._id) return
-    let cancelled = false
-    setIsFullRuntimeLoading(true)
-    api.runs_get_forensics(workspace._id, benchmark._id, run._id, ['runtime'])
-      .then((response) => {
-        if (cancelled) return
-        setFullRuntime(response?.data?._source?.runtime ?? {})
-      })
-      .catch(() => { if (!cancelled) setFullRuntime({}) })
-      .finally(() => { if (!cancelled) setIsFullRuntimeLoading(false) })
-    return () => { cancelled = true }
-  }, [isFlyoutRuntimeOpen, workspace?._id, benchmark?._id, run?._id])
-
-  // A run-shaped object that merges the small run doc with the lightweight
-  // runtime metadata + unrated_docs, so the summary/heatmap/unrated children
-  // keep working. It deliberately does NOT carry runtime.judgements (that only
-  // flows to the flyout via `fullRuntime`).
+  // A run-shaped object carrying the loaded strategy metadata, so the summary
+  // table and heatmap keep working. It deliberately carries ONLY strategies
+  // (not scenarios/judgements, which are paginated in the flyout) — the heatmap
+  // x-axis falls back to scenario ids, which is acceptable at scale.
   const runWithForensics = useMemo(() => {
     if (!run) return run
     return {
       ...run,
-      runtime: forensicsMeta || undefined,
-      unrated_docs: unratedDocs ?? [],
+      runtime: { strategies: runtimeStrategies || {} },
+      unrated_docs: unratedPage?.items ?? [],
     }
-  }, [run, forensicsMeta, unratedDocs])
+  }, [run, runtimeStrategies, unratedPage])
 
-  // Download a faithful full export: the run doc plus the COMPLETE forensics
-  // (including runtime.judgements), fetched on demand so the page itself never
-  // carries that payload unless explicitly exported.
-  const downloadRun = async () => {
-    let full = { runtime: fullRuntime, unrated_docs: unratedDocs }
-    try {
-      const response = await api.runs_get_forensics(workspace._id, benchmark._id, run._id)
-      const src = response?.data?._source
-      if (src) full = { runtime: src.runtime, unrated_docs: src.unrated_docs, failures: src.failures }
-    } catch (e) { /* fall back to whatever is already loaded */ }
-    const exported = { ...run, ...full }
-    const blob = new Blob([utils.jsonStringifySortedKeys(exported, null, 2)], { type: 'application/json' })
+  // Download the run doc. Forensics collections are paginated and potentially
+  // unbounded, so the in-app download exports the run doc (status + summary);
+  // the full per-collection forensics are available via the paginated API/MCP
+  // endpoints for programmatic export.
+  const downloadRun = () => {
+    const blob = new Blob([utils.jsonStringifySortedKeys(run, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -432,8 +413,10 @@ const RunsView = () => {
     >
       {isFlyoutRuntimeOpen &&
         <FlyoutRuntime
-          runtime={fullRuntime}
-          isLoading={isFullRuntimeLoading}
+          workspaceId={workspace._id}
+          benchmarkId={benchmark._id}
+          runId={run._id}
+          strategies={runtimeStrategies || {}}
           onClose={() => setIsFlyoutRuntimeOpen(false)}
         />
       }
@@ -563,15 +546,15 @@ const RunsView = () => {
         </>
       }
 
-      {/* Unrated docs (from the forensics store) */}
-      {run?.summary && (unratedDocs?.length ?? 0) > 0 &&
+      {/* Unrated docs (paginated from the forensics store) */}
+      {run?.summary && (unratedPage?.total ?? 0) > 0 &&
         <>
           <EuiPanel paddingSize='none'>
             <EuiFlexGroup>
               <EuiFlexItem grow>
                 <EuiPanel color='transparent'>
                   <EuiTitle size='s'>
-                    <h2>Unrated docs</h2>
+                    <h2>Unrated docs <EuiNotificationBadge color='subdued'>{unratedPage.total}</EuiNotificationBadge></h2>
                   </EuiTitle>
                 </EuiPanel>
               </EuiFlexItem>
@@ -579,13 +562,13 @@ const RunsView = () => {
                 <EuiPanel color='transparent' paddingSize='none'>
                   <EuiButton style={{ margin: '8px 16px' }} onClick={(e) => {
                     const pairs = []
-                    unratedDocs.forEach((doc) => {
+                    ;(unratedPage.items || []).forEach((doc) => {
                       pairs.push(`(_id:"${doc._id}" AND _index:"${doc._index}")`)
                     })
                     const query = encodeURIComponent(pairs.join(' OR '))
                     history.push(`/workspaces/${workspace._id}/judgements?query=${query}`)
                   }}>
-                    Judge
+                    Judge this page
                   </EuiButton>
                 </EuiPanel>
               </EuiFlexItem>
@@ -593,6 +576,28 @@ const RunsView = () => {
             <EuiHorizontalRule margin='none' />
             <EuiPanel color='transparent' style={{ height: '600px', overflowY: 'scroll' }}>
               <PanelUnratedDocs evaluation={runWithForensics} />
+            </EuiPanel>
+            <EuiHorizontalRule margin='none' />
+            <EuiPanel color='transparent'>
+              <EuiFlexGroup justifyContent='flexEnd' alignItems='center' gutterSize='s'>
+                <EuiFlexItem grow={false}>
+                  <small>Page {unratedPage.page} of {Math.max(1, Math.ceil(unratedPage.total / unratedPage.size))}</small>
+                </EuiFlexItem>
+                <EuiFlexItem grow={false}>
+                  <EuiButton size='s' iconType='arrowLeft'
+                    isDisabled={unratedPage.page <= 1}
+                    onClick={() => loadUnratedPage(unratedPage.page - 1, unratedPage.size)}>
+                    Previous
+                  </EuiButton>
+                </EuiFlexItem>
+                <EuiFlexItem grow={false}>
+                  <EuiButton size='s' iconType='arrowRight' iconSide='right'
+                    isDisabled={unratedPage.page >= Math.ceil(unratedPage.total / unratedPage.size)}
+                    onClick={() => loadUnratedPage(unratedPage.page + 1, unratedPage.size)}>
+                    Next
+                  </EuiButton>
+                </EuiFlexItem>
+              </EuiFlexGroup>
             </EuiPanel>
           </EuiPanel>
           <EuiSpacer size='m' />

@@ -5,15 +5,19 @@
  * 2.0.
  */
 
+import { useEffect, useState } from 'react'
 import {
+  EuiButton,
   EuiButtonEmpty,
   EuiEmptyPrompt,
+  EuiFlexGroup,
+  EuiFlexItem,
   EuiFlyout,
   EuiFlyoutBody,
   EuiFlyoutFooter,
   EuiFlyoutHeader,
+  EuiHorizontalRule,
   EuiLoadingSpinner,
-  EuiNotificationBadge,
   EuiSpacer,
   EuiTabbedContent,
   EuiTitle,
@@ -22,57 +26,86 @@ import TableRuntimeIndices from './TableRuntimeIndices'
 import TableRuntimeJudgements from './TableRuntimeJudgements'
 import TableRuntimeScenarios from './TableRuntimeScenarios'
 import TableRuntimeStrategies from './TableRuntimeStrategies'
+import api from '../../api'
 
-const FlyoutRuntime = ({ runtime, isLoading, onClose }) => {
+const PAGE_SIZE = 25
 
-  // Runtime assets are loaded on demand from the forensics store, so `runtime`
-  // may be undefined while loading or for runs that have no forensics.
-  const rt = runtime || {}
+// Each paginated runtime collection is fetched independently, server-side, only
+// when its tab is first opened. Strategies are passed in whole (bounded by the
+// run's task). A small controlled-pagination hook per collection keeps the
+// payload bounded even for runs with thousands of scenarios/judgements.
+const FlyoutRuntime = ({ workspaceId, benchmarkId, runId, strategies, onClose }) => {
 
-  // Runtime assets as arrays for table components.
-  const indices = Object.entries(rt.indices || {})
+  // Reshape the pre-loaded strategies map ({id: item}) into table rows.
+  const strategyRows = Object.entries(strategies || {})
     .map(([key, value]) => ({ _id: key, ...value }))
-  const strategies = Object.entries(rt.strategies || {})
-    .map(([key, value]) => ({ _id: key, ...value }))
-  const scenarios = Object.entries(rt.scenarios || {})
-    .map(([key, value]) => ({ _id: key, ...value }))
-  const judgements = Object.entries(rt.judgements || {})
-    .map(([key, value]) => ({ _id: key, ...value, scenario: rt.scenarios?.[value.scenario_id]?.name }))
 
-  const renderIndices = () => {
+  // Lazily-fetched, paginated collections: { items, total, page, loading, loaded }.
+  const empty = { items: [], total: 0, page: 1, loading: false, loaded: false }
+  const [indices, setIndices] = useState(empty)
+  const [scenarios, setScenarios] = useState(empty)
+  const [judgements, setJudgements] = useState(empty)
+
+  const fetchers = {
+    indices: (opts) => api.runs_get_runtime_indices(workspaceId, benchmarkId, runId, opts),
+    scenarios: (opts) => api.runs_get_runtime_scenarios(workspaceId, benchmarkId, runId, opts),
+    judgements: (opts) => api.runs_get_runtime_judgements(workspaceId, benchmarkId, runId, opts),
+  }
+  const setters = { indices: setIndices, scenarios: setScenarios, judgements: setJudgements }
+  const idFields = { indices: 'index', scenarios: 'scenario_id', judgements: 'judgement_id' }
+
+  const loadPage = (collection, page = 1) => {
+    const setState = setters[collection]
+    setState((prev) => ({ ...prev, loading: true }))
+    fetchers[collection]({ size: PAGE_SIZE, page })
+      .then((response) => {
+        const data = response?.data ?? {}
+        const idField = idFields[collection]
+        const rows = (data.items ?? []).map((d) => {
+          // The item body is stored under `item`; lift it and attach _id.
+          const base = { _id: d[idField], ...(d.item || {}) }
+          // Judgements: no scenario-name join at scale; surface the scenario_id.
+          if (collection === 'judgements') base.scenario = d.scenario_id || base.scenario_id
+          return base
+        })
+        setState({ items: rows, total: data.total ?? 0, page: data.page ?? page, loading: false, loaded: true })
+      })
+      .catch(() => setState({ items: [], total: 0, page, loading: false, loaded: true }))
+  }
+
+  // Load the first page of a collection the first time its tab becomes selected.
+  const onTabClick = (collection) => {
+    const state = { indices, scenarios, judgements }[collection]
+    if (!state.loaded && !state.loading) loadPage(collection, 1)
+  }
+
+  const renderPager = (collection, state) => {
+    const pages = Math.max(1, Math.ceil(state.total / PAGE_SIZE))
+    if (state.total <= PAGE_SIZE) return null
     return (<>
-      <EuiSpacer size='l' />
-      <TableRuntimeIndices items={indices} />
+      <EuiHorizontalRule margin='s' />
+      <EuiFlexGroup justifyContent='flexEnd' alignItems='center' gutterSize='s'>
+        <EuiFlexItem grow={false}><small>Page {state.page} of {pages} ({state.total} total)</small></EuiFlexItem>
+        <EuiFlexItem grow={false}>
+          <EuiButton size='s' iconType='arrowLeft' isDisabled={state.page <= 1 || state.loading}
+            onClick={() => loadPage(collection, state.page - 1)}>Previous</EuiButton>
+        </EuiFlexItem>
+        <EuiFlexItem grow={false}>
+          <EuiButton size='s' iconType='arrowRight' iconSide='right' isDisabled={state.page >= pages || state.loading}
+            onClick={() => loadPage(collection, state.page + 1)}>Next</EuiButton>
+        </EuiFlexItem>
+      </EuiFlexGroup>
     </>)
   }
 
-  const renderStrategies = () => {
+  const renderPaginated = (collection, state, Table) => {
+    if (!state.loaded && state.loading)
+      return <EuiEmptyPrompt icon={<EuiLoadingSpinner size='xl' />} title={<h3>Loading…</h3>} />
     return (<>
       <EuiSpacer size='l' />
-      <TableRuntimeStrategies items={strategies} />
+      <Table items={state.items} />
+      {renderPager(collection, state)}
     </>)
-  }
-
-  const renderScenarios = () => {
-    return (<>
-      <EuiSpacer size='l' />
-      <TableRuntimeScenarios items={scenarios} />
-    </>)
-  }
-
-  const renderJudgements = () => {
-    return (<>
-      <EuiSpacer size='l' />
-      <TableRuntimeJudgements items={judgements} />
-    </>)
-  }
-
-  const renderBadgeCount = (assetType) => {
-    return (
-      <EuiNotificationBadge color='subdued' style={{ marginLeft: '8px' }}>
-        <small>{Object.keys(rt[assetType] || {}).length || 0}</small>
-      </EuiNotificationBadge>
-    )
   }
 
   return (
@@ -83,55 +116,31 @@ const FlyoutRuntime = ({ runtime, isLoading, onClose }) => {
         </EuiTitle>
       </EuiFlyoutHeader>
       <EuiFlyoutBody>
-        {isLoading && !runtime &&
-          <EuiEmptyPrompt
-            icon={<EuiLoadingSpinner size='xl' />}
-            title={<h3>Loading runtime assets…</h3>}
-            body={<p>Fetching the full runtime snapshot (strategies, scenarios, judgements) for this run.</p>}
-          />
-        }
-        {!(isLoading && !runtime) &&
         <EuiTabbedContent
+          onTabClick={(tab) => onTabClick(tab.id)}
           tabs={[
             {
-              id: 'indices',
-              name: (
-                <div>
-                  Indices {renderBadgeCount('indices')}
-                </div>
-              ),
-              content: renderIndices()
+              id: 'strategies',
+              name: <div>Strategies</div>,
+              content: (<><EuiSpacer size='l' /><TableRuntimeStrategies items={strategyRows} /></>),
             },
             {
-              id: 'strategies',
-              name: (
-                <div>
-                  Strategies {renderBadgeCount('strategies')}
-                </div>
-              ),
-              content: renderStrategies()
+              id: 'indices',
+              name: <div>Indices</div>,
+              content: renderPaginated('indices', indices, TableRuntimeIndices),
             },
             {
               id: 'scenarios',
-              name: (
-                <div>
-                  Scenarios {renderBadgeCount('scenarios')}
-                </div>
-              ),
-              content: renderScenarios()
+              name: <div>Scenarios</div>,
+              content: renderPaginated('scenarios', scenarios, TableRuntimeScenarios),
             },
             {
               id: 'judgements',
-              name: (
-                <div>
-                  Judgements {renderBadgeCount('judgements')}
-                </div>
-              ),
-              content: renderJudgements()
-            }
+              name: <div>Judgements</div>,
+              content: renderPaginated('judgements', judgements, TableRuntimeJudgements),
+            },
           ]}
         />
-        }
       </EuiFlyoutBody>
       <EuiFlyoutFooter>
         <EuiButtonEmpty flush='left' iconType='cross' onClick={onClose}>

@@ -254,11 +254,18 @@ Elasticsearch index template: [esrs-benchmark-configs](https://github.com/elasti
 
 ## Runs
 
-A run is one execution of a [benchmark](#benchmarks). In v2.0, the storage for a run is split across three stores so that the run document stays small and fast to list, while the heavier per-search results and the runtime audit trail live in their own stores:
+A run is one execution of a [benchmark](#benchmarks). In v2.0, the storage for a run is split across multiple stores so that the run document stays small and fast to list, while the heavier per-search results and the runtime audit trail live in their own stores:
 
 - **`esrs-benchmark-runs`** (plain index) - One small document per run. Holds the run's status/lifecycle `@meta`, its identifiers, the frozen `task`, a precomputed `summary` of metrics, any `error`, and `took`. This is what list and status views read.
 - **`esrs-benchmark-results`** (data stream) - One immutable document per (run × strategy × scenario) search, holding the per-search relevance metrics and hits. This is the queryable detail behind the summary.
-- **`esrs-benchmark-forensics`** (data stream) - One immutable document per run, holding the runtime assets (indices, scenarios, strategies, judgements), the documents that appeared unrated, and any per-strategy failures.
+- **`esrs-benchmark-runtime-indices`** (data stream) - One immutable document per index used at runtime, holding that index's relevance fingerprint snapshot.
+- **`esrs-benchmark-runtime-strategies`** (data stream) - One immutable document per strategy used at runtime, holding the full strategy snapshot.
+- **`esrs-benchmark-runtime-scenarios`** (data stream) - One immutable document per scenario used at runtime, holding the full scenario snapshot.
+- **`esrs-benchmark-runtime-judgements`** (data stream) - One immutable document per judgement used at runtime, holding the full judgement snapshot. This is the stream that scales with the number of rated documents.
+- **`esrs-benchmark-unrated-docs`** (data stream) - One immutable document per document that appeared in the results but had no judgement.
+- **`esrs-benchmark-failures`** (data stream) - One immutable document per strategy that had failures during the run.
+
+The runtime audit trail is fanned out into these six per-item data streams — one document per item — rather than a single document per run, so that each collection can be paginated and queried server-side independently. In particular, `esrs-benchmark-runtime-judgements` scales with the number of rated documents and is never loaded whole. Every document is tagged with `run_id`, `workspace_id`, `benchmark_id`, and `@timestamp`, and uses a deterministic `_id` so that migration and retry are idempotent.
 
 A *data stream* is an append-only, time-series oriented abstraction over a set of backing indices. Documents are written with `op_type: create` (never updated in place), and each stream's retention is governed by Data Stream Lifecycle (DLM).
 
@@ -333,21 +340,96 @@ An immutable [data stream](https://www.elastic.co/docs/manage-data/data-store/da
 - **`hits.rating`** - The judged rating for the hit, if a judgement exists.
 - **`@timestamp`** - The ISO 8601 (UTC) date and time at which the result was written.
 
-### esrs-benchmark-forensics
+### esrs-benchmark-runtime-indices
 
-Elasticsearch index template: [esrs-benchmark-forensics](https://github.com/elastic/relevance-studio/blob/main/src/server/elastic/index_templates/benchmark-forensics.json)
+Elasticsearch index template: [esrs-benchmark-runtime-indices](https://github.com/elastic/relevance-studio/blob/main/src/server/elastic/index_templates/benchmark-runtime-indices.json)
 
-An immutable [data stream](https://www.elastic.co/docs/manage-data/data-store/data-streams). It holds one document per run, capturing the runtime assets and audit trail used to produce the run's results.
+An immutable [data stream](https://www.elastic.co/docs/manage-data/data-store/data-streams). It holds one document per index used at runtime for the [rank evaluation](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-rank-eval) requests.
 
 **Fields**
 
-- **`run_id`** - The `_id` of the [run](#esrs-benchmark-runs) that this forensics document belongs to.
+- **`run_id`** - The `_id` of the [run](#esrs-benchmark-runs) that this document belongs to.
 - **`workspace_id`** - The `_id` of the [workspace](#workspaces) that the run belongs to.
 - **`benchmark_id`** - The `_id` of the [benchmark](#benchmarks) that the run belongs to.
-- **`runtime.indices`** - The state of the indices used at runtime for the [rank evaluation](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-rank-eval) requests.
-- **`runtime.scenarios`** - The [scenarios](#scenarios) used at runtime.
-- **`runtime.strategies`** - The [strategies](#strategies) used at runtime.
-- **`runtime.judgements`** - The [judgements](#judgements) used at runtime.
-- **`unrated_docs`** - The documents that appeared in the results but had no judgements.
-- **`failures`** - The per-strategy failure blobs for any strategies that errored during the run.
-- **`@timestamp`** - The ISO 8601 (UTC) date and time at which the forensics document was written.
+- **`index`** - The name of the index used at runtime.
+- **`item`** - The index's relevance fingerprint snapshot.
+- **`@timestamp`** - The ISO 8601 (UTC) date and time at which the document was written.
+
+### esrs-benchmark-runtime-strategies
+
+Elasticsearch index template: [esrs-benchmark-runtime-strategies](https://github.com/elastic/relevance-studio/blob/main/src/server/elastic/index_templates/benchmark-runtime-strategies.json)
+
+An immutable [data stream](https://www.elastic.co/docs/manage-data/data-store/data-streams). It holds one document per [strategy](#strategies) used at runtime.
+
+**Fields**
+
+- **`run_id`** - The `_id` of the [run](#esrs-benchmark-runs) that this document belongs to.
+- **`workspace_id`** - The `_id` of the [workspace](#workspaces) that the run belongs to.
+- **`benchmark_id`** - The `_id` of the [benchmark](#benchmarks) that the run belongs to.
+- **`strategy_id`** - The `_id` of the [strategy](#strategies) that this document captures.
+- **`item`** - The full strategy snapshot (`name`, `tags`, `template`, `_fingerprint`, `@meta`, …).
+- **`@timestamp`** - The ISO 8601 (UTC) date and time at which the document was written.
+
+### esrs-benchmark-runtime-scenarios
+
+Elasticsearch index template: [esrs-benchmark-runtime-scenarios](https://github.com/elastic/relevance-studio/blob/main/src/server/elastic/index_templates/benchmark-runtime-scenarios.json)
+
+An immutable [data stream](https://www.elastic.co/docs/manage-data/data-store/data-streams). It holds one document per [scenario](#scenarios) used at runtime.
+
+**Fields**
+
+- **`run_id`** - The `_id` of the [run](#esrs-benchmark-runs) that this document belongs to.
+- **`workspace_id`** - The `_id` of the [workspace](#workspaces) that the run belongs to.
+- **`benchmark_id`** - The `_id` of the [benchmark](#benchmarks) that the run belongs to.
+- **`scenario_id`** - The `_id` of the [scenario](#scenarios) that this document captures.
+- **`item`** - The full scenario snapshot (`values`, `_fingerprint`, …).
+- **`@timestamp`** - The ISO 8601 (UTC) date and time at which the document was written.
+
+### esrs-benchmark-runtime-judgements
+
+Elasticsearch index template: [esrs-benchmark-runtime-judgements](https://github.com/elastic/relevance-studio/blob/main/src/server/elastic/index_templates/benchmark-runtime-judgements.json)
+
+An immutable [data stream](https://www.elastic.co/docs/manage-data/data-store/data-streams). It holds one document per [judgement](#judgements) used at runtime. This is the stream that scales with the number of rated documents.
+
+**Fields**
+
+- **`run_id`** - The `_id` of the [run](#esrs-benchmark-runs) that this document belongs to.
+- **`workspace_id`** - The `_id` of the [workspace](#workspaces) that the run belongs to.
+- **`benchmark_id`** - The `_id` of the [benchmark](#benchmarks) that the run belongs to.
+- **`judgement_id`** - The `_id` of the [judgement](#judgements) that this document captures.
+- **`scenario_id`** - The `_id` of the [scenario](#scenarios) that the judgement belongs to, used for filtered pagination.
+- **`item`** - The full judgement snapshot (`rating`, `index`, `doc_id`, `_fingerprint`, …).
+- **`@timestamp`** - The ISO 8601 (UTC) date and time at which the document was written.
+
+### esrs-benchmark-unrated-docs
+
+Elasticsearch index template: [esrs-benchmark-unrated-docs](https://github.com/elastic/relevance-studio/blob/main/src/server/elastic/index_templates/benchmark-unrated-docs.json)
+
+An immutable [data stream](https://www.elastic.co/docs/manage-data/data-store/data-streams). It holds one document per document that appeared in the results but had no judgement.
+
+**Fields**
+
+- **`run_id`** - The `_id` of the [run](#esrs-benchmark-runs) that this document belongs to.
+- **`workspace_id`** - The `_id` of the [workspace](#workspaces) that the run belongs to.
+- **`benchmark_id`** - The `_id` of the [benchmark](#benchmarks) that the run belongs to.
+- **`doc_id`** - The `_id` of the unrated document.
+- **`doc_index`** - The index that the unrated document belongs to.
+- **`count`** - The number of times the unrated document appeared across the run's searches.
+- **`strategies`** - The `_id` fields of the [strategies](#strategies) whose searches returned the unrated document.
+- **`scenarios`** - The `_id` fields of the [scenarios](#scenarios) whose searches returned the unrated document.
+- **`@timestamp`** - The ISO 8601 (UTC) date and time at which the document was written.
+
+### esrs-benchmark-failures
+
+Elasticsearch index template: [esrs-benchmark-failures](https://github.com/elastic/relevance-studio/blob/main/src/server/elastic/index_templates/benchmark-failures.json)
+
+An immutable [data stream](https://www.elastic.co/docs/manage-data/data-store/data-streams). It holds one document per [strategy](#strategies) that had failures during the run.
+
+**Fields**
+
+- **`run_id`** - The `_id` of the [run](#esrs-benchmark-runs) that this document belongs to.
+- **`workspace_id`** - The `_id` of the [workspace](#workspaces) that the run belongs to.
+- **`benchmark_id`** - The `_id` of the [benchmark](#benchmarks) that the run belongs to.
+- **`strategy_id`** - The `_id` of the [strategy](#strategies) that had failures.
+- **`failures`** - The per-strategy failure blob for that strategy.
+- **`@timestamp`** - The ISO 8601 (UTC) date and time at which the document was written.

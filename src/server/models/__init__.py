@@ -9,7 +9,7 @@ from .conversations import ConversationsCreate, ConversationsUpdate
 from .displays import DisplayCreate, DisplayUpdate
 from .runs import (
     RunCreate, RunSkip, RunFail, RunComplete,
-    BenchmarkResult, BenchmarkForensics,
+    BenchmarkResult,
 )
 from .judgements import JudgementCreate
 from .scenarios import ScenarioCreate, ScenarioUpdate
