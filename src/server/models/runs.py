@@ -364,7 +364,22 @@ class BenchmarkResult(BaseModel):
     scenario_id: str
     metrics: MetricsModel
     hits: List[RatedHit]
+    took: Optional[int] = None
     timestamp: str = Field(alias="@timestamp")
 
+    @field_validator("took", mode="before")
+    @classmethod
+    def validate_took(cls, value):
+        if value is None:
+            return value
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError("took must be a non-negative integer")
+        return value
+
     def serialize(self) -> Dict[str, Any]:
-        return self.model_dump(by_alias=True)
+        doc = self.model_dump(by_alias=True)
+        # Omit `took` entirely (rather than storing null) when the Elasticsearch
+        # cluster didn't report it, e.g. versions before 9.6.0.
+        if doc.get("took") is None:
+            doc.pop("took", None)
+        return doc

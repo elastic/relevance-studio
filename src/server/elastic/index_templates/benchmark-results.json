@@ -55,6 +55,9 @@
             }
           }
         },
+        "took": {
+          "type": "long"
+        },
         "hits": {
           "properties": {
             "hit": {

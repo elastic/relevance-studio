@@ -315,6 +315,7 @@ def _write_results_and_forensics(evaluation: Dict[str, Any], run_id: str) -> Non
                 "scenario_id": scenario_id,
                 "metrics": search.get("metrics") or {},
                 "hits": search.get("hits") or [],
+                "took": search.get("took"),
                 "@timestamp": stopped_at,
             }).serialize()
             actions.append({
@@ -642,7 +643,8 @@ def run(
             for scenario_id in evaluation["scenario_id"]:
                 _results[strategy_id]["scenarios"][scenario_id] = {
                     "metrics": {},
-                    "hits": []
+                    "hits": [],
+                    "took": None
                 }
         
         # Get scenarios
@@ -816,6 +818,11 @@ def run(
                         _results[strategy_id]["scenarios"][scenario_id]["metrics"][m] = details["metric_score"]
                         if not len(_results[strategy_id]["scenarios"][scenario_id]["hits"]):
                             _results[strategy_id]["scenarios"][scenario_id]["hits"] = details["hits"]
+                            # "took" (ms to run this search) is only present in
+                            # Elasticsearch 9.6.0+ rank_eval responses; omit it
+                            # entirely against older clusters rather than storing
+                            # a misleading 0/null.
+                            _results[strategy_id]["scenarios"][scenario_id]["took"] = details.get("took")
                             # Find unrated docs
                             for hit in details["hits"]:
                                 if hit["rating"] is not None:
@@ -858,6 +865,8 @@ def run(
                     "metrics": _scenario_results["metrics"],
                     "hits": _scenario_results["hits"]
                 }
+                if _scenario_results.get("took") is not None:
+                    scenario_results["took"] = _scenario_results["took"]
                 strategy_results["searches"].append(scenario_results)
             evaluation["results"].append(strategy_results)
         
