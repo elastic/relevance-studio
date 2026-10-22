@@ -211,6 +211,11 @@ api.workspaces_search = async (body) => {
   return responseOrFallbackSetup(response)
 }
 
+api.workspaces_tags = async () => {
+  const response = await client.get(`/api/workspaces/_tags`)
+  return responseOrFallbackSetup(response)
+}
+
 api.workspaces_get = async (workspace_id) => {
   validateArgs('api.workspaces_get', { workspace_id, })
   const response = await client.get(`/api/workspaces/${workspace_id}`)
@@ -435,19 +440,28 @@ api.runs_get = async (workspace_id, benchmark_id, run_id) => {
 // independently and paginated server-side so no single response is unbounded.
 // Strategies are small (bounded by the run's task) and returned whole; the
 // runtime index/scenario/judgement collections, unrated docs, and failures are
-// paginated via { size, page } (and judgements optionally by scenario_id).
-const _pageQs = ({ size, page, scenario_id } = {}) => {
+// paginated via { size, page } (and judgements optionally by scenario_id;
+// strategies/scenarios optionally by a `tags` array, OR-matched server-side).
+const _pageQs = ({ size, page, scenario_id, tags, text } = {}) => {
   const p = new URLSearchParams()
   if (size != null) p.set('size', size)
   if (page != null) p.set('page', page)
   if (scenario_id) p.set('scenario_id', scenario_id)
+  if (Array.isArray(tags)) tags.forEach((tag) => p.append('tags', tag))
+  if (text) p.set('text', text)
   const s = p.toString()
   return s ? `?${s}` : ''
 }
 
-api.runs_get_runtime_strategies = async (workspace_id, benchmark_id, run_id) => {
+api.runs_get_runtime_strategies = async (workspace_id, benchmark_id, run_id, opts) => {
   validateArgs('api.runs_get_runtime_strategies', { workspace_id, benchmark_id, run_id, })
-  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/runtime/strategies`)
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/runtime/strategies${_pageQs(opts)}`)
+  return responseOrFallbackSetup(response)
+}
+
+api.runs_get_runtime_strategies_tags = async (workspace_id, benchmark_id, run_id) => {
+  validateArgs('api.runs_get_runtime_strategies_tags', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/runtime/strategies/_tags`)
   return responseOrFallbackSetup(response)
 }
 
@@ -460,6 +474,12 @@ api.runs_get_runtime_indices = async (workspace_id, benchmark_id, run_id, opts) 
 api.runs_get_runtime_scenarios = async (workspace_id, benchmark_id, run_id, opts) => {
   validateArgs('api.runs_get_runtime_scenarios', { workspace_id, benchmark_id, run_id, })
   const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/runtime/scenarios${_pageQs(opts)}`)
+  return responseOrFallbackSetup(response)
+}
+
+api.runs_get_runtime_scenarios_tags = async (workspace_id, benchmark_id, run_id) => {
+  validateArgs('api.runs_get_runtime_scenarios_tags', { workspace_id, benchmark_id, run_id, })
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/runtime/scenarios/_tags`)
   return responseOrFallbackSetup(response)
 }
 

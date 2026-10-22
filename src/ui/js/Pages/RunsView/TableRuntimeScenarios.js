@@ -8,22 +8,25 @@
 import { useState } from 'react'
 import {
   EuiBadge,
+  EuiBasicTable,
   EuiButtonIcon,
   EuiCode,
   EuiCodeBlock,
   EuiIcon,
-  EuiInMemoryTable,
   EuiPanel,
   EuiScreenReaderOnly,
   EuiToolTip,
 } from '@elastic/eui'
 import utils from '../../utils'
 
+// Items are a single server-fetched page (see FlyoutRuntime). Sorting here is
+// therefore local to that page, not the full collection.
 const TableRuntimeScenarios = ({ items }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
+  const [sort, setSort] = useState({ field: 'name', direction: 'asc' })
 
   const toggleDetails = (item) => {
     setItemIdToExpandedRowMap(prev => {
@@ -134,38 +137,20 @@ const TableRuntimeScenarios = ({ items }) => {
     }
   ]
 
+  const sortedItems = utils.sortDocs(items, sort.field, sort.direction)
+
   return (
-    <EuiInMemoryTable
-      allowNeutralSort={false}
+    <EuiBasicTable
       columns={columns}
       itemId='_id'
       itemIdToExpandedRowMap={itemsToExpandedRows}
-      items={items}
-      pagination={true}
-      responsiveBreakpoint={false}
-      search={{
-        box: {
-          incremental: true,
-          schema: true,
-        },
-        filters: [
-          {
-            autoSortOptions: false,
-            field: 'tags',
-            multiSelect: 'or',
-            name: 'Tags',
-            options: Array.from(new Set(items.flatMap(({ tags }) => tags ?? []))).map(tag => ({
-              value: tag
-            })),
-            type: 'field_value_selection',
-          },
-        ]
+      items={sortedItems}
+      onChange={({ sort: newSort }) => {
+        if (newSort) setSort(newSort)
       }}
+      responsiveBreakpoint={false}
       sorting={{
-        sort: {
-          field: 'name',
-          direction: 'asc',
-        }
+        sort,
       }}
       tableLayout='auto'
     />

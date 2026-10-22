@@ -15,6 +15,7 @@ import SearchPagination from './SearchPagination'
 import SearchResultsJudgements from './SearchResultsJudgements'
 import SearchTable from './SearchTable'
 import SelectScenario from './SelectScenario'
+import SelectTags from './SelectTags'
 import SideNav from './SideNav'
 import Chat from './Chat'
 export {
@@ -29,5 +30,6 @@ export {
   SearchResultsJudgements,
   SearchTable,
   SelectScenario,
+  SelectTags,
   SideNav,
 }

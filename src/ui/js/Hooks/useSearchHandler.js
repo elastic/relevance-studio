@@ -15,6 +15,7 @@ const useSearchHandler = ({
   workspaceId,
   resourceId = null, // optional second arg like benchmark_id
   searchText = "",
+  searchFilters = [], // additional Elasticsearch filters, e.g. [{ terms: { tags: [...] } }]
   searchPage = 1,
   searchSize = 10,
   searchSortField,
@@ -45,6 +46,8 @@ const useSearchHandler = ({
         size: searchSize,
         aggs: useAggs,
       }
+      if (searchFilters?.length)
+        body.filters = searchFilters
       if (searchSortField && searchSortOrder) {
         body.sort = {
           field: searchSortField,
@@ -73,6 +76,7 @@ const useSearchHandler = ({
     workspaceId,
     resourceId,
     searchText,
+    searchFilters,
     searchPage,
     searchSize,
     searchSortField,

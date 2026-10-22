@@ -240,10 +240,9 @@ def search_tags(asset_type: str, workspace_id: str = None) -> Dict[str, Any]:
     # Only return aggs
     body["size"] = 0
     
-    # Filter query by workspace_id
-    if asset_type == "workspaces":
-        body["query"] = { "bool": { "filter": [{ "ids": { "values": [ workspace_id ]}}]}}
-    else:
+    # Filter query by workspace_id, except for top-level asset types that
+    # aren't scoped to a workspace (mirrors search_assets below).
+    if asset_type not in ("workspaces", "conversations"):
         if not workspace_id:
             raise Exception(f"\"workspace_id\" is required to scope searches.")
         body["query"] = { "bool": { "filter": [{ "term": { "workspace_id": workspace_id }}]}}

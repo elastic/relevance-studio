@@ -32,6 +32,7 @@ const SearchTable = ({
   sortOrder,
   isLoading,
   columns,
+  filters,
   itemId,
   itemIdToExpandedRowMap,
   text,
@@ -59,6 +60,11 @@ const SearchTable = ({
             onChange={(q) => onChangeText(q.query?.text || '')}
           />
         </EuiFlexItem>
+        {filters &&
+          <EuiFlexItem grow={false}>
+            {filters}
+          </EuiFlexItem>
+        }
         <EuiFlexItem grow={false}>
           <EuiButton isLoading={isLoading} iconType='search' type='submit'>
             Search

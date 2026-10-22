@@ -299,6 +299,10 @@ def workspaces_search():
     body = request.get_json() or {}
     return api.workspaces.search(**body)
 
+@api_route("/api/workspaces/_tags", methods=["GET"])
+def workspaces_tags():
+    return api.workspaces.tags()
+
 @api_route("/api/workspaces/<string:_id>", methods=["GET"])
 def workspaces_get(_id):
     return api.workspaces.get(_id)
@@ -516,7 +520,13 @@ def _page_args():
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/strategies", methods=["GET"])
 def runs_get_runtime_strategies(workspace_id, benchmark_id, _id):
-    return api.runs.get_runtime_strategies(_id)
+    tags = request.args.getlist("tags") or None
+    text = request.args.get("text", "")
+    return api.runs.get_runtime_strategies(_id, tags=tags, text=text)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/strategies/_tags", methods=["GET"])
+def runs_get_runtime_strategies_tags(workspace_id, benchmark_id, _id):
+    return api.runs.get_runtime_strategies_tags(_id)
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/indices", methods=["GET"])
 def runs_get_runtime_indices(workspace_id, benchmark_id, _id):
@@ -526,7 +536,13 @@ def runs_get_runtime_indices(workspace_id, benchmark_id, _id):
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/scenarios", methods=["GET"])
 def runs_get_runtime_scenarios(workspace_id, benchmark_id, _id):
     size, page = _page_args()
-    return api.runs.get_runtime_scenarios(_id, size=size, page=page)
+    tags = request.args.getlist("tags") or None
+    text = request.args.get("text", "")
+    return api.runs.get_runtime_scenarios(_id, size=size, page=page, tags=tags, text=text)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/scenarios/_tags", methods=["GET"])
+def runs_get_runtime_scenarios_tags(workspace_id, benchmark_id, _id):
+    return api.runs.get_runtime_scenarios_tags(_id)
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/runtime/judgements", methods=["GET"])
 def runs_get_runtime_judgements(workspace_id, benchmark_id, _id):

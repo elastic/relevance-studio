@@ -15,7 +15,7 @@ import {
   EuiText,
 } from '@elastic/eui'
 import { useSearchHandler } from '../../Hooks'
-import { ModalDelete, Page, SearchTable } from '../../Layout'
+import { ModalDelete, Page, SearchTable, SelectTags } from '../../Layout'
 import FlyoutForm from './FlyoutForm'
 import { getHistory } from '../../history'
 import api from '../../api'
@@ -56,10 +56,35 @@ const Workspaces = () => {
   const [searchSize, setSearchSize] = useState(10)
   const [searchSortField, setSearchSortField] = useState("name")
   const [searchSortOrder, setSearchSortOrder] = useState("asc")
+  const [searchTags, setSearchTags] = useState([])
   const [searchText, setSearchText] = useState("")
   const [searchTotal, setSearchTotal] = useState(null)
 
+  /**
+   * Tags available to filter by (fetched once; workspaces aren't scoped to a
+   * parent workspace, so no workspace_id is needed).
+   */
+  const [tagOptions, setTagOptions] = useState([])
+  const [isLoadingTags, setIsLoadingTags] = useState(false)
+
   ////  Effects  ///////////////////////////////////////////////////////////////
+
+  /**
+   * Fetch the full set of workspace tags once, to populate the Tags filter.
+   */
+  useEffect(() => {
+    let cancelled = false
+    setIsLoadingTags(true)
+    api.workspaces_tags()
+      .then((response) => {
+        if (cancelled) return
+        const buckets = response?.data?.aggregations?.tags?.buckets || []
+        setTagOptions(buckets.map((bucket) => bucket.key))
+      })
+      .catch(() => { if (!cancelled) setTagOptions([]) })
+      .finally(() => { if (!cancelled) setIsLoadingTags(false) })
+    return () => { cancelled = true }
+  }, [])
 
   /**
    * Automatically submit the search and return to page one either when the
@@ -68,7 +93,7 @@ const Workspaces = () => {
   useEffect(() => {
     onSubmitSearch()
     setSearchPage(1)
-  }, [searchSize, searchSortField, searchSortOrder])
+  }, [searchSize, searchSortField, searchSortOrder, searchTags])
 
   /**
    * Automatically submit the search when the user selects a different page in
@@ -84,6 +109,7 @@ const Workspaces = () => {
   const onSubmitSearch = useSearchHandler({
     searchFn: api.workspaces_search, // search workspaces
     searchText,
+    searchFilters: searchTags.length ? [{ terms: { tags: searchTags } }] : [],
     searchPage,
     searchSize,
     searchSortField,
@@ -328,6 +354,14 @@ const Workspaces = () => {
               sortOrder={searchSortOrder}
               isLoading={isSearchLoading}
               columns={columns}
+              filters={
+                <SelectTags
+                  isLoading={isLoadingTags}
+                  options={tagOptions}
+                  selected={searchTags}
+                  onChange={setSearchTags}
+                />
+              }
               searchText={searchText}
               onChangeText={setSearchText}
               onChangePage={setSearchPage}

@@ -7,22 +7,25 @@
 
 import { useState } from 'react'
 import {
+  EuiBasicTable,
   EuiButtonIcon,
   EuiCode,
   EuiCodeBlock,
   EuiIcon,
-  EuiInMemoryTable,
   EuiPanel,
   EuiScreenReaderOnly,
   EuiToolTip,
 } from '@elastic/eui'
 import utils from '../../utils'
 
+// Items are a single server-fetched page (see FlyoutRuntime). Sorting here is
+// therefore local to that page, not the full collection.
 const TableRuntimeIndices = ({ items }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
+  const [sort, setSort] = useState({ field: '_index', direction: 'asc' })
 
   const toggleDetails = (item) => {
     setItemIdToExpandedRowMap(prev => {
@@ -118,26 +121,20 @@ const TableRuntimeIndices = ({ items }) => {
     }
   ]
 
+  const sortedItems = utils.sortDocs(items, sort.field, sort.direction)
+
   return (
-    <EuiInMemoryTable
-      allowNeutralSort={false}
+    <EuiBasicTable
       columns={columns}
       itemId='_id'
       itemIdToExpandedRowMap={itemsToExpandedRows}
-      items={items}
-      pagination={true}
-      responsiveBreakpoint={false}
-      search={{
-        box: {
-          incremental: true,
-          schema: true,
-        }
+      items={sortedItems}
+      onChange={({ sort: newSort }) => {
+        if (newSort) setSort(newSort)
       }}
+      responsiveBreakpoint={false}
       sorting={{
-        sort: {
-          field: '_index',
-          direction: 'asc',
-        }
+        sort,
       }}
       tableLayout='auto'
     />

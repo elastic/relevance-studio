@@ -33,6 +33,12 @@
         "item": {
           "type": "object",
           "enabled": false
+        },
+        "name": {
+          "type": "text"
+        },
+        "tags": {
+          "type": "keyword"
         }
       }
     }

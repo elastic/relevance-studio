@@ -129,6 +129,27 @@ utils.getNestedValue = (obj, path) => {
 }
 
 /**
+ * Sort an array of docs by a field (dot-notation path supported) and
+ * direction ('asc' | 'desc'). Used to sort a single already-fetched page of
+ * server-paginated results, where there is no server-side sort to defer to.
+ */
+utils.sortDocs = (docs, field, direction = 'asc') => {
+  if (!field)
+    return docs
+  const sorted = [...(docs || [])].sort((a, b) => {
+    const valueA = utils.getNestedValue(a, field)
+    const valueB = utils.getNestedValue(b, field)
+    if (valueA == null && valueB == null) return 0
+    if (valueA == null) return -1
+    if (valueB == null) return 1
+    if (valueA < valueB) return -1
+    if (valueA > valueB) return 1
+    return 0
+  })
+  return direction === 'desc' ? sorted.reverse() : sorted
+}
+
+/**
  * Calculate the average of an array of numbers
  */
 utils.average = (arr) => {

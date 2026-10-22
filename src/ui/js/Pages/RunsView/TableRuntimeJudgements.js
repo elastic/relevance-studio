@@ -7,22 +7,25 @@
 
 import { useState } from 'react'
 import {
+  EuiBasicTable,
   EuiButtonIcon,
   EuiCode,
   EuiCodeBlock,
   EuiIcon,
-  EuiInMemoryTable,
   EuiPanel,
   EuiScreenReaderOnly,
   EuiToolTip,
 } from '@elastic/eui'
 import utils from '../../utils'
 
+// Items are a single server-fetched page (see FlyoutRuntime). Sorting here is
+// therefore local to that page, not the full collection.
 const TableRuntimeJudgements = ({ items }) => {
 
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
+  const [sort, setSort] = useState({ field: 'scenario', direction: 'asc' })
 
   const toggleDetails = (item) => {
     setItemIdToExpandedRowMap(prev => {
@@ -124,58 +127,20 @@ const TableRuntimeJudgements = ({ items }) => {
     }
   ]
 
+  const sortedItems = utils.sortDocs(items, sort.field, sort.direction)
+
   return (
-    <EuiInMemoryTable
-      allowNeutralSort={false}
+    <EuiBasicTable
       columns={columns}
       itemId='_id'
       itemIdToExpandedRowMap={itemsToExpandedRows}
-      items={items}
-      pagination={true}
-      responsiveBreakpoint={false}
-      search={{
-        box: {
-          incremental: true,
-          schema: true,
-        },
-        filters: [
-          {
-            autoSortOptions: false,
-            field: 'scenario',
-            multiSelect: 'or',
-            name: 'Scenario',
-            options: Array.from(new Set(items.map(({ scenario }) => scenario))).map(scenario => ({
-              value: scenario
-            })),
-            type: 'field_value_selection',
-          },
-          {
-            autoSortOptions: false,
-            field: 'index',
-            multiSelect: 'or',
-            name: 'Index',
-            options: Array.from(new Set(items.map(({ index }) => index))).map(index => ({
-              value: index
-            })),
-            type: 'field_value_selection',
-          },
-          {
-            autoSortOptions: false,
-            field: 'doc_id',
-            multiSelect: 'or',
-            name: 'Doc _id',
-            options: Array.from(new Set(items.map(({ doc_id }) => doc_id))).map(doc_id => ({
-              value: doc_id
-            })),
-            type: 'field_value_selection',
-          },
-        ]
+      items={sortedItems}
+      onChange={({ sort: newSort }) => {
+        if (newSort) setSort(newSort)
       }}
+      responsiveBreakpoint={false}
       sorting={{
-        sort: {
-          field: 'name',
-          direction: 'asc',
-        }
+        sort,
       }}
       tableLayout='auto'
     />

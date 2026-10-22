@@ -26,7 +26,7 @@ import {
 import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import { useSearchHandler } from '../../Hooks'
-import { ModalDelete, Page, SearchTable } from '../../Layout'
+import { ModalDelete, Page, SearchTable, SelectTags } from '../../Layout'
 import { getHistory } from '../../history'
 import api from '../../api'
 import utils from '../../utils'
@@ -76,10 +76,37 @@ const Strategies = () => {
   const [searchSize, setSearchSize] = useState(10)
   const [searchSortField, setSearchSortField] = useState("name")
   const [searchSortOrder, setSearchSortOrder] = useState("asc")
+  const [searchTags, setSearchTags] = useState([])
   const [searchText, setSearchText] = useState("")
   const [searchTotal, setSearchTotal] = useState(null)
 
+  /**
+   * Tags available to filter by
+   */
+  const [tagOptions, setTagOptions] = useState([])
+  const [isLoadingTags, setIsLoadingTags] = useState(false)
+
   ////  Effects  ///////////////////////////////////////////////////////////////
+
+  /**
+   * Fetch the full set of strategy tags for this workspace, to populate the
+   * Tags filter.
+   */
+  useEffect(() => {
+    if (!isReady)
+      return
+    let cancelled = false
+    setIsLoadingTags(true)
+    api.strategies_tags(workspace._id)
+      .then((response) => {
+        if (cancelled) return
+        const buckets = response?.data?.aggregations?.tags?.buckets || []
+        setTagOptions(buckets.map((bucket) => bucket.key))
+      })
+      .catch(() => { if (!cancelled) setTagOptions([]) })
+      .finally(() => { if (!cancelled) setIsLoadingTags(false) })
+    return () => { cancelled = true }
+  }, [isReady, workspace?._id])
 
   /**
    * Automatically submit the search and return to page one either when the
@@ -90,7 +117,7 @@ const Strategies = () => {
       return
     onSubmitSearch()
     setSearchPage(1)
-  }, [isReady, searchSize, searchSortField, searchSortOrder])
+  }, [isReady, searchSize, searchSortField, searchSortOrder, searchTags])
 
   /**
    * Automatically submit the search when the user selects a different page in
@@ -109,6 +136,7 @@ const Strategies = () => {
     searchFn: api.strategies_search, // search strategies
     workspaceId: workspace?._id,
     searchText,
+    searchFilters: searchTags.length ? [{ terms: { tags: searchTags } }] : [],
     searchPage,
     searchSize,
     searchSortField,
@@ -370,6 +398,14 @@ const Strategies = () => {
               sortOrder={searchSortOrder}
               isLoading={isSearchLoading}
               columns={columns}
+              filters={
+                <SelectTags
+                  isLoading={isLoadingTags}
+                  options={tagOptions}
+                  selected={searchTags}
+                  onChange={setSearchTags}
+                />
+              }
               searchText={searchText}
               onChangeText={setSearchText}
               onChangePage={setSearchPage}

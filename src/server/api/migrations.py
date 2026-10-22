@@ -195,6 +195,11 @@ def _transform_runtime_collection(hit: Dict[str, Any], dest: str, runtime_key: s
         doc = {**base, id_field: item_key, "item": item_value}
         if runtime_key == "judgements" and isinstance(item_value, dict) and item_value.get("scenario_id"):
             doc["scenario_id"] = item_value["scenario_id"]
+        if runtime_key in ("strategies", "scenarios") and isinstance(item_value, dict):
+            if item_value.get("name"):
+                doc["name"] = item_value["name"]
+            if item_value.get("tags"):
+                doc["tags"] = item_value["tags"]
         docs.append({
             "_op_type": "create",
             "_index": dest,

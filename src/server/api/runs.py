@@ -344,6 +344,14 @@ def _write_results_and_forensics(evaluation: Dict[str, Any], run_id: str) -> Non
             # judgements also carry scenario_id for filtered pagination
             if runtime_key == "judgements" and isinstance(item_value, dict) and item_value.get("scenario_id"):
                 doc["scenario_id"] = item_value["scenario_id"]
+            # strategies/scenarios also carry their name + tags at the top level
+            # (mirrored out of the disabled-index `item` blob) so they can be
+            # searched/filtered server-side without reindexing the whole snapshot.
+            if runtime_key in ("strategies", "scenarios") and isinstance(item_value, dict):
+                if item_value.get("name"):
+                    doc["name"] = item_value["name"]
+                if item_value.get("tags"):
+                    doc["tags"] = item_value["tags"]
             actions.append({
                 "_op_type": "create",
                 "_index": collection_index,
@@ -1009,8 +1017,14 @@ def _paginate_run_collection(
         page: int = 1,
         extra_filters: Optional[List[Dict[str, Any]]] = None,
         sort: Optional[List[Any]] = None,
+        text: str = "",
     ) -> Dict[str, Any]:
     """Page over a per-run forensics data stream, filtered by run_id.
+
+    `text`, if given, free-text matches against the (mirrored, top-level)
+    `name` field — the only part of a strategy/scenario snapshot that's
+    actually indexed, since the full `item` blob is stored with indexing
+    disabled to avoid cross-run mapping conflicts.
 
     Returns {"run_id", "total", "size", "page", "items": [_source, ...]}.
     Empty (total 0) if the stream doesn't exist yet (e.g. a skipped run).
@@ -1025,6 +1039,10 @@ def _paginate_run_collection(
         "from": max(0, (page - 1) * size),
         "track_total_hits": True,
     }
+    if text:
+        body["query"]["bool"]["must"] = [{
+            "query_string": {"query": text, "default_operator": "AND", "fields": ["name"]}
+        }]
     if sort:
         body["sort"] = sort
     try:
@@ -1037,18 +1055,48 @@ def _paginate_run_collection(
     return {"run_id": run_id, "total": total, "size": size, "page": page, "items": items}
 
 
-def get_runtime_strategies(run_id: str) -> Dict[str, Any]:
+def _tags_for_run_collection(index: str, run_id: str) -> List[str]:
+    """Distinct `tags` values across a run's items in a runtime collection.
+
+    Backs the Tags filter dropdowns in the runtime-assets flyout. Empty
+    (rather than erroring) if the stream doesn't exist yet.
+    """
+    client = es("studio")
+    body = {
+        "query": {"bool": {"filter": [{"term": {"run_id": run_id}}]}},
+        "size": 0,
+        "aggs": {"tags": {"terms": {"field": "tags", "size": 10000, "order": {"_key": "asc"}}}},
+    }
+    try:
+        es_response = client.search(index=index, body=body)
+    except NotFoundError:
+        return []
+    buckets = es_response.body.get("aggregations", {}).get("tags", {}).get("buckets", [])
+    return [bucket["key"] for bucket in buckets]
+
+
+def get_runtime_strategies(run_id: str, tags: Optional[List[str]] = None, text: str = "") -> Dict[str, Any]:
     """Get ALL runtime strategy snapshots for a run (not paginated).
 
     Strategies are bounded by the run's task definition, so the Summary table and
     heatmap fetch the whole set to label rows/axes.
 
+    Optionally filter by `tags` (OR-matched against each strategy's tags) and/or
+    `text` (free-text matched against each strategy's name), which the
+    runtime-assets flyout uses to filter server-side.
+
     Returns {"run_id", "total", "items": [{strategy_id, item, ...}, ...]}.
     """
+    extra = [{"terms": {"tags": tags}}] if tags else None
     result = _paginate_run_collection(
-        RUNTIME_STRATEGIES_INDEX_NAME, run_id, size=MAX_RUNTIME_STRATEGIES, page=1,
+        RUNTIME_STRATEGIES_INDEX_NAME, run_id, size=MAX_RUNTIME_STRATEGIES, page=1, extra_filters=extra, text=text,
     )
     return {"run_id": run_id, "total": result["total"], "items": result["items"]}
+
+
+def get_runtime_strategies_tags(run_id: str) -> Dict[str, Any]:
+    """List the distinct tags across a run's runtime strategy snapshots."""
+    return {"run_id": run_id, "tags": _tags_for_run_collection(RUNTIME_STRATEGIES_INDEX_NAME, run_id)}
 
 
 def get_runtime_indices(run_id: str, size: int = 25, page: int = 1) -> Dict[str, Any]:
@@ -1056,9 +1104,22 @@ def get_runtime_indices(run_id: str, size: int = 25, page: int = 1) -> Dict[str,
     return _paginate_run_collection(RUNTIME_INDICES_INDEX_NAME, run_id, size, page)
 
 
-def get_runtime_scenarios(run_id: str, size: int = 25, page: int = 1) -> Dict[str, Any]:
-    """Get a page of runtime scenario snapshots for a run."""
-    return _paginate_run_collection(RUNTIME_SCENARIOS_INDEX_NAME, run_id, size, page)
+def get_runtime_scenarios(
+        run_id: str, size: int = 25, page: int = 1, tags: Optional[List[str]] = None, text: str = "",
+    ) -> Dict[str, Any]:
+    """Get a page of runtime scenario snapshots for a run.
+
+    Optionally filter by `tags` (OR-matched against each scenario's tags) and/or
+    `text` (free-text matched against each scenario's name), which the
+    runtime-assets flyout uses to filter server-side.
+    """
+    extra = [{"terms": {"tags": tags}}] if tags else None
+    return _paginate_run_collection(RUNTIME_SCENARIOS_INDEX_NAME, run_id, size, page, extra_filters=extra, text=text)
+
+
+def get_runtime_scenarios_tags(run_id: str) -> Dict[str, Any]:
+    """List the distinct tags across a run's runtime scenario snapshots."""
+    return {"run_id": run_id, "tags": _tags_for_run_collection(RUNTIME_SCENARIOS_INDEX_NAME, run_id)}
 
 
 def get_runtime_judgements(run_id: str, size: int = 25, page: int = 1, scenario_id: str = "") -> Dict[str, Any]:
