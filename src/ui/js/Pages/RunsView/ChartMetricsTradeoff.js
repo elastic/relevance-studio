@@ -568,17 +568,6 @@ const ChartMetricsTradeoff = ({
             />
           </EuiFormRow>
         </EuiFlexItem>
-        {latencyAvailable &&
-          <EuiFlexItem grow={false}>
-            <EuiSwitch compressed label='Log latency axis' checked={logLatency} onChange={(e) => setLogLatency(e.target.checked)} />
-          </EuiFlexItem>
-        }
-        <EuiFlexItem grow={false}>
-          <EuiSwitch compressed label='Show ranges' checked={showRange} onChange={(e) => setShowRange(e.target.checked)} />
-        </EuiFlexItem>
-        <EuiFlexItem grow={false}>
-          <EuiSwitch compressed label='Fit axes to data' checked={fitAxesToData} onChange={(e) => setFitAxesToData(e.target.checked)} />
-        </EuiFlexItem>
         <EuiFlexItem grow={false}>
           <EuiSwitch
             compressed
@@ -593,6 +582,17 @@ const ChartMetricsTradeoff = ({
             checked={showFrontier}
             onChange={(e) => setShowFrontier(e.target.checked)}
           />
+        </EuiFlexItem>
+        {latencyAvailable &&
+          <EuiFlexItem grow={false}>
+            <EuiSwitch compressed label='Log latency axis' checked={logLatency} onChange={(e) => setLogLatency(e.target.checked)} />
+          </EuiFlexItem>
+        }
+        <EuiFlexItem grow={false}>
+          <EuiSwitch compressed label='Show ranges' checked={showRange} onChange={(e) => setShowRange(e.target.checked)} />
+        </EuiFlexItem>
+        <EuiFlexItem grow={false}>
+          <EuiSwitch compressed label='Fit axes to data' checked={fitAxesToData} onChange={(e) => setFitAxesToData(e.target.checked)} />
         </EuiFlexItem>
       </EuiFlexGroup>
 

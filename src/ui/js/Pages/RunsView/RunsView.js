@@ -558,7 +558,7 @@ const RunsView = () => {
               },
               {
                 id: 'heatmap',
-                name: 'Strategies by scenario',
+                name: 'Breakdown',
                 content: (
                   <>
                     <EuiSpacer size='l' />
