@@ -4,6 +4,10 @@ The [MCP Server](docs/{{VERSION}}/reference/architecture.md#mcp-server) for Rele
 
 When [authentication](docs/{{VERSION}}/reference/security.md#mcp-server-authentication) is enabled (`AUTH_ENABLED=true`), configure your MCP client to send credentials (Basic or ApiKey) via the `Authorization` header. The `healthz_mcp` tool and `/healthz` HTTP route are exempt from auth. Tool input/output generally mirrors the corresponding REST operation and data model. For schema details and full payload examples, see the linked [REST API](docs/{{VERSION}}/reference/rest-api.md) sections.
 
+### Bulk tools
+
+The create, update, and delete tools in the Conversations, Workspaces, Displays, Scenarios, Judgements, Strategies, and Benchmarks tool groups below always take a **list** parameter — `docs`, `judgements`, or `ids` — even when operating on a single item. Submit a one-item list to act on a single asset, or a longer list to act on many in one call. These tools map to the same REST routes as their [Bulk operations](docs/{{VERSION}}/reference/rest-api.md#bulk-operations) counterparts and return the same bulk-shaped response (`{"took", "errors", "items"}`), with per-item results in submission order and a 500-item batch limit. Adding bulk support did not add, remove, or rename any tools, and did not change the JSON schema embedded in any tool's description.
+
 ## Tool Groups
 
 ### Conversations

@@ -48,6 +48,29 @@ def mock_context(via: str = "api"):
     context = { "user": "test-user", "via": via }
     return context
 
+def make_fake_bulk_response(operations):
+    """
+    Build a fake Elasticsearch `_bulk` response dict that echoes back every
+    action/_id actually submitted in `operations` (as a mock ES client's
+    `bulk(operations=...)` call would receive), reporting success for each.
+    Used by bulk API tests to avoid depending on real Elasticsearch while
+    still exercising the real operations list built by the API function
+    (including randomly-generated `_id`s for create).
+    """
+    items = []
+    i = 0
+    while i < len(operations):
+        op = operations[i]
+        action = next(iter(op))
+        _id = op[action].get("_id")
+        status = 201 if action == "index" else 200
+        result = { "index": "created", "update": "updated", "delete": "deleted" }[action]
+        items.append({ action: { "_index": op[action].get("_index"), "_id": _id, "_version": 1, "result": result, "status": status }})
+        i += 1
+        if action in ("index", "update"):
+            i += 1  # skip the source/body line that follows index/update actions
+    return { "took": 1, "errors": False, "items": items }
+
 ACCEPTED_TYPES_FOR_INVALID_VALUES = set([
     "bool",
     "string",

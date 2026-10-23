@@ -6,6 +6,7 @@ All REST API endpoints accept payloads as JSON and return payloads as JSON (`app
 
 <span style="font-size: 18px;">**[Studio API](#studio-api)**</span>
 
+- [Bulk operations](#bulk-operations)
 - [Agent API](#agent-api)
 - [Conversations API](#conversations-api)
 - [Workspaces API](#workspaces-api)
@@ -39,6 +40,35 @@ All REST API endpoints accept payloads as JSON and return payloads as JSON (`app
 ## Studio API
 
 The Studio API manages data assets in the [studio deployment](docs/{{VERSION}}/reference/architecture.md#studio-deployment).
+
+### Bulk operations
+
+Most Studio API write endpoints (create, update, delete) accept either a single JSON object, for the current one-item-at-a-time behavior, or a JSON array of objects, to apply the same operation to many items in a single request. Bulk requests reuse the exact same route and HTTP method as the single-item form — no separate bulk endpoints exist.
+
+- **Single-object request** (unchanged): the request body is a JSON object, and the response is the existing single-document shape, e.g. `{"_id": "...", "result": "created", ...}` on success, or a single `{"error": "...", "message": "..."}` body on failure. This keeps every existing single-item caller, including the UI, working exactly as before.
+- **Array request**: the request body is a JSON array of objects. The response is a bulk-shaped envelope that mirrors Elasticsearch's `_bulk` API:
+
+    ```json
+    {
+      "took": 12,
+      "errors": false,
+      "items": [
+        { "index": { "_id": "...", "status": 201, "result": "created" } },
+        { "index": { "_id": "...", "status": 400, "error": { "type": "validation_error", "reason": "..." } } }
+      ]
+    }
+    ```
+
+    - `items` is always ordered the same as the submitted array.
+    - Each item succeeds or fails independently — one invalid item does not reject the rest of the batch.
+    - The HTTP status is `200` if `errors` is `false`, or `207 Multi-Status` if any item failed.
+    - `refresh=true` is issued once for the whole request, not once per item.
+    - There is no cross-item atomicity: a failed item does not roll back or block the others.
+
+- **Batch size limit**: requests are limited to 500 items. Exceeding it returns `400 Bad Request`.
+- **Bulk delete requests**: for delete endpoints, the array form is a list of objects containing `_id`, e.g. `[{"_id": "..."}, {"_id": "..."}]`.
+- **Cascading deletes** (workspaces, scenarios, benchmarks): deleting one of these asset types also deletes everything that depends on it (see each endpoint below). Because this cascade runs as a single Elasticsearch `delete_by_query` regardless of how many ids are submitted, its response is **not** the bulk envelope above — it's the standard `delete_by_query` response shape, the same for one id or many.
+- **Conversations delete**: a conversation id that doesn't belong to the caller is reported as access-denied without distinguishing whether it exists and belongs to someone else, or doesn't exist at all — this is deliberate, to avoid leaking the existence of other users' conversations through a bulk request. The single-item route retains its original, more specific `404`-vs-`403` behavior.
 
 ### Agent API
 
@@ -168,6 +198,21 @@ Delete a conversation by its `_id`.
 
 **`DELETE /api/conversations/<_id>`**
 
+#### Delete conversations (bulk)
+
+Delete multiple conversations in one request. See [Bulk operations](#bulk-operations), including the note on how this endpoint avoids leaking the existence of conversations the caller doesn't own.
+
+**`DELETE /api/conversations`**
+
+Example payload:
+
+```json
+[
+  { "_id": "9f131f89-1c7f-454e-a04c-f3d4494fde54" },
+  { "_id": "b6c4f886-e367-4a84-98c6-b8dc31e20a7b" }
+]
+```
+
 ### Workspaces API
 
 #### Search workspaces
@@ -212,7 +257,7 @@ Retrieve a workspace by its `_id`.
 
 #### Create workspace
 
-Create a workspace.
+Create a workspace. Also accepts a JSON array to create multiple workspaces in one request. See [Bulk operations](#bulk-operations). Each item may include an optional `_id` for idempotence.
 
 **`POST /api/workspaces`**
 
@@ -250,11 +295,32 @@ Example payload with all required and optional fields from the [Workspace data m
 }
 ```
 
+#### Update workspaces (bulk)
+
+Update multiple workspaces in one request. Each item must include `_id`. See [Bulk operations](#bulk-operations).
+
+**`PUT /api/workspaces`**
+
 #### Delete workspace
 
-Delete a workspace by its `_id`.
+Delete a workspace by its `_id`. Deleting a workspace cascades to delete all of its dependent displays, scenarios, judgements, strategies, benchmarks, and benchmark runs/results.
 
 **`DELETE /api/workspaces/<_id>`**
+
+#### Delete workspaces (bulk)
+
+Delete multiple workspaces, and their dependents, in one request. See [Bulk operations](#bulk-operations) regarding the `delete_by_query`-based response shape for this endpoint.
+
+**`DELETE /api/workspaces`**
+
+Example payload:
+
+```json
+[
+  { "_id": "9f131f89-1c7f-454e-a04c-f3d4494fde54" },
+  { "_id": "b6c4f886-e367-4a84-98c6-b8dc31e20a7b" }
+]
+```
 
 
 ---
@@ -305,7 +371,7 @@ Retrieve a display by its `_id` in a given workspace.
 
 #### Create display
 
-Create a display in a given workspace. Accepts optional `_id`.
+Create a display in a given workspace. Accepts optional `_id`. Also accepts a JSON array to create multiple displays in one request. See [Bulk operations](#bulk-operations).
 
 **`POST /api/workspaces/<workspace_id>/displays`**
 
@@ -349,11 +415,32 @@ Example payload with all required and optional fields from the [Display data mod
 
 *Note: You don't have to include `"workspace_id"` in the payload because it already exists in the URL. If you include it, it must match the value in the URL.*
 
+#### Update displays (bulk)
+
+Update multiple displays in a given workspace in one request. Each item must include `_id`. See [Bulk operations](#bulk-operations).
+
+**`PUT /api/workspaces/<workspace_id>/displays`**
+
 #### Delete display
 
 Delete a display by its `_id` in a given workspace.
 
 **`DELETE /api/workspaces/<workspace_id>/displays/<_id>`**
+
+#### Delete displays (bulk)
+
+Delete multiple displays in a given workspace in one request. See [Bulk operations](#bulk-operations).
+
+**`DELETE /api/workspaces/<workspace_id>/displays`**
+
+Example payload:
+
+```json
+[
+  { "_id": "9f131f89-1c7f-454e-a04c-f3d4494fde54" },
+  { "_id": "b6c4f886-e367-4a84-98c6-b8dc31e20a7b" }
+]
+```
 
 ---
 
@@ -409,7 +496,7 @@ Retrieve a scenario by its `_id` in a given workspace.
 
 #### Create scenario
 
-Create a scenario in a given workspace.
+Create a scenario in a given workspace. Also accepts a JSON array to create multiple scenarios in one request. See [Bulk operations](#bulk-operations). Unlike other asset types, scenarios never accept a caller-supplied `_id` — it's always deterministically derived from `workspace_id` and `values`, so identical `values` dedupe to the same scenario.
 
 **`POST /api/workspaces/<workspace_id>/scenarios`**
 
@@ -444,11 +531,32 @@ Example payload with all required and optional fields from the [Scenario data mo
 
 *Note: You don't have to include `"workspace_id"` in the payload because it already exists in the URL. If you include it, it must match the value in the URL.*
 
+#### Update scenarios (bulk)
+
+Update multiple scenarios in a given workspace in one request. Each item must include `_id`. See [Bulk operations](#bulk-operations).
+
+**`PUT /api/workspaces/<workspace_id>/scenarios`**
+
 #### Delete scenario
 
-Delete a scenario by its `_id` in a given workspace.
+Delete a scenario by its `_id` in a given workspace. Deleting a scenario cascades to delete its judgements.
 
 **`DELETE /api/workspaces/<workspace_id>/scenarios/<_id>`**
+
+#### Delete scenarios (bulk)
+
+Delete multiple scenarios, and their judgements, in a given workspace in one request. See [Bulk operations](#bulk-operations) regarding the `delete_by_query`-based response shape for this endpoint.
+
+**`DELETE /api/workspaces/<workspace_id>/scenarios`**
+
+Example payload:
+
+```json
+[
+  { "_id": "9f131f89-1c7f-454e-a04c-f3d4494fde54" },
+  { "_id": "b6c4f886-e367-4a84-98c6-b8dc31e20a7b" }
+]
+```
 
 ---
 
@@ -505,7 +613,7 @@ Example payload with all optional fields:
 
 #### Set judgement
 
-Set a judgement (as an upsert) in a given workspace.
+Set a judgement (as an upsert) in a given workspace. Also accepts a JSON array to set multiple judgements in one request. See [Bulk operations](#bulk-operations). Each judgement's `_id` is always deterministically derived from `workspace_id`, `scenario_id`, `index`, and `doc_id` — if the same `{scenario_id, index, doc_id}` appears more than once in a single array request, every occurrence resolves to the same `_id` (the last one submitted wins).
 
 **`PUT /api/workspaces/<workspace_id>/judgements`**
 
@@ -527,6 +635,21 @@ Example payload with all required and optional fields from the [Judgement data m
 Delete a judgement by its `_id` in a given workspace.
 
 **`DELETE /api/workspaces/<workspace_id>/judgements/<_id>`**
+
+#### Delete judgements (bulk)
+
+Delete multiple judgements in a given workspace in one request. See [Bulk operations](#bulk-operations).
+
+**`DELETE /api/workspaces/<workspace_id>/judgements`**
+
+Example payload:
+
+```json
+[
+  { "_id": "9f131f89-1c7f-454e-a04c-f3d4494fde54" },
+  { "_id": "b6c4f886-e367-4a84-98c6-b8dc31e20a7b" }
+]
+```
 
 ---
 
@@ -582,7 +705,7 @@ Retrieve a strategy by its `_id` in a given workspace.
 
 #### Create strategy
 
-Create a strategy in a given workspace. Accepts optional `_id`.
+Create a strategy in a given workspace. Accepts optional `_id`. Also accepts a JSON array to create multiple strategies in one request. See [Bulk operations](#bulk-operations).
 
 **`POST /api/workspaces/<workspace_id>/strategies`**
 
@@ -622,11 +745,32 @@ Example payload with all required and optional fields from the [Strategy data mo
 
 *Note: You don't have to include `"workspace_id"` in the payload because it already exists in the URL. If you include it, it must match the value in the URL.*
 
+#### Update strategies (bulk)
+
+Update multiple strategies in a given workspace in one request. Each item must include `_id`. See [Bulk operations](#bulk-operations).
+
+**`PUT /api/workspaces/<workspace_id>/strategies`**
+
 #### Delete strategy
 
 Delete a strategy by its `_id` in a given workspace.
 
 **`DELETE /api/workspaces/<workspace_id>/strategies/<_id>`**
+
+#### Delete strategies (bulk)
+
+Delete multiple strategies in a given workspace in one request. See [Bulk operations](#bulk-operations).
+
+**`DELETE /api/workspaces/<workspace_id>/strategies`**
+
+Example payload:
+
+```json
+[
+  { "_id": "9f131f89-1c7f-454e-a04c-f3d4494fde54" },
+  { "_id": "b6c4f886-e367-4a84-98c6-b8dc31e20a7b" }
+]
+```
 
 ---
 
@@ -688,7 +832,7 @@ Retrieve a benchmark by its `_id` in a given workspace.
 
 #### Create benchmark
 
-Create a benchmark in a given workspace.. Accepts optional `_id`.
+Create a benchmark in a given workspace.. Accepts optional `_id`. Also accepts a JSON array to create multiple benchmarks in one request. See [Bulk operations](#bulk-operations).
 
 **`POST /api/workspaces/<workspace_id>/benchmarks`**
 
@@ -765,11 +909,32 @@ Update a benchmark by its `_id` in a given workspace.
 
 *Note: You don't have to include `"workspace_id"` in the payload because it already exists in the URL. If you include it, it must match the value in the URL.*
 
+#### Update benchmarks (bulk)
+
+Update multiple benchmarks in a given workspace in one request. Each item must include `_id`. See [Bulk operations](#bulk-operations).
+
+**`PUT /api/workspaces/<workspace_id>/benchmarks`**
+
 #### Delete benchmark
 
-Delete a benchmark by its `_id` in a given workspace.
+Delete a benchmark by its `_id` in a given workspace. Deleting a benchmark cascades to delete its runs and all associated run data (results, runtime indices/strategies/scenarios/judgements, unrated docs, and failures).
 
 **`DELETE /api/workspaces/<workspace_id>/benchmarks/<_id>`**
+
+#### Delete benchmarks (bulk)
+
+Delete multiple benchmarks, and their runs and run data, in a given workspace in one request. See [Bulk operations](#bulk-operations) regarding the `delete_by_query`-based response shape for this endpoint.
+
+**`DELETE /api/workspaces/<workspace_id>/benchmarks`**
+
+Example payload:
+
+```json
+[
+  { "_id": "9f131f89-1c7f-454e-a04c-f3d4494fde54" },
+  { "_id": "b6c4f886-e367-4a84-98c6-b8dc31e20a7b" }
+]
+```
 
 ---
 

@@ -6,6 +6,9 @@
 # Standard packages
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
+# Third-party packages
+from pydantic import ValidationError
+
 # App packages
 from .. import utils
 from ..client import es
@@ -73,75 +76,101 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = None) -> Dict[str, Any]:
-    """Create a strategy.
+def create(docs: List[Dict[str, Any]], user: str = None, via: str = None) -> Dict[str, Any]:
+    """Create one or more strategies.
+
+    Accepts a list of strategy data; each item may include an optional `_id`
+    for idempotence. Each item is validated independently, so a validation
+    failure on one item does not prevent the others from being created.
+    Returns a single Elasticsearch `_bulk` response (one `refresh=True` for
+    the whole batch, not one per item) with per-item results reported in
+    `items`, in the same order as submitted.
 
     Args:
-        doc: The strategy data to create.
-        _id: Optional pregenerated UUID for idempotence.
+        docs: A list of strategy data to create.
         user: The username of the creator.
 
     Returns:
-        The response from the Elasticsearch index operation.
+        The response from the Elasticsearch bulk index operation.
     """
-    
-    # Create, validate, and dump model
-    doc = StrategyCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
+    utils.assert_batch_size(docs)
 
-    # Copy searchable fields to _search
-    doc = utils.copy_fields_to_search("strategies", doc)
-    
+    operations = []
+    synthetic_items = {}
+    for i, doc in enumerate(docs):
+        doc = dict(doc)
+        _id = doc.pop("_id", None) or utils.unique_id()
+        try:
+            # Create, validate, and dump model
+            doc = StrategyCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
+        except ValidationError as e:
+            synthetic_items[i] = utils.bulk_error_item("index", INDEX_NAME, _id, 400, str(e))
+            continue
+
+        # Copy searchable fields to _search
+        doc = utils.copy_fields_to_search("strategies", doc)
+
+        operations.append({ "index": { "_index": INDEX_NAME, "_id": _id }})
+        operations.append(doc)
+
     # Submit
     client = es("studio")
-    es_response = client.index(
-        index=INDEX_NAME,
-        id=_id or utils.unique_id(),
-        document=doc,
-        refresh=True,
-    )
-    return es_response
+    es_response = client.bulk(operations=operations, refresh=True) if operations else { "took": 0, "errors": False, "items": [] }
+    return utils.merge_bulk_results(es_response, synthetic_items, len(docs))
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = None) -> Dict[str, Any]:
-    """Update a strategy by its _id.
+def update(docs: List[Dict[str, Any]], user: str = None, via: str = None) -> Dict[str, Any]:
+    """Update one or more strategies.
+
+    Accepts a list of partial strategy data; each item must carry its own
+    `_id`. Each item is validated independently, so a validation failure on
+    one item does not prevent the others from being updated. Returns a
+    single Elasticsearch `_bulk` response (one `refresh=True` for the whole
+    batch, not one per item) with per-item results reported in `items`, in
+    the same order as submitted.
 
     Args:
-        _id: The UUID of the strategy.
-        doc_partial: The partial strategy data to update.
+        docs: A list of partial strategy data to update, each including `_id`.
         user: The username of the updater.
 
     Returns:
-        The response from the Elasticsearch update operation.
-    """ 
-    
-    # Create, validate, and dump model
-    doc_partial = StrategyUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
-    
-    # Copy searchable fields to _search
-    doc_partial = utils.copy_fields_to_search("strategies", doc_partial)
-    
+        The response from the Elasticsearch bulk update operation.
+    """
+    utils.assert_batch_size(docs)
+
+    operations = []
+    synthetic_items = {}
+    for i, doc_partial in enumerate(docs):
+        doc_partial = dict(doc_partial)
+        _id = doc_partial.pop("_id", None)
+        try:
+            # Create, validate, and dump model
+            doc_partial = StrategyUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
+        except ValidationError as e:
+            synthetic_items[i] = utils.bulk_error_item("update", INDEX_NAME, _id, 400, str(e))
+            continue
+
+        # Copy searchable fields to _search
+        doc_partial = utils.copy_fields_to_search("strategies", doc_partial)
+
+        operations.append({ "update": { "_index": INDEX_NAME, "_id": _id }})
+        operations.append({ "doc": doc_partial })
+
     # Submit
     client = es("studio")
-    es_response = client.update(
-        index=INDEX_NAME,
-        id=_id,
-        doc=doc_partial,
-        refresh=True
-    )
-    return es_response
+    es_response = client.bulk(operations=operations, refresh=True) if operations else { "took": 0, "errors": False, "items": [] }
+    return utils.merge_bulk_results(es_response, synthetic_items, len(docs))
 
-def delete(_id: str) -> Dict[str, Any]:
-    """Delete a strategy by its _id.
+def delete(ids: List[str]) -> Dict[str, Any]:
+    """Delete one or more strategies by their _ids.
 
     Args:
-        _id: The UUID of the strategy to delete.
+        ids: A list of strategy UUIDs to delete.
 
     Returns:
-        The response from the Elasticsearch delete operation.
+        The response from the Elasticsearch bulk delete operation.
     """
+    utils.assert_batch_size(ids)
+    operations = [{ "delete": { "_index": INDEX_NAME, "_id": _id }} for _id in ids]
     client = es("studio")
-    es_response = client.delete(
-        index=INDEX_NAME,
-        id=_id,
-        refresh=True
-    )
-    return es_response
+    es_response = client.bulk(operations=operations, refresh=True) if operations else { "took": 0, "errors": False, "items": [] }
+    return utils.merge_bulk_results(es_response, {}, len(ids))

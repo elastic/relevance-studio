@@ -14,6 +14,9 @@ from hashlib import blake2b
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 # Third-party packages
+from werkzeug.exceptions import BadRequest
+
+# App packages
 from .client import es
 
 if TYPE_CHECKING:
@@ -399,3 +402,137 @@ def chunks(lst, size):
         return
     for i in range(0, len(lst), size):
         yield lst[i:i + size]
+
+####  Bulk write helpers  ######################################################
+#
+# Shared by the bulk create/update/delete API functions in src/server/api/.
+# These functions standardize how a list of inputs is turned into a single
+# Elasticsearch `_bulk` call (one `refresh=True`, not one per item), how
+# per-item failures (validation errors, ownership denials) are reported
+# without aborting the rest of the batch, and how a single-item bulk
+# response is unwrapped back into the shape the non-bulk REST contract
+# returns today.
+
+# Maximum number of items accepted in a single bulk create/update/delete
+# call (including the `terms`-widened delete_by_query cascades, which don't
+# use `_bulk` but still shouldn't accept an unbounded id list).
+MAX_BULK_BATCH_SIZE = 500
+
+
+def assert_batch_size(items: List[Any], max_size: int = MAX_BULK_BATCH_SIZE) -> None:
+    """
+    Raise a 400 Bad Request if a batch of items exceeds the maximum allowed
+    bulk batch size.
+    """
+    if len(items) > max_size:
+        raise BadRequest(
+            f"Batch of {len(items)} items exceeds the maximum batch size of {max_size}."
+        )
+
+
+def bulk_error_item(
+        action: str,
+        index_name: str,
+        _id: Optional[str],
+        status: int,
+        reason: str,
+        error_type: str = "validation_error",
+    ) -> Dict[str, Any]:
+    """
+    Build a synthetic Elasticsearch `_bulk`-item-shaped error entry for a
+    failure that was caught before the real `_bulk` call was made (e.g. a
+    per-item Pydantic validation error, or an ownership denial). Shaped to
+    be indistinguishable from a real bulk error item once merged in with
+    `merge_bulk_results()`.
+    """
+    return {
+        action: {
+            "_index": index_name,
+            "_id": _id,
+            "status": status,
+            "error": { "type": error_type, "reason": reason },
+        }
+    }
+
+
+def merge_bulk_results(
+        es_response: Any,
+        synthetic_items: Dict[int, Dict[str, Any]],
+        expected_count: int,
+    ) -> Dict[str, Any]:
+    """
+    Merge a raw Elasticsearch `_bulk` response with synthetic per-item error
+    entries (built with `bulk_error_item()`) that were produced *before* the
+    real `_bulk` call, preserving the original submission order.
+
+    `synthetic_items` maps the 0-based index in the originally submitted
+    list to a synthetic bulk-item-shaped error dict. Every other position is
+    filled, in order, from `es_response`'s real `items` (which only ever
+    contains the items that were actually sent to `_bulk`).
+    """
+    body = es_response.body if hasattr(es_response, "body") else es_response
+    real_items = iter(body.get("items") or [])
+    merged = []
+    for i in range(expected_count):
+        if i in synthetic_items:
+            merged.append(synthetic_items[i])
+        else:
+            merged.append(next(real_items))
+    errors = bool(synthetic_items) or bool(body.get("errors"))
+    return {
+        "took": body.get("took", 0),
+        "errors": errors,
+        "items": merged,
+    }
+
+
+def unwrap_bulk_item(bulk_response: Dict[str, Any], action: str, index: int = 0) -> "tuple[Dict[str, Any], int]":
+    """
+    Extract a single item from a bulk-shaped response (see
+    `merge_bulk_results()`) and reshape it to match the non-bulk Elasticsearch
+    response contract that `client.index()/update()/delete()` produced before
+    bulk support existed:
+
+    - On success, returns the item's fields minus the bulk-only `status` key
+      (matching `client.index()/update()/delete()`'s normal return body).
+    - On failure, returns `{"error": ..., "status": ...}` (matching the shape
+      `ApiError.body` carries today).
+
+    Used by Flask routes to keep single-object requests byte-identical to
+    their pre-bulk status codes and response bodies.
+    """
+    item = bulk_response["items"][index][action]
+    status = item.get("status", 200)
+    if "error" in item:
+        return { "error": item["error"], "status": status }, status
+    body = { k: v for k, v in item.items() if k != "status" }
+    return body, status
+
+
+def collapse_denial_statuses(
+        bulk_response: Dict[str, Any],
+        from_status: int = 404,
+        to_status: int = 403,
+        error_type: str = "security_exception",
+        reason: str = "Conversation access denied.",
+    ) -> Dict[str, Any]:
+    """
+    Rewrite bulk-item errors carrying `from_status` to an identical
+    `to_status` error shape, so a caller operating on more than one item at a
+    time (or any MCP caller) cannot distinguish "this item doesn't exist"
+    from "this item exists but access to it is denied."
+
+    Used today by conversations' bulk delete: the Flask array route and all
+    MCP calls collapse 404 ("missing") denials into the same 403 ("access
+    denied") shape as ownership denials. The Flask single-item unwrap path
+    does NOT call this — it must stay byte-identical to the pre-bulk
+    404-vs-403 contract.
+    """
+    items = []
+    for item in bulk_response.get("items", []):
+        action = next(iter(item))
+        entry = item[action]
+        if entry.get("status") == from_status:
+            entry = { **entry, "status": to_status, "error": { "type": error_type, "reason": reason } }
+        items.append({ action: entry })
+    return { **bulk_response, "items": items }

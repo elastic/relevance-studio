@@ -22,6 +22,7 @@ from starlette.responses import JSONResponse
 # App packages
 from . import api
 from . import mcp_auth
+from . import utils
 from .mcp_auth_middleware import MCPAuthMiddleware
 from .models import *
 from .tls import get_tls_config, log_tls_status
@@ -72,9 +73,13 @@ def conversations_update(ctx: Context, _id: str, doc_partial: Dict[str, Any]) ->
     return dict(api.conversations.update(_id, doc_partial, user=user, via="mcp"))
 
 @mcp.tool(description=api.conversations.delete.__doc__)
-def conversations_delete(ctx: Context, _id: str) -> Dict[str, Any]:
+def conversations_delete(ctx: Context, ids: List[str]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.conversations.delete(_id, user=user))
+    result = api.conversations.delete(ids, user=user)
+    # Collapse "missing" (404) denials into the same "forbidden" (403) shape
+    # as ownership denials, so an agent can't learn whether a conversation it
+    # doesn't own exists.
+    return dict(utils.collapse_denial_statuses(result))
 
 
 ####  API: Workspaces  #########################################################
@@ -98,23 +103,23 @@ def workspaces_get(ctx: Context, _id: str) -> Dict[str, Any]:
     return dict(api.workspaces.get(_id))
 
 @mcp.tool(description=api.workspaces.create.__doc__ + f"""\n
-JSON schema for doc:\n\n{WorkspaceCreate.model_input_json_schema()}
+JSON schema for each item in docs:\n\n{WorkspaceCreate.model_input_json_schema()}
 """)
-def workspaces_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def workspaces_create(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.workspaces.create(doc, _id, user=user, via="mcp"))
+    return dict(api.workspaces.create(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.workspaces.update.__doc__ + f"""\n
-JSON schema for doc_partial:\n\n{WorkspaceUpdate.model_input_json_schema()}
+JSON schema for each item in docs (plus `_id`):\n\n{WorkspaceUpdate.model_input_json_schema()}
 """)
-def workspaces_update(ctx: Context, _id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def workspaces_update(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.workspaces.update(_id, doc_partial, user=user, via="mcp"))
+    return dict(api.workspaces.update(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.workspaces.delete.__doc__)
-def workspaces_delete(ctx: Context, _id: str) -> Dict[str, Any]:
+def workspaces_delete(ctx: Context, ids: List[str]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.workspaces.delete(_id))
+    return dict(api.workspaces.delete(ids))
 
 
 ####  API: Displays  ###########################################################
@@ -139,23 +144,23 @@ def displays_get(ctx: Context, _id: str) -> Dict[str, Any]:
     return dict(api.displays.get(_id))
 
 @mcp.tool(description=api.displays.create.__doc__ + f"""\n
-JSON schema for doc:\n\n{DisplayCreate.model_input_json_schema()}
+JSON schema for each item in docs:\n\n{DisplayCreate.model_input_json_schema()}
 """)
-def displays_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def displays_create(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.displays.create(doc, _id, user=user, via="mcp"))
+    return dict(api.displays.create(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.displays.update.__doc__ + f"""\n
-JSON schema for doc_partia:\n\n{DisplayUpdate.model_input_json_schema()}
+JSON schema for each item in docs (plus `_id`):\n\n{DisplayUpdate.model_input_json_schema()}
 """)
-def displays_update(ctx: Context, _id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def displays_update(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.displays.update(_id, doc_partial, user=user, via="mcp"))
+    return dict(api.displays.update(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.displays.delete.__doc__)
-def displays_delete(ctx: Context, _id: str) -> Dict[str, Any]:
+def displays_delete(ctx: Context, ids: List[str]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.displays.delete(_id))
+    return dict(api.displays.delete(ids))
 
 
 ####  API: Scenarios  ##########################################################
@@ -185,23 +190,23 @@ def scenarios_get(ctx: Context, _id: str) -> Dict[str, Any]:
     return dict(api.scenarios.get(_id))
 
 @mcp.tool(description=api.scenarios.create.__doc__ + f"""\n
-JSON schema for doc:\n\n{ScenarioCreate.model_input_json_schema()}
+JSON schema for each item in docs:\n\n{ScenarioCreate.model_input_json_schema()}
 """)
-def scenarios_create(ctx: Context, doc: Dict[str, Any]) -> Dict[str, Any]:
+def scenarios_create(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.scenarios.create(doc, user=user, via="mcp"))
+    return dict(api.scenarios.create(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.scenarios.update.__doc__ + f"""\n
-JSON schema for doc_partial:\n\n{ScenarioUpdate.model_input_json_schema()}
+JSON schema for each item in docs (plus `_id`):\n\n{ScenarioUpdate.model_input_json_schema()}
 """)
-def scenarios_update(ctx: Context, _id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def scenarios_update(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.scenarios.update(_id, doc_partial, user=user, via="mcp"))
+    return dict(api.scenarios.update(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.scenarios.delete.__doc__)
-def scenarios_delete(ctx: Context, _id: str) -> Dict[str, Any]:
+def scenarios_delete(ctx: Context, ids: List[str]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.scenarios.delete(_id))
+    return dict(api.scenarios.delete(ids))
 
 
 ####  API: Judgements  #########################################################
@@ -231,14 +236,14 @@ def judgements_search(
     ))
 
 @mcp.tool(description=api.judgements.set.__doc__)
-def judgements_set(ctx: Context, workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int) -> Dict[str, Any]:
+def judgements_set(ctx: Context, workspace_id: str, judgements: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.judgements.set(workspace_id, scenario_id, index, doc_id, rating, user=user, via="mcp"))
+    return dict(api.judgements.set(workspace_id, judgements, user=user, via="mcp"))
 
 @mcp.tool(description=api.judgements.unset.__doc__)
-def judgements_unset(ctx: Context, _id: str) -> Dict[str, Any]:
+def judgements_unset(ctx: Context, ids: List[str]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.judgements.unset(_id))
+    return dict(api.judgements.unset(ids))
 
 
 ####  API: Strategies  #########################################################
@@ -268,23 +273,23 @@ def strategies_get(ctx: Context, _id: str) -> Dict[str, Any]:
     return dict(api.strategies.get(_id))
 
 @mcp.tool(description=api.strategies.create.__doc__ + f"""\n
-JSON schema for doc:\n\n{StrategyCreate.model_input_json_schema()}
+JSON schema for each item in docs:\n\n{StrategyCreate.model_input_json_schema()}
 """)
-def strategies_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def strategies_create(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.strategies.create(doc, _id, user=user, via="mcp"))
+    return dict(api.strategies.create(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.strategies.update.__doc__ + f"""\n
-JSON schema for doc_partial:\n\n{StrategyUpdate.model_input_json_schema()}
+JSON schema for each item in docs (plus `_id`):\n\n{StrategyUpdate.model_input_json_schema()}
 """)
-def strategies_update(ctx: Context, _id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def strategies_update(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.strategies.update(_id, doc_partial, user=user, via="mcp"))
+    return dict(api.strategies.update(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.strategies.delete.__doc__)
-def strategies_delete(ctx: Context, _id: str) -> Dict[str, Any]:
+def strategies_delete(ctx: Context, ids: List[str]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.strategies.delete(_id))
+    return dict(api.strategies.delete(ids))
 
 
 ####  API: Benchmarks  #########################################################
@@ -319,23 +324,23 @@ def benchmarks_get(ctx: Context, _id: str) -> Dict[str, Any]:
     return dict(api.benchmarks.get(_id))
 
 @mcp.tool(description=api.benchmarks.create.__doc__ + f"""\n
-JSON schema for doc:\n\n{BenchmarkCreate.model_input_json_schema()}
+JSON schema for each item in docs:\n\n{BenchmarkCreate.model_input_json_schema()}
 """)
-def benchmarks_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def benchmarks_create(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.benchmarks.create(doc, _id, user=user, via="mcp"))
+    return dict(api.benchmarks.create(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.benchmarks.update.__doc__ + f"""\n
-JSON schema for doc:\n\n{BenchmarkUpdate.model_input_json_schema()}
+JSON schema for each item in docs (plus `_id`):\n\n{BenchmarkUpdate.model_input_json_schema()}
 """)
-def benchmarks_update(ctx: Context, _id: str, doc_partial: Dict[str, Any]) -> Dict[str, Any]:
+def benchmarks_update(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.benchmarks.update(_id, doc_partial, user=user, via="mcp"))
+    return dict(api.benchmarks.update(docs, user=user, via="mcp"))
 
 @mcp.tool(description=api.benchmarks.delete.__doc__)
-def benchmarks_delete(ctx: Context, _id: str) -> Dict[str, Any]:
+def benchmarks_delete(ctx: Context, ids: List[str]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.benchmarks.delete(_id))
+    return dict(api.benchmarks.delete(ids))
 
 
 ####  API: Runs  ###############################################################

@@ -162,26 +162,54 @@ def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = N
     )
     return es_response
 
-def delete(_id: str, user: Optional[str] = None) -> Dict[str, Any]:
-    """Delete a conversation by its _id.
+def delete(ids: List[str], user: Optional[str] = None) -> Dict[str, Any]:
+    """Delete one or more conversations by their _ids.
+
+    Accepts a list of conversation UUIDs. Ownership is enforced per item: a
+    single `mget` checks who owns each id (replacing N individual `get`
+    calls), then one `_bulk` call deletes only the ids owned by `user`
+    (replacing N individual deletes). Ids that don't exist, or that exist
+    but aren't owned by `user`, are reported as per-item failures rather
+    than aborting the whole batch — the response never reveals whether a
+    denied id exists, only that access to it is denied.
 
     Args:
-        _id: The UUID of the conversation to delete.
+        ids: A list of conversation UUIDs to delete.
+        user: The username of the caller.
 
     Returns:
-        The response from the Elasticsearch delete operation.
+        The response from the Elasticsearch bulk delete operation.
     """
+    utils.assert_batch_size(ids)
     client = es("studio")
-    owner_check = client.get(
+    mget_response = client.mget(
         index=INDEX_NAME,
-        id=_id,
+        ids=ids,
         source_includes=["@meta.created_by"],
-        source_excludes="_search",
     )
-    _assert_owner(owner_check, user)
-    es_response = client.delete(
-        index=INDEX_NAME,
-        id=_id,
-        refresh=True,
-    )
-    return es_response
+    mget_docs = mget_response.get("docs") or []
+
+    operations = []
+    synthetic_items = {}
+    for i, (doc, _id) in enumerate(zip(mget_docs, ids)):
+        found = bool(doc.get("found"))
+        owner = (doc.get("_source") or {}).get("@meta", {}).get("created_by") if found else None
+        if found and owner == _normalize_user(user):
+            operations.append({ "delete": { "_index": INDEX_NAME, "_id": _id }})
+        elif found:
+            # Exists, but owned by someone else.
+            synthetic_items[i] = utils.bulk_error_item(
+                "delete", INDEX_NAME, _id, 403, "Conversation access denied.", "security_exception",
+            )
+        else:
+            # Doesn't exist. Tracked distinctly from "forbidden" only so the
+            # single-item Flask route can stay byte-identical to the
+            # pre-bulk 404-vs-403 contract; multi-item callers and MCP
+            # collapse this into the same 403 shape (see
+            # utils.collapse_denial_statuses) to avoid leaking existence.
+            synthetic_items[i] = utils.bulk_error_item(
+                "delete", INDEX_NAME, _id, 404, f"Conversation [{_id}] not found.", "resource_not_found_exception",
+            )
+
+    es_response = client.bulk(operations=operations, refresh=True) if operations else { "took": 0, "errors": False, "items": [] }
+    return utils.merge_bulk_results(es_response, synthetic_items, len(ids))

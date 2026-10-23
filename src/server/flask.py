@@ -21,6 +21,7 @@ from elasticsearch.exceptions import ApiError, AuthenticationException
 # App packages
 from . import api
 from . import auth
+from . import utils
 from .client import (
     _validate_endpoint_configuration,
     es,
@@ -138,6 +139,12 @@ def handle_response(func):
         except Forbidden as e:
             return jsonify({"error": "Forbidden", "message": str(e)}), 403
 
+        # Handle bad requests (e.g. validate_workspace_id_match mismatches,
+        # or a bulk batch exceeding utils.MAX_BULK_BATCH_SIZE) as 400 instead
+        # of falling through to the generic 500 handler below.
+        except BadRequest as e:
+            return jsonify({"error": "Bad Request", "message": e.description or str(e)}), 400
+
         # Handle everything else
         except Exception as e: # TODO: Move this somewhere else
             current_app.logger.exception(e)
@@ -173,6 +180,46 @@ def validate_workspace_id_match(body, workspace_id_from_url):
     """
     if "workspace_id" in body and body["workspace_id"] != workspace_id_from_url:
         raise BadRequest("The workspace_id in the URL must match workspace_id in request body if given.")
+
+
+####  API: Bulk request/response helpers  ######################################
+
+def _request_items(body):
+    """
+    Normalize a request body into (items, is_array) for bulk-capable create/
+    update routes: a JSON array is treated as a batch; any other JSON value
+    (e.g. a single object) is wrapped into a one-item list so the caller's
+    existing single-object contract keeps working unchanged.
+    """
+    if isinstance(body, list):
+        return body, True
+    return [body], False
+
+
+def _ids_from_body(body):
+    """
+    Normalize a bulk-delete request body into a list of ids. Items are
+    shaped as `{"_id": ...}`, matching the shape used by bulk update items,
+    whether given as a single object or an array of them.
+    """
+    items = body if isinstance(body, list) else [body]
+    return [item["_id"] for item in items]
+
+
+def _bulk_or_single_response(result, is_array, action):
+    """
+    Shape a bulk-flavored API result (see utils.merge_bulk_results) for the
+    HTTP response:
+    - A single-object request unwraps to today's exact non-bulk response
+      contract (same status code and body shape as before bulk support).
+    - An array request returns the full bulk envelope, using HTTP 207
+      (Multi-Status) instead of 200 when any item in the batch failed, since
+      Elasticsearch's own `_bulk` always returns 200 regardless of per-item
+      failures.
+    """
+    if is_array:
+        return result, 207 if result.get("errors") else 200
+    return utils.unwrap_bulk_item(result, action)
 
 
 ####  API: Auth  ################################################################
@@ -289,7 +336,22 @@ def conversations_update(_id):
 
 @api_route("/api/conversations/<string:_id>", methods=["DELETE"])
 def conversations_delete(_id):
-    return api.conversations.delete(_id, user=_request_user())
+    result = api.conversations.delete([_id], user=_request_user())
+    return utils.unwrap_bulk_item(result, "delete")
+
+@api_route("/api/conversations", methods=["DELETE"])
+def conversations_delete_bulk():
+    body = request.get_json()
+    items, is_array = _request_items(body)
+    ids = [item["_id"] for item in items]
+    result = api.conversations.delete(ids, user=_request_user())
+    if is_array:
+        # Collapse "missing" (404) denials into the same "forbidden" (403)
+        # shape as ownership denials, so a multi-id caller can't learn
+        # whether a conversation they don't own exists.
+        result = utils.collapse_denial_statuses(result)
+        return result, 207 if result.get("errors") else 200
+    return utils.unwrap_bulk_item(result, "delete")
 
 
 ####  API: Workspaces  #########################################################
@@ -309,18 +371,32 @@ def workspaces_get(_id):
 
 @api_route("/api/workspaces", methods=["POST"])
 def workspaces_create():
-    doc = request.get_json()
-    _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.workspaces.create(doc, _id, user=_request_user(), via="server")
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    result = api.workspaces.create(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "index")
+
+@api_route("/api/workspaces", methods=["PUT"])
+def workspaces_update_bulk():
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    result = api.workspaces.update(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "update")
 
 @api_route("/api/workspaces/<string:_id>", methods=["PUT"])
 def workspaces_update(_id):
     doc_partial = request.get_json()
-    return api.workspaces.update(_id, doc_partial, user=_request_user(), via="server")
+    doc_partial["_id"] = _id
+    result = api.workspaces.update([doc_partial], user=_request_user(), via="server")
+    return utils.unwrap_bulk_item(result, "update")
+
+@api_route("/api/workspaces", methods=["DELETE"])
+def workspaces_delete_bulk():
+    return api.workspaces.delete(_ids_from_body(request.get_json()))
 
 @api_route("/api/workspaces/<string:_id>", methods=["DELETE"])
 def workspaces_delete(_id):
-    return api.workspaces.delete(_id)
+    return api.workspaces.delete([_id])
 
 
 ####  API: Displays  ###########################################################
@@ -336,22 +412,45 @@ def displays_get(workspace_id, _id):
 
 @api_route("/api/workspaces/<string:workspace_id>/displays", methods=["POST"])
 def displays_create(workspace_id):
-    doc = request.get_json()
-    validate_workspace_id_match(doc, workspace_id)
-    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
-    _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.displays.create(doc, _id, user=_request_user(), via="server")
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    for doc in docs:
+        validate_workspace_id_match(doc, workspace_id)
+        doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
+    result = api.displays.create(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "index")
+
+@api_route("/api/workspaces/<string:workspace_id>/displays", methods=["PUT"])
+def displays_update_bulk(workspace_id):
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    for doc in docs:
+        validate_workspace_id_match(doc, workspace_id)
+        doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
+    result = api.displays.update(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "update")
 
 @api_route("/api/workspaces/<string:workspace_id>/displays/<string:_id>", methods=["PUT"])
 def displays_update(workspace_id, _id):
     doc_partial = request.get_json()
     validate_workspace_id_match(doc_partial, workspace_id)
     doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
-    return api.displays.update(_id, doc_partial, user=_request_user(), via="server")
+    doc_partial["_id"] = _id
+    result = api.displays.update([doc_partial], user=_request_user(), via="server")
+    return utils.unwrap_bulk_item(result, "update")
+
+@api_route("/api/workspaces/<string:workspace_id>/displays", methods=["DELETE"])
+def displays_delete_bulk(workspace_id):
+    body = request.get_json()
+    items, is_array = _request_items(body)
+    ids = [item["_id"] for item in items]
+    result = api.displays.delete(ids)
+    return _bulk_or_single_response(result, is_array, "delete")
 
 @api_route("/api/workspaces/<string:workspace_id>/displays/<string:_id>", methods=["DELETE"])
 def displays_delete(workspace_id, _id):
-    return api.displays.delete(_id)
+    result = api.displays.delete([_id])
+    return utils.unwrap_bulk_item(result, "delete")
 
 
 ####  API: Scenarios  ##########################################################
@@ -371,21 +470,40 @@ def scenarios_get(workspace_id, _id):
 
 @api_route("/api/workspaces/<string:workspace_id>/scenarios", methods=["POST"])
 def scenarios_create(workspace_id):
-    doc = request.get_json()
-    validate_workspace_id_match(doc, workspace_id)
-    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
-    return api.scenarios.create(doc, user=_request_user(), via="server")
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    for doc in docs:
+        validate_workspace_id_match(doc, workspace_id)
+        doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
+    result = api.scenarios.create(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "index")
+
+@api_route("/api/workspaces/<string:workspace_id>/scenarios", methods=["PUT"])
+def scenarios_update_bulk(workspace_id):
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    for doc in docs:
+        validate_workspace_id_match(doc, workspace_id)
+        doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
+    result = api.scenarios.update(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "update")
 
 @api_route("/api/workspaces/<string:workspace_id>/scenarios/<string:_id>", methods=["PUT"])
 def scenarios_update(workspace_id, _id):
     doc_partial = request.get_json()
     validate_workspace_id_match(doc_partial, workspace_id)
     doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
-    return api.scenarios.update(_id, doc_partial, user=_request_user(), via="server")
+    doc_partial["_id"] = _id
+    result = api.scenarios.update([doc_partial], user=_request_user(), via="server")
+    return utils.unwrap_bulk_item(result, "update")
+
+@api_route("/api/workspaces/<string:workspace_id>/scenarios", methods=["DELETE"])
+def scenarios_delete_bulk(workspace_id):
+    return api.scenarios.delete(_ids_from_body(request.get_json()))
 
 @api_route("/api/workspaces/<string:workspace_id>/scenarios/<string:_id>", methods=["DELETE"])
 def scenarios_delete(workspace_id, _id):
-    return api.scenarios.delete(_id)
+    return api.scenarios.delete([_id])
 
 
 ####  API: Judgements  #########################################################
@@ -398,22 +516,31 @@ def judgements_search(workspace_id):
 
 @api_route("/api/workspaces/<string:workspace_id>/judgements", methods=["PUT"])
 def judgements_set(workspace_id):
-    doc = request.get_json()
-    validate_workspace_id_match(doc, workspace_id)
-    doc.pop("_id", None) # _id is always generated from body
-    return api.judgements.set(
+    body = request.get_json()
+    items, is_array = _request_items(body)
+    for item in items:
+        validate_workspace_id_match(item, workspace_id)
+        item.pop("_id", None) # _id is always generated, never accepted
+    result = api.judgements.set(
         workspace_id=workspace_id,
-        scenario_id=doc["scenario_id"],
-        index=doc["index"],
-        doc_id=doc["doc_id"],
-        rating=doc["rating"],
+        judgements=items,
         user=_request_user(),
         via="server",
     )
+    return _bulk_or_single_response(result, is_array, "update")
+
+@api_route("/api/workspaces/<string:workspace_id>/judgements", methods=["DELETE"])
+def judgements_unset_bulk(workspace_id):
+    body = request.get_json()
+    items, is_array = _request_items(body)
+    ids = [item["_id"] for item in items]
+    result = api.judgements.unset(ids)
+    return _bulk_or_single_response(result, is_array, "delete")
 
 @api_route("/api/workspaces/<string:workspace_id>/judgements/<string:_id>", methods=["DELETE"])
 def judgements_unset(workspace_id, _id):
-    return api.judgements.unset(_id)
+    result = api.judgements.unset([_id])
+    return utils.unwrap_bulk_item(result, "delete")
 
 
 ####  API: Strategies  #########################################################
@@ -433,22 +560,45 @@ def strategies_get(workspace_id, _id):
 
 @api_route("/api/workspaces/<string:workspace_id>/strategies", methods=["POST"])
 def strategies_create(workspace_id):
-    doc = request.get_json()
-    validate_workspace_id_match(doc, workspace_id)
-    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
-    _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.strategies.create(doc, _id, user=_request_user(), via="server")
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    for doc in docs:
+        validate_workspace_id_match(doc, workspace_id)
+        doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
+    result = api.strategies.create(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "index")
+
+@api_route("/api/workspaces/<string:workspace_id>/strategies", methods=["PUT"])
+def strategies_update_bulk(workspace_id):
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    for doc in docs:
+        validate_workspace_id_match(doc, workspace_id)
+        doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
+    result = api.strategies.update(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "update")
 
 @api_route("/api/workspaces/<string:workspace_id>/strategies/<string:_id>", methods=["PUT"])
 def strategies_update(workspace_id, _id):
     doc_partial = request.get_json()
     validate_workspace_id_match(doc_partial, workspace_id)
     doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
-    return api.strategies.update(_id, doc_partial, user=_request_user(), via="server")
+    doc_partial["_id"] = _id
+    result = api.strategies.update([doc_partial], user=_request_user(), via="server")
+    return utils.unwrap_bulk_item(result, "update")
+
+@api_route("/api/workspaces/<string:workspace_id>/strategies", methods=["DELETE"])
+def strategies_delete_bulk(workspace_id):
+    body = request.get_json()
+    items, is_array = _request_items(body)
+    ids = [item["_id"] for item in items]
+    result = api.strategies.delete(ids)
+    return _bulk_or_single_response(result, is_array, "delete")
 
 @api_route("/api/workspaces/<string:workspace_id>/strategies/<string:_id>", methods=["DELETE"])
 def strategies_delete(workspace_id, _id):
-    return api.strategies.delete(_id)
+    result = api.strategies.delete([_id])
+    return utils.unwrap_bulk_item(result, "delete")
 
 
 ####  API: Benchmarks  #########################################################
@@ -473,22 +623,40 @@ def benchmarks_get(workspace_id, _id):
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks", methods=["POST"])
 def benchmarks_create(workspace_id):
-    doc = request.get_json()
-    validate_workspace_id_match(doc, workspace_id)
-    doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
-    _id = doc.pop("_id", None) # accept an optional _id if given
-    return api.benchmarks.create(doc, _id, user=_request_user(), via="server")
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    for doc in docs:
+        validate_workspace_id_match(doc, workspace_id)
+        doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc
+    result = api.benchmarks.create(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "index")
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks", methods=["PUT"])
+def benchmarks_update_bulk(workspace_id):
+    body = request.get_json()
+    docs, is_array = _request_items(body)
+    for doc in docs:
+        validate_workspace_id_match(doc, workspace_id)
+        doc["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
+    result = api.benchmarks.update(docs, user=_request_user(), via="server")
+    return _bulk_or_single_response(result, is_array, "update")
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:_id>", methods=["PUT"])
 def benchmarks_update(workspace_id, _id):
     doc_partial = request.get_json()
     validate_workspace_id_match(doc_partial, workspace_id)
     doc_partial["workspace_id"] = workspace_id # ensure workspace_id from path is in doc_partial
-    return api.benchmarks.update(_id, doc_partial, user=_request_user(), via="server")
+    doc_partial["_id"] = _id
+    result = api.benchmarks.update([doc_partial], user=_request_user(), via="server")
+    return utils.unwrap_bulk_item(result, "update")
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks", methods=["DELETE"])
+def benchmarks_delete_bulk(workspace_id):
+    return api.benchmarks.delete(_ids_from_body(request.get_json()))
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:_id>", methods=["DELETE"])
 def benchmarks_delete(workspace_id, _id):
-    return api.benchmarks.delete(_id)
+    return api.benchmarks.delete([_id])
 
 
 ####  API: Runs  ###############################################################

@@ -4,7 +4,10 @@
 # 2.0.
 
 # Standard packages
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+# Third-party packages
+from pydantic import ValidationError
 
 # App packages
 from .. import utils
@@ -167,94 +170,114 @@ def search(
         response["hits"]["hits"] = sorted(response["hits"]["hits"], key=lambda hit: (hit.get("@meta") or {}).get("created_at") or fallback, reverse=reverse)
     return response
 
-def set(workspace_id: str, scenario_id: str, index: str, doc_id: str, rating: int, user: str = None, via: str = None) -> Dict[str, Any]:
-    """Create or update a judgement.
-    
-    Generates a deterministic _id for UX efficiency, and to prevent the creation
-    of duplicate judgements for the same combination of scenario, index, and doc.
+PAINLESS_SCRIPTED_UPSERT_SOURCE = """
+    if (ctx.op == 'create') {
+        ctx._source.rating = params.rating;
+        ctx._source['@meta'] = [
+            'created_at': params.now,
+            'created_by': params.username,
+            'created_via': params.via,
+            'updated_at': params.now,
+            'updated_by': params.username,
+            'updated_via': params.via
+        ];
+    } else {
+        ctx._source.rating = params.rating;
+        ctx._source['@meta'].updated_at = params.now;
+        ctx._source['@meta'].updated_by = params.username;
+        ctx._source['@meta'].updated_via = params.via;
+    }
+"""
+
+def set(workspace_id: str, judgements: List[Dict[str, Any]], user: str = None, via: str = None) -> Dict[str, Any]:
+    """Create or update one or more judgements in a single workspace.
+
+    Generates a deterministic _id per item (from workspace_id, scenario_id,
+    index, and doc_id) for UX efficiency, and to prevent the creation of
+    duplicate judgements for the same combination of scenario, index, and
+    doc — including duplicates submitted within the same batch: a repeated
+    {scenario_id, index, doc_id} in one call resolves to the same _id and is
+    applied as a second scripted-upsert update against the same document
+    within the same `_bulk` call, not as two separate documents.
+
+    Accepts a list of `{scenario_id, index, doc_id, rating}` items; `_id` is
+    always derived and is never accepted as input. Each item is validated
+    independently, so a validation failure on one item does not prevent the
+    others from being set. Returns a single Elasticsearch `_bulk` response
+    (one `refresh=True` for the whole batch, not one per item) with per-item
+    results reported in `items`, in the same order as submitted.
 
     Args:
         workspace_id: The UUID of the workspace.
-        scenario_id: The UUID of the scenario being judged.
-        index: The Elasticsearch index the document belongs to.
-        doc_id: The _id of the document being judged.
-        rating: The relevance rating (integer >= 0, using the workspace's rating scale).
+        judgements: A list of `{scenario_id, index, doc_id, rating}` items.
         user: The username of the user performing the operation.
 
     Returns:
-        The response from the Elasticsearch update operation.
+        The response from the Elasticsearch bulk update operation.
     """
-    
-    # Create, validate, and dump model
+    utils.assert_batch_size(judgements)
+
+    operations = []
+    synthetic_items = {}
     context = {"user": user, "via": via}
-    doc = JudgementCreate.model_validate(
-        {"workspace_id": workspace_id, "scenario_id": scenario_id, "index": index, "doc_id": doc_id, "rating": rating},
-        context=context
-    ).serialize()
+    for i, j in enumerate(judgements):
+        try:
+            # Create, validate, and dump model
+            doc = JudgementCreate.model_validate(
+                {
+                    "workspace_id": workspace_id,
+                    "scenario_id": j["scenario_id"],
+                    "index": j["index"],
+                    "doc_id": j["doc_id"],
+                    "rating": j["rating"],
+                },
+                context=context,
+            ).serialize()
+        except (ValidationError, KeyError) as e:
+            synthetic_items[i] = utils.bulk_error_item("update", INDEX_NAME, None, 400, str(e))
+            continue
 
-    # Copy searchable fields to _search
-    doc = utils.copy_fields_to_search("judgements", doc)
-    
-    # Submit
-    script = {
-        "scripted_upsert": True,
-        "script": {
-            "source": """
-                if (ctx.op == 'create') {
-                    ctx._source.rating = params.rating;
-                    ctx._source['@meta'] = [
-                        'created_at': params.now,
-                        'created_by': params.username,
-                        'created_via': params.via,
-                        'updated_at': params.now,
-                        'updated_by': params.username,
-                        'updated_via': params.via
-                    ];
-                } else {
-                    ctx._source.rating = params.rating;
-                    ctx._source['@meta'].updated_at = params.now;
-                    ctx._source['@meta'].updated_by = params.username;
-                    ctx._source['@meta'].updated_via = params.via;
-                }
-            """,
-            "lang": "painless",
-            "params": {
-                "rating": doc["rating"],
-                "now": doc["@meta"]["created_at"],
-                "username": doc["@meta"]["created_by"],
-                "via": doc["@meta"].get("created_via") or doc["@meta"].get("updated_via") or "api"
-            }
-        },
-        "upsert": doc
-    }
+        # Copy searchable fields to _search
+        doc = utils.copy_fields_to_search("judgements", doc)
 
-    client = es("studio")
-    es_response = client.update(
-        index=INDEX_NAME,
-        id=utils.unique_id([
+        _id = utils.unique_id([
             doc["workspace_id"],
             doc["scenario_id"],
             doc["index"],
             doc["doc_id"],
-        ]),
-        body=script,
-        refresh=True
-    )
-    return es_response
+        ])
+        operations.append({ "update": { "_index": INDEX_NAME, "_id": _id }})
+        operations.append({
+            "scripted_upsert": True,
+            "script": {
+                "source": PAINLESS_SCRIPTED_UPSERT_SOURCE,
+                "lang": "painless",
+                "params": {
+                    "rating": doc["rating"],
+                    "now": doc["@meta"]["created_at"],
+                    "username": doc["@meta"]["created_by"],
+                    "via": doc["@meta"].get("created_via") or doc["@meta"].get("updated_via") or "api"
+                }
+            },
+            "upsert": doc
+        })
 
-def unset(_id: str) -> Dict[str, Any]:
-    """Delete a judgement in Elasticsearch.
+    # Submit
+    client = es("studio")
+    es_response = client.bulk(operations=operations, refresh=True) if operations else { "took": 0, "errors": False, "items": [] }
+    return utils.merge_bulk_results(es_response, synthetic_items, len(judgements))
+
+def unset(ids: List[str]) -> Dict[str, Any]:
+    """Delete one or more judgements by their _ids.
 
     Args:
-        _id: The unique identifier of the judgement to delete.
+        ids: A list of judgement UUIDs to delete.
 
     Returns:
-        The response from the Elasticsearch delete operation.
+        The response from the Elasticsearch bulk delete operation.
     """
+    utils.assert_batch_size(ids)
+    operations = [{ "delete": { "_index": INDEX_NAME, "_id": _id }} for _id in ids]
     client = es("studio")
-    es_response = client.delete(
-        index=INDEX_NAME,
-        id=_id,
-        refresh=True
-    )
-    return es_response
+    es_response = client.bulk(operations=operations, refresh=True) if operations else { "took": 0, "errors": False, "items": [] }
+    return utils.merge_bulk_results(es_response, {}, len(ids))

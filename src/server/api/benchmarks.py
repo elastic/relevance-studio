@@ -6,6 +6,9 @@
 # Standard packages
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
+# Third-party packages
+from pydantic import ValidationError
+
 # App packages
 from .. import utils
 from ..client import es
@@ -75,76 +78,112 @@ def get(_id: str) -> Dict[str, Any]:
     )
     return es_response
 
-def create(doc: Dict[str, Any], _id: str = None, user: str = None, via: str = None) -> Dict[str, Any]:
-    """Create a benchmark.
+def create(docs: List[Dict[str, Any]], user: str = None, via: str = None) -> Dict[str, Any]:
+    """Create one or more benchmarks.
+
+    Accepts a list of benchmark data; each item may include an optional
+    `_id` for idempotence. Each item is validated independently, so a
+    validation failure on one item does not prevent the others from being
+    created. Returns a single Elasticsearch `_bulk` response (one
+    `refresh=True` for the whole batch, not one per item) with per-item
+    results reported in `items`, in the same order as submitted.
 
     Args:
-        doc: The benchmark data to create.
-        _id: Optional pregenerated UUID for idempotence.
+        docs: A list of benchmark data to create.
         user: The username of the creator.
 
     Returns:
-        The response from the Elasticsearch index operation.
+        The response from the Elasticsearch bulk index operation.
     """
-    
-    # Create, validate, and serialize model
-    doc = BenchmarkCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
+    utils.assert_batch_size(docs)
 
-    # Copy searchable fields to _search
-    doc = utils.copy_fields_to_search("benchmark-configs", doc)
-    
+    operations = []
+    synthetic_items = {}
+    for i, doc in enumerate(docs):
+        doc = dict(doc)
+        _id = doc.pop("_id", None) or utils.unique_id()
+        try:
+            # Create, validate, and serialize model
+            doc = BenchmarkCreate.model_validate(doc, context={"user": user, "via": via}).serialize()
+        except ValidationError as e:
+            synthetic_items[i] = utils.bulk_error_item("index", INDEX_NAME, _id, 400, str(e))
+            continue
+
+        # Copy searchable fields to _search
+        doc = utils.copy_fields_to_search("benchmark-configs", doc)
+
+        operations.append({ "index": { "_index": INDEX_NAME, "_id": _id }})
+        operations.append(doc)
+
     # Submit
     client = es("studio")
-    es_response = client.index(
-        index=INDEX_NAME,
-        id=_id or utils.unique_id(),
-        document=doc,
-        refresh=True,
-    )
-    return es_response
+    es_response = client.bulk(operations=operations, refresh=True) if operations else { "took": 0, "errors": False, "items": [] }
+    return utils.merge_bulk_results(es_response, synthetic_items, len(docs))
 
-def update(_id: str, doc_partial: Dict[str, Any], user: str = None, via: str = None) -> Dict[str, Any]:
-    """Update a benchmark by its _id.
+def update(docs: List[Dict[str, Any]], user: str = None, via: str = None) -> Dict[str, Any]:
+    """Update one or more benchmarks.
+
+    Accepts a list of partial benchmark data; each item must carry its own
+    `_id`. Each item is validated independently, so a validation failure on
+    one item does not prevent the others from being updated. Returns a
+    single Elasticsearch `_bulk` response (one `refresh=True` for the whole
+    batch, not one per item) with per-item results reported in `items`, in
+    the same order as submitted.
 
     Args:
-        _id: The UUID of the benchmark.
-        doc_partial: The partial benchmark data to update.
+        docs: A list of partial benchmark data to update, each including `_id`.
         user: The username of the updater.
 
     Returns:
-        The response from the Elasticsearch update operation.
+        The response from the Elasticsearch bulk update operation.
     """
-    
-    # Create, validate, and serialize model
-    doc_partial = BenchmarkUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
-    
-    # Copy searchable fields to _search
-    doc_partial = utils.copy_fields_to_search("benchmark-configs", doc_partial)
-    
+    utils.assert_batch_size(docs)
+
+    operations = []
+    synthetic_items = {}
+    for i, doc_partial in enumerate(docs):
+        doc_partial = dict(doc_partial)
+        _id = doc_partial.pop("_id", None)
+        try:
+            # Create, validate, and serialize model
+            doc_partial = BenchmarkUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
+        except ValidationError as e:
+            synthetic_items[i] = utils.bulk_error_item("update", INDEX_NAME, _id, 400, str(e))
+            continue
+
+        # Copy searchable fields to _search
+        doc_partial = utils.copy_fields_to_search("benchmark-configs", doc_partial)
+
+        operations.append({ "update": { "_index": INDEX_NAME, "_id": _id }})
+        operations.append({ "doc": doc_partial })
+
     # Submit
     client = es("studio")
-    es_response = client.update(
-        index=INDEX_NAME,
-        id=_id,
-        doc=doc_partial,
-        refresh=True
-    )
-    return es_response
+    es_response = client.bulk(operations=operations, refresh=True) if operations else { "took": 0, "errors": False, "items": [] }
+    return utils.merge_bulk_results(es_response, synthetic_items, len(docs))
 
-def delete(_id: str) -> Dict[str, Any]:
-    """Delete a benchmark config and all of its runs, results, and forensics.
+def delete(ids: List[str]) -> Dict[str, Any]:
+    """Delete one or more benchmark configs and all of their runs, results,
+    and forensics.
+
+    Unlike the other bulk delete operations, this does not use Elasticsearch's
+    `_bulk` API — it widens the existing `delete_by_query` cascade to match
+    any of the given ids via a `terms` clause, so it always returns a single
+    `delete_by_query` response regardless of how many ids are given, not a
+    per-item bulk-shaped response.
 
     Args:
-        _id: The UUID of the benchmark to delete.
+        ids: A list of benchmark UUIDs to delete.
 
     Returns:
         The response from the delete_by_query operation on the config + runs
         indices. The two data streams (results/forensics) are also swept by
         benchmark_id.
     """
+    utils.assert_batch_size(ids)
     client = es("studio")
 
-    # Plain indices: the config doc (by _id) + its runs (by benchmark_id).
+    # Plain indices: the config docs (by _id) + their runs (by benchmark_id).
     body = {
         "query": {
             "bool": {
@@ -153,7 +192,7 @@ def delete(_id: str) -> Dict[str, Any]:
                         "bool": {
                             "filter": [
                                 { "term": { "_index": "esrs-benchmark-configs" }},
-                                { "term": { "_id": _id }}
+                                { "terms": { "_id": ids }}
                             ]
                         }
                     },
@@ -161,7 +200,7 @@ def delete(_id: str) -> Dict[str, Any]:
                         "bool": {
                             "filter": [
                                 { "term": { "_index": "esrs-benchmark-runs" }},
-                                { "term": { "benchmark_id": _id }}
+                                { "terms": { "benchmark_id": ids }}
                             ]
                         }
                     }
@@ -178,10 +217,10 @@ def delete(_id: str) -> Dict[str, Any]:
     )
 
     # Immutable per-run data streams (results + forensics collections) carry
-    # benchmark_id on every document, so a single term query sweeps each directly
+    # benchmark_id on every document, so a single terms query sweeps each directly
     # (no _index filter — data-stream docs live in rolling backing indices).
     # Tolerant of streams that don't exist yet.
-    stream_body = { "query": { "term": { "benchmark_id": _id }}}
+    stream_body = { "query": { "terms": { "benchmark_id": ids }}}
     for stream in (
         "esrs-benchmark-results",
         "esrs-benchmark-runtime-indices",
