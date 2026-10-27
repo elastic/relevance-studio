@@ -196,7 +196,13 @@ def mock_input_update():
             },
         ],
         "error": {},
-        "took": 4096
+        "took": 4096,
+        "progress": {
+            "requests_total": 10,
+            "requests_completed": 8,
+            "requests_succeeded": 6,
+            "requests_failed": 2,
+        },
     }
     return input
 
@@ -667,6 +673,35 @@ def test_update_handles_invalid_inputs_for_error(value):
     with pytest.raises(ValidationError):
         RunSkip(**input)
         
+@pytest.mark.parametrize("value", invalid_values_for("object"))
+def test_update_handles_invalid_inputs_for_progress(value):
+    # Unlike free-form dict fields (summary/error/etc.), progress is a
+    # structured object with required integer sub-fields, so an empty object
+    # ({}) is also invalid here (allow_empty defaults to False).
+    input = mock_input_update()
+    input["progress"] = value
+    with pytest.raises(ValidationError):
+        RunComplete(**input)
+    with pytest.raises(ValidationError):
+        RunFail(**input)
+    with pytest.raises(ValidationError):
+        RunSkip(**input)
+
+@pytest.mark.parametrize(
+    "field",
+    ["requests_total", "requests_completed", "requests_succeeded", "requests_failed"],
+)
+@pytest.mark.parametrize("value", invalid_values_for("int_ge_0"))
+def test_update_handles_invalid_inputs_for_progress_counts(field, value):
+    input = mock_input_update()
+    input["progress"][field] = value
+    with pytest.raises(ValidationError):
+        RunComplete(**input)
+    with pytest.raises(ValidationError):
+        RunFail(**input)
+    with pytest.raises(ValidationError):
+        RunSkip(**input)
+
 @pytest.mark.parametrize("value", invalid_values_for("int_ge_0"))
 def test_update_handles_invalid_inputs_for_took(value):
     input = mock_input_update()
@@ -745,6 +780,7 @@ def test_complete_serialization():
     assert serialized["runtime"] == expected["runtime"]
     assert serialized["unrated_docs"] == expected["unrated_docs"]
     assert serialized["took"] == expected["took"]
+    assert serialized["progress"] == expected["progress"]
         
     # Test that @meta fields were properly serialized
     assert "@meta" in serialized and "meta" not in serialized
@@ -763,6 +799,7 @@ def test_fail_serialization():
     assert serialized["runtime"] == expected["runtime"]
     assert serialized["unrated_docs"] == expected["unrated_docs"]
     assert serialized["took"] == expected["took"]
+    assert serialized["progress"] == expected["progress"]
         
     # Test that @meta fields were properly serialized
     assert "@meta" in serialized and "meta" not in serialized

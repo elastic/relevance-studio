@@ -980,7 +980,7 @@ Example payload with all optional fields:
 
 #### Get run
 
-Retrieve a run by its `_id` in a given workspace.
+Retrieve a run by its `_id` in a given workspace. See the [esrs-benchmark-runs data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-runs) for the full set of fields, including `progress` (`requests_total`, `requests_completed`, `requests_succeeded`, `requests_failed`), which is updated live while the run's `@meta.status` is `"running"` and preserved afterward. Search runs returns the same `progress` field on each hit.
 
 **`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>`**
 

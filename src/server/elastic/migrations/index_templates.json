@@ -247,6 +247,22 @@
             "source": "esrs-evaluations",
             "mode": "failures"
           }
+        },
+        {
+          "template": "esrs-benchmark-runs",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add progress (requests_total/requests_completed/requests_succeeded/requests_failed) to mappings, so the worker can report live run progress and the UI can render a progress bar.",
+          "mapping_additions": {
+            "progress": {
+              "properties": {
+                "requests_total": {"type": "integer"},
+                "requests_completed": {"type": "integer"},
+                "requests_succeeded": {"type": "integer"},
+                "requests_failed": {"type": "integer"}
+              }
+            }
+          }
         }
       ]
     }

@@ -57,6 +57,22 @@
           "type": "object",
           "enabled": false
         },
+        "progress": {
+          "properties": {
+            "requests_total": {
+              "type": "integer"
+            },
+            "requests_completed": {
+              "type": "integer"
+            },
+            "requests_succeeded": {
+              "type": "integer"
+            },
+            "requests_failed": {
+              "type": "integer"
+            }
+          }
+        },
         "task": {
           "properties": {
             "metrics": {

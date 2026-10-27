@@ -12,6 +12,7 @@ import {
   EuiCallOut,
   EuiCode,
   EuiLink,
+  EuiProgress,
   EuiSkeletonTitle,
   EuiSpacer,
   EuiText,
@@ -222,6 +223,33 @@ const BenchmarksView = () => {
           <EuiBadge color='hollow'>
             Unknown
           </EuiBadge>
+        )
+      }
+    },
+    {
+      field: 'progress',
+      name: 'Progress',
+      sortable: false,
+      style: { width: '100px' },
+      // Styled to match the metric/"Rated docs" progress bars in the run
+      // view's summary table (TableMetrics.js): a single `size='s'`,
+      // `color='vis0'` bar, normalized to max={1}.
+      render: (progress) => {
+        const total = progress?.requests_total
+        // No progress to show for runs that haven't started (pending) or that
+        // had nothing to run (skipped: no scenarios with judgements).
+        if (!Number.isInteger(total) || total <= 0)
+          return <EuiText size='s'>-</EuiText>
+        const completed = Number.isInteger(progress?.requests_completed) ? progress.requests_completed : 0
+        return (
+          <div style={{ position: 'relative', width: '100%' }}>
+            <EuiProgress
+              color='vis0'
+              max={1}
+              size='m'
+              value={completed / total}
+            />
+          </div>
         )
       }
     },

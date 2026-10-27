@@ -164,6 +164,31 @@ class UnratedDocs(BaseModel):
             raise ValueError("strategies must be a list of non-empty strings")
         return value
     
+class Progress(BaseModel):
+    """Live request-count progress for a run.
+
+    Written incrementally by the worker as `rank_eval` batches complete while
+    @meta.status == "running", and preserved on the terminal doc so a run's
+    (succeeded vs. failed) request breakdown stays visible after it finishes —
+    a "completed" run can still have requests_failed > 0, since individual
+    rank_eval failures don't abort the run (only an unhandled exception does).
+    """
+    model_config = { "extra": "forbid", "strict": True }
+    requests_total: StrictInt = Field(ge=0)
+    requests_completed: StrictInt = Field(ge=0)
+    requests_succeeded: StrictInt = Field(ge=0)
+    requests_failed: StrictInt = Field(ge=0)
+
+    @field_validator(
+        "requests_total", "requests_completed", "requests_succeeded", "requests_failed",
+        mode="before",
+    )
+    @classmethod
+    def validate_counts(cls, value, info):
+        if value is None or isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{info.field_name} must be a non-negative integer")
+        return value
+
 class Run(BaseModel):
     model_config = { "extra": "forbid", "strict": True }
     meta: Dict[str, Optional[str]] = Field(alias='@meta')
@@ -251,6 +276,7 @@ class RunStop(Run):
     unrated_docs: Optional[List[UnratedDocs]] = None
     error: Optional[Dict[str, Any]] = None
     took: Optional[StrictInt] = Field(default=None, ge=0)
+    progress: Optional[Progress] = None
     
     @model_validator(mode="before")
     @classmethod
@@ -334,6 +360,13 @@ class RunStop(Run):
     def validate_took(cls, value):
         if value is None or isinstance(value, bool):
             raise ValueError("took must be an integer")
+        return value
+
+    @field_validator("progress")
+    @classmethod
+    def validate_progress(cls, value):
+        if value is None:
+            raise ValueError("progress must be an object if given")
         return value
     
     def serialize(self) -> Dict[str, Any]:

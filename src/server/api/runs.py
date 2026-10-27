@@ -456,6 +456,52 @@ def run(
     evaluation_id = evaluation.pop("_id", None)
     rank_eval_requests_count = 0
 
+    # Live progress, written incrementally to the run doc as rank_eval batches
+    # complete so the UI can render a progress bar while @meta.status ==
+    # "running". requests_total is computed once candidates/judgements are
+    # resolved (see below); requests_succeeded/requests_failed accumulate as
+    # each batch's rank_eval response comes back. These are also folded into
+    # the terminal doc (see RunComplete/RunFail/RunSkip below), so the
+    # succeeded/failed breakdown remains visible after the run finishes.
+    requests_total = 0
+    requests_succeeded_count = 0
+    requests_failed_count = 0
+    _last_progress_write = { "ts": 0.0 }
+
+    def persist_progress(force: bool = False):
+        """Best-effort partial update of the run doc's `progress` field.
+
+        Throttled to at most once per second (always flushing when `force` is
+        set, e.g. once the total is first known, and on the very last batch)
+        so a run with many small batches doesn't hammer the run doc with an
+        update per batch. Never raises -- a dropped progress update must not
+        fail the run.
+        """
+        if not store_results or not evaluation_id:
+            return
+        now = time.time()
+        if not force and (now - _last_progress_write["ts"]) < 1.0:
+            return
+        _last_progress_write["ts"] = now
+        try:
+            es("studio").update(
+                index=INDEX_NAME,
+                id=evaluation_id,
+                doc={
+                    "progress": {
+                        "requests_total": requests_total,
+                        "requests_completed": requests_succeeded_count + requests_failed_count,
+                        "requests_succeeded": requests_succeeded_count,
+                        "requests_failed": requests_failed_count,
+                    }
+                },
+            )
+        except (ConnectionError, ConnectionTimeout, ApiError):
+            logger.exception(
+                "Failed to persist run progress",
+                extra={"evaluation_id": evaluation_id},
+            )
+
     # Get benchmark settings for batch size and delay
     benchmark_batch_size = RANK_EVAL_BATCH_SIZE
     benchmark_batch_delay_sec = RANK_EVAL_BATCH_DELAY_SEC
@@ -519,7 +565,13 @@ def run(
         if not candidates["strategies"] or not candidates["scenarios"]:
             if store_results:
                 doc_updates = {
-                    "took": int((time.time() - started_at) * 1000)
+                    "took": int((time.time() - started_at) * 1000),
+                    "progress": {
+                        "requests_total": 0,
+                        "requests_completed": 0,
+                        "requests_succeeded": 0,
+                        "requests_failed": 0,
+                    },
                 }
                 doc_updates = RunSkip.model_validate(doc_updates).serialize()
                 client = es("studio")
@@ -745,6 +797,22 @@ def run(
         
         # Check if we have any scenarios with ratings
         scenarios_with_ratings = [scenario_id for scenario_id in evaluation["scenario_id"] if scenario_id in ratings and ratings[scenario_id]]
+
+        # The total number of rank_eval requests this run will submit is fixed
+        # the moment candidates/judgements are resolved: one request per
+        # (metric x strategy x scenario-with-ratings) combination. Persist it
+        # immediately (forced, bypassing the throttle) so the UI can render a
+        # "0 / total" progress bar as soon as the run starts processing, even
+        # before the first batch completes.
+        requests_total = len(evaluation["task"]["metrics"]) * len(_rank_eval["templates"]) * len(scenarios_with_ratings)
+        evaluation["progress"] = {
+            "requests_total": requests_total,
+            "requests_completed": 0,
+            "requests_succeeded": 0,
+            "requests_failed": 0,
+        }
+        persist_progress(force=True)
+
         if not scenarios_with_ratings:
             # If no scenarios have ratings, mark evaluation as skipped
             evaluation["took"] = int((time.time() - started_at) * 1000)
@@ -828,6 +896,10 @@ def run(
                                 "reason": str(e)
                             }
                         })
+                        # The whole batch failed to submit, so every request in
+                        # it counts as failed for progress purposes.
+                        requests_failed_count += len(batch_requests)
+                        persist_progress()
                         continue
 
                     # Store results
@@ -860,14 +932,22 @@ def run(
                                 _unrated_docs[_index][_id]["scenarios"].add(scenario_id)
 
                     # Store failures
-                    if es_response.body.get("failures"):
-                        for request_id, failure in es_response.body["failures"].items():
+                    batch_failures = es_response.body.get("failures") or {}
+                    if batch_failures:
+                        for request_id, failure in batch_failures.items():
                             strategy_id, scenario_id = request_id.split("~", 1)
                             _results[strategy_id]["failures"].append({
                                 "scenario_id": scenario_id,
                                 "metric": m,
                                 "error": failure.get("error") or failure
                             })
+
+                    # Update progress: every request in the batch is now
+                    # accounted for as either succeeded (has a `details` entry)
+                    # or failed (has a `failures` entry).
+                    requests_succeeded_count += len(es_response.body.get("details") or {})
+                    requests_failed_count += len(batch_failures)
+                    persist_progress()
             
         # Restructure results for response
         evaluation["results"] = []
@@ -911,6 +991,16 @@ def run(
             candidates["scenarios"]
         )
         evaluation["task"]["requests"] = rank_eval_requests_count
+
+        # Finalize progress: requests_completed should equal requests_total
+        # (every planned request was attempted), preserved on the terminal doc
+        # so the succeeded/failed breakdown remains visible after the run ends.
+        evaluation["progress"] = {
+            "requests_total": requests_total,
+            "requests_completed": requests_succeeded_count + requests_failed_count,
+            "requests_succeeded": requests_succeeded_count,
+            "requests_failed": requests_failed_count,
+        }
         
         # Create final response
         stopped_at = time.time()
@@ -947,6 +1037,14 @@ def run(
             "traceback": "".join(traceback.format_exception(type(e), e, e.__traceback__))
         }
         evaluation["task"]["requests"] = rank_eval_requests_count
+        # Preserve whatever progress had accumulated before the failure (may be
+        # all zeros if the exception happened before requests_total was known).
+        evaluation["progress"] = {
+            "requests_total": requests_total,
+            "requests_completed": requests_succeeded_count + requests_failed_count,
+            "requests_succeeded": requests_succeeded_count,
+            "requests_failed": requests_failed_count,
+        }
         doc = RunFail.model_validate(evaluation).serialize()
         if store_results:
             client = es("studio")
@@ -983,6 +1081,10 @@ def search(
     ) -> Dict[str, Any]:
     """Search for evaluations.
 
+    Each hit is the small run document (status, task, summary, error, took,
+    progress) -- see get() for details on the `progress` field, which is
+    updated live while a run is "running" and preserved after it finishes.
+
     Args:
         workspace_id: The UUID of the workspace.
         benchmark_id: The UUID of the benchmark.
@@ -1005,11 +1107,19 @@ def search(
 def get(_id: str) -> Dict[str, Any]:
     """Get a run by its _id.
 
-    Returns the small run document (status, task, summary, error, took). The
-    heavy per-search results and the runtime/unrated-docs audit trail are NOT on
-    this document; fetch them via the paginated get_results/get_runtime_*/
-    get_unrated_docs/get_failures endpoints, or get everything in one call via
-    get_full.
+    Returns the small run document (status, task, summary, error, took,
+    progress). The heavy per-search results and the runtime/unrated-docs audit
+    trail are NOT on this document; fetch them via the paginated
+    get_results/get_runtime_*/get_unrated_docs/get_failures endpoints, or get
+    everything in one call via get_full.
+
+    While @meta.status == "running", `progress` (requests_total,
+    requests_completed, requests_succeeded, requests_failed) is updated
+    incrementally by the worker as rank_eval batches complete, so polling this
+    endpoint (or search()) is enough to render a live progress bar. It's also
+    preserved on terminal docs, so a "completed" run can still show a nonzero
+    requests_failed (individual rank_eval errors don't abort the run -- only an
+    unhandled exception marks a run "failed").
 
     Args:
         _id: The UUID of the run.

@@ -294,6 +294,10 @@ Elasticsearch index template: [esrs-benchmark-runs](https://github.com/elastic/r
 - **`summary`** - A precomputed, aggregated summary of the metrics from the [rank evaluation](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-rank-eval) requests. Grouped by `strategy_ids` and `strategy_tags` and grouped again by `scenario_ids` and `scenario_tags`. Stored but not indexed.
 - **`error`** - The error that stopped the run, if its status is `"failed"`.
 - **`took`** - The duration in milliseconds in which the run had a status of `"running"`.
+- **`progress.requests_total`** - The total number of [rank evaluation](https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-rank-eval) requests this run will submit: one per (metric × strategy × scenario-with-judgements) combination. Computed once candidates and judgements are resolved, before the first request is submitted.
+- **`progress.requests_completed`** - The number of requests submitted so far (`requests_succeeded` + `requests_failed`). Updated incrementally by the worker as batches complete while `@meta.status` is `"running"`, and equal to `requests_total` once the run reaches a terminal status.
+- **`progress.requests_succeeded`** - The number of requests that returned a score.
+- **`progress.requests_failed`** - The number of requests that errored. A run can still have a status of `"completed"` with a nonzero `requests_failed`, since individual request errors don't abort the run — only an unhandled exception does (which sets `@meta.status` to `"failed"`).
 - **`_search`** - Implements the [common field](#common-fields) for `_search`.
 
 **Constraints**
@@ -309,6 +313,7 @@ Elasticsearch index template: [esrs-benchmark-runs](https://github.com/elastic/r
 |**`summary`**|Object|Forbidden|-|Auto-generated|
 |**`error`**|Object|Forbidden|-|Auto-generated|
 |**`took`**|-|Forbidden|-|Auto-generated|
+|**`progress`**|Object|Forbidden|-|Auto-generated|
 |**`_search`**|Object|Forbidden|-|Auto-generated|
 
 *Note: Runs don't have an Update API. [Workers](docs/{{VERSION}}/reference/architecture.md#worker) handle the updates automatically.*
