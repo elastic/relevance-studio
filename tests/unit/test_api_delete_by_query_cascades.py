@@ -45,7 +45,7 @@ def test_workspaces_delete_sweeps_data_streams_with_terms(monkeypatch):
     stream_bodies = [
         call.kwargs["body"] for call in mock_client.delete_by_query.call_args_list[1:]
     ]
-    assert len(stream_bodies) == 7  # see workspaces.delete's stream tuple
+    assert len(stream_bodies) == 8  # see workspaces.delete's stream tuple
     for body in stream_bodies:
         assert body["query"]["terms"]["workspace_id"] == ids
 
@@ -86,6 +86,6 @@ def test_benchmarks_delete_widens_term_to_terms_for_multiple_ids(monkeypatch):
     stream_bodies = [
         call.kwargs["body"] for call in mock_client.delete_by_query.call_args_list[1:]
     ]
-    assert len(stream_bodies) == 7
+    assert len(stream_bodies) == 8
     for body in stream_bodies:
         assert body["query"]["terms"]["benchmark_id"] == ids

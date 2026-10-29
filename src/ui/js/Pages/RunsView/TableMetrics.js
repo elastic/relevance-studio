@@ -9,40 +9,47 @@ import { useEffect, useState } from 'react'
 import {
   EuiBadge,
   EuiButtonIcon,
-  EuiCodeBlock,
   EuiInMemoryTable,
-  EuiPanel,
   EuiProgress,
   EuiScreenReaderOnly,
+  EuiSpacer,
   EuiText,
+  EuiToolTip,
 } from '@elastic/eui'
 import { usePageResources } from '../../Contexts/ResourceContext'
 import { getHistory } from '../../history'
-import utils from '../../utils'
+import FlyoutVariant from './FlyoutVariant'
+import StrategyVariants from './StrategyVariants'
+import hp from '../../hyperparameters'
 
-const TableMetrics = ({ evaluation, rowOnHover }) => {
+const TableMetrics = ({ evaluation, rowOnHover, optimizationSummary }) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
 
   const history = getHistory()
-  const { workspace } = usePageResources()
+  const { workspace, benchmark } = usePageResources()
 
   ////  State  /////////////////////////////////////////////////////////////////
 
   const [items, setItems] = useState([])
-  const [itemsToExpandedRows, setItemIdToExpandedRowMap] = useState({})
+  const [expandedIds, setExpandedIds] = useState({})
+  const [variantInFocus, setVariantInFocus] = useState(null) // { strategyId, variant }
   const [sort, setSort] = useState({
     field: 'name',
     direction: 'asc',
   })
 
   const toggleDetails = (item) => {
-    setItemIdToExpandedRowMap(prev => {
+    setExpandedIds(prev => {
       const next = { ...prev }
-      next[item.strategy_id] ? delete next[item.strategy_id] : (next[item.strategy_id] = renderDetails(item))
+      next[item.strategy_id] ? delete next[item.strategy_id] : (next[item.strategy_id] = true)
       return next
     })
   }
+
+  const isOptimized = hp.isOptimizedRun(evaluation)
+  const objective = evaluation?.task?.optimization?.objective || { metric: 'ndcg', aggregation: 'mean' }
+  const taskMetrics = evaluation?.task?.metrics || []
 
   const runtimeStrategy = (strategyId) => evaluation.runtime?.strategies?.[strategyId]
 
@@ -75,7 +82,10 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         metrics: evaluation.summary.strategy_id[_id]._total.metrics,
         unrated_docs: evaluation.summary.strategy_id[_id]._total.unrated_docs,
         took: evaluation.summary.strategy_id[_id]._total.took,
+        optimization: evaluation.summary.strategy_id[_id].optimization,
       }
+      row.variant_count = row.optimization?.variant_count || 1
+      row.gain = hp.winnerGain(row.optimization, objective)?.delta
       row['rated_docs'] = {
         percent: 100 - row.unrated_docs.percent
       }
@@ -100,19 +110,54 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
-  const renderDetails = (item) => {
+  const scenarioCounts = optimizationSummary?.scenarios
+
+  const summaryStrategy = (strategyId) =>
+    (optimizationSummary?.strategies || []).find((s) => s.strategy_id === strategyId)
+
+  const itemIdToExpandedRowMap = {}
+  for (const item of items) {
+    if (!expandedIds[item.strategy_id])
+      continue
+    itemIdToExpandedRowMap[item.strategy_id] = (
+      <StrategyVariants
+        benchmarkId={benchmark?._id}
+        metrics={taskMetrics}
+        onSelectVariant={(variant) => setVariantInFocus({ strategyId: item.strategy_id, variant })}
+        optimization={item.optimization}
+        run={evaluation}
+        runtimeStrategy={runtimeStrategy(item.strategy_id)}
+        scenarioCounts={scenarioCounts}
+        selectedVariantId={variantInFocus?.strategyId === item.strategy_id ? variantInFocus.variant.variant_id : undefined}
+        strategyId={item.strategy_id}
+        summaryStrategy={summaryStrategy(item.strategy_id)}
+        workspaceId={workspace?._id}
+      />
+    )
+  }
+
+  /**
+   * The basis of the headline scores, shown above the table for runs that
+   * optimized hyperparameters.
+   */
+  const renderBasis = () => {
+    if (!isOptimized)
+      return null
+    const withVariants = items.filter((item) => item.variant_count > 1)
+    if (!withVariants.length)
+      return null
+    const hasHoldout = withVariants.every((item) => item.optimization?.score_basis === 'holdout')
     return (
-      <EuiPanel color='transparent' paddingSize='none'>
-        <EuiCodeBlock
-          isCopyable
-          language='json'
-          paddingSize='m'
-          overflowHeight={400}
-          style={{ width: '100%' }}
-        >
-          {utils.formatJsonWithMustache(runtimeStrategy(item?.strategy_id)?.template?.source)}
-        </EuiCodeBlock>
-      </EuiPanel>
+      <div style={{ marginBottom: '8px' }}>
+        {hasHoldout
+          ? <EuiBadge color='success'>Scores are on the holdout</EuiBadge>
+          : <EuiBadge color='warning'>No holdout: scores are in-sample and optimistic</EuiBadge>
+        }
+        {' '}
+        <EuiText component='span' color='subdued' size='xs'>
+          <small>Each strategy shows its winning variant. Expand a row to see every variant.</small>
+        </EuiText>
+      </div>
     )
   }
 
@@ -128,15 +173,14 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       ),
       mobileOptions: { header: false },
       render: (item) => {
-        const _itemsToExpandedRows = { ...itemsToExpandedRows }
         return (
           <EuiButtonIcon
             onClick={() => toggleDetails(item)}
             aria-label={
-              _itemsToExpandedRows[item?.strategy_id] ? 'Collapse' : 'Expand'
+              expandedIds[item?.strategy_id] ? 'Collapse' : 'Expand'
             }
             iconType={
-              _itemsToExpandedRows[item?.strategy_id] ? 'arrowDown' : 'arrowRight'
+              expandedIds[item?.strategy_id] ? 'arrowDown' : 'arrowRight'
             }
           />
         )
@@ -164,6 +208,15 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
       },
     },
   ]
+  if (isOptimized) {
+    columns.push({
+      field: 'variant_count',
+      name: 'Variants',
+      sortable: true,
+      width: '80px',
+      render: (count) => <EuiText size='s'>{count}</EuiText>,
+    })
+  }
   for (const metric of sortPriority) {
     if ((evaluation.task?.metrics || []).includes(metric)) {
       // Highest average across strategies for this metric, so that
@@ -207,6 +260,27 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         }
       })
     }
+  }
+  if (isOptimized) {
+    columns.push({
+      field: 'gain',
+      name: (
+        <EuiToolTip content={`Gain of the winner over the baseline for ${objective.metric}, on the holdout when the run has one.`}>
+          <span>Gain</span>
+        </EuiToolTip>
+      ),
+      sortable: true,
+      width: '90px',
+      render: (gain, item) => {
+        if (item.variant_count <= 1 || gain === undefined || gain === null)
+          return <EuiText color='subdued' size='s'>-</EuiText>
+        return (
+          <EuiBadge color={gain > 0 ? 'success' : (gain < 0 ? 'danger' : 'hollow')}>
+            {gain > 0 ? '+' : ''}{gain.toFixed(4)}
+          </EuiBadge>
+        )
+      },
+    })
   }
   columns.push({
     field: 'rated_docs.percent',
@@ -272,13 +346,30 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
     ],
   })
 
+  const focusedRuntime = variantInFocus ? runtimeStrategy(variantInFocus.strategyId) : null
+
   return (
-    <div className='runs-table-metrics' style={{ height: '390px', overflow: 'auto' }}>
+    <>
+    {renderBasis()}
+    {variantInFocus &&
+      <FlyoutVariant
+        benchmarkId={benchmark?._id}
+        metrics={taskMetrics}
+        objective={objective}
+        onClose={() => setVariantInFocus(null)}
+        runId={evaluation._id}
+        runtimeStrategy={focusedRuntime}
+        strategyId={variantInFocus.strategyId}
+        variant={variantInFocus.variant}
+        workspaceId={workspace?._id}
+      />
+    }
+    <div className='runs-table-metrics' style={{ height: Object.keys(expandedIds).length ? '75vh' : '390px', overflow: 'auto' }}>
       <EuiInMemoryTable
         allowNeutralSort={false}
         columns={columns}
         itemId='strategy_id'
-        itemIdToExpandedRowMap={itemsToExpandedRows}
+        itemIdToExpandedRowMap={itemIdToExpandedRowMap}
         items={items}
         onTableChange={({ sort: newSort }) => {
           if (newSort) setSort(newSort)
@@ -310,6 +401,7 @@ const TableMetrics = ({ evaluation, rowOnHover }) => {
         tableLayout='auto'
       />
     </div>
+    </>
   )
 }
 

@@ -1,0 +1,64 @@
+{
+  "_meta": {
+    "description": "Elasticsearch Relevance Studio - Benchmark Runtime Variants (data stream)",
+    "version": "2.0.0"
+  },
+  "index_patterns": [
+    "esrs-benchmark-runtime-variants*"
+  ],
+  "priority": 500,
+  "data_stream": {},
+  "template": {
+    "lifecycle": {
+      "enabled": true
+    },
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "run_id": {
+          "type": "keyword"
+        },
+        "workspace_id": {
+          "type": "keyword"
+        },
+        "benchmark_id": {
+          "type": "keyword"
+        },
+        "strategy_id": {
+          "type": "keyword"
+        },
+        "variant_id": {
+          "type": "keyword"
+        },
+        "is_baseline": {
+          "type": "boolean"
+        },
+        "is_winner": {
+          "type": "boolean"
+        },
+        "hits_stored": {
+          "type": "boolean"
+        },
+        "values": {
+          "type": "flattened"
+        },
+        "aggregates": {
+          "type": "object",
+          "enabled": false
+        },
+        "score": {
+          "type": "float"
+        },
+        "rank": {
+          "type": "integer"
+        },
+        "violates_constraint": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

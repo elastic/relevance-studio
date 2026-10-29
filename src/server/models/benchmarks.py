@@ -13,6 +13,7 @@ MAX_RANK_EVAL_BATCH_DELAY_MS = 300000  # 5 minutes
 
 # App packages
 from .asset import AssetCreate, AssetUpdate
+from .hyperparameters import Optimization
 
 
 class TaskStrategiesCreate(BaseModel):
@@ -156,6 +157,14 @@ class TaskCreate(BaseModel):
     )
     strategies: TaskStrategiesCreate = Field(default_factory=TaskStrategiesCreate)
     scenarios: TaskScenariosCreate = Field(default_factory=TaskScenariosCreate)
+    optimization: Optional[Optimization] = None
+
+    @model_validator(mode="after")
+    def validate_objective_metric(self):
+        # The objective's metric must be one of the run's metrics.
+        if self.optimization and self.optimization.objective.metric not in self.metrics:
+            raise ValueError("optimization.objective.metric must be one of the task metrics")
+        return self
 
     @field_validator("k", mode="before")
     @classmethod
@@ -195,6 +204,7 @@ class TaskUpdate(BaseModel):
     )
     strategies: Optional[TaskStrategiesUpdate] = None
     scenarios: Optional[TaskScenariosUpdate] = None
+    optimization: Optional[Optimization] = None
 
     @field_validator("metrics")
     @classmethod

@@ -5,7 +5,7 @@
  * 2.0.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   EuiAccordion,
   EuiBadge,
@@ -13,6 +13,7 @@ import {
   EuiButtonEmpty,
   EuiButtonGroup,
   EuiCallOut,
+  EuiCode,
   EuiComboBox,
   EuiForm,
   EuiFormRow,
@@ -38,7 +39,9 @@ import {
 } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useResources } from '../../Contexts/ResourceContext'
+import { OptimizationControls } from '../../Layout'
 import api from '../../api'
+import hp from '../../hyperparameters'
 import utils from '../../utils'
 
 const FlyoutForm = ({
@@ -89,6 +92,11 @@ const FlyoutForm = ({
   const [scenariosCandidates, setScenariosCandidates] = useState([])
   const [strategiesCandidates, setStrategiesCandidates] = useState([])
   const [strategiesTagsOptions, setStrategiesTagsOptions] = useState([])
+  const [optForm, setOptForm] = useState(hp.defaultOptimizationForm())
+  const [estimate, setEstimate] = useState(null)
+  const [estimateError, setEstimateError] = useState(null)
+  const [isEstimating, setIsEstimating] = useState(false)
+  const [isProbing, setIsProbing] = useState(false)
 
   ////  Effects  ///////////////////////////////////////////////////////////////
 
@@ -245,12 +253,119 @@ const FlyoutForm = ({
       rank_eval_batch_size: doc.task?.rank_eval_batch_size || '',
       rank_eval_batch_delay: doc.task?.rank_eval_batch_delay || ''
     })
+    setOptForm(hp.optimizationFormFromTask(doc.task))
     // Open the toggle switches for strategy tags and scenario tags if used
     if (doc.task?.strategies?.tags?.length)
       setLimitStrategiesByTags(true)
     if (doc.task?.scenarios?.tags?.length)
       setLimitScenariosByTags(true)
   }, [doc])
+
+  /**
+   * Keep the objective's metric among the chosen metrics
+   */
+  useEffect(() => {
+    if (!optForm.enabled || !form.metrics.length || form.metrics.includes(optForm.objective_metric))
+      return
+    setOptForm(prev => ({ ...prev, objective_metric: form.metrics.includes('ndcg') ? 'ndcg' : form.metrics[0] }))
+  }, [form.metrics, optForm.enabled])
+
+  /**
+   * Hyperparameters defined across the candidate strategies
+   */
+  const pool = useMemo(() => hp.hyperparametersOfPool(strategiesCandidates), [strategiesCandidates])
+
+  /**
+   * Build the task from the form
+   */
+  const buildTask = ({ forUpdate = false } = {}) => {
+    const task = {
+      metrics: form.metrics,
+      k: parseInt(form.k)
+    }
+    if (form.rank_eval_batch_size !== '' && !isNaN(parseInt(form.rank_eval_batch_size)))
+      task.rank_eval_batch_size = parseInt(form.rank_eval_batch_size)
+    if (form.rank_eval_batch_delay !== '' && !isNaN(parseInt(form.rank_eval_batch_delay)))
+      task.rank_eval_batch_delay = parseInt(form.rank_eval_batch_delay)
+    task.strategies = {
+      _ids: form.strategies_ids,
+      tags: form.strategies_tags
+    }
+    const _scenarios = {
+      _ids: form.scenarios_ids,
+      tags: form.scenarios_tags
+    }
+    if (form.scenarios_sample_size)
+      _scenarios.sample_size = parseInt(form.scenarios_sample_size)
+    if (form.scenarios_sample_seed !== '')
+      _scenarios.sample_seed = form.scenarios_sample_seed
+    task.scenarios = _scenarios
+    const optimization = hp.optimizationTaskFromForm(optForm, { forUpdate })
+    if (optimization !== undefined)
+      task.optimization = optimization
+    return task
+  }
+
+  /**
+   * Estimate the cost of a run as the form describes it (debounced)
+   */
+  useEffect(() => {
+    if (!isReady || !optForm.enabled || !form.metrics.length || !(parseInt(form.k) > 0)) {
+      setEstimate(null)
+      setEstimateError(null)
+      return
+    }
+    const timer = setTimeout(async () => {
+      try {
+        setIsEstimating(true)
+        const response = await api.benchmarks_estimate(workspace._id, { task: buildTask() })
+        if (response.status > 299) {
+          setEstimate(null)
+          setEstimateError(response.data?.error?.reason || response.data?.message || response.statusText || 'Failed to estimate the run')
+        } else {
+          setEstimate(response.data)
+          setEstimateError(null)
+        }
+      } catch (e) {
+        setEstimate(null)
+        setEstimateError(e?.message || 'Failed to estimate the run')
+      } finally {
+        setIsEstimating(false)
+      }
+    }, 700)
+    return () => clearTimeout(timer)
+  }, [
+    isReady,
+    optForm,
+    form.metrics,
+    form.k,
+    form.strategies_ids,
+    form.strategies_tags,
+    form.scenarios_ids,
+    form.scenarios_tags,
+    form.scenarios_sample_size,
+    form.scenarios_sample_seed,
+    form.rank_eval_batch_size,
+    form.rank_eval_batch_delay,
+  ])
+
+  /**
+   * Estimate the duration with a short latency probe. The probe puts load on
+   * the content cluster, so it runs only on request.
+   */
+  const onEstimateDuration = async () => {
+    try {
+      setIsProbing(true)
+      const response = await api.benchmarks_estimate(workspace._id, { task: buildTask(), probe: true })
+      if (response.status > 299)
+        return addToast(utils.toastClientResponse(response))
+      setEstimate(response.data)
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: 'Failed to estimate the duration' }))
+    } finally {
+      setIsProbing(false)
+    }
+  }
 
   ////  Event handlers  ////////////////////////////////////////////////////////
 
@@ -262,26 +377,7 @@ const FlyoutForm = ({
     newDoc.description = form.description?.trim() || ''
     const _tags = form.tags.map(t => t.trim()).filter(t => t != '').sort()
     newDoc.tags = _tags
-    newDoc.task = {
-      metrics: form.metrics,
-      k: parseInt(form.k)
-    }
-    if (form.rank_eval_batch_size !== '' && !isNaN(parseInt(form.rank_eval_batch_size)))
-      newDoc.task.rank_eval_batch_size = parseInt(form.rank_eval_batch_size)
-    if (form.rank_eval_batch_delay !== '' && !isNaN(parseInt(form.rank_eval_batch_delay)))
-      newDoc.task.rank_eval_batch_delay = parseInt(form.rank_eval_batch_delay)
-    const _strategies = {}
-    _strategies._ids = form.strategies_ids
-    _strategies.tags = form.strategies_tags
-    newDoc.task.strategies = _strategies
-    const _scenarios = {}
-    _scenarios._ids = form.scenarios_ids
-    _scenarios.tags = form.scenarios_tags
-    if (form.scenarios_sample_size)
-      _scenarios.sample_size = parseInt(form.scenarios_sample_size)
-    if (form.scenarios_sample_seed !== '')
-      _scenarios.sample_seed = form.scenarios_sample_seed
-    newDoc.task.scenarios = _scenarios
+    newDoc.task = buildTask({ forUpdate: action != 'create' })
     let response
     try {
       setIsProcessing(true)
@@ -312,8 +408,10 @@ const FlyoutForm = ({
   const isInvalidName = () => !form.name?.trim()
   const isInvalidMetrics = () => !form.metrics.length
   const isInvalidK = () => form.k <= 0
+  const optimizationErrors = hp.validateOptimizationForm(optForm, pool)
+  const isInvalidOptimization = () => optimizationErrors.length > 0 || Boolean(estimate?.errors?.length)
   const isInvalidForm = () => {
-    return isInvalidName() || isInvalidMetrics() || isInvalidK()
+    return isInvalidName() || isInvalidMetrics() || isInvalidK() || isInvalidOptimization()
   }
 
   ////  Render  ////////////////////////////////////////////////////////////////
@@ -760,6 +858,88 @@ const FlyoutForm = ({
     )
   }
 
+  const renderEstimate = () => {
+    if (!optForm.enabled)
+      return null
+    const steps = estimate?.searches
+    const duration = estimate?.duration
+    return (
+      <>
+        <EuiSpacer size='s' />
+        {optimizationErrors.length > 0 &&
+          <EuiCallOut color='danger' iconType='warning' size='s' title='Fix the optimization settings'>
+            <ul style={{ margin: 0, paddingLeft: '16px' }}>
+              {optimizationErrors.map((message) => <li key={message}><small>{message}</small></li>)}
+            </ul>
+          </EuiCallOut>
+        }
+        {estimateError &&
+          <EuiCallOut color='danger' iconType='warning' size='s' title='Failed to estimate the run'>
+            <p><small>{String(estimateError)}</small></p>
+          </EuiCallOut>
+        }
+        {estimate &&
+          <EuiPanel color='subdued' hasBorder={false} hasShadow={false} paddingSize='s' style={{ position: 'relative', opacity: isEstimating ? 0.6 : 1 }}>
+            <EuiText size='xs'>
+              <b>{estimate.variants.toLocaleString()}</b> variants across <b>{estimate.strategies.length}</b> {estimate.strategies.length === 1 ? 'strategy' : 'strategies'}
+              <br />
+              <b>{steps.total.toLocaleString()}</b> searches ({steps.tuning.toLocaleString()} tuning{steps.holdout ? `, ${steps.holdout.toLocaleString()} holdout` : ''}) in <b>{estimate.rank_eval_calls.toLocaleString()}</b> rank-eval calls
+              <br />
+              {estimate.scenarios.with_judgements.toLocaleString()} judged scenarios: {estimate.scenarios.tuning.toLocaleString()} tuning{estimate.scenarios.holdout ? `, ${estimate.scenarios.holdout.toLocaleString()} holdout` : ''}
+            </EuiText>
+            <EuiSpacer size='xs' />
+            {duration &&
+              <EuiText size='xs'>
+                Estimated duration: <b>~{utils.formatDuration((duration.low_ms + duration.high_ms) / 2)}</b>
+                <br />
+                <EuiText color='subdued' size='xs'><small>{duration.note}</small></EuiText>
+              </EuiText>
+            }
+            <EuiSpacer size='xs' />
+            <EuiButton
+              color='text'
+              disabled={isProbing || isEstimating || estimate.errors.length > 0}
+              iconType='clock'
+              isLoading={isProbing}
+              onClick={onEstimateDuration}
+              size='s'
+            >
+              {duration ? 'Re-estimate duration' : 'Estimate duration'}
+            </EuiButton>
+            <EuiText color='subdued' size='xs' style={{ marginTop: '4px' }}>
+              <small>Sends a few test searches to your content cluster.</small>
+            </EuiText>
+          </EuiPanel>
+        }
+        {estimate?.errors?.length > 0 &&
+          <>
+            <EuiSpacer size='s' />
+            <EuiCallOut color='danger' iconType='warning' size='s' title="This run can't start">
+              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                {estimate.errors.map((message) => <li key={message}><small>{message}</small></li>)}
+              </ul>
+              <p>
+                <small>
+                  Narrow the search space, use random search, or ask an admin to raise <EuiCode>HPO_MAX_VARIANTS</EuiCode> or <EuiCode>HPO_MAX_SEARCHES</EuiCode>.
+                </small>
+              </p>
+            </EuiCallOut>
+          </>
+        }
+        {estimate?.warnings?.length > 0 &&
+          <>
+            <EuiSpacer size='s' />
+            <EuiCallOut color='warning' iconType='help' size='s' title='Check before running'>
+              <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                {estimate.warnings.map((message) => <li key={message}><small>{message}</small></li>)}
+              </ul>
+            </EuiCallOut>
+          </>
+        }
+      </>
+    )
+  }
+
   return (
     <EuiForm>
       <EuiFlyout hideCloseButton onClose={onClose} ownFocus size='l'>
@@ -830,6 +1010,21 @@ const FlyoutForm = ({
                   {renderFormScenarios()}
                   <EuiSpacer size='xs' />
                   {renderFormScenariosTags()}
+                </>
+              </EuiFormRow>
+              <EuiSpacer size='l' />
+
+              {/* Hyperparameter optimization */}
+              <EuiFormRow fullWidth label='Hyperparameters'>
+                <>
+                  <OptimizationControls
+                    form={optForm}
+                    hyperparameters={pool}
+                    idPrefix='benchmark-opt'
+                    metrics={form.metrics.length ? form.metrics : ['ndcg']}
+                    setForm={setOptForm}
+                  />
+                  {renderEstimate()}
                 </>
               </EuiFormRow>
               <EuiSpacer size='l' />

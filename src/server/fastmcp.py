@@ -286,6 +286,29 @@ def strategies_update(ctx: Context, docs: List[Dict[str, Any]]) -> Dict[str, Any
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.strategies.update(docs, user=user, via="mcp"))
 
+@mcp.tool(description=api.strategies.promote.__doc__)
+def strategies_promote(
+        ctx: Context,
+        run_id: str,
+        variant_id: str,
+        mode: str = "update_values",
+        strategy_id: Optional[str] = None,
+        name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.strategies.promote(run_id, variant_id, mode, strategy_id, name, user=user, via="mcp"))
+
+@mcp.tool(description=api.strategies.render.__doc__)
+def strategies_render(
+        ctx: Context,
+        _id: Optional[str] = None,
+        template: Optional[Dict[str, Any]] = None,
+        hyperparameters: Optional[List[Dict[str, Any]]] = None,
+        values: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.strategies.render(_id, template, hyperparameters, values))
+
 @mcp.tool(description=api.strategies.delete.__doc__)
 def strategies_delete(ctx: Context, ids: List[str]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
@@ -317,6 +340,11 @@ def benchmarks_tags(ctx: Context, workspace_id: str) -> Dict[str, Any]:
 def benchmarks_make_candidate_pool(ctx: Context, workspace_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.benchmarks.make_candidate_pool(workspace_id, task))
+
+@mcp.tool(description=api.runs.estimate.__doc__)
+def benchmarks_estimate(ctx: Context, workspace_id: str, task: Dict[str, Any], probe: Optional[bool] = False) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.estimate(workspace_id, task, probe=bool(probe)))
 
 @mcp.tool(description=api.benchmarks.get.__doc__)
 def benchmarks_get(ctx: Context, _id: str) -> Dict[str, Any]:
@@ -386,9 +414,9 @@ def runs_get_runtime_judgements(ctx: Context, run_id: str, size: Optional[int] =
     return dict(api.runs.get_runtime_judgements(run_id, size=size, page=page, scenario_id=scenario_id))
 
 @mcp.tool(description=api.runs.get_unrated_docs.__doc__)
-def runs_get_unrated_docs(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1) -> Dict[str, Any]:
+def runs_get_unrated_docs(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1, winners_only: bool = False) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.runs.get_unrated_docs(run_id, size=size, page=page))
+    return dict(api.runs.get_unrated_docs(run_id, size=size, page=page, winners_only=winners_only))
 
 @mcp.tool(description=api.runs.get_failures.__doc__)
 def runs_get_failures(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1) -> Dict[str, Any]:
@@ -396,9 +424,31 @@ def runs_get_failures(ctx: Context, run_id: str, size: Optional[int] = 25, page:
     return dict(api.runs.get_failures(run_id, size=size, page=page))
 
 @mcp.tool(description=api.runs.get_results.__doc__)
-def runs_get_results(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1) -> Dict[str, Any]:
+def runs_get_results(ctx: Context, run_id: str, size: Optional[int] = 25, page: Optional[int] = 1, strategy_id: Optional[str] = None, variant_id: Optional[str] = None, split: Optional[str] = None) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.runs.get_results(run_id, size=size, page=page))
+    return dict(api.runs.get_results(run_id, size=size, page=page, strategy_id=strategy_id, variant_id=variant_id, split=split))
+
+@mcp.tool(description=api.runs.get_variants.__doc__)
+def runs_get_variants(
+        ctx: Context,
+        run_id: str,
+        strategy_id: str,
+        objective: Optional[Dict[str, Any]] = None,
+        latency_constraint: Optional[Dict[str, Any]] = None,
+        sort: Optional[str] = "rank",
+        descending: Optional[bool] = False,
+        size: Optional[int] = 25,
+        page: Optional[int] = 1,
+    ) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_variants(
+        run_id, strategy_id, objective, latency_constraint, sort, bool(descending), size, page,
+    ))
+
+@mcp.tool(description=api.runs.get_optimization_summary.__doc__)
+def runs_get_optimization_summary(ctx: Context, run_id: str, top_n: Optional[int] = 5) -> Dict[str, Any]:
+    user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
+    return dict(api.runs.get_optimization_summary(run_id, top_n=top_n))
 
 @mcp.tool(description=api.runs.get_full.__doc__)
 def runs_get_full(ctx: Context, run_id: str) -> Dict[str, Any]:
@@ -408,9 +458,9 @@ def runs_get_full(ctx: Context, run_id: str) -> Dict[str, Any]:
 @mcp.tool(description=api.runs.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{RunCreate.model_input_json_schema()}
 """)
-def runs_create(ctx: Context, workspace_id: str, benchmark_id: str, task: Dict[str, Any]) -> Dict[str, Any]:
+def runs_create(ctx: Context, workspace_id: str, benchmark_id: str, task: Dict[str, Any], dry_run: Optional[bool] = False) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
-    return dict(api.runs.create(workspace_id, benchmark_id, task, user=user, via="mcp"))
+    return dict(api.runs.create(workspace_id, benchmark_id, task, user=user, via="mcp", dry_run=bool(dry_run)))
 
 @mcp.tool(description=api.runs.run.__doc__)
 def runs_run(ctx: Context, run: Dict[str, Any], store_results: Optional[bool] = False) -> Dict[str, Any]:

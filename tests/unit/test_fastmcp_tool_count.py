@@ -4,11 +4,11 @@ import asyncio
 # App packages
 from server import fastmcp
 
-# Tool count before this change (see git history of src/server/fastmcp.py):
-# 57 `@mcp.tool` decorators, 18 of which are the in-scope bulk operations
-# whose parameter types changed from scalar/dict to list. No tools were
-# added or removed.
-EXPECTED_TOOL_COUNT = 57
+# 57 `@mcp.tool` decorators before hyperparameter optimization, 18 of which are
+# the bulk operations whose parameter types are lists. Hyperparameter
+# optimization added 5: strategies_promote, strategies_render,
+# benchmarks_estimate, runs_get_variants, and runs_get_optimization_summary.
+EXPECTED_TOOL_COUNT = 62
 
 BULK_TOOL_NAMES = {
     "conversations_delete",
@@ -21,8 +21,8 @@ BULK_TOOL_NAMES = {
 }
 
 
-def test_mcp_tool_count_is_unchanged():
-    """Bulk support must not grow the MCP tool catalog (hard constraint 2)."""
+def test_mcp_tool_count():
+    """The MCP tool catalog has exactly the expected tools."""
     tools = asyncio.run(fastmcp.mcp._list_tools())
     assert len(tools) == EXPECTED_TOOL_COUNT
 

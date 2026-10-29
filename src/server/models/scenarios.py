@@ -66,6 +66,10 @@ class ScenarioCreate(AssetCreate):
     def validate_values(cls, value: Dict[str, any]):
         if value == {}:
             raise ValueError("values must not be empty")
+        if utils.HYPERPARAMETER_NAMESPACE in value:
+            raise ValueError(
+                f"'{utils.HYPERPARAMETER_NAMESPACE}' is reserved for hyperparameters and cannot be a scenario value"
+            )
         return value
 
     @computed_field

@@ -751,6 +751,37 @@ Update multiple strategies in a given workspace in one request. Each item must i
 
 **`PUT /api/workspaces/<workspace_id>/strategies`**
 
+#### Render strategy
+
+Render a strategy template with its [hyperparameter](docs/{{VERSION}}/guide/concepts.md#hyperparameter) values applied. This substitutes only the `{{hp.*}}` tags and leaves other Mustache variables such as `{{ text }}` in place, so the result is a search template for production. Give either the `_id` of a saved strategy, or a `template` with its `hyperparameters`. Hyperparameters without an entry in `values` use their promoted values.
+
+**`POST /api/workspaces/<workspace_id>/strategies/_render`**
+
+```json
+{
+  "_id": "abc123",
+  "values": { "boost": 2.5 }
+}
+```
+
+Response: `{source, values}`, where `values` holds every resolved hyperparameter value.
+
+#### Promote variant
+
+Promote a hyperparameter variant of a run into a strategy. The `mode` is `"update_values"` (default) or `"fork"`. `update_values` sets the promoted values of the hyperparameters of the strategy to the values of the variant. It warns when the template changed since the run. `fork` creates a new strategy from the strategy as the run saw it, with the values as its promoted values. Pass an optional `name` for the fork, and `strategy_id` when more than one strategy in the run has this `variant_id`. Either way, the strategy keeps its valid testable values and records the promotion in `promoted_from`.
+
+**`POST /api/workspaces/<workspace_id>/strategies/_promote`**
+
+```json
+{
+  "run_id": "abc123",
+  "variant_id": "def456",
+  "mode": "update_values"
+}
+```
+
+Response: `{mode, strategy_id, promoted_from, warnings, response}`.
+
 #### Delete strategy
 
 Delete a strategy by its `_id` in a given workspace.
@@ -823,6 +854,35 @@ Retrieve all benchmark tags (up to 10,000) in a given workspace.
 Generate a candidate pool in a given workspace.
 
 **`POST /api/workspaces/<workspace_id>/benchmarks/_candidates`**
+
+#### Estimate run
+
+Estimate the cost of a run for a `task`, without creating a run. The estimate resolves the strategies and scenarios, counts the variants and searches, and checks them against the limits `HPO_MAX_VARIANTS` and `HPO_MAX_SEARCHES`. Pass `"probe": true` to also send a few test searches and estimate the duration.
+
+**`POST /api/workspaces/<workspace_id>/benchmarks/_estimate`**
+
+```json
+{
+  "task": {
+    "metrics": [ "ndcg" ],
+    "strategies": { "tags": [ "demo" ] },
+    "scenarios": { "tags": [ "demo" ] },
+    "optimization": { "algorithm": "grid", "holdout": { "ratio": 0.2 } }
+  },
+  "probe": true
+}
+```
+
+The response has these fields:
+
+- `strategies` - Each strategy with its variant count.
+- `scenarios` - The `candidates`, the ones `with_judgements`, and the `tuning` and `holdout` counts.
+- `metrics`, `variants`, `rank_eval_calls` and `execution`.
+- `searches` - The `tuning`, `holdout` and `total` number of searches.
+- `limits` - The configured maximums.
+- `errors` - Problems that block the run, such as a limit that the run exceeds.
+- `warnings` - Problems that don't block the run, such as a small holdout.
+- `duration` - `null` without a probe. Otherwise `{low_ms, high_ms, note, probe}`.
 
 #### Get benchmark
 
@@ -1012,7 +1072,29 @@ Retrieve the runtime judgements for a run by its `_id` in a given workspace. See
 
 Retrieve the documents that appeared in a run's results but had no judgement, by the run's `_id` in a given workspace. See the [esrs-benchmark-unrated-docs data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-unrated-docs). Paginated with the optional `size` (default `25`) and `page` (default `1`) query parameters, sorted by `count` descending. Response: `{run_id, total, size, page, items: [...]}`.
 
-**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/unrated_docs?size=&page=`**
+Set the optional `winners_only=true` query parameter to include only the documents that winning variants returned.
+
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/unrated_docs?size=&page=&winners_only=`**
+
+#### Get run results
+
+Retrieve the per-search results of a run by its `_id` in a given workspace. See the [esrs-benchmark-results data model](docs/{{VERSION}}/reference/data-model.md#esrs-benchmark-results). Paginated with the optional `size` (default `25`) and `page` (default `1`) query parameters. Filter with the optional `strategy_id`, `variant_id` and `split` (`tuning` or `holdout`) query parameters. Results sort by strategy, variant and scenario. Response: `{run_id, total, size, page, items: [...]}`.
+
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/results?size=&page=&strategy_id=&variant_id=&split=`**
+
+#### Get run variants
+
+Retrieve the variants of one strategy in a run. Requires the `strategy_id` query parameter. Variants rank by the objective of the run. Change the ranking without a new run with `objective_metric`, `objective_aggregation` (`mean` or `median`), `constraint_max_ms` and `constraint_stat` (`mean`, `median` or `p90`). A re-ranking uses tuning scores only, so the response marks it as `exploratory`. Sort with `sort` (`rank` by default, `took`, `coverage`, `hp:<name>` or `metric:<name>`) and `descending`. Paginated with `size` and `page`.
+
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/variants?strategy_id=&size=&page=&sort=&descending=&objective_metric=&objective_aggregation=&constraint_max_ms=&constraint_stat=`**
+
+Response: `{run_id, strategy_id, total, size, page, hyperparameters, ranking, items: [...]}`. Each item has `variant_id`, `values`, `score`, `rank`, `is_winner`, `is_run_winner`, `is_baseline`, `hits_stored`, `violates_constraint` and the `tuning` and `holdout` `aggregates`.
+
+#### Get run optimization summary
+
+Retrieve a compact summary of a run's hyperparameter optimization, sized for an agent. Each strategy has its winner, its baseline, its top variants (`top_n` query parameter, default `5`), the sensitivity of each hyperparameter and warnings. Warnings cover an in-sample score, low judgement coverage, a small holdout and noisy latency.
+
+**`GET /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs/<_id>/optimization_summary?top_n=`**
 
 #### Get run failures
 
@@ -1024,7 +1106,7 @@ Retrieve the per-strategy failures for a run by its `_id` in a given workspace. 
 
 Create and enqueue an asynchronous run of a given benchmark in a given workspace. Queues the run for a [worker](docs/{{VERSION}}/reference/architecture.md#worker) to claim and execute.
 
-**`POST /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs`**
+**`POST /api/workspaces/<workspace_id>/benchmarks/<benchmark_id>/runs?dry_run=`**
 
 Example payload with all required and optional fields from the [Benchmark data model](docs/{{VERSION}}/reference/data-model.md#benchmarks):
 
@@ -1056,6 +1138,31 @@ Example payload with all required and optional fields from the [Benchmark data m
 }
 ```
 
+Add `"optimization"` to the `task` to search the hyperparameters of the strategies. See [`task.optimization`](docs/{{VERSION}}/reference/data-model.md#benchmarks).
+
+```json
+{
+  "task": {
+    "metrics": [ "ndcg", "recall" ],
+    "scenarios": { "tags": [ "demo" ] },
+    "strategies": { "tags": [ "demo" ] },
+    "optimization": {
+      "algorithm": "random",
+      "sample_size": 100,
+      "objective": { "metric": "ndcg", "aggregation": "mean" },
+      "latency_constraint": { "stat": "p90", "max_ms": 200 },
+      "holdout": { "ratio": 0.2 },
+      "points_per_range": 5,
+      "values_to_test": [
+        { "name": "boost", "values": { "type": "range", "min": 0.5, "max": 5, "step": 0.5 } }
+      ]
+    }
+  }
+}
+```
+
+Add the query parameter `?dry_run=true` to validate the task and return its estimate without creating the run.
+
 *Note: You don't have to include `"workspace_id"` or `"benchmark_id"` in the payload because they already exist in the URL. If you include them, they must match the values in the URL.*
 
 #### Run
@@ -1063,6 +1170,19 @@ Example payload with all required and optional fields from the [Benchmark data m
 Execute a run synchronously as a dry-run and return its results without persisting them. Used by [workers](docs/{{VERSION}}/reference/architecture.md#worker) and by the strategy/benchmark testing components of the UI.
 
 **`POST /api/workspaces/<workspace_id>/runs/_run`**
+
+To test one set of hyperparameter values, add `task.hyperparameter_values`, an object of values by hyperparameter name. They replace the promoted values of every strategy that defines the hyperparameter. The values must fit the hyperparameter's type, but they don't need to be valid testable values, so you can explore outside the range a benchmark tests. A name that no strategy defines is an error. The run is a single variant per strategy, so it can't combine with `task.optimization`. The strategy editor uses this to test a search with Rank Eval.
+
+```json
+{
+  "task": {
+    "metrics": ["ndcg"],
+    "strategies": { "_ids": ["my-strategy"] },
+    "scenarios": { "_ids": ["my-scenario"] },
+    "hyperparameter_values": { "title_boost": 12.5, "fuzzy": true }
+  }
+}
+```
 
 *Note: This endpoint is workspace-scoped and is intentionally **not** nested under `/benchmarks/<benchmark_id>/`. A synchronous dry-run can be executed from an ad-hoc `task` payload without first persisting a benchmark, so it is not tied to a specific benchmark `_id`.*
 

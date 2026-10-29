@@ -39,6 +39,9 @@
         },
         "tags": {
           "type": "keyword"
+        },
+        "split": {
+          "type": "keyword"
         }
       }
     }

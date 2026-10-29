@@ -80,6 +80,15 @@
               "type": "byte"
             }
           }
+        },
+        "variant_id": {
+          "type": "keyword"
+        },
+        "split": {
+          "type": "keyword"
+        },
+        "coverage": {
+          "type": "float"
         }
       }
     }

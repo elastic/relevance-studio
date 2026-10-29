@@ -314,6 +314,47 @@ Key behaviors:
 - Use `benchmarks_make_candidate_pool` to preview which strategies and scenarios
   would be included before creating a run.
 
+### Hyperparameter optimization
+
+Don't create one strategy per combination of values. Define **hyperparameters**
+on one strategy and let a benchmark test the combinations as **variants**.
+
+- A strategy's `hyperparameters` list defines each one: `name`, `type`
+  (`number`, `string`, `boolean`), `promoted_value` (the value the strategy
+  uses today), and `testable_values` (the values a benchmark may test: a range
+  `{"type": "range", "min", "max"}` where either bound is optional, or a set
+  `{"type": "set", "values": [...]}` of at least two values). A boolean always
+  has the testable values true and false, so omit them. The promoted value
+  must be one of the testable values.
+- Reference them in the template as `{{hp.name}}` (never `{{ name }}`, which
+  means a scenario value). Numbers and booleans render unquoted. Quote strings
+  yourself, as a value (`"{{hp.field}}"`) or a key (`"{{hp.field}}": ...`).
+- A benchmark's `task.optimization` controls the search: `algorithm` (`grid` or
+  `random`), `sample_size` and `seed` for random, `points_per_range` (grid
+  points of a range without a `step` or `count`, default 5), `values_to_test`
+  (a list of `{name, strategy_id?, enabled?, values?}` entries that narrow or
+  replace the strategy's testable values, where `values` is
+  `{"type": "range", "min", "max", "step"|"count", "log"}` or
+  `{"type": "set", "values": [...]}`), `objective` (`{metric, aggregation}`),
+  an optional `latency_constraint`, and a `holdout` (`{ratio, seed}`). The
+  objective's metric must be one of the task metrics. A hyperparameter with
+  unbounded testable values (for example, a boost with only a minimum) needs a
+  finite range in `values_to_test`. Use `step: 1` for whole-number
+  parameters, such as `slop`, and `enabled: false` to keep a hyperparameter at
+  its promoted value.
+- Before running, call `benchmarks_estimate` (or `runs_create` with
+  `dry_run: true`) to see the variant and search counts. Grids grow
+  multiplicatively. Prefer `random` search above a few hundred variants.
+- After a run, call `runs_get_optimization_summary` for a compact view: per
+  strategy, the winner, the baseline, the top variants, and a per-hyperparameter
+  sensitivity. Use `runs_get_variants` only to drill into one strategy.
+- Prefer the holdout score when a holdout exists. Without a holdout, scores are
+  in-sample and optimistic. Heed the warnings about low judgement coverage.
+- Promote a chosen variant with `strategies_promote` (`update_values` or
+  `fork`) by `run_id` and `variant_id`, then run again, e.g. with narrower
+  values to test. Don't copy values by hand.
+- Use `strategies_render` to produce the concrete production template.
+
 ### Tags
 
 Scenarios, strategies, and benchmarks all support tags. Tags are particularly

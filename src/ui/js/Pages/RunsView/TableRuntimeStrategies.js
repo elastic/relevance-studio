@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import {
   EuiBadge,
+  EuiBasicTable,
   EuiButtonIcon,
   EuiCode,
   EuiCodeBlock,
@@ -15,8 +16,11 @@ import {
   EuiInMemoryTable,
   EuiPanel,
   EuiScreenReaderOnly,
+  EuiSpacer,
+  EuiText,
   EuiToolTip,
 } from '@elastic/eui'
+import hp from '../../hyperparameters'
 import utils from '../../utils'
 
 const TableRuntimeStrategies = ({ items }) => {
@@ -36,8 +40,40 @@ const TableRuntimeStrategies = ({ items }) => {
   ////  Render  ////////////////////////////////////////////////////////////////
 
   const renderDetails = (item) => {
+    const space = item._resolved_hyperparameters || []
     return (
       <EuiPanel color='transparent' paddingSize='none'>
+        {space.length > 0 &&
+          <>
+            <EuiText size='xs'>
+              <b>Hyperparameters</b>{' '}
+              <EuiBadge color='hollow'>{item._algorithm || 'grid'} search</EuiBadge>
+              <EuiBadge color='hollow'>{item._variant_count || 1} variants</EuiBadge>
+            </EuiText>
+            <EuiSpacer size='xs' />
+            <EuiBasicTable
+              columns={[
+                { field: 'name', name: 'Name', render: (n) => <EuiText size='xs'><b>{n}</b></EuiText> },
+                { field: 'type', name: 'Type' },
+                { field: 'promoted_value', name: 'Promoted value', render: (v) => hp.formatValue(v) },
+                {
+                  field: 'testable_values',
+                  name: 'Valid testable values',
+                  render: (testable) => hp.describeTestableValues(testable),
+                },
+                {
+                  field: 'values_to_test',
+                  name: 'Values tested in this run',
+                  render: (values) => hp.describeValuesToTest(values),
+                },
+              ]}
+              itemId='name'
+              items={space}
+              responsiveBreakpoint={false}
+            />
+            <EuiSpacer size='s' />
+          </>
+        }
         <EuiCodeBlock
           isCopyable
           language='json'
@@ -96,6 +132,12 @@ const TableRuntimeStrategies = ({ items }) => {
         ))
         return tags
       },
+    },
+    {
+      field: '_variant_count',
+      name: 'Variants',
+      width: '80px',
+      render: (count) => count || 1,
     },
     {
       field: '_fingerprint',

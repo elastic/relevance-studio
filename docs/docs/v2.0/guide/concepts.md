@@ -182,11 +182,58 @@ Here's an example of a strategy that accepts a variable `text` parameter from sc
 }
 ```
 
+### Test a strategy in the editor
+
+The strategy editor has the template on the left and two tabs to test it on the right. Neither tab saves its results.
+
+- **Search** runs the draft for one scenario and shows the results, which you can rate. Each [hyperparameter](#hyperparameter) has an input that starts at its promoted value. You can enter any value of its type, even outside its valid testable values, to explore. Turn on **Rank Eval** to score the search.
+- **Benchmark** runs the draft across all compatible scenarios with judgements, or the ones with chosen tags, and compares it against the saved strategy. Turn on **Test hyperparameter values** to search the draft's hyperparameters with a holdout. The saved strategy keeps its promoted values. The results lead with the change of each metric, then list the draft's variants and the score of each scenario, with the biggest regressions first. Open a scenario to see its results in **Search**. Select a variant to use its values in **Search**, or apply them to the draft's promoted values. Results go out of date when the strategy or the settings change.
+
 See also:
 
 - [Strategies data model](docs/{{VERSION}}/reference/data-model.md#strategies)
 - [Strategies API](docs/{{VERSION}}/reference/rest-api.md#strategies-api)
 - [Strategies MCP tools](docs/{{VERSION}}/reference/mcp-tools.md#strategies)
+
+---
+
+## Hyperparameter
+
+A hyperparameter is a value of a [strategy](#strategy) that you want to tune, such as the boost of a field or the number of candidates of a kNN search. You reference a hyperparameter in the template with the `hp.` prefix, for example `{{hp.boost}}`. The prefix keeps hyperparameters apart from the params that [scenarios](#scenario) provide.
+
+Each hyperparameter has a name, a type, a promoted value, and valid testable values.
+
+- **Promoted value.** The value that the strategy uses in production, in tests and in runs without optimization. You or an agent can set it when you create the strategy, or after you analyze a benchmark. See [Promote a variant](#runs-with-hyperparameter-optimization).
+- **Valid testable values.** The values that a benchmark can test. The promoted value must be one of them.
+
+|Type|Promoted value|Valid testable values|
+|---|---|---|
+|`number`|Any number|A range with an optional `min` and an optional `max`, or a set of numbers|
+|`string`|Text without quotes, backslashes or control characters|A set of strings|
+|`boolean`|`true` or `false`|Always `true` and `false`|
+
+A range can be open on either side, so you can describe values without a natural limit, such as a boost. When you set both bounds, `min` must be less than `max`. A set needs at least two distinct values, because a hyperparameter exists to compare options. The strategy states what values are valid. The benchmark decides which of them to test and how to split a range. See [Hyperparameter optimization](#hyperparameter-optimization).
+
+A `number` accepts integers and decimals. If a number of the wrong kind reaches Elasticsearch, such as a decimal for a `size`, the search fails and the run reports the failure.
+
+This strategy tunes the boost and the field of a match query:
+
+```json
+{
+  "query": {
+    "match": {
+      "{{hp.field}}": {
+        "query": "{{ text }}",
+        "boost": {{hp.boost}}
+      }
+    }
+  }
+}
+```
+
+Hyperparameters render by substitution. `{{hp.boost}}` renders a number or a boolean without quotes, and a string without surrounding quotes, so you quote strings in the template. To render a value as JSON, use `{{#toJson}}hp.name{{/toJson}}`. A strategy can't reference a hyperparameter that it doesn't define.
+
+A strategy with hyperparameters works everywhere that a strategy works. Testing a strategy and [runs](#run) without optimization use the promoted values.
 
 ---
 
@@ -199,6 +246,27 @@ By default, a benchmark will evaluate every strategy against every scenario. You
 Here's an example of a benchmark that measures NDCG, Precision, and Recall for strategies tagged with `bm25`, `elser`, or `signals`, and all scenarios that are compatible with those strategies.
 
 <img src="https://storage.googleapis.com/esrs-docs/screenshots/benchmark-v1.1.png" class="screenshot" />
+
+### Hyperparameter optimization
+
+A benchmark can search the [hyperparameters](#hyperparameter) of its strategies. With optimization enabled, each strategy runs as many **variants**. A variant is the strategy with one combination of hyperparameter values. The variant ID is deterministic. It derives from the template and the values, so the same variant keeps its ID across runs.
+
+The benchmark controls the search:
+
+- **Algorithm.** `grid` tests every combination of the values to test. `random` tests a seeded sample of `sample_size` variants. The baseline variant, which uses every promoted value, always runs.
+- **Values to test.** By default, a benchmark tests all of the valid testable values of every hyperparameter. A set tests each of its values, and a boolean tests `true` and `false`. For a range, the benchmark splits it into `points_per_range` evenly spaced points (default `5`). You can narrow the values for a hyperparameter name across all strategies, or for one strategy. A narrowed range takes a `step` for linear spacing, a `count` of values, or `log` for geometric spacing. A narrowed range must stay within the valid testable values. You can also turn off testing for a hyperparameter. It then keeps its promoted value.
+- **Unbounded ranges.** A grid can't split a range without both bounds. If a valid testable range is open, narrow it to a finite range in the benchmark or turn off testing for that hyperparameter. Random search samples a narrowed range continuously, and it snaps to a `step` when you set one.
+- **Objective.** The metric and aggregation (`mean` or `median` across scenarios) that picks the winner of each strategy.
+- **Latency constraint.** An optional limit on the `mean`, `median` or `p90` latency. A variant over the limit can't win, but it still appears in the results.
+- **Holdout.** A share of the scenarios (up to 90%) that the search never sees. Only the winning variant and the baseline variant run on the holdout. The holdout score is an unbiased estimate of how the winner performs. Without a holdout, the winner's scores are in-sample and optimistic, so the interface labels them that way.
+
+A run snapshots these settings in `task.optimization`. The run records the resolved seeds so it can reproduce its variants and its holdout split.
+
+Grid search grows multiplicatively. The server limits a run to `HPO_MAX_VARIANTS` variants per strategy and `HPO_MAX_SEARCHES` searches in total. See [Estimate a run](#estimate-a-run).
+
+#### Estimate a run
+
+The benchmark editor shows the number of variants and searches as you edit the settings. A search is one scenario scored for one metric. The estimate counts `variants × tuning scenarios × metrics`, plus the holdout phase. You can also ask for a duration estimate. It sends a few test searches to the content cluster and extrapolates a single estimate from the batch settings. The estimate adds a fixed 2 seconds plus 50 milliseconds per `_rank_eval` call for the work outside of the searches, such as reading assets and writing results. Variants of one run execute concurrently and compete for resources, so latency comparisons are noisy. Clicking **Run benchmark** always opens a confirmation that shows the number of searches, strategies, variants and metrics. It then sends the same test searches to estimate the duration and shows the result when it finishes.
 
 See also:
 
@@ -217,6 +285,19 @@ A run is one execution of a [benchmark](#benchmark). Each run records the frozen
 <img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-heatmap-v1.1.png" class="screenshot" />
 
 <img src="https://storage.googleapis.com/esrs-docs/screenshots/evaluation-runtime-assets-v1.1.png" class="screenshot" />
+
+### Runs with hyperparameter optimization
+
+For a run that searched hyperparameters, each strategy appears in the summary with its winning variant. The scores are holdout scores when the run reserved a holdout. The summary shows the number of variants and the gain of the winner over the baseline. Expand a strategy to see the winner against the baseline and a table of every variant, with a column per hyperparameter.
+
+- **Re-rank exploratively.** Change the objective metric, the aggregation or the latency limit in the variants table to re-rank without a new run. A re-ranking uses tuning scores only. The holdout exists only for the winner and the baseline of the run, so a re-ranking is exploratory. To confirm another variant, run a new benchmark with that objective.
+- **Inspect a variant.** Open a variant to see its values, its scores and the template with its values applied.
+- **Promote a variant.** Promote the winner, or any other variant. For example, you can promote a slightly lower scoring variant with half the latency. Promotion either updates the promoted values of the hyperparameters of the strategy, or forks the strategy as it was in the run. Either way, the strategy keeps its valid testable values, so the next round can tune around the new promoted values. The strategy records the source of its promoted values in `promoted_from`.
+- **See which hyperparameters matter.** The sensitivity chart plots the mean tuning score at each value of a hyperparameter, averaged over the others. A flat line means the hyperparameter barely matters.
+- **Compare scenarios.** The breakdown holds each strategy's winner fixed across scenarios. Use the variant selector to view another variant of a strategy.
+- **Judge what matters.** The unrated documents list can show only the documents that winning variants returned. Unrated documents count as irrelevant, which biases scores against variants that surface different documents. The interface warns when the judgement coverage of a winner is low.
+
+The interface also warns about holdouts that are too small for stable scores (fewer than 30 scenarios) and about noisy latency comparisons.
 
 See also:
 

@@ -5,13 +5,16 @@
  * 2.0.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   EuiBadge,
   EuiButton,
+  EuiButtonEmpty,
   EuiCallOut,
   EuiCode,
+  EuiConfirmModal,
   EuiLink,
+  EuiLoadingSpinner,
   EuiProgress,
   EuiSkeletonTitle,
   EuiSpacer,
@@ -39,6 +42,19 @@ const BenchmarksView = () => {
    * object: open modal to delete a given doc (object)
    */
   const [modalDelete, setModalDelete] = useState(null)
+
+  /**
+   * null:   close the run confirmation modal
+   * object: open it with `estimate` (the cost of the run) and `duration`
+   *         (`loading`, `unavailable` or `{ low_ms, high_ms }`)
+   */
+  const [runConfirm, setRunConfirm] = useState(null)
+
+  /**
+   * Identifies the latest duration estimate, so a late response for a closed or
+   * replaced modal gets ignored.
+   */
+  const durationRequest = useRef(0)
 
   /**
    * Whether a doc is being updated or deleted
@@ -131,9 +147,72 @@ const BenchmarksView = () => {
     return () => clearInterval(interval)
   }, [isReady, autoRefresh])
 
+  /**
+   * Check the cost of a run and ask for confirmation before queueing it. The
+   * modal opens with the counts right away. Then a short latency probe against
+   * the content cluster measures the search speed to estimate the duration.
+   */
   const onRunBenchmarkSubmit = async (e) => {
     // prevent browser from reloading page if called from a form submission
     e?.preventDefault();
+    let response
+    try {
+      setIsProcessing(true)
+      response = await api.benchmarks_estimate(workspace._id, { task: benchmark.task })
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: 'Failed to estimate the run' }))
+    } finally {
+      setIsProcessing(false)
+    }
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
+    const estimate = response.data
+    if (estimate.errors?.length) {
+      return addToast({
+        color: 'danger',
+        title: `This run can't start`,
+        text: estimate.errors.join(' '),
+      })
+    }
+    const request = ++durationRequest.current
+    setRunConfirm({ estimate, duration: 'loading' })
+    estimateDuration(request)
+  }
+
+  /**
+   * Estimate the duration of the run for the open modal. Ignore the response if
+   * the user closed the modal or opened another one in the meantime.
+   */
+  const estimateDuration = async (request) => {
+    let duration = 'unavailable'
+    let estimate = null
+    try {
+      const response = await api.benchmarks_estimate(workspace._id, { task: benchmark.task, probe: true })
+      if (response.status <= 299 && response.data) {
+        estimate = response.data
+        if (estimate.duration)
+          duration = { low_ms: estimate.duration.low_ms, high_ms: estimate.duration.high_ms }
+      }
+    } catch (e) {
+      // Leave the duration unavailable. The user can still run the benchmark.
+    }
+    if (request !== durationRequest.current)
+      return
+    setRunConfirm(prev => prev && ({ estimate: estimate || prev.estimate, duration }))
+  }
+
+  const onRecalculateDuration = () => {
+    const request = ++durationRequest.current
+    setRunConfirm(prev => prev && ({ ...prev, duration: 'loading' }))
+    estimateDuration(request)
+  }
+
+  const closeRunConfirm = () => {
+    durationRequest.current++
+    setRunConfirm(null)
+  }
+
+  const queueRun = async () => {
     let response
     try {
       setIsProcessing(true)
@@ -281,7 +360,7 @@ const BenchmarksView = () => {
     },
     {
       field: 'task.requests',
-      name: 'Requests',
+      name: 'Searches',
       sortable: true,
       render: (name, doc) => Number.isInteger(doc.task?.requests) ? doc.task.requests.toLocaleString() : '-'
     },
@@ -312,6 +391,77 @@ const BenchmarksView = () => {
     />
   )
 
+  const METRIC_LABELS = { mrr: 'MRR', ndcg: 'NDCG', precision: 'Precision', recall: 'Recall' }
+
+  const renderRunDuration = () => {
+    const { duration } = runConfirm
+    if (duration === 'loading') {
+      return (
+        <>
+          <EuiLoadingSpinner size='s' /> Calculating...
+        </>
+      )
+    }
+    let text = <span>Unavailable</span>
+    if (duration !== 'unavailable') {
+      text = <b>~{utils.formatDuration((duration.low_ms + duration.high_ms) / 2)}</b>
+    }
+    return (
+      <>
+        {text}
+        {' '}
+        <EuiButtonEmpty
+          color='text'
+          iconType='refresh'
+          onClick={onRecalculateDuration}
+          size='xs'
+          style={{ blockSize: 'auto' }}
+        >
+          Recalculate
+        </EuiButtonEmpty>
+      </>
+    )
+  }
+
+  const renderModalRunConfirm = () => {
+    const { estimate } = runConfirm
+    const strategies = estimate.strategies?.length || 0
+    const metrics = benchmark.task?.metrics || []
+    return (
+      <EuiConfirmModal
+        cancelButtonText='Cancel'
+        confirmButtonText='Run benchmark'
+        onCancel={closeRunConfirm}
+        onConfirm={async () => {
+          closeRunConfirm()
+          await queueRun()
+        }}
+        title='Run this benchmark?'
+      >
+        <EuiText size='s'>
+          <p>This will run <b>{estimate.searches.total.toLocaleString()}</b> searches that cover:</p>
+          <ul>
+            <li><b>{strategies.toLocaleString()}</b> {strategies === 1 ? 'strategy' : 'strategies'}</li>
+            <li><b>{estimate.variants.toLocaleString()}</b> {estimate.variants === 1 ? 'variant' : 'variants'}</li>
+            <li>
+              <b>{metrics.length.toLocaleString()}</b> relevance {metrics.length === 1 ? 'metric' : 'metrics'}
+              {metrics.length > 0 && <> ({metrics.map((metric) => METRIC_LABELS[metric] || metric).join(', ')})</>}
+            </li>
+          </ul>
+          <p>Estimated duration: {renderRunDuration()}</p>
+        </EuiText>
+        {estimate.warnings?.map((message) => (
+          <div key={message}>
+            <EuiSpacer size='s' />
+            <EuiCallOut color='warning' iconType='warning' size='s'>
+              <p>{message}</p>
+            </EuiCallOut>
+          </div>
+        ))}
+      </EuiConfirmModal>
+    )
+  }
+
   const renderButtonRun = () => (
     <EuiButton
       fill
@@ -336,6 +486,7 @@ const BenchmarksView = () => {
       buttons={[renderButtonRun()]}
     >
       {modalDelete && renderModalDelete()}
+      {runConfirm && renderModalRunConfirm()}
       {hasEverSearched &&
         <>
           {isIndexEmpty &&

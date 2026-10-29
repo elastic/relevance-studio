@@ -376,6 +376,21 @@ api.strategies_delete = async (workspace_id, strategy_id) => {
   return responseOrFallbackSetup(response)
 }
 
+// Render a strategy template with hyperparameter values bound (the production
+// template). Scenario params ({{text}}) stay as Mustache variables.
+api.strategies_render = async (workspace_id, body) => {
+  validateArgs('api.strategies_render', { workspace_id, body, })
+  const response = await client.post(`/api/workspaces/${workspace_id}/strategies/_render`, { data: body })
+  return responseOrFallbackSetup(response)
+}
+
+// Promote a variant of a run: update the strategy's defaults, or fork it.
+api.strategies_promote = async (workspace_id, body) => {
+  validateArgs('api.strategies_promote', { workspace_id, body, })
+  const response = await client.post(`/api/workspaces/${workspace_id}/strategies/_promote`, { data: body })
+  return responseOrFallbackSetup(response)
+}
+
 
 ////  API: Benchmarks  /////////////////////////////////////////////////////////
 
@@ -418,6 +433,14 @@ api.benchmarks_delete = async (workspace_id, benchmark_id) => {
 api.benchmarks_make_candidate_pool = async (workspace_id, body) => {
   validateArgs('api.benchmarks_make_candidate_pool', { workspace_id, body })
   const response = await client.post(`/api/workspaces/${workspace_id}/benchmarks/_candidates`, { data: body })
+  return responseOrFallbackSetup(response)
+}
+
+// Estimate the cost of a run (variants, searches, limits). Set `probe` to also
+// estimate a duration with a short latency probe against the content cluster.
+api.benchmarks_estimate = async (workspace_id, body) => {
+  validateArgs('api.benchmarks_estimate', { workspace_id, body })
+  const response = await client.post(`/api/workspaces/${workspace_id}/benchmarks/_estimate`, { data: body })
   return responseOrFallbackSetup(response)
 }
 
@@ -492,7 +515,9 @@ api.runs_get_runtime_judgements = async (workspace_id, benchmark_id, run_id, opt
 
 api.runs_get_unrated_docs = async (workspace_id, benchmark_id, run_id, opts) => {
   validateArgs('api.runs_get_unrated_docs', { workspace_id, benchmark_id, run_id, })
-  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/unrated_docs${_pageQs(opts)}`)
+  // `winners_only` keeps the docs that the winning variant of a strategy returned
+  const qs = _pageQs(opts) + (opts?.winners_only ? `${_pageQs(opts) ? '&' : '?'}winners_only=true` : '')
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/unrated_docs${qs}`)
   return responseOrFallbackSetup(response)
 }
 
@@ -504,7 +529,43 @@ api.runs_get_failures = async (workspace_id, benchmark_id, run_id, opts) => {
 
 api.runs_get_results = async (workspace_id, benchmark_id, run_id, opts) => {
   validateArgs('api.runs_get_results', { workspace_id, benchmark_id, run_id, })
-  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/results${_pageQs(opts)}`)
+  // Narrow by `strategy_id`, `variant_id` and `split` (tuning or holdout)
+  const p = new URLSearchParams(_pageQs(opts).replace(/^\?/, ''))
+  if (opts?.strategy_id) p.set('strategy_id', opts.strategy_id)
+  if (opts?.variant_id) p.set('variant_id', opts.variant_id)
+  if (opts?.split) p.set('split', opts.split)
+  const qs = p.toString() ? `?${p.toString()}` : ''
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/results${qs}`)
+  return responseOrFallbackSetup(response)
+}
+
+// One page of a strategy's hyperparameter variants. Pass `objective_metric`,
+// `objective_aggregation`, `constraint_stat` and `constraint_max_ms` to re-rank
+// exploratively, and `sort` (rank, took, coverage, hp:<name>, metric:<name>).
+api.runs_get_variants = async (workspace_id, benchmark_id, run_id, opts) => {
+  validateArgs('api.runs_get_variants', { workspace_id, benchmark_id, run_id, })
+  const p = new URLSearchParams()
+  const { strategy_id, size, page, sort, descending, objective_metric, objective_aggregation, constraint_stat, constraint_max_ms } = opts || {}
+  if (strategy_id) p.set('strategy_id', strategy_id)
+  if (size != null) p.set('size', size)
+  if (page != null) p.set('page', page)
+  if (sort) p.set('sort', sort)
+  if (descending) p.set('descending', 'true')
+  if (objective_metric) p.set('objective_metric', objective_metric)
+  if (objective_aggregation) p.set('objective_aggregation', objective_aggregation)
+  if (constraint_max_ms != null && constraint_max_ms !== '') {
+    p.set('constraint_max_ms', constraint_max_ms)
+    if (constraint_stat) p.set('constraint_stat', constraint_stat)
+  }
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/variants?${p.toString()}`)
+  return responseOrFallbackSetup(response)
+}
+
+// Compact optimization summary (winner, default, top variants, sensitivity).
+api.runs_get_optimization_summary = async (workspace_id, benchmark_id, run_id, opts) => {
+  validateArgs('api.runs_get_optimization_summary', { workspace_id, benchmark_id, run_id, })
+  const qs = opts?.top_n != null ? `?top_n=${opts.top_n}` : ''
+  const response = await client.get(`/api/workspaces/${workspace_id}/benchmarks/${benchmark_id}/runs/${run_id}/optimization_summary${qs}`)
   return responseOrFallbackSetup(response)
 }
 

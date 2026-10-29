@@ -25,6 +25,14 @@ if TYPE_CHECKING:
 # Pre-compiled regular expressions
 RE_PARAMS = re.compile(r"{{\s*([\w.-]+)\s*}}")
 
+# Hyperparameters are namespaced under "hp" in Mustache templates, e.g.
+# {{hp.name_boost}} or {{#toJson}}hp.name_boost{{/toJson}}.
+HYPERPARAMETER_NAMESPACE = "hp"
+RE_HYPERPARAMETER_REFS = re.compile(
+    r"{{\s*hp\.(\w+)\s*}}"
+    r"|{{\s*#\s*toJson\s*}}\s*hp\.(\w+)\s*{{\s*/\s*toJson\s*}}"
+)
+
 ASSET_TYPES = set([
     "conversations",
     "workspaces",
@@ -101,8 +109,65 @@ def timestamp(t: float = None):
 def extract_params(obj: Dict[str, Any]):
     """
     Extract Mustache variable params from an object serialized as json.
+    Hyperparameter references ({{hp.*}}) are excluded, because they are not
+    provided by scenarios.
     """
-    return sorted(list(set(re.findall(RE_PARAMS, json.dumps(obj)))))
+    params = set(re.findall(RE_PARAMS, json.dumps(obj)))
+    prefix = f"{HYPERPARAMETER_NAMESPACE}."
+    return sorted(p for p in params if not p.startswith(prefix))
+
+def extract_hyperparameter_refs(source: str) -> List[str]:
+    """
+    Extract the names of hyperparameters referenced in a Mustache template
+    source, as {{hp.name}} or {{#toJson}}hp.name{{/toJson}}.
+    """
+    names = set()
+    for simple, to_json in RE_HYPERPARAMETER_REFS.findall(source or ""):
+        names.add(simple or to_json)
+    return sorted(names)
+
+def render_hyperparameter_value(value: Any) -> str:
+    """
+    Render a hyperparameter value for direct substitution into a template.
+    Numbers and booleans render unquoted. Strings render without surrounding
+    quotes (templates quote strings themselves) and are JSON-escaped.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return json.dumps(value)
+    return json.dumps(str(value))[1:-1]
+
+def render_hyperparameters(source: str, values: Dict[str, Any]) -> str:
+    """
+    Render only the {{hp.*}} tags of a template with the given values,
+    preserving every other Mustache tag (e.g. {{text}}) as-is. Raises
+    KeyError if the template references a hyperparameter without a value.
+    """
+    def simple(match):
+        return render_hyperparameter_value(values[match.group(1)])
+    def to_json(match):
+        return json.dumps(values[match.group(1)])
+    pattern_simple = re.compile(r"{{\s*hp\.(\w+)\s*}}")
+    pattern_to_json = re.compile(
+        r"{{\s*#\s*toJson\s*}}\s*hp\.(\w+)\s*{{\s*/\s*toJson\s*}}"
+    )
+    source = pattern_to_json.sub(to_json, source or "")
+    return pattern_simple.sub(simple, source)
+
+def normalize_hyperparameter_value(type_: str, value: Any, precision: int = 10) -> Any:
+    """
+    Normalize a hyperparameter value into its canonical form so that variant
+    IDs are stable (e.g. 0.30000000000000004 becomes 0.3). A number with no
+    fractional part becomes an int, so 2 and 2.0 give the same variant ID and
+    render the same.
+    """
+    if type_ == "number":
+        number = round(float(value), precision)
+        return int(number) if number.is_integer() else number
+    if type_ == "boolean":
+        return bool(value)
+    return str(value)
 
 def copy_fields_to_search(template_name: str, doc: Dict[str, Any]) -> Dict[str, Any]:
     """

@@ -269,6 +269,7 @@ def delete(ids: List[str]) -> Dict[str, Any]:
         "esrs-benchmark-runtime-judgements",
         "esrs-benchmark-unrated-docs",
         "esrs-benchmark-failures",
+        "esrs-benchmark-runtime-variants",
     ):
         try:
             client.delete_by_query(

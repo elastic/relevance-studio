@@ -120,6 +120,31 @@ def create(docs: List[Dict[str, Any]], user: str = None, via: str = None) -> Dic
     es_response = client.bulk(operations=operations, refresh=True) if operations else { "took": 0, "errors": False, "items": [] }
     return utils.merge_bulk_results(es_response, synthetic_items, len(docs))
 
+def _preserve_optimization_nulls(raw_task: Any, serialized: Dict[str, Any]) -> None:
+    """Re-add the explicit nulls of `task.optimization` that serialization drops.
+
+    A partial update merges objects, so a field can only be removed by setting
+    it to null. These nulls clear the optimization of a benchmark (`optimization`)
+    and its optional `latency_constraint`, `seed`, and `holdout.seed`.
+    """
+    if not isinstance(raw_task, dict) or "optimization" not in raw_task:
+        return
+    raw = raw_task["optimization"]
+    task = serialized.setdefault("task", {})
+    if raw is None:
+        task["optimization"] = None
+        return
+    if not isinstance(raw, dict) or not isinstance(task.get("optimization"), dict):
+        return
+    target = task["optimization"]
+    for key in ("latency_constraint", "seed"):
+        if key in raw and raw[key] is None:
+            target[key] = None
+    holdout = raw.get("holdout")
+    if isinstance(holdout, dict) and holdout.get("seed", "") is None and isinstance(target.get("holdout"), dict):
+        target["holdout"]["seed"] = None
+
+
 def update(docs: List[Dict[str, Any]], user: str = None, via: str = None) -> Dict[str, Any]:
     """Update one or more benchmarks.
 
@@ -144,12 +169,16 @@ def update(docs: List[Dict[str, Any]], user: str = None, via: str = None) -> Dic
     for i, doc_partial in enumerate(docs):
         doc_partial = dict(doc_partial)
         _id = doc_partial.pop("_id", None)
+        raw_task = doc_partial.get("task")
         try:
             # Create, validate, and serialize model
             doc_partial = BenchmarkUpdate.model_validate(doc_partial, context={"user": user, "via": via}).serialize()
         except ValidationError as e:
             synthetic_items[i] = utils.bulk_error_item("update", INDEX_NAME, _id, 400, str(e))
             continue
+
+        # Keep explicit nulls that clear hyperparameter optimization settings
+        _preserve_optimization_nulls(raw_task, doc_partial)
 
         # Copy searchable fields to _search
         doc_partial = utils.copy_fields_to_search("benchmark-configs", doc_partial)
@@ -229,6 +258,7 @@ def delete(ids: List[str]) -> Dict[str, Any]:
         "esrs-benchmark-runtime-judgements",
         "esrs-benchmark-unrated-docs",
         "esrs-benchmark-failures",
+        "esrs-benchmark-runtime-variants",
     ):
         try:
             client.delete_by_query(

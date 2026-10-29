@@ -253,88 +253,86 @@ utils.jsonStringifySortedKeysWithTripleQuotes = (obj, replacer = null, space = 2
 
 /**
  * Validate and format JSON with Mustache.
- * 
- * types:
- *   "string"          -> placeholder: "__MUSTACHE_var__"
- *   "number"          -> placeholder: 0
- *   "boolean"         -> placeholder: false
- *   "null"            -> placeholder: null
- *   "array"           -> placeholder: []
- *   "array-string"    -> placeholder: ["__MUSTACHE_var__"]
- *   "object"          -> placeholder: {}
  *
- * Any var not in types -> defaults to null (safe JSON).
+ * Each Mustache tag is swapped for a unique placeholder so the source can be
+ * parsed as JSON, then swapped back after formatting. Tags inside a JSON
+ * string get a plain placeholder. Tags outside a string (bare values) get a
+ * quoted placeholder, and the quotes are dropped on restore. A section such as
+ * `{{#toJson}}hp.boost{{/toJson}}` counts as a single tag.
+ *
+ * The `types` argument is kept for backward compatibility and ignored.
  */
+const MUSTACHE_TAG_RE = /^\{\{\s*([#^]?)\s*([a-zA-Z0-9._-]+)\s*\}\}/
+const MUSTACHE_ANY_RE = /^\{\{[^}]*\}\}/
 
-const MUSTACHE_RE = /\{\{\s*([#/>^&!]*)\s*([a-zA-Z0-9._-]+)\s*([^}]*)\}\}/g;
-
-const makePlaceholder = (varName, kind = "null") => {
-  switch (kind) {
-    case "string": return JSON.stringify(`__MUSTACHE_${varName}__`);
-    case "number": return "0";
-    case "boolean": return "false";
-    case "array": return "[]";
-    case "array-string": return `["__MUSTACHE_${varName}__"]`;
-    case "object": return "{}";
-    case "null":
-    default: return "null";
-  }
-}
-
-const sanitizeJsonWithMustache = (src, types = {}) => {
-  // Ignore sections/partials/etc by treating any non-empty sigil as plain placeholder
-  return src.replace(MUSTACHE_RE, (_, sigil, name) => {
-    // If this is a section/partial/inverted/etc (sigil present), default to null
-    if (sigil && sigil !== "") return makePlaceholder(name, types[name] || "null");
-    return makePlaceholder(name, types[name] || "null");
-  });
-}
-
-const restoreMustache = (formatted, original, types = {}) => {
-  // Recreate the exact placeholders we produced in sanitize()
-  // Then replace them back to raw {{ name }} (without quotes if placeholder was non-string)
-  const produced = [];
-  original.replace(MUSTACHE_RE, (_, sigil, name) => {
-    const kind = types[name] || "null";
-    switch (kind) {
-      case "string": {
-        const quoted = JSON.stringify(`__MUSTACHE_${name}__`);
-        produced.push([quoted, `{{ ${name} }}`]); // remove quotes entirely
-        break;
+const sanitizeJsonWithMustache = (src) => {
+  const tags = []
+  let out = ''
+  let inString = false
+  let i = 0
+  while (i < src.length) {
+    const ch = src[i]
+    if (src.startsWith('{{', i)) {
+      let tag = null
+      const open = src.slice(i).match(MUSTACHE_TAG_RE)
+      if (open && open[1] === '#') {
+        // Treat a whole section as one tag: {{#name}}body{{/name}}
+        const closeRe = new RegExp(`\\{\\{\\s*/\\s*${open[2].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\}\\}`)
+        const rest = src.slice(i + open[0].length)
+        const close = rest.match(closeRe)
+        if (close)
+          tag = src.slice(i, i + open[0].length + close.index + close[0].length)
       }
-      case "array-string": {
-        const arr = `["__MUSTACHE_${name}__"]`;
-        produced.push([arr, `{{ ${name} }}`]); // drop whole token (array) back to mustache
-        break;
+      if (!tag) {
+        const any = src.slice(i).match(MUSTACHE_ANY_RE)
+        tag = any ? any[0] : null
       }
-      case "number":
-      case "boolean":
-      case "array":
-      case "object":
-      case "null":
-      default: {
-        const token = makePlaceholder(name, kind);
-        produced.push([token, `{{ ${name} }}`]);
+      if (tag) {
+        const id = `__MUSTACHE_${tags.length}__`
+        tags.push({ id, tag, bare: !inString })
+        out += inString ? id : `"${id}"`
+        i += tag.length
+        continue
       }
     }
-  });
+    if (inString) {
+      if (ch === '\\') {
+        out += ch + (src[i + 1] ?? '')
+        i += 2
+        continue
+      }
+      if (ch === '"')
+        inString = false
+    } else if (ch === '"') {
+      inString = true
+    }
+    out += ch
+    i += 1
+  }
+  return { sanitized: out, tags }
+}
 
-  // Apply replacements carefully, from longest to shortest token to avoid overlaps
-  produced.sort((a, b) => b[0].length - a[0].length);
+const normalizeMustacheTag = (tag) => {
+  // Normalize simple variables to `{{ name }}`. Keep sections and others as written.
+  const m = tag.match(/^\{\{\s*([a-zA-Z0-9._-]+)\s*\}\}$/)
+  return m ? `{{ ${m[1]} }}` : tag
+}
 
-  // Replace all occurrences
+const restoreMustache = (formatted, tags) => {
   let out = formatted
-  for (const [placeholder, raw] of produced)
-    out = out.split(placeholder).join(raw)
+  for (const { id, tag, bare } of tags) {
+    const raw = normalizeMustacheTag(tag)
+    out = bare ? out.split(`"${id}"`).join(raw) : out.split(id).join(raw)
+  }
   return out
 }
 
 /**
  * Lints + formats. Throws if the JSON (after sanitization) is invalid.
- * Returns { formatted, errors: [] } on success.
+ * Returns the formatted string on success.
  */
-utils.formatJsonWithMustache = (source, types = {}) => {
-  const sanitized = sanitizeJsonWithMustache(source, types)
+utils.formatJsonWithMustache = (source) => {
+  const { sanitized, tags } = sanitizeJsonWithMustache(source)
   let parsed
   try {
     parsed = JSON.parse(sanitized)
@@ -344,8 +342,7 @@ utils.formatJsonWithMustache = (source, types = {}) => {
     throw err
   }
   const pretty = JSON.stringify(parsed, null, 2)
-  const restored = restoreMustache(pretty, source, types)
-  return restored
+  return restoreMustache(pretty, tags)
 }
 
 /**

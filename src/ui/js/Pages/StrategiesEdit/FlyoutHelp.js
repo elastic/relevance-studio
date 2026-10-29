@@ -59,6 +59,18 @@ const FlyoutHelp = ({ onClose }) => {
             {codeBlock}
           </EuiCodeBlock>
           </p>
+          <h4>
+            How do I tune a value with a hyperparameter?
+          </h4>
+          <p>
+            A <b>hyperparameter</b> is a value of your strategy that a benchmark can search, such as a boost. Reference it with the <EuiCode>hp.</EuiCode> prefix, for example <EuiCode>{'{{hp.boost}}'}</EuiCode>. The prefix keeps hyperparameters apart from scenario params. Then define it in the <b>Hyperparameters</b> section under the editor with a type, a promoted value (the value the strategy uses today) and the valid testable values (the values a benchmark may test).
+          </p>
+          <p>
+            To reference a value that needs JSON formatting, such as a boolean or a number inside a string, use <EuiCode>{'{{#toJson}}hp.name{{/toJson}}'}</EuiCode>.
+          </p>
+          <p>
+            The Search tab tests the draft on one scenario. Its hyperparameter inputs start at the promoted values, and you can change them to explore. The Benchmark tab compares the draft against the saved strategy across scenarios, and can test hyperparameter values with a holdout. Apply a winning variant to the draft, then save to keep it.
+          </p>
         </EuiText>
       </EuiFlyoutBody>
     </EuiFlyout>

@@ -37,6 +37,7 @@ PATH_INDEX_TEMPLATES = [
     ("esrs-benchmark-runtime-judgements", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-runtime-judgements.json")),
     ("esrs-benchmark-unrated-docs", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-unrated-docs.json")),
     ("esrs-benchmark-failures", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-failures.json")),
+    ("esrs-benchmark-runtime-variants", os.path.join(PATH_INDEX_TEMPLATE_DIR, "benchmark-runtime-variants.json")),
 ]
 
 # Legacy v1 templates. Intentionally NOT in PATH_INDEX_TEMPLATES, so fresh v2.0
@@ -61,6 +62,7 @@ DATA_STREAM_TEMPLATES = set([
     "esrs-benchmark-runtime-judgements",
     "esrs-benchmark-unrated-docs",
     "esrs-benchmark-failures",
+    "esrs-benchmark-runtime-variants",
 ])
 VALID_STEP_ACTIONS = set(["create_template", "update_template", "reindex_and_cutover"])
 LEDGER_INDEX = "esrs-system"
@@ -515,21 +517,13 @@ def _execute_upgrade_step(step: Dict[str, Any], index_templates: Dict[str, Dict[
     })
 
     if step["action"] == "create_template":
-        try:
-            response = client.indices.create(index=template["index_name"])
-            requests.append({
-                "index": template["index_name"],
-                "action": "create_index",
-                "response": {"body": response.body, "status": response.meta.status},
-            })
-        except RequestError as e:
-            requests.append({
-                "index": template["index_name"],
-                "action": "create_index",
-                "response": {"body": e.body, "status": e.meta.status},
-            })
-            if e.error != "resource_already_exists_exception":
-                raise
+        # Data-stream-aware: a data-stream-backed template is created with
+        # create_data_stream, a plain template with indices.create.
+        record = _create_index_or_data_stream(client, template_name, template["index_name"])
+        created_ok = record.pop("ok", False)
+        requests.append(record)
+        if not created_ok:
+            raise ValueError(f"Failed to create '{template['index_name']}' for create_template.")
     elif step["action"] == "update_template":
         mapping_additions = step.get("mapping_additions", {})
         if mapping_additions and client.indices.exists(index=template["index_name"]):

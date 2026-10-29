@@ -53,7 +53,7 @@ const PanelUnratedDocs = ({ evaluation }) => {
     if (!displays)
       return
     onSearchUnratedDocs(sourceFilters)
-  }, [displays])
+  }, [displays, evaluation.unrated_docs])
 
   /**
    * Handle searching unrated docs

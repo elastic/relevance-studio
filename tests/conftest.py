@@ -57,6 +57,7 @@ ESRS_INDICES = [
     "esrs-benchmark-runtime-judgements",
     "esrs-benchmark-unrated-docs",
     "esrs-benchmark-failures",
+    "esrs-benchmark-runtime-variants",
 ]
 
 def wait_for_es(url, attempts=30):

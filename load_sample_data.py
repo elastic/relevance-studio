@@ -373,6 +373,48 @@ def make_strategy_docs(dataset):
                     }
                 }, indent=2)
             }
+        },
+        {
+            # Demonstrates hyperparameter optimization. The template quotes
+            # the string hyperparameter and leaves the numeric one bare.
+            "_id": utils.unique_id([
+                make_workspace_id(dataset), "query-string-tunable"
+            ]),
+            "workspace_id": make_workspace_id(dataset),
+            "name": "Query String (Tunable)",
+            "tags": [ "bm25", "tunable" ],
+            "template": {
+                "lang": "painless",
+                "source": (
+                    "{\n"
+                    "  \"retriever\": {\n"
+                    "    \"standard\": {\n"
+                    "      \"query\": {\n"
+                    "        \"query_string\": {\n"
+                    "          \"query\": \"{{ text }}\",\n"
+                    "          \"default_operator\": \"{{hp.operator}}\",\n"
+                    "          \"phrase_slop\": {{hp.slop}}\n"
+                    "        }\n"
+                    "      }\n"
+                    "    }\n"
+                    "  }\n"
+                    "}"
+                )
+            },
+            "hyperparameters": [
+                {
+                    "name": "operator",
+                    "type": "string",
+                    "promoted_value": "OR",
+                    "testable_values": { "type": "set", "values": [ "AND", "OR" ] }
+                },
+                {
+                    "name": "slop",
+                    "type": "number",
+                    "promoted_value": 0,
+                    "testable_values": { "type": "set", "values": [ 0, 1, 2, 3 ] }
+                }
+            ]
         }
     ]
     

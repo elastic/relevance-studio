@@ -19,7 +19,11 @@
   `benchmark-results`, and the six runtime/unrated-docs/failures data streams. Plus `asset.py`
   for shared/base fields.
 - `src/server/api/` - **Python API** (implements core functionality; uses Pydantic models).
-  Mirrors the models, plus `agent.py`, `content.py`, and `setup.py`.
+  Mirrors the models, plus `agent.py`, `content.py`, and `setup.py`. Also holds
+  `optimization.py` (pure hyperparameter optimization logic: variants, valid testable values, ranking,
+  holdout split). Its Pydantic models live in `models/hyperparameters.py`. The
+  `benchmark-runtime-variants` index template has no matching model or API module, because
+  `api/runs.py` writes and reads it directly.
 - `src/server/flask.py` - **Server** (implements REST API; uses Python API)
 - `src/server/fastmcp.py` - **MCP Server** (implements MCP tools; uses Python API)
 - `src/server/fastmcp_proxy.py` - **MCP stdio proxy** (for local clients e.g. Claude Desktop)

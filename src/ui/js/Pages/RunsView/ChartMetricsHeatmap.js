@@ -19,6 +19,34 @@ import '@elastic/charts/dist/theme_only_light.css'
 import { euiPaletteColorBlind } from '@elastic/eui'
 import { useAppContext } from '../../Contexts/AppContext'
 
+/**
+ * Build the heatmap override of one variant from its stored results (one per
+ * scenario). The heatmap shows each strategy's winner by default. An override
+ * shows another variant of a strategy instead, with every other strategy
+ * unchanged.
+ *
+ * Returns `{ strategyId, variantId, byScenario: { scenario_id: { metric: value } },
+ * avg: { metric: mean } }`.
+ */
+export const buildVariantOverride = (strategyId, variantId, results) => {
+  const byScenario = {}
+  const sums = {}
+  const counts = {}
+  for (const result of results || []) {
+    byScenario[result.scenario_id] = result.metrics || {}
+    for (const [metric, value] of Object.entries(result.metrics || {})) {
+      if (value === null || value === undefined)
+        continue
+      sums[metric] = (sums[metric] || 0) + value
+      counts[metric] = (counts[metric] || 0) + 1
+    }
+  }
+  const avg = {}
+  for (const metric of Object.keys(sums))
+    avg[metric] = sums[metric] / counts[metric]
+  return { strategyId, variantId, byScenario, avg }
+}
+
 const ChartMetricsHeatmap = (props) => {
 
   ////  Context  ///////////////////////////////////////////////////////////////
@@ -33,6 +61,7 @@ const ChartMetricsHeatmap = (props) => {
   const xSortBy = props.xSort || { by: 'value', order: 'desc' }
   const yGroupBy = props.yGroupBy || 'strategy_id'
   const ySortBy = props.ySort || { by: 'value', order: 'desc' }
+  const variantOverride = props.variantOverride || null
 
   ////  State  /////////////////////////////////////////////////////////////////
 
@@ -92,12 +121,26 @@ const ChartMetricsHeatmap = (props) => {
     const _data = []
     const summary = { ...evaluation.summary }
     for (const [yKey, yValue] of Object.entries(summary[yGroupBy])) {
+      // Another variant of this strategy replaces its winner
+      const override = (variantOverride && yGroupBy === 'strategy_id' && yKey === variantOverride.strategyId)
+        ? variantOverride
+        : null
       const total = {
         x: 'Average',
         y: yKey,
-        value: summary?.[yGroupBy]?.[yKey]?._total?.metrics?.[metric]?.avg,
+        value: override
+          ? override.avg?.[metric]
+          : summary?.[yGroupBy]?.[yKey]?._total?.metrics?.[metric]?.avg,
       }
       _data.push(total)
+      if (override && xGroupBy === 'scenario_id') {
+        for (const [scenarioId, metrics] of Object.entries(override.byScenario)) {
+          if (metrics?.[metric] === undefined || metrics?.[metric] === null)
+            continue
+          _data.push({ x: scenarioId, y: yKey, value: metrics[metric] })
+        }
+        continue
+      }
       for (const [xKey, xValue] of Object.entries(yValue[`by_${xGroupBy}`])) {
         // In rare cases it's possible for scenarios without judgements to be
         // included in evaluations. There won't be metrics in those cases.
@@ -149,7 +192,7 @@ const ChartMetricsHeatmap = (props) => {
         return prev
       return _data
     })
-  }, [evaluation, xGroupBy, xSortBy, yGroupBy, ySortBy])
+  }, [evaluation, xGroupBy, xSortBy, yGroupBy, ySortBy, metric, variantOverride])
 
   ////  Render  ////////////////////////////////////////////////////////////////
 
@@ -207,10 +250,13 @@ const ChartMetricsHeatmap = (props) => {
         xAccessor={(d) => d['x']}
         yAccessor={(d) => d['y']}
         yAxisLabelFormatter={(label) => {
+          const suffix = (variantOverride && label === variantOverride.strategyId)
+            ? ` [variant ${variantOverride.variantId.slice(0, 8)}]`
+            : ''
           try {
-            return runtimeStrategy(label).name
+            return runtimeStrategy(label).name + suffix
           } catch (e) {
-            return label
+            return label + suffix
           }
         }}
         yAxisTitle={'Strategy'}

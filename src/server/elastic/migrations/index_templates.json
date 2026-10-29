@@ -263,6 +263,250 @@
               }
             }
           }
+        },
+        {
+          "template": "esrs-strategies",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add hyperparameters (definitions with promoted values and valid testable values), hyperparameter_refs, and promoted_from to mappings.",
+          "mapping_additions": {
+            "hyperparameter_refs": {
+              "type": "keyword"
+            },
+            "hyperparameters": {
+              "properties": {
+                "name": {
+                  "type": "keyword"
+                },
+                "type": {
+                  "type": "keyword"
+                },
+                "promoted_value": {
+                  "type": "object",
+                  "enabled": false
+                },
+                "testable_values": {
+                  "type": "object",
+                  "enabled": false
+                }
+              }
+            },
+            "promoted_from": {
+              "properties": {
+                "strategy_id": {
+                  "type": "keyword"
+                },
+                "run_id": {
+                  "type": "keyword"
+                },
+                "variant_id": {
+                  "type": "keyword"
+                },
+                "values": {
+                  "type": "object",
+                  "enabled": false
+                },
+                "promoted_at": {
+                  "type": "date"
+                }
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-benchmark-configs",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add task.optimization (hyperparameter search settings, objective, holdout) to mappings.",
+          "mapping_additions": {
+            "task": {
+              "properties": {
+                "optimization": {
+                  "properties": {
+                    "algorithm": {
+                      "type": "keyword"
+                    },
+                    "sample_size": {
+                      "type": "integer"
+                    },
+                    "seed": {
+                      "type": "keyword"
+                    },
+                    "points_per_range": {
+                      "type": "integer"
+                    },
+                    "values_to_test": {
+                      "type": "object",
+                      "enabled": false
+                    },
+                    "objective": {
+                      "properties": {
+                        "metric": {
+                          "type": "keyword"
+                        },
+                        "aggregation": {
+                          "type": "keyword"
+                        }
+                      }
+                    },
+                    "latency_constraint": {
+                      "properties": {
+                        "stat": {
+                          "type": "keyword"
+                        },
+                        "max_ms": {
+                          "type": "float"
+                        }
+                      }
+                    },
+                    "holdout": {
+                      "properties": {
+                        "ratio": {
+                          "type": "float"
+                        },
+                        "seed": {
+                          "type": "keyword"
+                        }
+                      }
+                    },
+                    "max_concurrent_searches": {
+                      "type": "integer"
+                    },
+                    "store_hits_top_n": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-benchmark-runs",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add task.optimization (hyperparameter search settings, objective, holdout) to mappings.",
+          "mapping_additions": {
+            "task": {
+              "properties": {
+                "optimization": {
+                  "properties": {
+                    "algorithm": {
+                      "type": "keyword"
+                    },
+                    "sample_size": {
+                      "type": "integer"
+                    },
+                    "seed": {
+                      "type": "keyword"
+                    },
+                    "points_per_range": {
+                      "type": "integer"
+                    },
+                    "values_to_test": {
+                      "type": "object",
+                      "enabled": false
+                    },
+                    "objective": {
+                      "properties": {
+                        "metric": {
+                          "type": "keyword"
+                        },
+                        "aggregation": {
+                          "type": "keyword"
+                        }
+                      }
+                    },
+                    "latency_constraint": {
+                      "properties": {
+                        "stat": {
+                          "type": "keyword"
+                        },
+                        "max_ms": {
+                          "type": "float"
+                        }
+                      }
+                    },
+                    "holdout": {
+                      "properties": {
+                        "ratio": {
+                          "type": "float"
+                        },
+                        "seed": {
+                          "type": "keyword"
+                        }
+                      }
+                    },
+                    "max_concurrent_searches": {
+                      "type": "integer"
+                    },
+                    "store_hits_top_n": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "template": "esrs-benchmark-results",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add variant_id, split (tuning or holdout), and coverage to mappings, so results can be stored per hyperparameter variant.",
+          "mapping_additions": {
+            "variant_id": {
+              "type": "keyword"
+            },
+            "split": {
+              "type": "keyword"
+            },
+            "coverage": {
+              "type": "float"
+            }
+          }
+        },
+        {
+          "template": "esrs-benchmark-runtime-scenarios",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add split (tuning or holdout) to mappings.",
+          "mapping_additions": {
+            "split": {
+              "type": "keyword"
+            }
+          }
+        },
+        {
+          "template": "esrs-benchmark-runtime-strategies",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add variant_count and winner_variant_id to mappings.",
+          "mapping_additions": {
+            "variant_count": {
+              "type": "integer"
+            },
+            "winner_variant_id": {
+              "type": "keyword"
+            }
+          }
+        },
+        {
+          "template": "esrs-benchmark-unrated-docs",
+          "action": "update_template",
+          "requires_reindex": false,
+          "description": "Add variants to mappings, so unrated docs can be filtered to winning variants.",
+          "mapping_additions": {
+            "variants": {
+              "type": "keyword"
+            }
+          }
+        },
+        {
+          "template": "esrs-benchmark-runtime-variants",
+          "action": "create_template",
+          "requires_reindex": false,
+          "description": "Create esrs-benchmark-runtime-variants data stream holding one document per hyperparameter variant of a run (values and aggregated scores). No DLM retention set (infinite)."
         }
       ]
     }

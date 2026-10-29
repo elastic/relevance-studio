@@ -1,7 +1,7 @@
 {
   "_meta": {
     "description": "Elasticsearch Relevance Studio - Strategies",
-    "version": "1.2.0"
+    "version": "2.0.0"
   },
   "index_patterns": [
     "esrs-strategies*"
@@ -72,6 +72,47 @@
                   "type": "text"
                 }
               }
+            }
+          }
+        },
+        "hyperparameter_refs": {
+          "type": "keyword"
+        },
+        "hyperparameters": {
+          "properties": {
+            "name": {
+              "type": "keyword"
+            },
+            "type": {
+              "type": "keyword"
+            },
+            "promoted_value": {
+              "type": "object",
+              "enabled": false
+            },
+            "testable_values": {
+              "type": "object",
+              "enabled": false
+            }
+          }
+        },
+        "promoted_from": {
+          "properties": {
+            "strategy_id": {
+              "type": "keyword"
+            },
+            "run_id": {
+              "type": "keyword"
+            },
+            "variant_id": {
+              "type": "keyword"
+            },
+            "values": {
+              "type": "object",
+              "enabled": false
+            },
+            "promoted_at": {
+              "type": "date"
             }
           }
         }

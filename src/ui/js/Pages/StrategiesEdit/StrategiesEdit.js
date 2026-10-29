@@ -9,8 +9,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import {
+  EuiAccordion,
   EuiBadge,
+  EuiTab,
+  EuiTabs,
   EuiButton,
+  EuiButtonEmpty,
   EuiCode,
   EuiCodeBlock,
   EuiFlexGroup,
@@ -23,20 +27,30 @@ import {
   EuiSpacer,
   EuiSwitch,
   EuiText,
+  copyToClipboard,
 } from '@elastic/eui'
 import { debounce } from 'lodash'
 import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useResources, useAdditionalResources } from '../../Contexts/ResourceContext'
 import { useDisplays } from '../../Hooks'
 import {
+  HyperparameterEditor,
+  HyperparameterInputs,
   Page,
   SelectScenario,
-  SearchResultsJudgements
+  SearchResultsJudgements,
 } from '../../Layout'
 import FlyoutHelp from './FlyoutHelp'
+import TabBenchmark from './TabBenchmark'
 import api from '../../api'
+import hp from '../../hyperparameters'
 import utils from '../../utils'
 import { getHistory } from '../../history'
+
+const TEST_TABS = [
+  { id: 'search', label: 'Search' },
+  { id: 'benchmark', label: 'Benchmark' },
+]
 
 const StrategiesEdit = () => {
 
@@ -57,6 +71,11 @@ const StrategiesEdit = () => {
   const [params, setParams] = useState([])
   const [showHelp, setShowHelp] = useState(false)
   const [strategyDraft, setStrategyDraft] = useState('')
+  const [hyperparameters, setHyperparameters] = useState([])
+  const [isCopyingTemplate, setIsCopyingTemplate] = useState(false)
+  const [hpInputs, setHpInputs] = useState({})
+  const [hyperparametersOpen, setHyperparametersOpen] = useState(false)
+  const [testTab, setTestTab] = useState('search')
 
   // Strategy testing
   const [errorContent, setErrorContent] = useState(null)
@@ -73,6 +92,7 @@ const StrategiesEdit = () => {
   const [scenarioOptions, setScenarioOptions] = useState([])
   const [scenarioSearchString, setScenarioSearchString] = useState('')
   const editorRef = useRef(null)
+  const lastTestedHpKey = useRef(null)
   const monacoRef = useRef(null)
 
   // Helper to get URL params
@@ -107,6 +127,7 @@ const StrategiesEdit = () => {
     setLastSavedStrategy(strategy)
     if (strategy.template?.source)
       setStrategyDraft(utils.formatJsonWithMustache(strategy.template.source))
+    setHyperparameters(structuredClone(strategy.hyperparameters || []))
 
     // Reset test results when switching strategies
     setResults([])
@@ -116,15 +137,12 @@ const StrategiesEdit = () => {
   }, [strategy])
 
   /**
-   * Extract params (formatted as Mustache variables) from a JSON string.
+   * Extract the scenario params (Mustache variables) from a JSON string.
+   * Hyperparameter references ({{hp.*}}) aren't params, because scenarios
+   * don't provide them.
    */
-  const RE_PARAMS = /{{\s*([\w.-]+)\s*}}/g
   const extractParams = (jsonString) => {
-    const matches = new Set()
-    let match
-    while ((match = RE_PARAMS.exec(jsonString)) !== null)
-      matches.add(match[1])
-    const arr = Array.from(matches)
+    const arr = hp.extractScenarioParams(jsonString)
     setParams(arr)
     return arr
   }
@@ -150,6 +168,15 @@ const StrategiesEdit = () => {
       })
     }
 
+    // Hyperparameter definitions must match the template references
+    if (validation.errors.length) {
+      return addToast({
+        color: 'danger',
+        title: 'Failed to update strategy',
+        text: validation.errors[0]
+      })
+    }
+
     // Prepare doc field updates
     const doc = {
       name: lastSavedStrategy.name,
@@ -158,6 +185,7 @@ const StrategiesEdit = () => {
         lang: 'mustache',
         source: strategyDraft
       },
+      hyperparameters: hp.definitionsForSave(hyperparameters),
     }
 
     // Update doc
@@ -183,17 +211,64 @@ const StrategiesEdit = () => {
         ...doc.template
       }
     }))
+    setHyperparameters(structuredClone(doc.hyperparameters))
   }
 
   /**
-   * Check if the strategy draft differs from the saved strategy.
+   * Check if the strategy draft is the same as the saved strategy. Returns
+   * undefined when the draft isn't valid JSON.
    */
-  const doesDraftDiffer = () => {
+  const isDraftSaved = () => {
     try {
       return utils.formatJsonWithMustache(lastSavedStrategy.template?.source || '{}') == utils.formatJsonWithMustache(strategyDraft || '{}')
+        && hp.sameDefinitions(lastSavedStrategy.hyperparameters || [], hyperparameters)
     } catch (e) {
       return undefined
     }
+  }
+
+  /**
+   * Validate the hyperparameter definitions against the template draft.
+   */
+  const validation = hp.validateDefinitions(hyperparameters, strategyDraft)
+
+  /**
+   * The hyperparameter inputs of a search test. They start at the promoted
+   * values and follow the definitions as the user edits them.
+   */
+  useEffect(() => {
+    setHpInputs((prev) => hp.syncInputs(hyperparameters, prev))
+  }, [hyperparameters])
+  const hpParsed = hp.parseInputs(hyperparameters, hpInputs)
+  const hpInputErrors = Object.values(hpParsed.errors)
+  const hpValuesKey = JSON.stringify(hpParsed.values)
+
+  /**
+   * Copy the production template: the template with the hyperparameter
+   * promoted values applied, ready to use in a search request.
+   */
+  const onCopyProductionTemplate = async () => {
+    let response
+    try {
+      setIsCopyingTemplate(true)
+      response = await api.strategies_render(workspace._id, {
+        template: { source: strategyDraft },
+        hyperparameters: hp.definitionsForSave(hyperparameters),
+      })
+    } catch (e) {
+      return addToast(api.errorToast(e, { title: 'Failed to render the production template' }))
+    } finally {
+      setIsCopyingTemplate(false)
+    }
+    if (response.status > 299)
+      return addToast(utils.toastClientResponse(response))
+    copyToClipboard(response.data.source)
+    addToast({
+      color: 'success',
+      iconType: 'check',
+      title: 'Copied the production template',
+      text: 'The template has the hyperparameter promoted values applied. Scenario params stay as Mustache variables.',
+    })
   }
 
   ////  Strategy testing  //////////////////////////////////////////////////////
@@ -263,6 +338,14 @@ const StrategiesEdit = () => {
     onTestStrategy()
   }, [isReady, scenario])
 
+  // Automatically test strategy when the hyperparameter values change
+  useEffect(() => {
+    if (!isReady || !scenario || hpInputErrors.length || lastTestedHpKey.current === hpValuesKey)
+      return
+    const timer = setTimeout(() => onTestStrategy(), 500)
+    return () => clearTimeout(timer)
+  }, [hpValuesKey])
+
   // Add keyboard shortcuts to monaco editor
   useEffect(() => {
     const editor = editorRef.current
@@ -328,12 +411,9 @@ const StrategiesEdit = () => {
     }
   }
 
-  const applyParams = (template, scenarioValues) => {
-    const rendered = template.replace(/{{\s*([\w.-]+)\s*}}/g, (_, key) => {
-      return scenarioValues[key]
-    })
-    return JSON.parse(rendered)
-  }
+  // Apply the hyperparameter values chosen for the test, then the scenario values
+  const applyParams = (template, scenarioValues) =>
+    hp.applyTemplate(template, scenarioValues, hpParsed.values)
 
   /**
    * Handle testing strategy
@@ -354,6 +434,15 @@ const StrategiesEdit = () => {
       })
     }
 
+    // Verify that every hyperparameter has a valid value
+    if (hpInputErrors.length) {
+      return addToast({
+        title: `Can't test strategy`,
+        color: 'warning',
+        text: 'Enter a valid value for every hyperparameter.'
+      })
+    }
+
     // Verify that the strategy can be populated with values from the scenario
     let strategyPopulated
     try {
@@ -362,9 +451,12 @@ const StrategiesEdit = () => {
       return addToast({
         title: `Can't test strategy`,
         color: 'warning',
-        text: `Your strategy isn't a valid JSON object.`
+        text: /^No value for hyperparameter/.test(e.message)
+          ? e.message
+          : `Your strategy isn't a valid JSON object.`
       })
     }
+    lastTestedHpKey.current = hpValuesKey
     if (!strategyPopulated) {
       return addToast({
         title: `Can't test strategy`,
@@ -408,11 +500,13 @@ const StrategiesEdit = () => {
                     params: extractParams(strategyDraft),
                     template: {
                       source: strategyDraft
-                    }
+                    },
+                    hyperparameters: hp.definitionsForSave(hyperparameters),
                   }
                 }
               ]
             },
+            "hyperparameter_values": hpParsed.values,
             "scenarios": {
               "_ids": [scenario._id]
             }
@@ -457,10 +551,45 @@ const StrategiesEdit = () => {
   }
 
   /**
+   * Open a scenario of a Benchmark tab run in the Search tab.
+   */
+  const onOpenScenario = ({ _id, name, values }) => {
+    updateUrl({ scenario_id: _id })
+    setScenario({ _id, label: name, values, checked: 'on' })
+    setScenarioSearchString(name)
+    setScenarioOptions((prev) => prev.map((option) => ({ ...option, checked: option._id === _id ? 'on' : undefined })))
+    setTestTab('search')
+  }
+
+  /**
+   * Load the values of a variant into the hyperparameter inputs of the Search tab.
+   */
+  const onLoadValues = (values) => {
+    setHpInputs(hp.inputsFromValues(hyperparameters, values))
+    setTestTab('search')
+  }
+
+  /**
+   * Apply the values of a variant to the promoted values of the draft.
+   */
+  const onApplyValues = (values) => {
+    setHyperparameters((prev) => prev.map((definition) => (
+      values[definition.name] === undefined ? definition : { ...definition, promoted_value: values[definition.name] }
+    )))
+    addToast({
+      color: 'success',
+      iconType: 'check',
+      title: 'Applied the values to the draft',
+      text: 'The hyperparameters now promote these values. Save the strategy to keep them.',
+    })
+  }
+
+  /**
    * Reset the form to the last saved strategy.
    */
   const resetForm = () => {
     setStrategyDraft(lastSavedStrategy.template.source, null, 2)
+    setHyperparameters(structuredClone(lastSavedStrategy.hyperparameters || []))
   }
 
   ////  Render  ////////////////////////////////////////////////////////////////
@@ -473,7 +602,6 @@ const StrategiesEdit = () => {
 
   const renderSelectScenarios = () => (
     <SelectScenario
-      autoFocus={!getUrlParams().scenario}
       isLoading={isLoadingScenarios}
       isOpen={isScenariosOpen}
       onChange={(changedOption) => {
@@ -508,6 +636,46 @@ const StrategiesEdit = () => {
     }
   </>)
 
+  const renderTestTabs = () => (
+    <EuiTabs size='s' style={{ flexShrink: 0 }}>
+      {TEST_TABS.map((tab) => (
+        <EuiTab
+          isSelected={testTab === tab.id}
+          key={tab.id}
+          onClick={() => setTestTab(tab.id)}
+        >
+          {tab.label}
+        </EuiTab>
+      ))}
+    </EuiTabs>
+  )
+
+  const renderBenchmarkTab = () => (
+    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingTop: '12px' }}>
+      <TabBenchmark
+        definitionErrors={validation.errors}
+        draft={{
+          name: lastSavedStrategy.name,
+          tags: lastSavedStrategy.tags,
+          source: strategyDraft,
+          hyperparameters,
+        }}
+        isDraftSaved={isDraftSaved()}
+        onApplyValues={onApplyValues}
+        onLoadValues={onLoadValues}
+        onOpenScenario={onOpenScenario}
+        saved={{
+          name: lastSavedStrategy.name,
+          tags: lastSavedStrategy.tags,
+          source: lastSavedStrategy.template?.source || '',
+          hyperparameters: lastSavedStrategy.hyperparameters || [],
+        }}
+        strategyId={strategy._id}
+        workspace={workspace}
+      />
+    </div>
+  )
+
   const renderTestPanel = () => (
     <EuiPanel
       hasBorder={false}
@@ -520,6 +688,20 @@ const StrategiesEdit = () => {
         flexDirection: 'column',
       }}
     >
+      {renderTestTabs()}
+      <div style={{ display: testTab === 'search' ? 'contents' : 'none' }}>
+        {renderSearchTab()}
+      </div>
+      {strategy &&
+        <div style={{ display: testTab === 'benchmark' ? 'contents' : 'none' }}>
+          {renderBenchmarkTab()}
+        </div>
+      }
+    </EuiPanel>
+  )
+
+  const renderSearchTab = () => (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', paddingTop: '12px' }}>
       <EuiPanel color='transparent' grow={false} paddingSize='none'>
         <EuiFlexGroup gutterSize='m' responsive={false}>
           <EuiFlexItem grow>
@@ -528,7 +710,7 @@ const StrategiesEdit = () => {
           <EuiFlexItem grow={false}>
             <EuiButton
               color='primary'
-              disabled={isProcessing || !scenario}
+              disabled={isProcessing || !scenario || hpInputErrors.length > 0}
               iconType='search'
               onClick={onTestStrategy}
               type='submit'
@@ -537,6 +719,15 @@ const StrategiesEdit = () => {
             </EuiButton>
           </EuiFlexItem>
         </EuiFlexGroup>
+        <EuiSpacer size='s' />
+        <HyperparameterInputs
+          definitions={hyperparameters}
+          idPrefix='editor-search-hp'
+          inputs={hpInputs}
+          onChange={setHpInputs}
+          onReset={() => setHpInputs(hp.syncInputs(hyperparameters, {}))}
+          parsed={hpParsed}
+        />
       </EuiPanel>
       <EuiSpacer size='m' />
       <EuiPanel
@@ -619,7 +810,7 @@ const StrategiesEdit = () => {
           </EuiFlexGroup>
         </EuiPanel>
       </div>
-    </EuiPanel>
+    </div>
   )
 
   const renderEditor = () => {
@@ -654,6 +845,35 @@ const StrategiesEdit = () => {
     )
   }
 
+  const renderHyperparameters = () => (
+    <div style={{ flexShrink: 0, marginTop: '8px' }}>
+      <EuiAccordion
+        buttonContent={
+          <EuiText size='s'>
+            Hyperparameters{' '}
+            <EuiBadge color='hollow'><small>{hyperparameters.length}</small></EuiBadge>
+            {validation.errors.length > 0 &&
+              <EuiIcon color='danger' size='s' style={{ marginLeft: '8px' }} type='warning' />
+            }
+          </EuiText>
+        }
+        forceState={hyperparametersOpen ? 'open' : 'closed'}
+        id='strategy-hyperparameters'
+        onToggle={setHyperparametersOpen}
+        paddingSize='s'
+      >
+        <div style={{ maxHeight: '38vh', overflowY: 'auto' }}>
+          <HyperparameterEditor
+            definitions={hyperparameters}
+            onChange={setHyperparameters}
+            source={strategyDraft}
+            validation={validation}
+          />
+        </div>
+      </EuiAccordion>
+    </div>
+  )
+
   const renderEditorPanel = () => (
     <EuiPanel
       hasBorder={false}
@@ -672,7 +892,7 @@ const StrategiesEdit = () => {
           <EuiFlexItem grow={false}>
             <EuiButton
               color='primary'
-              disabled={isProcessing || doesDraftDiffer()}
+              disabled={isProcessing || isDraftSaved()}
               fill
               onClick={onSaveStrategy}
               type='submit'
@@ -683,12 +903,26 @@ const StrategiesEdit = () => {
           <EuiFlexItem grow={false}>
             <EuiButton
               color="text"
-              disabled={isProcessing || doesDraftDiffer()}
+              disabled={isProcessing || isDraftSaved()}
               onClick={resetForm}
             >
               Reset
             </EuiButton>
           </EuiFlexItem>
+          <EuiFlexItem grow />
+          {(hyperparameters.length > 0) &&
+            <EuiFlexItem grow={false}>
+              <EuiButtonEmpty
+                color='text'
+                iconType='copyClipboard'
+                isLoading={isCopyingTemplate}
+                onClick={onCopyProductionTemplate}
+                size='s'
+              >
+                Copy production template
+              </EuiButtonEmpty>
+            </EuiFlexItem>
+          }
         </EuiFlexGroup>
       </EuiPanel>
       <EuiSpacer size='m' />
@@ -706,6 +940,9 @@ const StrategiesEdit = () => {
       >
         {renderEditor()}
       </EuiPanel>
+
+      {/* Hyperparameters */}
+      {renderHyperparameters()}
 
       {/* Display keyboard shortcuts */}
       <div style={{ flexShrink: 0, height: '24px', margin: '5px 0 -10px 0' }}>
@@ -737,7 +974,7 @@ const StrategiesEdit = () => {
           <>
             {/* Editor panel */}
             <EuiResizablePanel
-              initialSize={40}
+              initialSize={50}
               minSize='300px'
               paddingSize='s'
               scrollable={false}
@@ -752,7 +989,7 @@ const StrategiesEdit = () => {
 
             {/* Test panel */}
             <EuiResizablePanel
-              initialSize={60}
+              initialSize={50}
               minSize='300px'
               paddingSize='s'
               scrollable={false}

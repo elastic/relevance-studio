@@ -4,7 +4,7 @@
 # 2.0.
 
 # Standard packages
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 # Third-party packages
 from pydantic import BaseModel, Field, field_validator, model_validator, StrictInt
@@ -84,6 +84,11 @@ class SearchResult(BaseModel):
     metrics: MetricsModel
     hits: List[RatedHit]
     took: Optional[int] = None
+    # Hyperparameter optimization: the variant searched, the scenario split it
+    # was searched in, and the share of returned hits that have a rating.
+    variant_id: Optional[str] = None
+    split: Optional[Literal["tuning", "holdout"]] = None
+    coverage: Optional[float] = Field(default=None, ge=0, le=1)
 
     @field_validator("scenario_id")
     @classmethod
@@ -128,6 +133,7 @@ class UnratedDocs(BaseModel):
     count: StrictInt = Field(ge=0)
     strategies: List[str]
     scenarios: List[str]
+    variants: Optional[List[str]] = None
 
     @field_validator("id_")
     @classmethod
@@ -274,6 +280,7 @@ class RunStop(Run):
     runtime: Optional[Runtime] = None
     summary: Optional[Dict[str, Any]] = None
     unrated_docs: Optional[List[UnratedDocs]] = None
+    variants: Optional[List[Dict[str, Any]]] = None
     error: Optional[Dict[str, Any]] = None
     took: Optional[StrictInt] = Field(default=None, ge=0)
     progress: Optional[Progress] = None
@@ -413,9 +420,12 @@ class BenchmarkResult(BaseModel):
     benchmark_id: str
     strategy_id: str
     scenario_id: str
+    variant_id: Optional[str] = None
+    split: Optional[Literal["tuning", "holdout"]] = None
     metrics: MetricsModel
     hits: List[RatedHit]
     took: Optional[int] = None
+    coverage: Optional[float] = Field(default=None, ge=0, le=1)
     timestamp: str = Field(alias="@timestamp")
 
     @field_validator("took", mode="before")
@@ -433,4 +443,7 @@ class BenchmarkResult(BaseModel):
         # cluster didn't report it, e.g. versions before 9.6.0.
         if doc.get("took") is None:
             doc.pop("took", None)
+        for optional in ("variant_id", "split", "coverage"):
+            if doc.get(optional) is None:
+                doc.pop(optional, None)
         return doc

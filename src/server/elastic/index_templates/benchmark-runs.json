@@ -113,6 +113,62 @@
                   "type": "keyword"
                 }
               }
+            },
+            "optimization": {
+              "properties": {
+                "algorithm": {
+                  "type": "keyword"
+                },
+                "sample_size": {
+                  "type": "integer"
+                },
+                "seed": {
+                  "type": "keyword"
+                },
+                "points_per_range": {
+                  "type": "integer"
+                },
+                "values_to_test": {
+                  "type": "object",
+                  "enabled": false
+                },
+                "objective": {
+                  "properties": {
+                    "metric": {
+                      "type": "keyword"
+                    },
+                    "aggregation": {
+                      "type": "keyword"
+                    }
+                  }
+                },
+                "latency_constraint": {
+                  "properties": {
+                    "stat": {
+                      "type": "keyword"
+                    },
+                    "max_ms": {
+                      "type": "float"
+                    }
+                  }
+                },
+                "holdout": {
+                  "properties": {
+                    "ratio": {
+                      "type": "float"
+                    },
+                    "seed": {
+                      "type": "keyword"
+                    }
+                  }
+                },
+                "max_concurrent_searches": {
+                  "type": "integer"
+                },
+                "store_hits_top_n": {
+                  "type": "integer"
+                }
+              }
             }
           }
         },

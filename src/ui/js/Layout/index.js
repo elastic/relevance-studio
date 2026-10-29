@@ -18,12 +18,21 @@ import SelectScenario from './SelectScenario'
 import SelectTags from './SelectTags'
 import SideNav from './SideNav'
 import Chat from './Chat'
+import HyperparameterEditor from './HyperparameterEditor'
+import HyperparameterInputs from './HyperparameterInputs'
+import OptimizationControls from './OptimizationControls'
+import TestableValuesEditor from './TestableValuesEditor'
+import ValuesToTestEditor from './ValuesToTestEditor'
+import VariantsTable from './VariantsTable'
 export {
   Breadcrumbs,
   Chat,
   DocCard,
+  HyperparameterEditor,
+  HyperparameterInputs,
   JudgementCard,
   ModalDelete,
+  OptimizationControls,
   Page,
   SearchCount,
   SearchPagination,
@@ -32,4 +41,7 @@ export {
   SelectScenario,
   SelectTags,
   SideNav,
+  TestableValuesEditor,
+  ValuesToTestEditor,
+  VariantsTable,
 }

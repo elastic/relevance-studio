@@ -20,22 +20,27 @@ import {
   EuiFormRow,
   EuiPanel,
   EuiPopover,
+  EuiSelect,
   EuiSelectable,
   EuiSkeletonTitle,
   EuiSpacer,
+  EuiSwitch,
   EuiTabbedContent,
+  EuiText,
   EuiTitle,
 } from '@elastic/eui'
 import { Page } from '../../Layout'
 import { useAppContext } from '../../Contexts/AppContext'
 import { usePageResources, useResources } from '../../Contexts/ResourceContext'
 import FlyoutRuntime from './FlyoutRuntime'
-import ChartMetricsHeatmap from './ChartMetricsHeatmap'
+import ChartMetricsHeatmap, { buildVariantOverride } from './ChartMetricsHeatmap'
 import ChartMetricsTradeoff from './ChartMetricsTradeoff'
+import ChartSensitivity, { optimizedStrategies } from './ChartSensitivity'
 import PanelUnratedDocs from './PanelUnratedDocs'
 import TableMetrics from './TableMetrics'
 import { getHistory } from '../../history'
 import api from '../../api'
+import hp from '../../hyperparameters'
 import utils from '../../utils'
 
 const RunsView = () => {
@@ -75,6 +80,16 @@ const RunsView = () => {
   const [runtimeStrategies, setRuntimeStrategies] = useState(null)  // {id: item} map, whole
   const [unratedPage, setUnratedPage] = useState(null)              // { items, total, size, page }
   const [isDownloading, setIsDownloading] = useState(false)
+  // Hyperparameter optimization: a compact summary of the run (winners,
+  // sensitivity, warnings), the unrated docs filter, and the Breakdown tab's
+  // variant selection.
+  const [optimizationSummary, setOptimizationSummary] = useState(null)
+  const [unratedWinnersOnly, setUnratedWinnersOnly] = useState(false)
+  const [variantStrategyId, setVariantStrategyId] = useState('')
+  const [variantOptions, setVariantOptions] = useState([])
+  const [variantId, setVariantId] = useState('')
+  const [variantOverride, setVariantOverride] = useState(null)
+  const [isLoadingVariant, setIsLoadingVariant] = useState(false)
   const [metricOpen, setMetricOpen] = useState(false)
   const [metricOptions, setMetricOptions] = useState([])
   const [metricSelected, setMetricSelected] = useState(null)
@@ -159,15 +174,15 @@ const RunsView = () => {
   }, [workspace?._id, benchmark?._id, run?._id])
 
   // Fetch the FIRST PAGE of unrated docs on load (the panel paginates the rest).
-  const loadUnratedPage = (page = 1, size = 25) => {
+  const loadUnratedPage = (page = 1, size = 25, winnersOnly = unratedWinnersOnly) => {
     if (!workspace?._id || !benchmark?._id || !run?._id) return
-    api.runs_get_unrated_docs(workspace._id, benchmark._id, run._id, { page, size })
+    api.runs_get_unrated_docs(workspace._id, benchmark._id, run._id, { page, size, winners_only: winnersOnly })
       .then((response) => {
         const data = response?.data ?? {}
         // Normalize stored shape (doc_id/doc_index) back to _id/_index for the panel.
         const items = (data.items ?? []).map((d) => ({
           _id: d.doc_id, _index: d.doc_index,
-          count: d.count, strategies: d.strategies, scenarios: d.scenarios,
+          count: d.count, strategies: d.strategies, scenarios: d.scenarios, variants: d.variants,
         }))
         setUnratedPage({ items, total: data.total ?? 0, size: data.size ?? size, page: data.page ?? page })
       })
@@ -177,6 +192,68 @@ const RunsView = () => {
     if (unratedPage !== null) return
     loadUnratedPage(1)
   }, [workspace?._id, benchmark?._id, run?._id])
+
+  // Fetch the compact optimization summary of a run that searched hyperparameters.
+  const isOptimized = hp.isOptimizedRun(run)
+  useEffect(() => {
+    if (!isOptimized || !run?.summary || !workspace?._id || !benchmark?._id) return
+    let cancelled = false
+    api.runs_get_optimization_summary(workspace._id, benchmark._id, run._id)
+      .then((response) => {
+        if (!cancelled && response.status < 300)
+          setOptimizationSummary(response.data)
+      })
+      .catch(() => { /* The run view works without the summary */ })
+    return () => { cancelled = true }
+  }, [isOptimized, workspace?._id, benchmark?._id, run?._id, !!run?.summary])
+
+  const optimizedList = useMemo(() => optimizedStrategies(optimizationSummary), [optimizationSummary])
+
+  // Load the variants of the chosen strategy for the Breakdown tab's selector.
+  useEffect(() => {
+    setVariantId('')
+    setVariantOverride(null)
+    setVariantOptions([])
+    if (!variantStrategyId || !workspace?._id || !benchmark?._id || !run?._id) return
+    let cancelled = false
+    api.runs_get_variants(workspace._id, benchmark._id, run._id, {
+      strategy_id: variantStrategyId, size: 100, page: 1, sort: 'rank',
+    }).then((response) => {
+      if (!cancelled && response.status < 300)
+        setVariantOptions(response.data.items || [])
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [variantStrategyId])
+
+  // Load every scenario score of the chosen variant to show it in the heatmap.
+  useEffect(() => {
+    setVariantOverride(null)
+    if (!variantStrategyId || !variantId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        setIsLoadingVariant(true)
+        const results = []
+        for (let page = 1; ; page++) {
+          const response = await api.runs_get_results(workspace._id, benchmark._id, run._id, {
+            strategy_id: variantStrategyId, variant_id: variantId, size: 1000, page,
+          })
+          const items = response?.data?.items ?? []
+          results.push(...items)
+          if (!items.length || results.length >= (response?.data?.total ?? 0)) break
+        }
+        if (!cancelled)
+          setVariantOverride(buildVariantOverride(variantStrategyId, variantId, results))
+      } catch (e) {
+        if (!cancelled)
+          addToast(api.errorToast(e, { title: 'Failed to get the variant results' }))
+      } finally {
+        if (!cancelled)
+          setIsLoadingVariant(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [variantId])
 
   // A run-shaped object carrying the loaded strategy metadata, so the summary
   // table and heatmap keep working. It deliberately carries ONLY strategies
@@ -390,6 +467,44 @@ const RunsView = () => {
           </EuiFormRow>
         </EuiFlexItem>
 
+        {/* Variant */}
+        {optimizedList.length > 0 && yGroupBySelected._id === 'strategy_id' && xGroupBySelected._id === 'scenario_id' &&
+          <>
+            <EuiFlexItem grow={false} style={{ width: '220px' }}>
+              <EuiFormRow label='Strategy variant'>
+                <EuiSelect
+                  aria-label='Strategy to show a variant of'
+                  onChange={(e) => setVariantStrategyId(e.target.value)}
+                  options={[
+                    { value: '', text: 'Winners' },
+                    ...optimizedList.map((s) => ({ value: s.strategy_id, text: s.name || s.strategy_id })),
+                  ]}
+                  value={variantStrategyId}
+                />
+              </EuiFormRow>
+            </EuiFlexItem>
+            {variantStrategyId &&
+              <EuiFlexItem grow={false} style={{ width: '260px' }}>
+                <EuiFormRow label='Variant'>
+                  <EuiSelect
+                    aria-label='Variant'
+                    isLoading={isLoadingVariant}
+                    onChange={(e) => setVariantId(e.target.value)}
+                    options={[
+                      { value: '', text: 'Winner' },
+                      ...variantOptions.map((v) => ({
+                        value: v.variant_id,
+                        text: `#${v.rank} ${v.variant_id.slice(0, 8)}${v.is_baseline ? ' (baseline)' : ''}${v.is_winner ? ' (winner)' : ''}`,
+                      })),
+                    ]}
+                    value={variantId}
+                  />
+                </EuiFormRow>
+              </EuiFlexItem>
+            }
+          </>
+        }
+
         {/* Sort by */}
         {/*
         <EuiFlexItem grow={false}>
@@ -537,7 +652,11 @@ const RunsView = () => {
                     <EuiSpacer size='l' />
                     <EuiFlexGroup>
                       <EuiFlexItem>
-                        <TableMetrics evaluation={runWithForensics} rowOnHover={setStrategyInFocus} />
+                        <TableMetrics
+                          evaluation={runWithForensics}
+                          optimizationSummary={optimizationSummary}
+                          rowOnHover={setStrategyInFocus}
+                        />
                       </EuiFlexItem>
                     </EuiFlexGroup>
                   </>
@@ -553,6 +672,12 @@ const RunsView = () => {
                       evaluation={runWithForensics}
                       onStrategyClick={(strategyId) => history.push(`/workspaces/${workspace._id}/strategies/${strategyId}`)}
                     />
+                    {isOptimized && optimizationSummary &&
+                      <>
+                        <EuiSpacer size='xl' />
+                        <ChartSensitivity summary={optimizationSummary} />
+                      </>
+                    }
                   </>
                 ),
               },
@@ -571,18 +696,41 @@ const RunsView = () => {
                         xGroupBy={xGroupBySelected._id}
                         yGroupBy={yGroupBySelected._id}
                         ySortBy={ySortBySelected._id}
+                        variantOverride={variantOverride}
                       />
+                    }
+                    {isOptimized &&
+                      <EuiText color='subdued' size='xs' style={{ marginTop: '8px' }}>
+                        <p>
+                          Each strategy shows its winning variant on every scenario, so the rows compare like with like.
+                          {optimizationSummary?.score_basis === 'holdout' && ' The scenarios include the tuning and holdout sets. Only holdout scores are unbiased.'}
+                          {variantOverride && ' The chosen variant ran on tuning scenarios only unless it is the winner or the baseline.'}
+                        </p>
+                      </EuiText>
                     }
                   </>
                 ),
               },
-              ...((unratedPage?.total ?? 0) > 0 ? [{
+              ...(((unratedPage?.total ?? 0) > 0 || unratedWinnersOnly) ? [{
                 id: 'unrated',
-                name: <>Unrated docs <EuiNotificationBadge color='subdued'>{unratedPage.total}</EuiNotificationBadge></>,
+                name: <>Unrated docs <EuiNotificationBadge color='subdued'>{unratedPage?.total ?? 0}</EuiNotificationBadge></>,
                 content: (
                   <>
                     <EuiSpacer size='l' />
-                    <EuiFlexGroup justifyContent='flexEnd'>
+                    <EuiFlexGroup alignItems='center' justifyContent='flexEnd'>
+                      {isOptimized &&
+                        <EuiFlexItem grow={false}>
+                          <EuiSwitch
+                            checked={unratedWinnersOnly}
+                            compressed
+                            label='Documents from winning variants only'
+                            onChange={(e) => {
+                              setUnratedWinnersOnly(e.target.checked)
+                              loadUnratedPage(1, unratedPage.size, e.target.checked)
+                            }}
+                          />
+                        </EuiFlexItem>
+                      }
                       <EuiFlexItem grow={false}>
                         <EuiButton onClick={(e) => {
                           const pairs = []
@@ -608,14 +756,14 @@ const RunsView = () => {
                       <EuiFlexItem grow={false}>
                         <EuiButton size='s' iconType='arrowLeft'
                           isDisabled={unratedPage.page <= 1}
-                          onClick={() => loadUnratedPage(unratedPage.page - 1, unratedPage.size)}>
+                          onClick={() => loadUnratedPage(unratedPage.page - 1, unratedPage.size, unratedWinnersOnly)}>
                           Previous
                         </EuiButton>
                       </EuiFlexItem>
                       <EuiFlexItem grow={false}>
                         <EuiButton size='s' iconType='arrowRight' iconSide='right'
                           isDisabled={unratedPage.page >= Math.ceil(unratedPage.total / unratedPage.size)}
-                          onClick={() => loadUnratedPage(unratedPage.page + 1, unratedPage.size)}>
+                          onClick={() => loadUnratedPage(unratedPage.page + 1, unratedPage.size, unratedWinnersOnly)}>
                           Next
                         </EuiButton>
                       </EuiFlexItem>

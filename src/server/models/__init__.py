@@ -11,6 +11,7 @@ from .runs import (
     RunCreate, RunSkip, RunFail, RunComplete,
     BenchmarkResult,
 )
+from .hyperparameters import Hyperparameter, Optimization
 from .judgements import JudgementCreate
 from .scenarios import ScenarioCreate, ScenarioUpdate
 from .strategies import StrategyCreate, StrategyUpdate

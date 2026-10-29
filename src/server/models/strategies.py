@@ -7,11 +7,21 @@
 from typing import List, Optional
 
 # Third-party packages
-from pydantic import BaseModel, computed_field, Field, field_validator
+from pydantic import BaseModel, computed_field, Field, field_validator, model_validator
 
 # App packages
 from .asset import AssetCreate, AssetUpdate
+from .hyperparameters import PromotedFrom, Hyperparameter, validate_hyperparameters
 from .. import utils
+
+def _check_undefined_refs(source: str, hyperparameters: List[Hyperparameter]):
+    """Every {{hp.*}} reference in a template must have a definition."""
+    defined = { h.name for h in hyperparameters }
+    undefined = [n for n in utils.extract_hyperparameter_refs(source or "") if n not in defined]
+    if undefined:
+        raise ValueError(
+            "template references undefined hyperparameters: " + ", ".join(undefined)
+        )
 
 class TemplateCreate(BaseModel):
     model_config = { "extra": "forbid", "strict": True }
@@ -36,6 +46,18 @@ class StrategyCreate(AssetCreate):
     # Optional inputs
     tags: List[str] = Field(default_factory=list)
     template: TemplateCreate = Field(default_factory=TemplateCreate)
+    hyperparameters: List[Hyperparameter] = Field(default_factory=list)
+    promoted_from: Optional[PromotedFrom] = None
+
+    @field_validator("hyperparameters")
+    @classmethod
+    def validate_hyperparameters(cls, value: List[Hyperparameter]):
+        return validate_hyperparameters(value)
+
+    @model_validator(mode="after")
+    def validate_hyperparameter_refs(self):
+        _check_undefined_refs(self.template.source if self.template else "", self.hyperparameters)
+        return self
 
     @field_validator("workspace_id")
     @classmethod
@@ -62,6 +84,11 @@ class StrategyCreate(AssetCreate):
     @property
     def params(self) -> Optional[List[str]]:
         return utils.extract_params(self.template.source or "") if self.template else []
+
+    @computed_field
+    @property
+    def hyperparameter_refs(self) -> Optional[List[str]]:
+        return utils.extract_hyperparameter_refs(self.template.source or "") if self.template else []
     
 class StrategyUpdate(AssetUpdate):
     
@@ -72,6 +99,23 @@ class StrategyUpdate(AssetUpdate):
     name: Optional[str] = None
     tags: Optional[List[str]] = None
     template: Optional[TemplateUpdate] = None
+    hyperparameters: Optional[List[Hyperparameter]] = None
+    promoted_from: Optional[PromotedFrom] = None
+
+    @field_validator("hyperparameters")
+    @classmethod
+    def validate_hyperparameters(cls, value: Optional[List[Hyperparameter]]):
+        if value is None:
+            raise ValueError("hyperparameters must be a list if given")
+        return validate_hyperparameters(value)
+
+    @model_validator(mode="after")
+    def validate_hyperparameter_refs(self):
+        # Only checkable when the update carries both the template and the
+        # hyperparameter definitions. Otherwise the run validates them.
+        if self.template and self.template.source is not None and self.hyperparameters is not None:
+            _check_undefined_refs(self.template.source, self.hyperparameters)
+        return self
 
     @field_validator("workspace_id")
     @classmethod
@@ -107,3 +151,8 @@ class StrategyUpdate(AssetUpdate):
     @property
     def params(self) -> Optional[List[str]]:
         return utils.extract_params(self.template.source or "") if self.template and self.template.source else None
+
+    @computed_field
+    @property
+    def hyperparameter_refs(self) -> Optional[List[str]]:
+        return utils.extract_hyperparameter_refs(self.template.source or "") if self.template and self.template.source else None

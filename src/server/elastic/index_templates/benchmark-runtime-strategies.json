@@ -39,6 +39,12 @@
         },
         "tags": {
           "type": "keyword"
+        },
+        "variant_count": {
+          "type": "integer"
+        },
+        "winner_variant_id": {
+          "type": "keyword"
         }
       }
     }

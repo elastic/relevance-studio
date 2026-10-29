@@ -80,6 +80,8 @@ Maps to [Strategies API](docs/{{VERSION}}/reference/rest-api.md#strategies-api).
 |`strategies_get`|[Get strategy](docs/{{VERSION}}/reference/rest-api.md#get-strategy)|
 |`strategies_create`|[Create strategy](docs/{{VERSION}}/reference/rest-api.md#create-strategy)|
 |`strategies_update`|[Update strategy](docs/{{VERSION}}/reference/rest-api.md#update-strategy)|
+|`strategies_render`|[Render strategy](docs/{{VERSION}}/reference/rest-api.md#render-strategy)|
+|`strategies_promote`|[Promote variant](docs/{{VERSION}}/reference/rest-api.md#promote-variant)|
 |`strategies_delete`|[Delete strategy](docs/{{VERSION}}/reference/rest-api.md#delete-strategy)|
 
 ### Benchmarks
@@ -91,6 +93,7 @@ Maps to [Benchmarks API](docs/{{VERSION}}/reference/rest-api.md#benchmarks-api).
 |`benchmarks_search`|[Search benchmarks](docs/{{VERSION}}/reference/rest-api.md#search-benchmarks)|
 |`benchmarks_tags`|[List benchmark tags](docs/{{VERSION}}/reference/rest-api.md#list-benchmark-tags)|
 |`benchmarks_make_candidate_pool`|[Generate candidate pool](docs/{{VERSION}}/reference/rest-api.md#generate-candidate-pool)|
+|`benchmarks_estimate`|[Estimate run](docs/{{VERSION}}/reference/rest-api.md#estimate-run). Takes `probe` to estimate the duration.|
 |`benchmarks_get`|[Get benchmark](docs/{{VERSION}}/reference/rest-api.md#get-benchmark)|
 |`benchmarks_create`|[Create benchmark](docs/{{VERSION}}/reference/rest-api.md#create-benchmark)|
 |`benchmarks_update`|[Update benchmark](docs/{{VERSION}}/reference/rest-api.md#update-benchmark)|
@@ -108,9 +111,12 @@ Maps to [Runs API](docs/{{VERSION}}/reference/rest-api.md#runs-api).
 |`runs_get_runtime_indices`|[Get run runtime indices](docs/{{VERSION}}/reference/rest-api.md#get-run-runtime-indices)|
 |`runs_get_runtime_scenarios`|[Get run runtime scenarios](docs/{{VERSION}}/reference/rest-api.md#get-run-runtime-scenarios)|
 |`runs_get_runtime_judgements`|[Get run runtime judgements](docs/{{VERSION}}/reference/rest-api.md#get-run-runtime-judgements)|
-|`runs_get_unrated_docs`|[Get run unrated docs](docs/{{VERSION}}/reference/rest-api.md#get-run-unrated-docs)|
+|`runs_get_unrated_docs`|[Get run unrated docs](docs/{{VERSION}}/reference/rest-api.md#get-run-unrated-docs). Takes `winners_only`.|
+|`runs_get_results`|[Get run results](docs/{{VERSION}}/reference/rest-api.md#get-run-results). Takes `strategy_id`, `variant_id` and `split`.|
+|`runs_get_variants`|[Get run variants](docs/{{VERSION}}/reference/rest-api.md#get-run-variants). Takes `objective` and `latency_constraint` objects.|
+|`runs_get_optimization_summary`|[Get run optimization summary](docs/{{VERSION}}/reference/rest-api.md#get-run-optimization-summary)|
 |`runs_get_failures`|[Get run failures](docs/{{VERSION}}/reference/rest-api.md#get-run-failures)|
-|`runs_create`|[Create run](docs/{{VERSION}}/reference/rest-api.md#create-run)|
+|`runs_create`|[Create run](docs/{{VERSION}}/reference/rest-api.md#create-run). Takes `dry_run`.|
 |`runs_run`|[Run](docs/{{VERSION}}/reference/rest-api.md#run)|
 |`runs_delete`|[Delete run](docs/{{VERSION}}/reference/rest-api.md#delete-run)|
 

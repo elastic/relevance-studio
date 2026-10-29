@@ -41,6 +41,9 @@
         },
         "scenarios": {
           "type": "keyword"
+        },
+        "variants": {
+          "type": "keyword"
         }
       }
     }

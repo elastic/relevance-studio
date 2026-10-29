@@ -182,6 +182,17 @@ def validate_workspace_id_match(body, workspace_id_from_url):
         raise BadRequest("The workspace_id in the URL must match workspace_id in request body if given.")
 
 
+def _bad_request_on_invalid(func, *args, **kwargs):
+    """
+    Call func and turn invalid input (ValueError, including pydantic
+    ValidationError) into a 400 instead of a generic 500.
+    """
+    try:
+        return func(*args, **kwargs)
+    except ValueError as e:
+        raise BadRequest(str(e))
+
+
 ####  API: Bulk request/response helpers  ######################################
 
 def _request_items(body):
@@ -554,6 +565,34 @@ def strategies_search(workspace_id):
 def strategies_tags(workspace_id):
     return api.strategies.tags(workspace_id)
 
+@api_route("/api/workspaces/<string:workspace_id>/strategies/_render", methods=["POST"])
+def strategies_render(workspace_id):
+    body = request.get_json() or {}
+    return _bad_request_on_invalid(
+        api.strategies.render,
+        _id=body.get("_id"),
+        template=body.get("template"),
+        hyperparameters=body.get("hyperparameters"),
+        values=body.get("values"),
+    )
+
+@api_route("/api/workspaces/<string:workspace_id>/strategies/_promote", methods=["POST"])
+def strategies_promote(workspace_id):
+    body = request.get_json() or {}
+    for required in ("run_id", "variant_id"):
+        if not body.get(required):
+            raise BadRequest(f"{required} is required")
+    return _bad_request_on_invalid(
+        api.strategies.promote,
+        body["run_id"],
+        body["variant_id"],
+        mode=body.get("mode", "update_values"),
+        strategy_id=body.get("strategy_id"),
+        name=body.get("name"),
+        user=_request_user(),
+        via="server",
+    )
+
 @api_route("/api/workspaces/<string:workspace_id>/strategies/<string:_id>", methods=["GET"])
 def strategies_get(workspace_id, _id):
     return api.strategies.get(_id)
@@ -616,6 +655,13 @@ def benchmarks_tags(workspace_id):
 def benchmarks_make_candidate_pool(workspace_id):
     body = request.get_json() or {}
     return api.benchmarks.make_candidate_pool(workspace_id, body)
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/_estimate", methods=["POST"])
+def benchmarks_estimate(workspace_id):
+    body = request.get_json() or {}
+    return _bad_request_on_invalid(
+        api.runs.estimate, workspace_id, body.get("task") or {}, probe=bool(body.get("probe")),
+    )
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:_id>", methods=["GET"])
 def benchmarks_get(workspace_id, _id):
@@ -721,7 +767,8 @@ def runs_get_runtime_judgements(workspace_id, benchmark_id, _id):
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/unrated_docs", methods=["GET"])
 def runs_get_unrated_docs(workspace_id, benchmark_id, _id):
     size, page = _page_args()
-    return api.runs.get_unrated_docs(_id, size=size, page=page)
+    winners_only = request.args.get("winners_only", "false").lower() == "true"
+    return api.runs.get_unrated_docs(_id, size=size, page=page, winners_only=winners_only)
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/failures", methods=["GET"])
 def runs_get_failures(workspace_id, benchmark_id, _id):
@@ -731,7 +778,53 @@ def runs_get_failures(workspace_id, benchmark_id, _id):
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/results", methods=["GET"])
 def runs_get_results(workspace_id, benchmark_id, _id):
     size, page = _page_args()
-    return api.runs.get_results(_id, size=size, page=page)
+    return api.runs.get_results(
+        _id, size=size, page=page,
+        strategy_id=request.args.get("strategy_id") or None,
+        variant_id=request.args.get("variant_id") or None,
+        split=request.args.get("split") or None,
+    )
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/variants", methods=["GET"])
+def runs_get_variants(workspace_id, benchmark_id, _id):
+    size, page = _page_args()
+    strategy_id = request.args.get("strategy_id")
+    if not strategy_id:
+        raise BadRequest("strategy_id is required")
+    objective = None
+    if request.args.get("objective_metric"):
+        objective = {
+            "metric": request.args["objective_metric"],
+            "aggregation": request.args.get("objective_aggregation", "mean"),
+        }
+    constraint = None
+    if request.args.get("constraint_max_ms"):
+        try:
+            constraint = {
+                "stat": request.args.get("constraint_stat", "median"),
+                "max_ms": float(request.args["constraint_max_ms"]),
+            }
+        except ValueError:
+            raise BadRequest("constraint_max_ms must be a number")
+    return _bad_request_on_invalid(
+        api.runs.get_variants,
+        _id,
+        strategy_id,
+        objective=objective,
+        latency_constraint=constraint,
+        sort=request.args.get("sort", "rank"),
+        descending=request.args.get("descending", "false").lower() == "true",
+        size=size,
+        page=page,
+    )
+
+@api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/optimization_summary", methods=["GET"])
+def runs_get_optimization_summary(workspace_id, benchmark_id, _id):
+    try:
+        top_n = int(request.args.get("top_n", 5))
+    except (TypeError, ValueError):
+        top_n = 5
+    return api.runs.get_optimization_summary(_id, top_n=top_n)
 
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs/<string:_id>/_full", methods=["GET"])
 def runs_get_full(workspace_id, benchmark_id, _id):
@@ -740,7 +833,10 @@ def runs_get_full(workspace_id, benchmark_id, _id):
 @api_route("/api/workspaces/<string:workspace_id>/benchmarks/<string:benchmark_id>/runs", methods=["POST"])
 def runs_create(workspace_id, benchmark_id):
     task = request.get_json()
-    return api.runs.create(workspace_id, benchmark_id, task, user=_request_user(), via="server")
+    dry_run = request.args.get("dry_run", "false").lower() == "true"
+    return _bad_request_on_invalid(
+        api.runs.create, workspace_id, benchmark_id, task, user=_request_user(), via="server", dry_run=dry_run,
+    )
 
 # NOTE: the synchronous dry-run endpoint is intentionally workspace-scoped (not
 # nested under /benchmarks/<id>/), matching the ad-hoc strategy/scenario runs it
