@@ -60,7 +60,7 @@ def conversations_get(ctx: Context, _id: str) -> Dict[str, Any]:
 @mcp.tool(description=api.conversations.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{ConversationsCreate.model_input_json_schema()}
 """)
-def conversations_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def conversations_create(ctx: Context, doc: Dict[str, Any], _id: Optional[str] = None) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.conversations.create(doc, _id, user=user, via="mcp"))
 
@@ -100,7 +100,7 @@ def workspaces_get(ctx: Context, _id: str) -> Dict[str, Any]:
 @mcp.tool(description=api.workspaces.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{WorkspaceCreate.model_input_json_schema()}
 """)
-def workspaces_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def workspaces_create(ctx: Context, doc: Dict[str, Any], _id: Optional[str] = None) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.workspaces.create(doc, _id, user=user, via="mcp"))
 
@@ -141,7 +141,7 @@ def displays_get(ctx: Context, _id: str) -> Dict[str, Any]:
 @mcp.tool(description=api.displays.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{DisplayCreate.model_input_json_schema()}
 """)
-def displays_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def displays_create(ctx: Context, doc: Dict[str, Any], _id: Optional[str] = None) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.displays.create(doc, _id, user=user, via="mcp"))
 
@@ -214,9 +214,9 @@ def judgements_search(
         index_pattern: str,
         query: Dict[str, Any] = {},
         query_string: str = "*",
-        filter: str = None,
-        sort: str = None,
-        _source: Dict[str, Any] = None
+        filter: Optional[str] = None,
+        sort: Optional[str] = None,
+        _source: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.judgements.search(
@@ -270,7 +270,7 @@ def strategies_get(ctx: Context, _id: str) -> Dict[str, Any]:
 @mcp.tool(description=api.strategies.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{StrategyCreate.model_input_json_schema()}
 """)
-def strategies_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def strategies_create(ctx: Context, doc: Dict[str, Any], _id: Optional[str] = None) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.strategies.create(doc, _id, user=user, via="mcp"))
 
@@ -321,7 +321,7 @@ def benchmarks_get(ctx: Context, _id: str) -> Dict[str, Any]:
 @mcp.tool(description=api.benchmarks.create.__doc__ + f"""\n
 JSON schema for doc:\n\n{BenchmarkCreate.model_input_json_schema()}
 """)
-def benchmarks_create(ctx: Context, doc: Dict[str, Any], _id: str = None) -> Dict[str, Any]:
+def benchmarks_create(ctx: Context, doc: Dict[str, Any], _id: Optional[str] = None) -> Dict[str, Any]:
     user, _ = mcp_auth.get_mcp_auth_from_context(ctx)
     return dict(api.benchmarks.create(doc, _id, user=user, via="mcp"))
 
